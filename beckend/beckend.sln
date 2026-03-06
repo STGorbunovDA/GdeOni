@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GdeOni.API", "src\GdeOni.API\GdeOni.API.csproj", "{5E53D281-E67F-4CA2-8D1D-59D12DB72A46}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GdeOni.Infrastructure", "src\GdeOni.Infrastructure\GdeOni.Infrastructure.csproj", "{E5C6EE77-56C7-432E-9E3C-BF3A456A4A73}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GdeOni.Domain", "src\GdeOni.Domain\GdeOni.Domain.csproj", "{8413452E-8E63-4432-BFA2-51866840C34A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GdeOni.Application", "src\GdeOni.Application\GdeOni.Application.csproj", "{EBBE8E40-B203-433E-BAC6-1A9F63016A66}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5E53D281-E67F-4CA2-8D1D-59D12DB72A46}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E53D281-E67F-4CA2-8D1D-59D12DB72A46}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E53D281-E67F-4CA2-8D1D-59D12DB72A46}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E53D281-E67F-4CA2-8D1D-59D12DB72A46}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E5C6EE77-56C7-432E-9E3C-BF3A456A4A73}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E5C6EE77-56C7-432E-9E3C-BF3A456A4A73}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E5C6EE77-56C7-432E-9E3C-BF3A456A4A73}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E5C6EE77-56C7-432E-9E3C-BF3A456A4A73}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8413452E-8E63-4432-BFA2-51866840C34A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8413452E-8E63-4432-BFA2-51866840C34A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8413452E-8E63-4432-BFA2-51866840C34A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8413452E-8E63-4432-BFA2-51866840C34A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EBBE8E40-B203-433E-BAC6-1A9F63016A66}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EBBE8E40-B203-433E-BAC6-1A9F63016A66}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EBBE8E40-B203-433E-BAC6-1A9F63016A66}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EBBE8E40-B203-433E-BAC6-1A9F63016A66}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

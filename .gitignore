@@ -1,0 +1,10 @@
+bin
+obj
+.idea
+bundgles
+.vs
+*.user
+launchSettings.json
+appsettings.json
+appsettings.Development.json
+NuGet.Config
