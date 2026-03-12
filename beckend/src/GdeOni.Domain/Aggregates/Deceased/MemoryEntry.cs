@@ -3,7 +3,7 @@ using GdeOni.Domain.Shared;
 
 namespace GdeOni.Domain.Aggregates.Deceased;
 
-public class MemoryEntry : Entity<Guid>
+public sealed class MemoryEntry : Entity<Guid>
 {
     public string Text { get; private set; }
     public string AuthorDisplayName { get; private set; }
@@ -11,6 +11,12 @@ public class MemoryEntry : Entity<Guid>
     public DateTime CreatedAtUtc { get; }
     public ModerationStatus ModerationStatus { get; private set; }
 
+    private MemoryEntry() : base(Guid.Empty)
+    {
+        Text = null!;
+        AuthorDisplayName = null!;
+    }
+    
     private MemoryEntry(
         Guid id,
         string text,

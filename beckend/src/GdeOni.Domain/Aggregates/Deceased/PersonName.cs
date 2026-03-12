@@ -8,6 +8,12 @@ public sealed class PersonName : ValueObject
     public string LastName { get; }
     public string? MiddleName { get; }
 
+    private PersonName()
+    {
+        FirstName = null!;
+        LastName = null!;
+    }
+    
     private PersonName(string firstName, string lastName, string? middleName)
     {
         FirstName = firstName;

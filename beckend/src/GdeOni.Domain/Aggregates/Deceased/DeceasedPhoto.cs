@@ -3,7 +3,7 @@ using GdeOni.Domain.Shared;
 
 namespace GdeOni.Domain.Aggregates.Deceased;
 
-public class DeceasedPhoto : Entity<Guid>
+public sealed class DeceasedPhoto : Entity<Guid>
 {
     public string Url { get; private set; }
     public string? Description { get; private set; }
@@ -12,6 +12,11 @@ public class DeceasedPhoto : Entity<Guid>
     public Guid AddedByUserId { get; }
     public ModerationStatus ModerationStatus { get; private set; }
 
+    private DeceasedPhoto() : base(Guid.Empty)
+    {
+        Url = null!;
+    }
+    
     private DeceasedPhoto(
         Guid id,
         string url,

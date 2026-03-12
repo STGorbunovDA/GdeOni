@@ -7,6 +7,10 @@ public sealed class LifePeriod : ValueObject
     public DateTime? BirthDate { get; }
     public DateTime DeathDate { get; }
 
+    private LifePeriod()
+    {
+    }
+    
     private LifePeriod(DateTime? birthDate, DateTime deathDate)
     {
         BirthDate = birthDate;
