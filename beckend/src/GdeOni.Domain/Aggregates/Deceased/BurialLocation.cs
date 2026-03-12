@@ -14,18 +14,12 @@ public sealed class BurialLocation : ValueObject
     public string? PlotNumber { get; }
     public string? GraveNumber { get; }
     public LocationAccuracy Accuracy { get; }
-
-    public string FullAddress =>
-        string.Join(", ", new[]
-        {
-            Country,
-            Region,
-            City,
-            CemeteryName,
-            PlotNumber,
-            GraveNumber
-        }.Where(x => !string.IsNullOrWhiteSpace(x)));
-
+    
+    private BurialLocation()
+    {
+        Country = null!;
+    }
+    
     private BurialLocation(
         double latitude,
         double longitude,
@@ -47,6 +41,18 @@ public sealed class BurialLocation : ValueObject
         GraveNumber = graveNumber;
         Accuracy = accuracy;
     }
+    
+    public string FullAddress =>
+        string.Join(", ", new[]
+        {
+            Country,
+            Region,
+            City,
+            CemeteryName,
+            PlotNumber,
+            GraveNumber
+        }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
 
     public static Result<BurialLocation> Create(
         double latitude,

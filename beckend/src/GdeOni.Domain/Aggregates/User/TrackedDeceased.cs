@@ -3,7 +3,7 @@ using GdeOni.Domain.Shared;
 
 namespace GdeOni.Domain.Aggregates.User;
 
-public class TrackedDeceased : Entity<Guid>
+public sealed class TrackedDeceased : Entity<Guid>
 {
     public Guid DeceasedId { get; }
     public RelationshipType RelationshipType { get; private set; }
@@ -13,6 +13,10 @@ public class TrackedDeceased : Entity<Guid>
     public TrackStatus Status { get; private set; }
     public DateTime TrackedAtUtc { get; }
 
+    private TrackedDeceased() : base(Guid.Empty)
+    {
+    }
+    
     private TrackedDeceased(
         Guid id,
         Guid deceasedId,

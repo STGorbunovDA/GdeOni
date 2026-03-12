@@ -4,7 +4,7 @@ using GdeOni.Domain.Shared;
 
 namespace GdeOni.Domain.Aggregates.User;
 
-public class User : Entity<Guid>
+public sealed class User : Entity<Guid>
 {
     public string Email { get; private set; }
     public string UserName { get; private set; }
@@ -16,6 +16,13 @@ public class User : Entity<Guid>
     private readonly List<TrackedDeceased> _trackedDeceasedItems = new();
     public IReadOnlyCollection<TrackedDeceased> TrackedDeceasedItems => _trackedDeceasedItems.AsReadOnly();
 
+    private User() : base(Guid.Empty)
+    {
+        Email = null!;
+        UserName = null!;
+        PasswordHash = null!;
+    }
+    
     private User(
         Guid id,
         string email,

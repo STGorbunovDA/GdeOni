@@ -2,7 +2,7 @@
 
 namespace GdeOni.Domain.Aggregates.Deceased;
 
-public class Deceased : Entity<Guid>
+public sealed class Deceased : Entity<Guid>
 {
     public PersonName Name { get; private set; }
     public LifePeriod LifePeriod { get; private set; }
@@ -22,7 +22,16 @@ public class Deceased : Entity<Guid>
 
     private readonly List<MemoryEntry> _memories = new();
     public IReadOnlyCollection<MemoryEntry> Memories => _memories.AsReadOnly();
-
+    
+    public DeceasedMetadata Metadata { get; private set; }
+    private Deceased() : base(Guid.Empty)
+    {
+        Name = null!;
+        LifePeriod = null!;
+        BurialLocation = null!;
+        Metadata = DeceasedMetadata.Empty();
+    }
+    
     private Deceased(
         Guid id,
         PersonName name,
@@ -41,6 +50,7 @@ public class Deceased : Entity<Guid>
         CreatedByUserId = createdByUserId;
         CreatedAtUtc = createdAtUtc;
         IsVerified = false;
+        Metadata = DeceasedMetadata.Empty();
     }
 
     public static Result<Deceased> Create(
@@ -218,6 +228,17 @@ public class Deceased : Entity<Guid>
             return Result.Failure("Запись еще не подтверждена");
 
         IsVerified = false;
+        UpdatedAtUtc = DateTime.UtcNow;
+
+        return Result.Success();
+    }
+    
+    public Result UpdateMetadata(DeceasedMetadata metadata)
+    {
+        if (metadata is null)
+            return Result.Failure("Метаданные обязательны");
+
+        Metadata = metadata;
         UpdatedAtUtc = DateTime.UtcNow;
 
         return Result.Success();
