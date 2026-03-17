@@ -1,4 +1,6 @@
-﻿using GdeOni.Infrastructure.Persistence;
+﻿using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Infrastructure.Persistence;
+using GdeOni.Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,43 +14,17 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var provider = configuration["DatabaseProvider"];
-
-        if (string.IsNullOrWhiteSpace(provider))
-            throw new InvalidOperationException(
-                "Параметр 'DatabaseProvider' не найден. Укажи 'MySql' или 'Postgre'");
-
-        var connectionStringName = provider switch
-        {
-            "MySql" => "DefaultConnectionMySql",
-            "Postgre" => "DefaultConnectionPostgre",
-            _ => throw new InvalidOperationException(
-                $"Неизвестный провайдер БД: '{provider}'. Допустимые значения: 'MySql', 'Postgre'")
-        };
-
-        var connectionString = configuration.GetConnectionString(connectionStringName);
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
 
         if (string.IsNullOrWhiteSpace(connectionString))
             throw new InvalidOperationException(
-                $"Connection string '{connectionStringName}' не найдена.");
+                "Connection string 'DefaultConnection' не найдена.");
 
         services.AddDbContextPool<AppDbContext>(options =>
         {
-            switch (provider)
-            {
-                case "MySql":
-                    options.UseMySql(
-                        connectionString,
-                        ServerVersion.AutoDetect(connectionString));
-                    break;
-
-                case "Postgre":
-                    options.UseNpgsql(connectionString);
-                    break;
-            }
-            
+            options.UseNpgsql(connectionString);
             options.UseSnakeCaseNamingConvention();
-            
+
             if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
             {
                 options.EnableSensitiveDataLogging();
@@ -58,6 +34,9 @@ public static class DependencyInjection
                     LogLevel.Information);
             }
         });
+
+        services.AddScoped<IDeceasedRepository, DeceasedRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
 
         return services;
     }

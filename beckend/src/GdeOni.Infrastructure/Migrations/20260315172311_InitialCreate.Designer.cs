@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GdeOni.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260312180017_InitialCreate")]
+    [Migration("20260315172311_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -57,7 +57,7 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnName("updated_at_utc");
 
                     b.HasKey("Id")
-                        .HasName("pk_deceased");
+                        .HasName("pk_deceaseds");
 
                     b.HasIndex("CreatedAtUtc")
                         .HasDatabaseName("ix_deceased_created_at_utc");
@@ -68,7 +68,52 @@ namespace GdeOni.Infrastructure.Migrations
                     b.HasIndex("IsVerified")
                         .HasDatabaseName("ix_deceased_is_verified");
 
-                    b.ToTable("deceased", (string)null);
+                    b.ToTable("deceaseds", (string)null);
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Deceased.DeceasedMemoryEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AuthorDisplayName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("author_display_name");
+
+                    b.Property<Guid?>("AuthorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_user_id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<int>("ModerationStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("moderation_status");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.Property<Guid>("deceased_id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deceased_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_deceased_memory_entries");
+
+                    b.HasIndex("AuthorUserId")
+                        .HasDatabaseName("ix_memory_entries_author_user_id");
+
+                    b.HasIndex("deceased_id")
+                        .HasDatabaseName("ix_memory_entries_deceased_id");
+
+                    b.ToTable("deceased_memory_entries", (string)null);
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Deceased.DeceasedPhoto", b =>
@@ -118,51 +163,6 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasDatabaseName("ix_deceased_photos_deceased_id");
 
                     b.ToTable("deceased_photos", (string)null);
-                });
-
-            modelBuilder.Entity("GdeOni.Domain.Aggregates.Deceased.MemoryEntry", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("AuthorDisplayName")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)")
-                        .HasColumnName("author_display_name");
-
-                    b.Property<Guid?>("AuthorUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("author_user_id");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<int>("ModerationStatus")
-                        .HasColumnType("integer")
-                        .HasColumnName("moderation_status");
-
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("text");
-
-                    b.Property<Guid>("deceased_id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("deceased_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_memory_entries");
-
-                    b.HasIndex("AuthorUserId")
-                        .HasDatabaseName("ix_memory_entries_author_user_id");
-
-                    b.HasIndex("deceased_id")
-                        .HasDatabaseName("ix_memory_entries_deceased_id");
-
-                    b.ToTable("memory_entries", (string)null);
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.User.TrackedDeceased", b =>
@@ -278,7 +278,7 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_deceased_users_created_by_user_id");
+                        .HasConstraintName("fk_deceaseds_users_created_by_user_id");
 
                     b.OwnsOne("GdeOni.Domain.Aggregates.Deceased.BurialLocation", "BurialLocation", b1 =>
                         {
@@ -331,11 +331,11 @@ namespace GdeOni.Infrastructure.Migrations
 
                             b1.HasKey("DeceasedId");
 
-                            b1.ToTable("deceased");
+                            b1.ToTable("deceaseds");
 
                             b1.WithOwner()
                                 .HasForeignKey("DeceasedId")
-                                .HasConstraintName("fk_deceased_deceased_id");
+                                .HasConstraintName("fk_deceaseds_deceaseds_id");
                         });
 
                     b.OwnsOne("GdeOni.Domain.Aggregates.Deceased.DeceasedMetadata", "Metadata", b1 =>
@@ -370,13 +370,13 @@ namespace GdeOni.Infrastructure.Migrations
 
                             b1.HasKey("DeceasedId");
 
-                            b1.ToTable("deceased");
+                            b1.ToTable("deceaseds");
 
                             b1.ToJson("Metadata");
 
                             b1.WithOwner()
                                 .HasForeignKey("DeceasedId")
-                                .HasConstraintName("fk_deceased_deceased_id");
+                                .HasConstraintName("fk_deceaseds_deceaseds_id");
                         });
 
                     b.OwnsOne("GdeOni.Domain.Aggregates.Deceased.LifePeriod", "LifePeriod", b1 =>
@@ -395,11 +395,11 @@ namespace GdeOni.Infrastructure.Migrations
 
                             b1.HasKey("DeceasedId");
 
-                            b1.ToTable("deceased");
+                            b1.ToTable("deceaseds");
 
                             b1.WithOwner()
                                 .HasForeignKey("DeceasedId")
-                                .HasConstraintName("fk_deceased_deceased_id");
+                                .HasConstraintName("fk_deceaseds_deceaseds_id");
                         });
 
                     b.OwnsOne("GdeOni.Domain.Aggregates.Deceased.PersonName", "Name", b1 =>
@@ -427,11 +427,11 @@ namespace GdeOni.Infrastructure.Migrations
 
                             b1.HasKey("DeceasedId");
 
-                            b1.ToTable("deceased");
+                            b1.ToTable("deceaseds");
 
                             b1.WithOwner()
                                 .HasForeignKey("DeceasedId")
-                                .HasConstraintName("fk_deceased_deceased_id");
+                                .HasConstraintName("fk_deceaseds_deceaseds_id");
                         });
 
                     b.Navigation("BurialLocation")
@@ -445,6 +445,22 @@ namespace GdeOni.Infrastructure.Migrations
 
                     b.Navigation("Name")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Deceased.DeceasedMemoryEntry", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_deceased_memory_entries_users_author_user_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.Deceased.Deceased", null)
+                        .WithMany("Memories")
+                        .HasForeignKey("deceased_id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_deceased_memory_entries_deceaseds_deceased_id");
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Deceased.DeceasedPhoto", b =>
@@ -461,23 +477,7 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasForeignKey("deceased_id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_deceased_photos_deceased_deceased_id");
-                });
-
-            modelBuilder.Entity("GdeOni.Domain.Aggregates.Deceased.MemoryEntry", b =>
-                {
-                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
-                        .WithMany()
-                        .HasForeignKey("AuthorUserId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_memory_entries_users_author_user_id");
-
-                    b.HasOne("GdeOni.Domain.Aggregates.Deceased.Deceased", null)
-                        .WithMany("Memories")
-                        .HasForeignKey("deceased_id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_memory_entries_deceased_deceased_id");
+                        .HasConstraintName("fk_deceased_photos_deceaseds_deceased_id");
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.User.TrackedDeceased", b =>
@@ -487,7 +487,7 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasForeignKey("DeceasedId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_tracked_deceased_deceased_deceased_id");
+                        .HasConstraintName("fk_tracked_deceased_deceaseds_deceased_id");
 
                     b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
                         .WithMany("TrackedDeceasedItems")

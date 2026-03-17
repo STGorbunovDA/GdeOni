@@ -7,7 +7,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\GdeOni.Application\GdeOni.Application.csproj" />
+        <ProjectReference Include="..\GdeOni.Application\GdeOni.Application.csproj" />
+        <ProjectReference Include="..\GdeOni.Domain\GdeOni.Domain.csproj" />
     </ItemGroup>
 
     <ItemGroup>

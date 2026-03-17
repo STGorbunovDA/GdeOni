@@ -29,7 +29,7 @@ namespace GdeOni.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "deceased",
+                name: "deceaseds",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -57,13 +57,42 @@ namespace GdeOni.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("pk_deceased", x => x.id);
+                    table.PrimaryKey("pk_deceaseds", x => x.id);
                     table.ForeignKey(
-                        name: "fk_deceased_users_created_by_user_id",
+                        name: "fk_deceaseds_users_created_by_user_id",
                         column: x => x.created_by_user_id,
                         principalTable: "users",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "deceased_memory_entries",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    text = table.Column<string>(type: "text", nullable: false),
+                    author_display_name = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
+                    author_user_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    moderation_status = table.Column<int>(type: "integer", nullable: false),
+                    deceased_id = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_deceased_memory_entries", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_deceased_memory_entries_deceaseds_deceased_id",
+                        column: x => x.deceased_id,
+                        principalTable: "deceaseds",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_deceased_memory_entries_users_author_user_id",
+                        column: x => x.author_user_id,
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -83,9 +112,9 @@ namespace GdeOni.Infrastructure.Migrations
                 {
                     table.PrimaryKey("pk_deceased_photos", x => x.id);
                     table.ForeignKey(
-                        name: "fk_deceased_photos_deceased_deceased_id",
+                        name: "fk_deceased_photos_deceaseds_deceased_id",
                         column: x => x.deceased_id,
-                        principalTable: "deceased",
+                        principalTable: "deceaseds",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
@@ -94,35 +123,6 @@ namespace GdeOni.Infrastructure.Migrations
                         principalTable: "users",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "memory_entries",
-                columns: table => new
-                {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    text = table.Column<string>(type: "text", nullable: false),
-                    author_display_name = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
-                    author_user_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    created_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    moderation_status = table.Column<int>(type: "integer", nullable: false),
-                    deceased_id = table.Column<Guid>(type: "uuid", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("pk_memory_entries", x => x.id);
-                    table.ForeignKey(
-                        name: "fk_memory_entries_deceased_deceased_id",
-                        column: x => x.deceased_id,
-                        principalTable: "deceased",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "fk_memory_entries_users_author_user_id",
-                        column: x => x.author_user_id,
-                        principalTable: "users",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -143,9 +143,9 @@ namespace GdeOni.Infrastructure.Migrations
                 {
                     table.PrimaryKey("pk_tracked_deceased", x => x.id);
                     table.ForeignKey(
-                        name: "fk_tracked_deceased_deceased_deceased_id",
+                        name: "fk_tracked_deceased_deceaseds_deceased_id",
                         column: x => x.deceased_id,
-                        principalTable: "deceased",
+                        principalTable: "deceaseds",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
@@ -157,19 +157,14 @@ namespace GdeOni.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "ix_deceased_created_at_utc",
-                table: "deceased",
-                column: "created_at_utc");
+                name: "ix_memory_entries_author_user_id",
+                table: "deceased_memory_entries",
+                column: "author_user_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_deceased_created_by_user_id",
-                table: "deceased",
-                column: "created_by_user_id");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_deceased_is_verified",
-                table: "deceased",
-                column: "is_verified");
+                name: "ix_memory_entries_deceased_id",
+                table: "deceased_memory_entries",
+                column: "deceased_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_deceased_photos_added_by_user_id",
@@ -182,14 +177,19 @@ namespace GdeOni.Infrastructure.Migrations
                 column: "deceased_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_memory_entries_author_user_id",
-                table: "memory_entries",
-                column: "author_user_id");
+                name: "ix_deceased_created_at_utc",
+                table: "deceaseds",
+                column: "created_at_utc");
 
             migrationBuilder.CreateIndex(
-                name: "ix_memory_entries_deceased_id",
-                table: "memory_entries",
-                column: "deceased_id");
+                name: "ix_deceased_created_by_user_id",
+                table: "deceaseds",
+                column: "created_by_user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_deceased_is_verified",
+                table: "deceaseds",
+                column: "is_verified");
 
             migrationBuilder.CreateIndex(
                 name: "ix_tracked_deceased_deceased_id",
@@ -224,16 +224,16 @@ namespace GdeOni.Infrastructure.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "deceased_photos");
+                name: "deceased_memory_entries");
 
             migrationBuilder.DropTable(
-                name: "memory_entries");
+                name: "deceased_photos");
 
             migrationBuilder.DropTable(
                 name: "tracked_deceased");
 
             migrationBuilder.DropTable(
-                name: "deceased");
+                name: "deceaseds");
 
             migrationBuilder.DropTable(
                 name: "users");

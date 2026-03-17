@@ -15,7 +15,7 @@ namespace GdeOni.Infrastructure.Persistence;
 public sealed class AppDbContext : DbContext
 {
     // Корневой агрегат умерших
-    public DbSet<Deceased> Deceased => Set<Deceased>();
+    public DbSet<Deceased> Deceaseds => Set<Deceased>();
 
     // Корневой агрегат пользователей
     public DbSet<User> Users => Set<User>();

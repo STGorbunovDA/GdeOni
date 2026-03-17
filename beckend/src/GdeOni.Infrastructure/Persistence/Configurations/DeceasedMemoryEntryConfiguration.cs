@@ -6,16 +6,16 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace GdeOni.Infrastructure.Persistence.Configurations;
 
 /// <summary>
-/// Конфигурация сущности MemoryEntry.
+/// Конфигурация сущности DeceasedMemoryEntry.
 /// Это воспоминания памяти об умершем.
 /// Они принадлежат агрегату Deceased и лежат в отдельной таблице.
 /// </summary>
-public sealed class MemoryEntryConfiguration : IEntityTypeConfiguration<MemoryEntry>
+public sealed class DeceasedMemoryEntryConfiguration : IEntityTypeConfiguration<DeceasedMemoryEntry>
 {
-    public void Configure(EntityTypeBuilder<MemoryEntry> builder)
+    public void Configure(EntityTypeBuilder<DeceasedMemoryEntry> builder)
     {
         // Имя таблицы
-        builder.ToTable("memory_entries");
+        builder.ToTable("deceased_memory_entries");
 
         // Первичный ключ
         builder.HasKey(x => x.Id);
