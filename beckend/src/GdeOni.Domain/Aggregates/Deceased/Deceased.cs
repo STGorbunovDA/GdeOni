@@ -20,8 +20,8 @@ public sealed class Deceased : Entity<Guid>
     private readonly List<DeceasedPhoto> _photos = new();
     public IReadOnlyCollection<DeceasedPhoto> Photos => _photos.AsReadOnly();
 
-    private readonly List<MemoryEntry> _memories = new();
-    public IReadOnlyCollection<MemoryEntry> Memories => _memories.AsReadOnly();
+    private readonly List<DeceasedMemoryEntry> _memories = new();
+    public IReadOnlyCollection<DeceasedMemoryEntry> Memories => _memories.AsReadOnly();
     
     public DeceasedMetadata Metadata { get; private set; }
     private Deceased() : base(Guid.Empty)
@@ -184,14 +184,14 @@ public sealed class Deceased : Entity<Guid>
         return Result.Success();
     }
 
-    public Result<MemoryEntry> AddMemory(
+    public Result<DeceasedMemoryEntry> AddMemory(
         string text,
         string? authorDisplayName = null,
         Guid? authorUserId = null)
     {
-        var memoryResult = MemoryEntry.Create(text, authorDisplayName, authorUserId);
+        var memoryResult = DeceasedMemoryEntry.Create(text, authorDisplayName, authorUserId);
         if (memoryResult.IsFailure)
-            return Result.Failure<MemoryEntry>(memoryResult.Error);
+            return Result.Failure<DeceasedMemoryEntry>(memoryResult.Error);
 
         _memories.Add(memoryResult.Value);
         UpdatedAtUtc = DateTime.UtcNow;

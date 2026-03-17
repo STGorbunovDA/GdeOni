@@ -1,18 +1,17 @@
+using GdeOni.Application;
 using GdeOni.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Регистрируем infrastructure
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Базовые сервисы API
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Swagger только в development
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -20,8 +19,5 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-// Маршруты контроллеров
 app.MapControllers();
-
 app.Run();
