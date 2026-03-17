@@ -6,11 +6,11 @@ namespace GdeOni.API.Controllers;
 
 [ApiController]
 [Route("api/deceased")]
-public sealed class DeceasedController : ControllerBase
+public sealed class DeceasedsController : ControllerBase
 {
     private readonly ICreateDeceasedService _createDeceasedService;
 
-    public DeceasedController(ICreateDeceasedService createDeceasedService)
+    public DeceasedsController(ICreateDeceasedService createDeceasedService)
     {
         _createDeceasedService = createDeceasedService;
     }
