@@ -5,12 +5,12 @@ namespace GdeOni.Infrastructure.Persistence.Repositories;
 
 public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedRepository
 {
-    public async Task AddAsync(Deceased deceased, CancellationToken cancellationToken)
+    public async Task Add(Deceased deceased, CancellationToken cancellationToken)
     {
         await dbContext.Deceaseds.AddAsync(deceased, cancellationToken);
     }
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken)
+    public Task Save(CancellationToken cancellationToken)
     {
         return dbContext.SaveChangesAsync(cancellationToken);
     }

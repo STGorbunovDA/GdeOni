@@ -1,4 +1,5 @@
 ﻿using CSharpFunctionalExtensions;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.Domain.Aggregates.Deceased;
 
@@ -13,7 +14,7 @@ public sealed class PersonName : ValueObject
         FirstName = null!;
         LastName = null!;
     }
-    
+
     private PersonName(string firstName, string lastName, string? middleName)
     {
         FirstName = firstName;
@@ -21,15 +22,15 @@ public sealed class PersonName : ValueObject
         MiddleName = middleName;
     }
 
-    public static Result<PersonName> Create(string firstName, string lastName, string? middleName)
+    public static Result<PersonName, Error> Create(string firstName, string lastName, string? middleName)
     {
         if (string.IsNullOrWhiteSpace(firstName))
-            return Result.Failure<PersonName>("Имя обязательно");
+            return Errors.PersonName.FirstNameRequired();
 
         if (string.IsNullOrWhiteSpace(lastName))
-            return Result.Failure<PersonName>("Фамилия обязательна");
+            return Errors.PersonName.LastNameRequired();
 
-        return Result.Success(new PersonName(
+        return Result.Success<PersonName, Error>(new PersonName(
             firstName.Trim(),
             lastName.Trim(),
             string.IsNullOrWhiteSpace(middleName) ? null : middleName.Trim()));

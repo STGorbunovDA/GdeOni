@@ -1,11 +1,12 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Users.Create.Model;
+using GdeOni.Domain.Shared;
 
-namespace GdeOni.Application.Users.Create.Service;
+namespace GdeOni.Application.Users.Create.UseCase;
 
-public interface ICreateUserService
+public interface ICreateUserUseCase
 {
-    Task<Result<CreateUserResponse>> ExecuteAsync(
+    Task<Result<CreateUserResponse, Error>> Execute(
         CreateUserRequest request,
         CancellationToken cancellationToken);
 }

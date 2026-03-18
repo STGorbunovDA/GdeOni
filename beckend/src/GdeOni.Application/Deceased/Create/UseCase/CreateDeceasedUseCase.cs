@@ -2,15 +2,16 @@
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Deceased.Create.Model;
 using GdeOni.Domain.Aggregates.Deceased;
+using GdeOni.Domain.Shared;
 
-namespace GdeOni.Application.Deceased.Create.Service;
+namespace GdeOni.Application.Deceased.Create.UseCase;
 
-public sealed class CreateDeceasedService : ICreateDeceasedService
+public sealed class CreateDeceasedUseCase : ICreateDeceasedUseCase
 {
     private readonly IDeceasedRepository _deceasedRepository;
     private readonly IUserRepository _userRepository;
 
-    public CreateDeceasedService(
+    public CreateDeceasedUseCase(
         IDeceasedRepository deceasedRepository,
         IUserRepository userRepository)
     {
@@ -18,22 +19,22 @@ public sealed class CreateDeceasedService : ICreateDeceasedService
         _userRepository = userRepository;
     }
 
-    public async Task<Result<CreateDeceasedResponse>> ExecuteAsync(
+    public async Task<Result<CreateDeceasedResponse, Error>> Execute(
         CreateDeceasedRequest request,
         CancellationToken cancellationToken)
     {
         if (request is null)
-            return Result.Failure<CreateDeceasedResponse>("Request обязателен");
+            return Errors.General.ValueIsRequired(nameof(CreateDeceasedRequest));
 
         if (request.BurialLocation is null)
-            return Result.Failure<CreateDeceasedResponse>("BurialLocation обязателен");
+            return Errors.Deceased.BurialLocationRequired();
 
-        var creatorExists = await _userRepository.ExistsByIdAsync(
+        var creatorExists = await _userRepository.ExistsById(
             request.CreatedByUserId,
             cancellationToken);
 
         if (!creatorExists)
-            return Result.Failure<CreateDeceasedResponse>("Пользователь-создатель не найден");
+            return Errors.General.NotFound("user", request.CreatedByUserId);
 
         var burialLocationResult = BurialLocation.Create(
             request.BurialLocation.Latitude,
@@ -47,7 +48,7 @@ public sealed class CreateDeceasedService : ICreateDeceasedService
             request.BurialLocation.Accuracy);
 
         if (burialLocationResult.IsFailure)
-            return Result.Failure<CreateDeceasedResponse>(burialLocationResult.Error);
+            return burialLocationResult.Error;
 
         var deceasedResult = Domain.Aggregates.Deceased.Deceased.Create(
             request.FirstName,
@@ -61,7 +62,7 @@ public sealed class CreateDeceasedService : ICreateDeceasedService
             request.Biography);
 
         if (deceasedResult.IsFailure)
-            return Result.Failure<CreateDeceasedResponse>(deceasedResult.Error);
+            return deceasedResult.Error;
 
         var deceased = deceasedResult.Value;
 
@@ -76,7 +77,7 @@ public sealed class CreateDeceasedService : ICreateDeceasedService
                     photo.IsPrimary);
 
                 if (addPhotoResult.IsFailure)
-                    return Result.Failure<CreateDeceasedResponse>(addPhotoResult.Error);
+                    return addPhotoResult.Error;
             }
         }
 
@@ -90,7 +91,7 @@ public sealed class CreateDeceasedService : ICreateDeceasedService
                     memory.AuthorUserId);
 
                 if (addMemoryResult.IsFailure)
-                    return Result.Failure<CreateDeceasedResponse>(addMemoryResult.Error);
+                    return addMemoryResult.Error;
             }
         }
 
@@ -106,12 +107,13 @@ public sealed class CreateDeceasedService : ICreateDeceasedService
             var metadataResult = deceased.UpdateMetadata(metadata);
 
             if (metadataResult.IsFailure)
-                return Result.Failure<CreateDeceasedResponse>(metadataResult.Error);
+                return metadataResult.Error;
         }
 
-        await _deceasedRepository.AddAsync(deceased, cancellationToken);
-        await _deceasedRepository.SaveChangesAsync(cancellationToken);
+        await _deceasedRepository.Add(deceased, cancellationToken);
+        await _deceasedRepository.Save(cancellationToken);
 
-        return Result.Success(new CreateDeceasedResponse(deceased.Id));
+        return Result.Success<CreateDeceasedResponse, Error>(
+            new CreateDeceasedResponse(deceased.Id));
     }
 }

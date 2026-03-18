@@ -14,12 +14,12 @@ public sealed class BurialLocation : ValueObject
     public string? PlotNumber { get; }
     public string? GraveNumber { get; }
     public LocationAccuracy Accuracy { get; }
-    
+
     private BurialLocation()
     {
         Country = null!;
     }
-    
+
     private BurialLocation(
         double latitude,
         double longitude,
@@ -41,7 +41,7 @@ public sealed class BurialLocation : ValueObject
         GraveNumber = graveNumber;
         Accuracy = accuracy;
     }
-    
+
     public string FullAddress =>
         string.Join(", ", new[]
         {
@@ -53,8 +53,7 @@ public sealed class BurialLocation : ValueObject
             GraveNumber
         }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
-
-    public static Result<BurialLocation> Create(
+    public static Result<BurialLocation, Error> Create(
         double latitude,
         double longitude,
         string country,
@@ -66,15 +65,15 @@ public sealed class BurialLocation : ValueObject
         LocationAccuracy accuracy = LocationAccuracy.Exact)
     {
         if (latitude < -90 || latitude > 90)
-            return Result.Failure<BurialLocation>("Некорректная широта");
+            return Errors.BurialLocation.LatitudeInvalid();
 
         if (longitude < -180 || longitude > 180)
-            return Result.Failure<BurialLocation>("Некорректная долгота");
+            return Errors.BurialLocation.LongitudeInvalid();
 
         if (string.IsNullOrWhiteSpace(country))
-            return Result.Failure<BurialLocation>("Страна обязательна");
+            return Errors.BurialLocation.CountryRequired();
 
-        return Result.Success(new BurialLocation(
+        return Result.Success<BurialLocation, Error>(new BurialLocation(
             latitude,
             longitude,
             country.Trim(),

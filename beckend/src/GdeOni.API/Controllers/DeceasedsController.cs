@@ -1,5 +1,5 @@
 ﻿using GdeOni.Application.Deceased.Create.Model;
-using GdeOni.Application.Deceased.Create.Service;
+using GdeOni.Application.Deceased.Create.UseCase;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
@@ -8,21 +8,15 @@ namespace GdeOni.API.Controllers;
 [Route("api/deceased")]
 public sealed class DeceasedsController : ControllerBase
 {
-    private readonly ICreateDeceasedService _createDeceasedService;
-
-    public DeceasedsController(ICreateDeceasedService createDeceasedService)
-    {
-        _createDeceasedService = createDeceasedService;
-    }
-
     [HttpPost]
     [ProducesResponseType(typeof(CreateDeceasedResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create(
         [FromBody] CreateDeceasedRequest request,
-        CancellationToken cancellationToken)
+        [FromServices] ICreateDeceasedUseCase createDeceasedUseCase,
+        CancellationToken cancellationToken = default)
     {
-        var result = await _createDeceasedService.ExecuteAsync(request, cancellationToken);
+        var result = await createDeceasedUseCase.Execute(request, cancellationToken);
 
         if (result.IsFailure)
             return BadRequest(new { error = result.Error });

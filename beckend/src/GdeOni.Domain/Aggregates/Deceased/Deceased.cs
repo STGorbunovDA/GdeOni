@@ -1,4 +1,5 @@
 ﻿using CSharpFunctionalExtensions;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.Domain.Aggregates.Deceased;
 
@@ -22,8 +23,9 @@ public sealed class Deceased : Entity<Guid>
 
     private readonly List<DeceasedMemoryEntry> _memories = new();
     public IReadOnlyCollection<DeceasedMemoryEntry> Memories => _memories.AsReadOnly();
-    
+
     public DeceasedMetadata Metadata { get; private set; }
+
     private Deceased() : base(Guid.Empty)
     {
         Name = null!;
@@ -31,7 +33,7 @@ public sealed class Deceased : Entity<Guid>
         BurialLocation = null!;
         Metadata = DeceasedMetadata.Empty();
     }
-    
+
     private Deceased(
         Guid id,
         PersonName name,
@@ -53,7 +55,7 @@ public sealed class Deceased : Entity<Guid>
         Metadata = DeceasedMetadata.Empty();
     }
 
-    public static Result<Deceased> Create(
+    public static Result<Deceased, Error> Create(
         string firstName,
         string lastName,
         string? middleName,
@@ -65,18 +67,18 @@ public sealed class Deceased : Entity<Guid>
         string? biography = null)
     {
         if (createdByUserId == Guid.Empty)
-            return Result.Failure<Deceased>("Пользователь-создатель обязателен");
+            return Errors.Deceased.CreatedByRequired();
 
         var nameResult = PersonName.Create(firstName, lastName, middleName);
         if (nameResult.IsFailure)
-            return Result.Failure<Deceased>(nameResult.Error);
+            return nameResult.Error;
 
         var periodResult = LifePeriod.Create(birthDate, deathDate);
         if (periodResult.IsFailure)
-            return Result.Failure<Deceased>(periodResult.Error);
+            return periodResult.Error;
 
         if (burialLocation is null)
-            return Result.Failure<Deceased>("Место захоронения обязательно");
+            return Errors.Deceased.BurialLocationRequired();
 
         var deceased = new Deceased(
             Guid.NewGuid(),
@@ -88,10 +90,10 @@ public sealed class Deceased : Entity<Guid>
             createdByUserId,
             DateTime.UtcNow);
 
-        return Result.Success(deceased);
+        return Result.Success<Deceased, Error>(deceased);
     }
 
-    public Result UpdateMainInfo(
+    public UnitResult<Error> UpdateMainInfo(
         string firstName,
         string lastName,
         string? middleName,
@@ -102,11 +104,11 @@ public sealed class Deceased : Entity<Guid>
     {
         var nameResult = PersonName.Create(firstName, lastName, middleName);
         if (nameResult.IsFailure)
-            return Result.Failure(nameResult.Error);
+            return nameResult.Error;
 
         var periodResult = LifePeriod.Create(birthDate, deathDate);
         if (periodResult.IsFailure)
-            return Result.Failure(periodResult.Error);
+            return periodResult.Error;
 
         Name = nameResult.Value;
         LifePeriod = periodResult.Value;
@@ -114,21 +116,21 @@ public sealed class Deceased : Entity<Guid>
         Biography = string.IsNullOrWhiteSpace(biography) ? null : biography.Trim();
         UpdatedAtUtc = DateTime.UtcNow;
 
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result ChangeBurialLocation(BurialLocation burialLocation)
+    public UnitResult<Error> ChangeBurialLocation(BurialLocation burialLocation)
     {
         if (burialLocation is null)
-            return Result.Failure("Место захоронения обязательно");
+            return Errors.Deceased.BurialLocationRequired();
 
         BurialLocation = burialLocation;
         UpdatedAtUtc = DateTime.UtcNow;
 
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result<DeceasedPhoto> AddPhoto(
+    public Result<DeceasedPhoto, Error> AddPhoto(
         string url,
         Guid addedByUserId,
         string? description = null,
@@ -136,7 +138,7 @@ public sealed class Deceased : Entity<Guid>
     {
         var photoResult = DeceasedPhoto.Create(url, addedByUserId, description, makePrimary);
         if (photoResult.IsFailure)
-            return Result.Failure<DeceasedPhoto>(photoResult.Error);
+            return photoResult.Error;
 
         var photo = photoResult.Value;
 
@@ -149,31 +151,31 @@ public sealed class Deceased : Entity<Guid>
         _photos.Add(photo);
         UpdatedAtUtc = DateTime.UtcNow;
 
-        return Result.Success(photo);
+        return Result.Success<DeceasedPhoto, Error>(photo);
     }
 
-    public Result SetPrimaryPhoto(Guid photoId)
+    public UnitResult<Error> SetPrimaryPhoto(Guid photoId)
     {
         var photo = _photos.FirstOrDefault(x => x.Id == photoId);
         if (photo is null)
-            return Result.Failure("Фото не найдено");
+            return Errors.DeceasedPhoto.NotFound(photoId);
 
         foreach (var item in _photos)
             item.UnmarkPrimary();
 
         var makePrimaryResult = photo.MakePrimary();
         if (makePrimaryResult.IsFailure)
-            return makePrimaryResult;
+            return makePrimaryResult.Error;
 
         UpdatedAtUtc = DateTime.UtcNow;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result RemovePhoto(Guid photoId)
+    public UnitResult<Error> RemovePhoto(Guid photoId)
     {
         var photo = _photos.FirstOrDefault(x => x.Id == photoId);
         if (photo is null)
-            return Result.Failure("Фото не найдено");
+            return Errors.DeceasedPhoto.NotFound(photoId);
 
         _photos.Remove(photo);
 
@@ -181,66 +183,66 @@ public sealed class Deceased : Entity<Guid>
             _photos[0].MakePrimary();
 
         UpdatedAtUtc = DateTime.UtcNow;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result<DeceasedMemoryEntry> AddMemory(
+    public Result<DeceasedMemoryEntry, Error> AddMemory(
         string text,
         string? authorDisplayName = null,
         Guid? authorUserId = null)
     {
         var memoryResult = DeceasedMemoryEntry.Create(text, authorDisplayName, authorUserId);
         if (memoryResult.IsFailure)
-            return Result.Failure<DeceasedMemoryEntry>(memoryResult.Error);
+            return memoryResult.Error;
 
         _memories.Add(memoryResult.Value);
         UpdatedAtUtc = DateTime.UtcNow;
 
-        return Result.Success(memoryResult.Value);
+        return Result.Success<DeceasedMemoryEntry, Error>(memoryResult.Value);
     }
 
-    public Result RemoveMemory(Guid memoryId)
+    public UnitResult<Error> RemoveMemory(Guid memoryId)
     {
         var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
         if (memory is null)
-            return Result.Failure("Воспоминание не найдено");
+            return Errors.DeceasedMemory.NotFound(memoryId);
 
         _memories.Remove(memory);
         UpdatedAtUtc = DateTime.UtcNow;
 
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result Verify()
+    public UnitResult<Error> Verify()
     {
         if (IsVerified)
-            return Result.Failure("Запись уже подтверждена");
+            return Errors.Deceased.AlreadyVerified();
 
         IsVerified = true;
         UpdatedAtUtc = DateTime.UtcNow;
 
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result Unverify()
+    public UnitResult<Error> Unverify()
     {
         if (!IsVerified)
-            return Result.Failure("Запись еще не подтверждена");
+            return Errors.Deceased.NotVerified();
 
         IsVerified = false;
         UpdatedAtUtc = DateTime.UtcNow;
 
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
-    
-    public Result UpdateMetadata(DeceasedMetadata metadata)
+
+    public UnitResult<Error> UpdateMetadata(DeceasedMetadata metadata)
     {
         if (metadata is null)
-            return Result.Failure("Метаданные обязательны");
+            return Errors.Deceased.MetadataRequired();
 
         Metadata = metadata;
         UpdatedAtUtc = DateTime.UtcNow;
 
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 }

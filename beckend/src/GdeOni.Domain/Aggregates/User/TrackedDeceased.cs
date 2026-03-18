@@ -16,7 +16,7 @@ public sealed class TrackedDeceased : Entity<Guid>
     private TrackedDeceased() : base(Guid.Empty)
     {
     }
-    
+
     private TrackedDeceased(
         Guid id,
         Guid deceasedId,
@@ -36,7 +36,7 @@ public sealed class TrackedDeceased : Entity<Guid>
         TrackedAtUtc = trackedAtUtc;
     }
 
-    public static Result<TrackedDeceased> Create(
+    public static Result<TrackedDeceased, Error> Create(
         Guid deceasedId,
         RelationshipType relationshipType,
         string? personalNotes = null,
@@ -44,9 +44,9 @@ public sealed class TrackedDeceased : Entity<Guid>
         bool notifyOnBirthAnniversary = false)
     {
         if (deceasedId == Guid.Empty)
-            return Result.Failure<TrackedDeceased>("Id умершего обязателен");
+            return Errors.Tracking.DeceasedIdRequired();
 
-        return Result.Success(new TrackedDeceased(
+        return Result.Success<TrackedDeceased, Error>(new TrackedDeceased(
             Guid.NewGuid(),
             deceasedId,
             relationshipType,
@@ -57,44 +57,44 @@ public sealed class TrackedDeceased : Entity<Guid>
             DateTime.UtcNow));
     }
 
-    public Result UpdateRelationship(RelationshipType relationshipType, string? personalNotes)
+    public UnitResult<Error> UpdateRelationship(RelationshipType relationshipType, string? personalNotes)
     {
         RelationshipType = relationshipType;
         PersonalNotes = string.IsNullOrWhiteSpace(personalNotes) ? null : personalNotes.Trim();
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result ChangeNotifications(bool notifyOnDeathAnniversary, bool notifyOnBirthAnniversary)
+    public UnitResult<Error> ChangeNotifications(bool notifyOnDeathAnniversary, bool notifyOnBirthAnniversary)
     {
         NotifyOnDeathAnniversary = notifyOnDeathAnniversary;
         NotifyOnBirthAnniversary = notifyOnBirthAnniversary;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result Archive()
+    public UnitResult<Error> Archive()
     {
         if (Status == TrackStatus.Archived)
-            return Result.Failure("Запись уже в архиве");
+            return Errors.Tracking.AlreadyArchived();
 
         Status = TrackStatus.Archived;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result Mute()
+    public UnitResult<Error> Mute()
     {
         if (Status == TrackStatus.Muted)
-            return Result.Failure("Уведомления уже отключены");
+            return Errors.Tracking.AlreadyMuted();
 
         Status = TrackStatus.Muted;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result Activate()
+    public UnitResult<Error> Activate()
     {
         if (Status == TrackStatus.Active)
-            return Result.Failure("Отслеживание уже активно");
+            return Errors.Tracking.AlreadyActive();
 
         Status = TrackStatus.Active;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 }
