@@ -2,30 +2,31 @@
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Users.Create.Model;
 using GdeOni.Domain.Aggregates.User;
+using GdeOni.Domain.Shared;
 
-namespace GdeOni.Application.Users.Create.Service;
+namespace GdeOni.Application.Users.Create.UseCase;
 
-public sealed class CreateUserService : ICreateUserService
+public sealed class CreateUserUseCase : ICreateUserUseCase
 {
     private readonly IUserRepository _userRepository;
 
-    public CreateUserService(IUserRepository userRepository)
+    public CreateUserUseCase(IUserRepository userRepository)
     {
         _userRepository = userRepository;
     }
 
-    public async Task<Result<CreateUserResponse>> ExecuteAsync(
+    public async Task<Result<CreateUserResponse, Error>> Execute(
         CreateUserRequest request,
         CancellationToken cancellationToken)
     {
         if (request is null)
-            return Result.Failure<CreateUserResponse>("Request обязателен");
+            return Errors.General.ValueIsRequired(nameof(CreateUserRequest));
 
         if (string.IsNullOrWhiteSpace(request.Email))
-            return Result.Failure<CreateUserResponse>("Email обязателен");
+            return Errors.User.EmailRequired();
 
         if (string.IsNullOrWhiteSpace(request.PasswordHash))
-            return Result.Failure<CreateUserResponse>("PasswordHash обязателен");
+            return Errors.User.PasswordHashRequired();
 
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
@@ -33,19 +34,23 @@ public sealed class CreateUserService : ICreateUserService
             ? normalizedEmail.Split('@')[0]
             : request.UserName.Trim();
 
-        var emailExists = await _userRepository.ExistsByEmailAsync(
+        var emailExists = await _userRepository.ExistsByEmail(
             normalizedEmail,
             cancellationToken);
 
         if (emailExists)
-            return Result.Failure<CreateUserResponse>("Пользователь с таким email уже существует");
+            return Error.Conflict(
+                "user.email.already.exists",
+                "User with this email already exists");
 
-        var userNameExists = await _userRepository.ExistsByUserNameAsync(
+        var userNameExists = await _userRepository.ExistsByUserName(
             finalUserName,
             cancellationToken);
 
         if (userNameExists)
-            return Result.Failure<CreateUserResponse>("Пользователь с таким userName уже существует");
+            return Error.Conflict(
+                "user.user_name.already.exists",
+                "User with this user name already exists");
 
         var userResult = User.Register(
             normalizedEmail,
@@ -54,13 +59,14 @@ public sealed class CreateUserService : ICreateUserService
             request.UserName);
 
         if (userResult.IsFailure)
-            return Result.Failure<CreateUserResponse>(userResult.Error);
+            return userResult.Error;
 
         var user = userResult.Value;
 
-        await _userRepository.AddAsync(user, cancellationToken);
-        await _userRepository.SaveChangesAsync(cancellationToken);
+        await _userRepository.Add(user, cancellationToken);
+        await _userRepository.Save(cancellationToken);
 
-        return Result.Success(new CreateUserResponse(user.Id));
+        return Result.Success<CreateUserResponse, Error>(
+            new CreateUserResponse(user.Id));
     }
 }

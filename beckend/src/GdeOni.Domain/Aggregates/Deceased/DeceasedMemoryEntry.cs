@@ -16,7 +16,7 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
         Text = null!;
         AuthorDisplayName = null!;
     }
-    
+
     private DeceasedMemoryEntry(
         Guid id,
         string text,
@@ -31,15 +31,15 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
         ModerationStatus = ModerationStatus.Pending;
     }
 
-    public static Result<DeceasedMemoryEntry> Create(
+    public static Result<DeceasedMemoryEntry, Error> Create(
         string text,
         string? authorDisplayName = null,
         Guid? authorUserId = null)
     {
         if (string.IsNullOrWhiteSpace(text))
-            return Result.Failure<DeceasedMemoryEntry>("Текст воспоминания обязателен");
+            return Errors.DeceasedMemory.TextRequired();
 
-        return Result.Success(new DeceasedMemoryEntry(
+        return Result.Success<DeceasedMemoryEntry, Error>(new DeceasedMemoryEntry(
             Guid.NewGuid(),
             text.Trim(),
             string.IsNullOrWhiteSpace(authorDisplayName) ? "Аноним" : authorDisplayName.Trim(),
@@ -47,30 +47,30 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
             DateTime.UtcNow));
     }
 
-    public Result EditText(string text)
+    public UnitResult<Error> EditText(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
-            return Result.Failure("Текст воспоминания обязателен");
+            return Errors.DeceasedMemory.TextRequired();
 
         Text = text.Trim();
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result Approve()
+    public UnitResult<Error> Approve()
     {
         if (ModerationStatus == ModerationStatus.Approved)
-            return Result.Failure("Воспоминание уже подтверждено");
+            return Errors.DeceasedMemory.AlreadyApproved();
 
         ModerationStatus = ModerationStatus.Approved;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result Reject()
+    public UnitResult<Error> Reject()
     {
         if (ModerationStatus == ModerationStatus.Rejected)
-            return Result.Failure("Воспоминание уже отклонено");
+            return Errors.DeceasedMemory.AlreadyRejected();
 
         ModerationStatus = ModerationStatus.Rejected;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 }

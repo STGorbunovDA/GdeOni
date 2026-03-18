@@ -2,6 +2,6 @@
 
 public interface IDeceasedRepository
 {
-    Task AddAsync(Domain.Aggregates.Deceased.Deceased deceased, CancellationToken cancellationToken);
-    Task SaveChangesAsync(CancellationToken cancellationToken);
+    Task Add(Domain.Aggregates.Deceased.Deceased deceased, CancellationToken cancellationToken);
+    Task Save(CancellationToken cancellationToken);
 }

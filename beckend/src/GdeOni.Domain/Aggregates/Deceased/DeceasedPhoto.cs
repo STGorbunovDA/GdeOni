@@ -16,7 +16,7 @@ public sealed class DeceasedPhoto : Entity<Guid>
     {
         Url = null!;
     }
-    
+
     private DeceasedPhoto(
         Guid id,
         string url,
@@ -33,19 +33,19 @@ public sealed class DeceasedPhoto : Entity<Guid>
         ModerationStatus = ModerationStatus.Pending;
     }
 
-    public static Result<DeceasedPhoto> Create(
+    public static Result<DeceasedPhoto, Error> Create(
         string url,
         Guid addedByUserId,
         string? description = null,
         bool isPrimary = false)
     {
         if (string.IsNullOrWhiteSpace(url))
-            return Result.Failure<DeceasedPhoto>("URL фото обязателен");
+            return Errors.DeceasedPhoto.UrlRequired();
 
         if (addedByUserId == Guid.Empty)
-            return Result.Failure<DeceasedPhoto>("Пользователь, добавивший фото, обязателен");
+            return Errors.DeceasedPhoto.AddedByRequired();
 
-        return Result.Success(new DeceasedPhoto(
+        return Result.Success<DeceasedPhoto, Error>(new DeceasedPhoto(
             Guid.NewGuid(),
             url.Trim(),
             string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
@@ -54,13 +54,13 @@ public sealed class DeceasedPhoto : Entity<Guid>
             DateTime.UtcNow));
     }
 
-    public Result MakePrimary()
+    public UnitResult<Error> MakePrimary()
     {
         if (IsPrimary)
-            return Result.Failure("Фото уже является основным");
+            return Errors.DeceasedPhoto.AlreadyPrimary();
 
         IsPrimary = true;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
     public void UnmarkPrimary()
@@ -68,27 +68,27 @@ public sealed class DeceasedPhoto : Entity<Guid>
         IsPrimary = false;
     }
 
-    public Result Approve()
+    public UnitResult<Error> Approve()
     {
         if (ModerationStatus == ModerationStatus.Approved)
-            return Result.Failure("Фото уже подтверждено");
+            return Errors.DeceasedPhoto.AlreadyApproved();
 
         ModerationStatus = ModerationStatus.Approved;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result Reject()
+    public UnitResult<Error> Reject()
     {
         if (ModerationStatus == ModerationStatus.Rejected)
-            return Result.Failure("Фото уже отклонено");
+            return Errors.DeceasedPhoto.AlreadyRejected();
 
         ModerationStatus = ModerationStatus.Rejected;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result UpdateDescription(string? description)
+    public UnitResult<Error> UpdateDescription(string? description)
     {
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 }

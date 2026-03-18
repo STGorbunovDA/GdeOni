@@ -22,7 +22,7 @@ public sealed class User : Entity<Guid>
         UserName = null!;
         PasswordHash = null!;
     }
-    
+
     private User(
         Guid id,
         string email,
@@ -38,20 +38,20 @@ public sealed class User : Entity<Guid>
         RegisteredAtUtc = registeredAtUtc;
     }
 
-    public static Result<User> Register(
+    public static Result<User, Error> Register(
         string email,
         string passwordHash,
         string? fullName = null,
         string? userName = null)
     {
         if (string.IsNullOrWhiteSpace(email))
-            return Result.Failure<User>("Email обязателен");
+            return Errors.User.EmailRequired();
 
         if (string.IsNullOrWhiteSpace(passwordHash))
-            return Result.Failure<User>("Хэш пароля обязателен");
+            return Errors.User.PasswordHashRequired();
 
         if (!IsValidEmail(email))
-            return Result.Failure<User>("Некорректный email");
+            return Errors.User.EmailInvalid();
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
         var finalUserName = string.IsNullOrWhiteSpace(userName)
@@ -59,9 +59,9 @@ public sealed class User : Entity<Guid>
             : userName.Trim();
 
         if (string.IsNullOrWhiteSpace(finalUserName))
-            return Result.Failure<User>("Имя пользователя обязательно");
+            return Errors.User.UserNameRequired();
 
-        return Result.Success(new User(
+        return Result.Success<User, Error>(new User(
             Guid.NewGuid(),
             normalizedEmail,
             finalUserName,
@@ -70,33 +70,33 @@ public sealed class User : Entity<Guid>
             DateTime.UtcNow));
     }
 
-    public Result UpdateProfile(string userName, string? fullName)
+    public UnitResult<Error> UpdateProfile(string userName, string? fullName)
     {
         if (string.IsNullOrWhiteSpace(userName))
-            return Result.Failure("Имя пользователя обязательно");
+            return Errors.User.UserNameRequired();
 
         UserName = userName.Trim();
         FullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim();
 
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result ChangePasswordHash(string newPasswordHash)
+    public UnitResult<Error> ChangePasswordHash(string newPasswordHash)
     {
         if (string.IsNullOrWhiteSpace(newPasswordHash))
-            return Result.Failure("Хэш пароля обязателен");
+            return Errors.User.PasswordHashRequired();
 
         PasswordHash = newPasswordHash;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result MarkLogin(DateTime? loggedInAtUtc = null)
+    public UnitResult<Error> MarkLogin(DateTime? loggedInAtUtc = null)
     {
         LastLoginAtUtc = loggedInAtUtc ?? DateTime.UtcNow;
-        return Result.Success();
+        return UnitResult.Success<Error>();
     }
 
-    public Result<TrackedDeceased> TrackDeceased(
+    public Result<TrackedDeceased, Error> TrackDeceased(
         Guid deceasedId,
         RelationshipType relationshipType,
         string? personalNotes = null,
@@ -104,7 +104,7 @@ public sealed class User : Entity<Guid>
         bool notifyOnBirthAnniversary = false)
     {
         if (_trackedDeceasedItems.Any(x => x.DeceasedId == deceasedId && x.Status != TrackStatus.Archived))
-            return Result.Failure<TrackedDeceased>("Этот умерший уже отслеживается пользователем");
+            return Errors.Tracking.AlreadyTracked();
 
         var trackedResult = TrackedDeceased.Create(
             deceasedId,
@@ -114,22 +114,22 @@ public sealed class User : Entity<Guid>
             notifyOnBirthAnniversary);
 
         if (trackedResult.IsFailure)
-            return Result.Failure<TrackedDeceased>(trackedResult.Error);
+            return trackedResult.Error;
 
         _trackedDeceasedItems.Add(trackedResult.Value);
-        return Result.Success(trackedResult.Value);
+        return Result.Success<TrackedDeceased, Error>(trackedResult.Value);
     }
 
-    public Result StopTracking(Guid deceasedId)
+    public UnitResult<Error> StopTracking(Guid deceasedId)
     {
         var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId && x.Status != TrackStatus.Archived);
         if (tracked is null)
-            return Result.Failure("Отслеживание не найдено");
+            return Errors.Tracking.NotFound(deceasedId);
 
         return tracked.Archive();
     }
 
-    public Result UpdateTracking(
+    public UnitResult<Error> UpdateTracking(
         Guid deceasedId,
         RelationshipType relationshipType,
         string? personalNotes,
@@ -138,11 +138,11 @@ public sealed class User : Entity<Guid>
     {
         var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
         if (tracked is null)
-            return Result.Failure("Отслеживание не найдено");
+            return Errors.Tracking.NotFound(deceasedId);
 
         var relationResult = tracked.UpdateRelationship(relationshipType, personalNotes);
         if (relationResult.IsFailure)
-            return relationResult;
+            return relationResult.Error;
 
         return tracked.ChangeNotifications(notifyOnDeathAnniversary, notifyOnBirthAnniversary);
     }

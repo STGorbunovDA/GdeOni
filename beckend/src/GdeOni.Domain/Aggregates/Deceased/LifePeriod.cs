@@ -1,4 +1,5 @@
 ﻿using CSharpFunctionalExtensions;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.Domain.Aggregates.Deceased;
 
@@ -7,25 +8,23 @@ public sealed class LifePeriod : ValueObject
     public DateTime? BirthDate { get; }
     public DateTime DeathDate { get; }
 
-    private LifePeriod()
-    {
-    }
-    
+    private LifePeriod() { }
+
     private LifePeriod(DateTime? birthDate, DateTime deathDate)
     {
         BirthDate = birthDate;
         DeathDate = deathDate;
     }
 
-    public static Result<LifePeriod> Create(DateTime? birthDate, DateTime deathDate)
+    public static Result<LifePeriod, Error> Create(DateTime? birthDate, DateTime deathDate)
     {
         if (deathDate == default)
-            return Result.Failure<LifePeriod>("Дата смерти обязательна");
+            return Errors.LifePeriod.DeathDateRequired();
 
         if (birthDate.HasValue && birthDate.Value.Date > deathDate.Date)
-            return Result.Failure<LifePeriod>("Дата рождения не может быть позже даты смерти");
+            return Errors.LifePeriod.BirthDateAfterDeathDate();
 
-        return Result.Success(new LifePeriod(
+        return Result.Success<LifePeriod, Error>(new LifePeriod(
             birthDate?.Date,
             deathDate.Date));
     }

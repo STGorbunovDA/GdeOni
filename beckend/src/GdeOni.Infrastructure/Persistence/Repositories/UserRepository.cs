@@ -6,12 +6,12 @@ namespace GdeOni.Infrastructure.Persistence.Repositories;
 
 public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 {
-    public Task<bool> ExistsByIdAsync(Guid userId, CancellationToken cancellationToken)
+    public Task<bool> ExistsById(Guid userId, CancellationToken cancellationToken)
     {
         return dbContext.Users.AnyAsync(x => x.Id == userId, cancellationToken);
     }
 
-    public Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken)
+    public Task<bool> ExistsByEmail(string email, CancellationToken cancellationToken)
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
 
@@ -20,7 +20,7 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             cancellationToken);
     }
 
-    public Task<bool> ExistsByUserNameAsync(string userName, CancellationToken cancellationToken)
+    public Task<bool> ExistsByUserName(string userName, CancellationToken cancellationToken)
     {
         var normalizedUserName = userName.Trim();
 
@@ -29,12 +29,12 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             cancellationToken);
     }
 
-    public async Task AddAsync(User user, CancellationToken cancellationToken)
+    public async Task Add(User user, CancellationToken cancellationToken)
     {
         await dbContext.Users.AddAsync(user, cancellationToken);
     }
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken)
+    public Task Save(CancellationToken cancellationToken)
     {
         return dbContext.SaveChangesAsync(cancellationToken);
     }
