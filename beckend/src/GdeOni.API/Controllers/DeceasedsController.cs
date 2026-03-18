@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace GdeOni.API.Controllers;
 
 [ApiController]
-[Route("api/deceased")]
+[Route("api/deceasedRecords")]
 public sealed class DeceasedsController : ControllerBase
 {
     [HttpPost]
@@ -21,6 +21,6 @@ public sealed class DeceasedsController : ControllerBase
         if (result.IsFailure)
             return BadRequest(new { error = result.Error });
 
-        return Created($"/api/deceased/{result.Value.Id}", result.Value);
+        return Created($"/api/deceasedRecords/{result.Value.Id}", result.Value);
     }
 }
