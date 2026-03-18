@@ -56,7 +56,7 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
             normalizedEmail,
             request.PasswordHash,
             request.FullName,
-            request.UserName);
+            finalUserName);
 
         if (userResult.IsFailure)
             return userResult.Error;
