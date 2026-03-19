@@ -23,9 +23,9 @@ public static class ResponseExtensions
         };
     }
 
-    public static ActionResult ToOkResponse<T>(this T? result, int statusCode = StatusCodes.Status200OK)
+    public static ActionResult ToOkResponse<T>(this T result, int statusCode = StatusCodes.Status200OK)
     {
-        return new ObjectResult(ApiResponse<T>.Ok(result))
+        return new ObjectResult(ApiResponse<T>.Success(result))
         {
             StatusCode = statusCode
         };
@@ -33,6 +33,6 @@ public static class ResponseExtensions
 
     public static ActionResult ToCreatedResponse<T>(this T result, string location)
     {
-        return new CreatedResult(location, ApiResponse<T>.Ok(result));
+        return new CreatedResult(location, ApiResponse<T>.Success(result));
     }
 }

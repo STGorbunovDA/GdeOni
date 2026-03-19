@@ -7,8 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace GdeOni.API.Controllers;
 
 [ApiController]
-[Route("api/deceaseds")]
-public sealed class DeceasedsController : ControllerBase
+[Route("api/deceased-records")]
+public sealed class DeceasedRecordsController : ControllerBase
 {
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status201Created)]
@@ -26,6 +26,6 @@ public sealed class DeceasedsController : ControllerBase
         if (result.IsFailure)
             return result.Error.ToErrorResponse<CreateDeceasedResponse>();
 
-        return result.Value.ToCreatedResponse($"/api/deceaseds/{result.Value.Id}");
+        return result.Value.ToCreatedResponse($"/api/deceased-records/{result.Value.Id}");
     }
 }
