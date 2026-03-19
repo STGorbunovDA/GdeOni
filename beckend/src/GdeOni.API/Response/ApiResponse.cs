@@ -2,25 +2,24 @@
 
 namespace GdeOni.API.Response;
 
-public class Envelope
+public sealed class ApiResponse<T>
 {
-    public object? Result { get; }
+    public T? Result { get; }
     public string? ErrorCode { get; }
     public string? ErrorMessage { get; }
     public DateTime TimeGenerated { get; }
-    
-    private Envelope(object? result, Error? error)
+
+    private ApiResponse(T? result, Error? error)
     {
         Result = result;
         ErrorCode = error?.Code;
         ErrorMessage = error?.Message;
-        TimeGenerated = DateTime.Now;
+        TimeGenerated = DateTime.UtcNow;
     }
 
-    public static Envelope Ok(object? result = null) =>
+    public static ApiResponse<T> Ok(T? result = default) =>
         new(result, null);
 
-    public static Envelope Error(Error error) =>
-        new(null, error);
-
+    public static ApiResponse<T> Error(Error error) =>
+        new(default, error);
 }

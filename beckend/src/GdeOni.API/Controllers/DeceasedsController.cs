@@ -7,15 +7,15 @@ using Microsoft.AspNetCore.Mvc;
 namespace GdeOni.API.Controllers;
 
 [ApiController]
-[Route("api/deceasedRecords")]
+[Route("api/deceaseds")]
 public sealed class DeceasedsController : ControllerBase
 {
     [HttpPost]
-    [ProducesResponseType(typeof(Envelope), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Create(
         [FromBody] CreateDeceasedRequest request,
         [FromServices] ICreateDeceasedUseCase createDeceasedUseCase,
@@ -24,8 +24,8 @@ public sealed class DeceasedsController : ControllerBase
         var result = await createDeceasedUseCase.Execute(request, cancellationToken);
 
         if (result.IsFailure)
-            return result.Error.ToErrorResponse();
+            return result.Error.ToErrorResponse<CreateDeceasedResponse>();
 
-        return result.Value.ToCreatedResponse($"/api/deceasedRecords/{result.Value.Id}");
+        return result.Value.ToCreatedResponse($"/api/deceaseds/{result.Value.Id}");
     }
 }

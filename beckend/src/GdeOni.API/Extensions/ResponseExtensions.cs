@@ -6,7 +6,7 @@ namespace GdeOni.API.Extensions;
 
 public static class ResponseExtensions
 {
-    public static ActionResult ToErrorResponse(this Error error)
+    public static ActionResult ToErrorResponse<T>(this Error error)
     {
         var statusCode = error.Type switch
         {
@@ -17,22 +17,22 @@ public static class ResponseExtensions
             _ => StatusCodes.Status500InternalServerError
         };
 
-        return new ObjectResult(Envelope.Error(error))
+        return new ObjectResult(ApiResponse<T>.Error(error))
         {
             StatusCode = statusCode
         };
     }
 
-    public static ActionResult ToOkResponse(this object? result, int statusCode = StatusCodes.Status200OK)
+    public static ActionResult ToOkResponse<T>(this T? result, int statusCode = StatusCodes.Status200OK)
     {
-        return new ObjectResult(Envelope.Ok(result))
+        return new ObjectResult(ApiResponse<T>.Ok(result))
         {
             StatusCode = statusCode
         };
     }
 
-    public static ActionResult ToCreatedResponse(this object? result, string location)
+    public static ActionResult ToCreatedResponse<T>(this T result, string location)
     {
-        return new CreatedResult(location, Envelope.Ok(result));
+        return new CreatedResult(location, ApiResponse<T>.Ok(result));
     }
 }
