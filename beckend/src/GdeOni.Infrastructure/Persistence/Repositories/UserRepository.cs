@@ -1,6 +1,8 @@
 ﻿using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Domain.Aggregates.User;
+using GdeOni.Domain.Shared;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace GdeOni.Infrastructure.Persistence.Repositories;
 
@@ -22,7 +24,7 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 
     public Task<bool> ExistsByUserName(string userName, CancellationToken cancellationToken)
     {
-        var normalizedUserName = userName.Trim();
+        var normalizedUserName = userName.Trim().ToLowerInvariant();
 
         return dbContext.Users.AnyAsync(
             x => x.UserName == normalizedUserName,
@@ -34,8 +36,17 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
         await dbContext.Users.AddAsync(user, cancellationToken);
     }
 
-    public Task Save(CancellationToken cancellationToken)
+    public async Task Save(CancellationToken cancellationToken)
     {
-        return dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (
+            ex.InnerException is PostgresException postgresException &&
+            postgresException.SqlState == "23505")
+        {
+            throw new UniqueConstraintException(postgresException.ConstraintName);
+        }
     }
 }
