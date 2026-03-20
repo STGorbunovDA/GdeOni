@@ -84,6 +84,9 @@ public static class Errors
 
         public static Error MetadataRequired() =>
             Error.Validation("deceased.metadata.required", "Metadata is required");
+        
+        public static Error AlreadyExists() =>
+            Error.Conflict("deceased.already.exists", "Such a deceased person already exists.");
     }
 
     public static class DeceasedPhoto
@@ -139,6 +142,12 @@ public static class Errors
 
         public static Error UserNameRequired() =>
             Error.Validation("user.user_name.required", "User name is required");
+
+        public static Error EmailAlreadyExists() =>
+            Error.Conflict("user.email.already.exists", "User with this email already exists");
+
+        public static Error UserNameAlreadyExists() =>
+            Error.Conflict("user.user_name.already.exists", "User with this user name already exists");
     }
 
     public static class Tracking

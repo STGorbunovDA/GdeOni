@@ -1,5 +1,6 @@
 ﻿using GdeOni.Domain.Aggregates.Deceased;
 using GdeOni.Domain.Aggregates.User;
+using GdeOni.Domain.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -57,6 +58,15 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
         builder.Property(x => x.IsVerified)
             .HasColumnName("is_verified")
             .IsRequired();
+        
+        builder.Property(x => x.SearchKey)
+            .HasColumnName("search_key")
+            .HasMaxLength(1000)
+            .IsRequired();
+
+        builder.HasIndex(x => x.SearchKey)
+            .IsUnique()
+            .HasDatabaseName(DbConstraints.DeceasedSearchKey);
 
         // -----------------------------
         // Value Object: PersonName

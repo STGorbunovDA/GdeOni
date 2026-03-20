@@ -65,6 +65,13 @@ public sealed class CreateDeceasedUseCase : ICreateDeceasedUseCase
             return deceasedResult.Error;
 
         var deceased = deceasedResult.Value;
+        
+        var alreadyExists = await _deceasedRepository.ExistsBySearchKey(
+            deceased.SearchKey,
+            cancellationToken);
+
+        if (alreadyExists)
+            return Errors.Deceased.AlreadyExists();
 
         if (request.Photos is not null)
         {
@@ -110,8 +117,16 @@ public sealed class CreateDeceasedUseCase : ICreateDeceasedUseCase
                 return metadataResult.Error;
         }
 
-        await _deceasedRepository.Add(deceased, cancellationToken);
-        await _deceasedRepository.Save(cancellationToken);
+        try
+        {
+            await _deceasedRepository.Add(deceased, cancellationToken);
+            await _deceasedRepository.Save(cancellationToken);
+        }
+        catch (UniqueConstraintException ex) when (
+            ex.ConstraintName == DbConstraints.DeceasedSearchKey)
+        {
+            return Errors.Deceased.AlreadyExists();
+        }
 
         return Result.Success<CreateDeceasedResponse, Error>(
             new CreateDeceasedResponse(deceased.Id));

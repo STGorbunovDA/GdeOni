@@ -23,6 +23,7 @@ public sealed class Deceased : Entity<Guid>
 
     private readonly List<DeceasedMemoryEntry> _memories = new();
     public IReadOnlyCollection<DeceasedMemoryEntry> Memories => _memories.AsReadOnly();
+    public string SearchKey { get; private set; } = null!;
 
     public DeceasedMetadata Metadata { get; private set; }
 
@@ -53,6 +54,7 @@ public sealed class Deceased : Entity<Guid>
         CreatedAtUtc = createdAtUtc;
         IsVerified = false;
         Metadata = DeceasedMetadata.Empty();
+        RebuildSearchKey();
     }
 
     public static Result<Deceased, Error> Create(
@@ -89,8 +91,45 @@ public sealed class Deceased : Entity<Guid>
             string.IsNullOrWhiteSpace(biography) ? null : biography.Trim(),
             createdByUserId,
             DateTime.UtcNow);
-
+        
+        
         return Result.Success<Deceased, Error>(deceased);
+    }
+    
+    private void RebuildSearchKey()
+    {
+        SearchKey = BuildSearchKey(
+            Name.FirstName,
+            Name.LastName,
+            Name.MiddleName,
+            LifePeriod.BirthDate,
+            LifePeriod.DeathDate,
+            BurialLocation);
+    }
+    
+    private static string BuildSearchKey(
+        string firstName,
+        string lastName,
+        string? middleName,
+        DateTime? birthDate,
+        DateTime deathDate,
+        BurialLocation burialLocation)
+    {
+        static string N(string? value) => string.IsNullOrWhiteSpace(value)
+            ? "-"
+            : value.Trim().ToUpperInvariant();
+
+        static string D(DateTime? value) => value?.Date.ToString("yyyy-MM-dd") ?? "-";
+
+        return string.Join("|",
+            N(firstName),
+            N(lastName),
+            N(middleName),
+            D(birthDate),
+            D(deathDate),
+            N(burialLocation.CemeteryName),
+            N(burialLocation.PlotNumber),
+            N(burialLocation.GraveNumber));
     }
 
     public UnitResult<Error> UpdateMainInfo(
@@ -115,7 +154,7 @@ public sealed class Deceased : Entity<Guid>
         ShortDescription = string.IsNullOrWhiteSpace(shortDescription) ? null : shortDescription.Trim();
         Biography = string.IsNullOrWhiteSpace(biography) ? null : biography.Trim();
         UpdatedAtUtc = DateTime.UtcNow;
-
+        RebuildSearchKey();
         return UnitResult.Success<Error>();
     }
 
@@ -126,6 +165,8 @@ public sealed class Deceased : Entity<Guid>
 
         BurialLocation = burialLocation;
         UpdatedAtUtc = DateTime.UtcNow;
+        
+        RebuildSearchKey();
 
         return UnitResult.Success<Error>();
     }

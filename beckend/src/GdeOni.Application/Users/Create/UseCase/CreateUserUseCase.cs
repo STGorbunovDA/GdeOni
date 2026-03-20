@@ -39,18 +39,14 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
             cancellationToken);
 
         if (emailExists)
-            return Error.Conflict(
-                "user.email.already.exists",
-                "User with this email already exists");
+            return Errors.User.EmailAlreadyExists();
 
         var userNameExists = await _userRepository.ExistsByUserName(
             finalUserName,
             cancellationToken);
 
         if (userNameExists)
-            return Error.Conflict(
-                "user.user_name.already.exists",
-                "User with this user name already exists");
+            return Errors.User.UserNameAlreadyExists();
 
         var userResult = User.Register(
             normalizedEmail,
@@ -63,9 +59,19 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
 
         var user = userResult.Value;
 
-        await _userRepository.Add(user, cancellationToken);
-        await _userRepository.Save(cancellationToken);
-
+        try
+        {
+            await _userRepository.Add(user, cancellationToken);
+            await _userRepository.Save(cancellationToken);
+        }
+        catch (UniqueConstraintException ex) when ( ex.ConstraintName == DbConstraints.UxUsersEmail)
+        {
+            return Errors.User.EmailAlreadyExists();
+        }
+        catch (UniqueConstraintException ex) when (ex.ConstraintName == DbConstraints.UxUsersName)
+        {
+            return Errors.User.UserNameAlreadyExists();
+        }
         return Result.Success<CreateUserResponse, Error>(
             new CreateUserResponse(user.Id));
     }

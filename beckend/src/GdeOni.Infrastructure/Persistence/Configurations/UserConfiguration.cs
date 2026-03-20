@@ -1,4 +1,5 @@
 ﻿using GdeOni.Domain.Aggregates.User;
+using GdeOni.Domain.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -72,11 +73,10 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         // Email должен быть уникален
         builder.HasIndex(x => x.Email)
             .IsUnique()
-            .HasDatabaseName("ux_users_email");
+            .HasDatabaseName(DbConstraints.UxUsersEmail);
 
-        // UserName тоже уникален
         builder.HasIndex(x => x.UserName)
             .IsUnique()
-            .HasDatabaseName("ux_users_user_name");
+            .HasDatabaseName(DbConstraints.UxUsersName);
     }
 }
