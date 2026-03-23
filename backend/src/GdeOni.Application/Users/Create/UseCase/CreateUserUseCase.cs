@@ -24,7 +24,7 @@ public sealed class CreateUserUseCase(IUserRepository userRepository, IPasswordH
         if (string.IsNullOrWhiteSpace(request.Password))
             return Errors.User.PasswordRequired();
         
-        if (request.Password.Length < Constant.PASSWORD_LENGTH)
+        if (request.Password.Length < PasswordPolicy.MIN_PASSWORD_LENGTH)
             return Errors.User.PasswordTooShort();
         
         var passwordHash = passwordHasher.Hash(request.Password);
