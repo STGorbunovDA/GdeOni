@@ -137,8 +137,11 @@ public static class Errors
         public static Error EmailInvalid() =>
             Error.Validation("user.email.invalid", "Email is invalid");
 
-        public static Error PasswordHashRequired() =>
-            Error.Validation("user.password_hash.required", "Password hash is required");
+        public static Error PasswordRequired() =>
+            Error.Validation("user.password.required", "Password is required");
+        
+        public static Error PasswordTooShort() =>
+            Error.Validation("user.password.too_short", "Password too short");
 
         public static Error UserNameRequired() =>
             Error.Validation("user.user_name.required", "User name is required");

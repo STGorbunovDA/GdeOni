@@ -1,6 +1,8 @@
 ﻿using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Common.Security;
 using GdeOni.Infrastructure.Persistence;
 using GdeOni.Infrastructure.Persistence.Repositories;
+using GdeOni.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,7 +39,7 @@ public static class DependencyInjection
 
         services.AddScoped<IDeceasedRepository, DeceasedRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
-
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
         return services;
     }
 }

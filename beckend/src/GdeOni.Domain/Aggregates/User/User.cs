@@ -48,7 +48,7 @@ public sealed class User : Entity<Guid>
             return Errors.User.EmailRequired();
 
         if (string.IsNullOrWhiteSpace(passwordHash))
-            return Errors.User.PasswordHashRequired();
+            return Errors.User.PasswordRequired();
 
         if (!IsValidEmail(email))
             return Errors.User.EmailInvalid();
@@ -84,7 +84,7 @@ public sealed class User : Entity<Guid>
     public UnitResult<Error> ChangePasswordHash(string newPasswordHash)
     {
         if (string.IsNullOrWhiteSpace(newPasswordHash))
-            return Errors.User.PasswordHashRequired();
+            return Errors.User.PasswordRequired();
 
         PasswordHash = newPasswordHash;
         return UnitResult.Success<Error>();

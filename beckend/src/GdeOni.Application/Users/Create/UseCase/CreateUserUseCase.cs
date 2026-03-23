@@ -1,20 +1,16 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Common.Security;
+using GdeOni.Application.Constants;
 using GdeOni.Application.Users.Create.Model;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Users.Create.UseCase;
 
-public sealed class CreateUserUseCase : ICreateUserUseCase
+public sealed class CreateUserUseCase(IUserRepository userRepository, IPasswordHasher passwordHasher)
+    : ICreateUserUseCase
 {
-    private readonly IUserRepository _userRepository;
-
-    public CreateUserUseCase(IUserRepository userRepository)
-    {
-        _userRepository = userRepository;
-    }
-
     public async Task<Result<CreateUserResponse, Error>> Execute(
         CreateUserRequest request,
         CancellationToken cancellationToken)
@@ -25,8 +21,13 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
         if (string.IsNullOrWhiteSpace(request.Email))
             return Errors.User.EmailRequired();
 
-        if (string.IsNullOrWhiteSpace(request.PasswordHash))
-            return Errors.User.PasswordHashRequired();
+        if (string.IsNullOrWhiteSpace(request.Password))
+            return Errors.User.PasswordRequired();
+        
+        if (request.Password.Length < Constant.PASSWORD_LENGTH)
+            return Errors.User.PasswordTooShort();
+        
+        var passwordHash = passwordHasher.Hash(request.Password);
 
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
@@ -34,14 +35,14 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
             ? normalizedEmail.Split('@')[0]
             : request.UserName.Trim();
 
-        var emailExists = await _userRepository.ExistsByEmail(
+        var emailExists = await userRepository.ExistsByEmail(
             normalizedEmail,
             cancellationToken);
 
         if (emailExists)
             return Errors.User.EmailAlreadyExists();
 
-        var userNameExists = await _userRepository.ExistsByUserName(
+        var userNameExists = await userRepository.ExistsByUserName(
             finalUserName,
             cancellationToken);
 
@@ -50,7 +51,7 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
 
         var userResult = User.Register(
             normalizedEmail,
-            request.PasswordHash,
+            passwordHash,
             request.FullName,
             finalUserName);
 
@@ -61,8 +62,8 @@ public sealed class CreateUserUseCase : ICreateUserUseCase
 
         try
         {
-            await _userRepository.Add(user, cancellationToken);
-            await _userRepository.Save(cancellationToken);
+            await userRepository.Add(user, cancellationToken);
+            await userRepository.Save(cancellationToken);
         }
         catch (UniqueConstraintException ex) when ( ex.ConstraintName == DbConstraints.UxUsersEmail)
         {
