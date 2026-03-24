@@ -1,6 +1,5 @@
 ﻿using CSharpFunctionalExtensions;
 using FluentValidation;
-using GdeOni.Application.Validation;
 using GdeOni.Domain.Shared;
 using Microsoft.Extensions.DependencyInjection;
 

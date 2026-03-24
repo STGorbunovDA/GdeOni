@@ -1,7 +1,7 @@
 ﻿using FluentValidation.Results;
 using GdeOni.Domain.Shared;
 
-namespace GdeOni.Application.Validation;
+namespace GdeOni.Application.Abstractions.Validation;
 
 public static class ValidationExtensions
 {
