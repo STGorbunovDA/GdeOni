@@ -1,24 +1,19 @@
 ﻿using CSharpFunctionalExtensions;
+using FluentValidation;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Deceased.Create.Model;
+using GdeOni.Application.Validation;
 using GdeOni.Domain.Aggregates.Deceased;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Deceased.Create.UseCase;
 
-public sealed class CreateDeceasedUseCase : ICreateDeceasedUseCase
+public sealed class CreateDeceasedUseCase(
+    IDeceasedRepository deceasedRepository,
+    IUserRepository userRepository,
+    IValidator<CreateDeceasedRequest> validator)
+    : ICreateDeceasedUseCase
 {
-    private readonly IDeceasedRepository _deceasedRepository;
-    private readonly IUserRepository _userRepository;
-
-    public CreateDeceasedUseCase(
-        IDeceasedRepository deceasedRepository,
-        IUserRepository userRepository)
-    {
-        _deceasedRepository = deceasedRepository;
-        _userRepository = userRepository;
-    }
-
     public async Task<Result<CreateDeceasedResponse, Error>> Execute(
         CreateDeceasedRequest request,
         CancellationToken cancellationToken)
@@ -26,10 +21,11 @@ public sealed class CreateDeceasedUseCase : ICreateDeceasedUseCase
         if (request is null)
             return Errors.General.ValueIsRequired(nameof(CreateDeceasedRequest));
 
-        if (request.BurialLocation is null)
-            return Errors.Deceased.BurialLocationRequired();
+        var validationResult = await validator.ValidateAsync(request, cancellationToken);
+        if (!validationResult.IsValid)
+            return validationResult.ToValidationError();
 
-        var creatorExists = await _userRepository.ExistsById(
+        var creatorExists = await userRepository.ExistsById(
             request.CreatedByUserId,
             cancellationToken);
 
@@ -65,8 +61,8 @@ public sealed class CreateDeceasedUseCase : ICreateDeceasedUseCase
             return deceasedResult.Error;
 
         var deceased = deceasedResult.Value;
-        
-        var alreadyExists = await _deceasedRepository.ExistsBySearchKey(
+
+        var alreadyExists = await deceasedRepository.ExistsBySearchKey(
             deceased.SearchKey,
             cancellationToken);
 
@@ -119,8 +115,8 @@ public sealed class CreateDeceasedUseCase : ICreateDeceasedUseCase
 
         try
         {
-            await _deceasedRepository.Add(deceased, cancellationToken);
-            await _deceasedRepository.Save(cancellationToken);
+            await deceasedRepository.Add(deceased, cancellationToken);
+            await deceasedRepository.Save(cancellationToken);
         }
         catch (UniqueConstraintException ex) when (
             ex.ConstraintName == DbConstraints.DeceasedSearchKey)

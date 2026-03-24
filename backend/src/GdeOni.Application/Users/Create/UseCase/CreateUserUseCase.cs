@@ -1,14 +1,18 @@
 ﻿using CSharpFunctionalExtensions;
+using FluentValidation;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Common.Security;
-using GdeOni.Application.Constants;
 using GdeOni.Application.Users.Create.Model;
+using GdeOni.Application.Validation;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Users.Create.UseCase;
 
-public sealed class CreateUserUseCase(IUserRepository userRepository, IPasswordHasher passwordHasher)
+public sealed class CreateUserUseCase(
+    IUserRepository userRepository,
+    IPasswordHasher passwordHasher,
+    IValidator<CreateUserRequest> validator)
     : ICreateUserUseCase
 {
     public async Task<Result<CreateUserResponse, Error>> Execute(
@@ -18,16 +22,9 @@ public sealed class CreateUserUseCase(IUserRepository userRepository, IPasswordH
         if (request is null)
             return Errors.General.ValueIsRequired(nameof(CreateUserRequest));
 
-        if (string.IsNullOrWhiteSpace(request.Email))
-            return Errors.User.EmailRequired();
-
-        if (string.IsNullOrWhiteSpace(request.Password))
-            return Errors.User.PasswordRequired();
-        
-        if (request.Password.Length < PasswordPolicy.MIN_PASSWORD_LENGTH)
-            return Errors.User.PasswordTooShort();
-        
-        var passwordHash = passwordHasher.Hash(request.Password);
+        var validationResult = await validator.ValidateAsync(request, cancellationToken);
+        if (!validationResult.IsValid)
+            return validationResult.ToValidationError();
 
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
@@ -49,6 +46,8 @@ public sealed class CreateUserUseCase(IUserRepository userRepository, IPasswordH
         if (userNameExists)
             return Errors.User.UserNameAlreadyExists();
 
+        var passwordHash = passwordHasher.Hash(request.Password);
+
         var userResult = User.Register(
             normalizedEmail,
             passwordHash,
@@ -65,14 +64,11 @@ public sealed class CreateUserUseCase(IUserRepository userRepository, IPasswordH
             await userRepository.Add(user, cancellationToken);
             await userRepository.Save(cancellationToken);
         }
-        catch (UniqueConstraintException ex) when ( ex.ConstraintName == DbConstraints.UxUsersEmail)
+        catch (UniqueConstraintException ex) when (ex.ConstraintName == DbConstraints.UxUsersEmail)
         {
             return Errors.User.EmailAlreadyExists();
         }
-        catch (UniqueConstraintException ex) when (ex.ConstraintName == DbConstraints.UxUsersName)
-        {
-            return Errors.User.UserNameAlreadyExists();
-        }
+
         return Result.Success<CreateUserResponse, Error>(
             new CreateUserResponse(user.Id));
     }

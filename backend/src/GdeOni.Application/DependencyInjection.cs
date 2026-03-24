@@ -1,4 +1,5 @@
-﻿using GdeOni.Application.Deceased.Create.UseCase;
+﻿using FluentValidation;
+using GdeOni.Application.Deceased.Create.UseCase;
 using GdeOni.Application.Users.Create.UseCase;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +11,8 @@ public static class DependencyInjection
     {
         services.AddScoped<ICreateDeceasedUseCase, CreateDeceasedUseCase>();
         services.AddScoped<ICreateUserUseCase, CreateUserUseCase>();
+        
+        services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;
     }
 }
