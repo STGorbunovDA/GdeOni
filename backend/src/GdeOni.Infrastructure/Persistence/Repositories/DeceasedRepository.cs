@@ -10,12 +10,12 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
 {
     public async Task Add(Deceased deceased, CancellationToken cancellationToken)
     {
-        await dbContext.Deceaseds.AddAsync(deceased, cancellationToken);
+        await dbContext.DeceasedRecords.AddAsync(deceased, cancellationToken);
     }
     
     public Task<bool> ExistsBySearchKey(string searchKey, CancellationToken cancellationToken)
     {
-        return dbContext.Deceaseds
+        return dbContext.DeceasedRecords
             .AsNoTracking()
             .AnyAsync(x => x.SearchKey == searchKey, cancellationToken);
     }

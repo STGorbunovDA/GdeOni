@@ -39,7 +39,7 @@ public sealed class DeceasedPhotoConfiguration : IEntityTypeConfiguration<Deceas
             .HasMaxLength(2000)
             .IsRequired();
 
-        // Описание фото
+        // Описание фотоф
         builder.Property(x => x.Description)
             .HasColumnName("description")
             .HasMaxLength(1000);

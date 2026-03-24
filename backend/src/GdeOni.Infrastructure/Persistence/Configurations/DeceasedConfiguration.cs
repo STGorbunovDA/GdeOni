@@ -20,7 +20,7 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
     public void Configure(EntityTypeBuilder<Deceased> builder)
     {
         // Имя таблицы в PostgreSQL
-        builder.ToTable("deceaseds");
+        builder.ToTable("deceased_records");
 
         // Первичный ключ
         builder.HasKey(x => x.Id);
