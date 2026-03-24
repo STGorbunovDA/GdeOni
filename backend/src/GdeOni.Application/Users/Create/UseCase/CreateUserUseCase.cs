@@ -1,9 +1,8 @@
 ﻿using CSharpFunctionalExtensions;
-using FluentValidation;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Users.Create.Model;
-using GdeOni.Application.Validation;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
 
@@ -12,20 +11,23 @@ namespace GdeOni.Application.Users.Create.UseCase;
 public sealed class CreateUserUseCase(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
-    IValidator<CreateUserRequest> validator)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : ICreateUserUseCase
 {
-    public async Task<Result<CreateUserResponse, Error>> Execute(
+    public Task<Result<CreateUserResponse, Error>> Execute(
         CreateUserRequest request,
         CancellationToken cancellationToken)
     {
-        if (request is null)
-            return Errors.General.ValueIsRequired(nameof(CreateUserRequest));
+        return validatedUseCaseExecutor.Execute(
+            request,
+            Handle,
+            cancellationToken);
+    }
 
-        var validationResult = await validator.ValidateAsync(request, cancellationToken);
-        if (!validationResult.IsValid)
-            return validationResult.ToValidationError();
-
+    private async Task<Result<CreateUserResponse, Error>> Handle(
+        CreateUserRequest request,
+        CancellationToken cancellationToken)
+    {
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
         var finalUserName = string.IsNullOrWhiteSpace(request.UserName)

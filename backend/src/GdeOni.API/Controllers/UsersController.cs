@@ -1,14 +1,12 @@
-﻿using GdeOni.API.Extensions;
-using GdeOni.API.Response;
+﻿using GdeOni.API.Response;
 using GdeOni.Application.Users.Create.Model;
 using GdeOni.Application.Users.Create.UseCase;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
 
-[ApiController]
 [Route("api/users")]
-public sealed class UsersController : ControllerBase
+public sealed class UsersController : ApiControllerBase
 {
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<CreateUserResponse>), StatusCodes.Status201Created)]
@@ -23,8 +21,8 @@ public sealed class UsersController : ControllerBase
     {
         var result = await createUserUseCase.Execute(request, cancellationToken);
 
-        if (result.IsFailure)
-            return result.Error.ToErrorResponse<CreateUserResponse>();
-        return result.Value.ToCreatedResponse($"/api/users/{result.Value.Id}");
+        return FromResult(
+            result,
+            value => Created($"/api/users/{value.Id}", ApiResponse<CreateUserResponse>.Success(value)));
     }
 }

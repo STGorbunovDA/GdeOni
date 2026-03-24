@@ -52,6 +52,9 @@ public static class Errors
         public static Error DeathDateRequired() =>
             Error.Validation("life_period.death_date.required", "Death date is required");
 
+        public static Error DeathDateInFuture() =>
+            Error.Validation("life_period.death_date.in_future", "Death date cannot be in the future");
+
         public static Error BirthDateAfterDeathDate() =>
             Error.Validation("life_period.birth_date.invalid", "Birth date cannot be later than death date");
     }

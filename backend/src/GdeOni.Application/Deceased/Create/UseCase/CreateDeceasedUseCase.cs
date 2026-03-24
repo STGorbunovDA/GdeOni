@@ -1,8 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
-using FluentValidation;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Deceased.Create.Model;
-using GdeOni.Application.Validation;
 using GdeOni.Domain.Aggregates.Deceased;
 using GdeOni.Domain.Shared;
 
@@ -11,20 +10,23 @@ namespace GdeOni.Application.Deceased.Create.UseCase;
 public sealed class CreateDeceasedUseCase(
     IDeceasedRepository deceasedRepository,
     IUserRepository userRepository,
-    IValidator<CreateDeceasedRequest> validator)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : ICreateDeceasedUseCase
 {
-    public async Task<Result<CreateDeceasedResponse, Error>> Execute(
+    public Task<Result<CreateDeceasedResponse, Error>> Execute(
         CreateDeceasedRequest request,
         CancellationToken cancellationToken)
     {
-        if (request is null)
-            return Errors.General.ValueIsRequired(nameof(CreateDeceasedRequest));
+        return validatedUseCaseExecutor.Execute(
+            request,
+            Handle,
+            cancellationToken);
+    }
 
-        var validationResult = await validator.ValidateAsync(request, cancellationToken);
-        if (!validationResult.IsValid)
-            return validationResult.ToValidationError();
-
+    private async Task<Result<CreateDeceasedResponse, Error>> Handle(
+        CreateDeceasedRequest request,
+        CancellationToken cancellationToken)
+    {
         var creatorExists = await userRepository.ExistsById(
             request.CreatedByUserId,
             cancellationToken);
@@ -118,8 +120,7 @@ public sealed class CreateDeceasedUseCase(
             await deceasedRepository.Add(deceased, cancellationToken);
             await deceasedRepository.Save(cancellationToken);
         }
-        catch (UniqueConstraintException ex) when (
-            ex.ConstraintName == DbConstraints.DeceasedSearchKey)
+        catch (UniqueConstraintException ex) when (ex.ConstraintName == DbConstraints.DeceasedSearchKey)
         {
             return Errors.Deceased.AlreadyExists();
         }

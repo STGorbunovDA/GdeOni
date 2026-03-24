@@ -20,6 +20,9 @@ public sealed class LifePeriod : ValueObject
     {
         if (deathDate == default)
             return Errors.LifePeriod.DeathDateRequired();
+        
+        if (deathDate.Date > DateTime.UtcNow.Date)
+            return Errors.LifePeriod.DeathDateInFuture();
 
         if (birthDate.HasValue && birthDate.Value.Date > deathDate.Date)
             return Errors.LifePeriod.BirthDateAfterDeathDate();

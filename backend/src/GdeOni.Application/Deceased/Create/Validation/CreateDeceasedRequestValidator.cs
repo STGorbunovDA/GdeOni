@@ -21,6 +21,11 @@ public sealed class CreateDeceasedRequestValidator : AbstractValidator<CreateDec
 
         RuleFor(x => x.DeathDate)
             .NotEmpty().WithMessage("Death date is required.");
+        
+        RuleFor(x => x.DeathDate)
+            .NotEmpty().WithMessage("Death date is required.")
+            .Must(x => x.Date <= DateTime.UtcNow.Date)
+            .WithMessage("Death date cannot be in the future.");
 
         RuleFor(x => x)
             .Must(x => x.BirthDate is null || x.BirthDate.Value.Date <= x.DeathDate.Date)
