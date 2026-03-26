@@ -12,12 +12,35 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
     {
         await dbContext.DeceasedRecords.AddAsync(deceased, cancellationToken);
     }
-    
+
+    public async Task<Deceased?> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        return await dbContext.DeceasedRecords
+            .Include(x => x.Photos)
+            .Include(x => x.Memories)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
+    public async Task<List<Deceased>> GetAll(CancellationToken cancellationToken)
+    {
+        return await dbContext.DeceasedRecords
+            .AsNoTracking()
+            .Include(x => x.Photos)
+            .Include(x => x.Memories)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<bool> ExistsBySearchKey(string searchKey, CancellationToken cancellationToken)
     {
         return dbContext.DeceasedRecords
             .AsNoTracking()
             .AnyAsync(x => x.SearchKey == searchKey, cancellationToken);
+    }
+
+    public void Delete(Deceased deceased)
+    {
+        dbContext.DeceasedRecords.Remove(deceased);
     }
 
     public async Task Save(CancellationToken cancellationToken)

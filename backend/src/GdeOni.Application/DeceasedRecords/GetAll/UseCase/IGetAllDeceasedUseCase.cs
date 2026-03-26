@@ -1,0 +1,10 @@
+﻿using CSharpFunctionalExtensions;
+using GdeOni.Application.DeceasedRecords.GetAll.Model;
+using GdeOni.Domain.Shared;
+
+namespace GdeOni.Application.DeceasedRecords.GetAll.UseCase;
+
+public interface IGetAllDeceasedUseCase
+{
+    Task<Result<List<DeceasedListItemResponse>, Error>> Execute(CancellationToken cancellationToken);
+}
