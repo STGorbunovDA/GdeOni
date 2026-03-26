@@ -9,6 +9,8 @@ public sealed class DeceasedListItemResponse
     public string Country { get; init; } = null!;
     public string? City { get; init; }
     public string? CemeteryName { get; init; }
+    public string? PlotNumber { get; init; }
+    public string? GraveNumber { get; init; }
     public bool IsVerified { get; init; }
     public DateTime CreatedAtUtc { get; init; }
 }

@@ -21,6 +21,8 @@ public sealed class GetAllDeceasedUseCase(IDeceasedRepository deceasedRepository
             Country = x.BurialLocation.Country,
             City = x.BurialLocation.City,
             CemeteryName = x.BurialLocation.CemeteryName,
+            PlotNumber = x.BurialLocation.PlotNumber,
+            GraveNumber = x.BurialLocation.GraveNumber,
             IsVerified = x.IsVerified,
             CreatedAtUtc = x.CreatedAtUtc
         }).ToList();
