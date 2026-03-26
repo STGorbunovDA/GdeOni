@@ -3,6 +3,8 @@ using GdeOni.Application.DeceasedRecords.Create.Model;
 using GdeOni.Application.DeceasedRecords.Create.UseCase;
 using GdeOni.Application.DeceasedRecords.GetAll.Model;
 using GdeOni.Application.DeceasedRecords.GetAll.UseCase;
+using GdeOni.Application.DeceasedRecords.GetById.Model;
+using GdeOni.Application.DeceasedRecords.GetById.UseCase;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
@@ -32,6 +34,18 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         CancellationToken cancellationToken)
     {
         var result = await getAllDeceasedUseCase.Execute(cancellationToken);
+        return FromResult(result);
+    }
+    
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<DeceasedDetailsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<DeceasedDetailsResponse>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetById(
+        Guid id,
+        [FromServices] IGetDeceasedByIdUseCase getDeceasedByIdUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await getDeceasedByIdUseCase.Execute(id, cancellationToken);
         return FromResult(result);
     }
 }
