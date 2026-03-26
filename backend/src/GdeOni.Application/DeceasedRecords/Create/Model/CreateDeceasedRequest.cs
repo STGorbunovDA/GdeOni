@@ -1,6 +1,6 @@
 ﻿using GdeOni.Domain.Shared;
 
-namespace GdeOni.Application.Deceased.Create.Model;
+namespace GdeOni.Application.DeceasedRecords.Create.Model;
 
 public sealed class CreateDeceasedRequest
 {

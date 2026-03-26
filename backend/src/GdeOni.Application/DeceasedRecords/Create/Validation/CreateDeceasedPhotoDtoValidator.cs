@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
-using GdeOni.Application.Deceased.Create.Model;
+using GdeOni.Application.DeceasedRecords.Create.Model;
 
-namespace GdeOni.Application.Deceased.Create.Validation;
+namespace GdeOni.Application.DeceasedRecords.Create.Validation;
 
 public sealed class CreateDeceasedPhotoDtoValidator
     : AbstractValidator<CreateDeceasedPhotoDto>

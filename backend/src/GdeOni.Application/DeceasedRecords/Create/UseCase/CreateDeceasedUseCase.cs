@@ -1,11 +1,11 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
-using GdeOni.Application.Deceased.Create.Model;
-using GdeOni.Domain.Aggregates.Deceased;
+using GdeOni.Application.DeceasedRecords.Create.Model;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
 
-namespace GdeOni.Application.Deceased.Create.UseCase;
+namespace GdeOni.Application.DeceasedRecords.Create.UseCase;
 
 public sealed class CreateDeceasedUseCase(
     IDeceasedRepository deceasedRepository,
@@ -48,7 +48,7 @@ public sealed class CreateDeceasedUseCase(
         if (burialLocationResult.IsFailure)
             return burialLocationResult.Error;
 
-        var deceasedResult = Domain.Aggregates.Deceased.Deceased.Create(
+        var deceasedResult = Deceased.Create(
             request.FirstName,
             request.LastName,
             request.MiddleName,

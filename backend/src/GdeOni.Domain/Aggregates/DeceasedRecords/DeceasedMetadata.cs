@@ -1,4 +1,4 @@
-﻿namespace GdeOni.Domain.Aggregates.Deceased;
+﻿namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
 // {
 //     "Epitaph": "Любим, помним, скорбим",

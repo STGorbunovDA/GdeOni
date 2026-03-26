@@ -1,5 +1,5 @@
 ﻿using GdeOni.Application.Abstractions.Persistence;
-using GdeOni.Domain.Aggregates.Deceased;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;

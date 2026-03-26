@@ -1,8 +1,8 @@
 ﻿using CSharpFunctionalExtensions;
-using GdeOni.Application.Deceased.Create.Model;
+using GdeOni.Application.DeceasedRecords.Create.Model;
 using GdeOni.Domain.Shared;
 
-namespace GdeOni.Application.Deceased.Create.UseCase;
+namespace GdeOni.Application.DeceasedRecords.Create.UseCase;
 
 public interface ICreateDeceasedUseCase
 {

@@ -1,6 +1,6 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
-using GdeOni.Application.Deceased.Create.UseCase;
+using GdeOni.Application.DeceasedRecords.Create.UseCase;
 using GdeOni.Application.Users.Create.UseCase;
 using Microsoft.Extensions.DependencyInjection;
 

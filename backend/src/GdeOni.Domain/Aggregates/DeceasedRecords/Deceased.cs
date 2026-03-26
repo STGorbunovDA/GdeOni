@@ -1,7 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Domain.Shared;
 
-namespace GdeOni.Domain.Aggregates.Deceased;
+namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
 public sealed class Deceased : Entity<Guid>
 {
@@ -177,13 +177,15 @@ public sealed class Deceased : Entity<Guid>
         string? description = null,
         bool makePrimary = false)
     {
-        var photoResult = DeceasedPhoto.Create(url, addedByUserId, description, makePrimary);
+        var shouldBePrimary = makePrimary || _photos.Count == 0;
+
+        var photoResult = DeceasedPhoto.Create(url, addedByUserId, description, shouldBePrimary);
         if (photoResult.IsFailure)
             return photoResult.Error;
 
         var photo = photoResult.Value;
 
-        if (makePrimary)
+        if (photo.IsPrimary)
         {
             foreach (var item in _photos)
                 item.UnmarkPrimary();

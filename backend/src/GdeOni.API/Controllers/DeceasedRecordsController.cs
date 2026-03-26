@@ -1,6 +1,6 @@
 ﻿using GdeOni.API.Response;
-using GdeOni.Application.Deceased.Create.Model;
-using GdeOni.Application.Deceased.Create.UseCase;
+using GdeOni.Application.DeceasedRecords.Create.Model;
+using GdeOni.Application.DeceasedRecords.Create.UseCase;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;

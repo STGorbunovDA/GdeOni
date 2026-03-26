@@ -96,6 +96,9 @@ public static class Errors
     {
         public static Error UrlRequired() =>
             Error.Validation("deceased_photo.url.required", "Photo url is required");
+        
+        public static Error UrlInvalid() =>
+            Error.Validation("deceased_photo.url.invalid", "Photo url invalid");
 
         public static Error AddedByRequired() =>
             Error.Validation("deceased_photo.added_by.required", "Added by user id is required");

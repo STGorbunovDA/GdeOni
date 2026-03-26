@@ -1,4 +1,4 @@
-﻿using GdeOni.Domain.Aggregates.Deceased;
+﻿using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.User;
 using Microsoft.EntityFrameworkCore;
 

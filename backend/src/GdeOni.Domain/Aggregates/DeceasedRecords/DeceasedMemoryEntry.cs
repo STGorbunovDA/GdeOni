@@ -1,7 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Domain.Shared;
 
-namespace GdeOni.Domain.Aggregates.Deceased;
+namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
 public sealed class DeceasedMemoryEntry : Entity<Guid>
 {
@@ -71,6 +71,15 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
             return Errors.DeceasedMemory.AlreadyRejected();
 
         ModerationStatus = ModerationStatus.Rejected;
+        return UnitResult.Success<Error>();
+    }
+    
+    public UnitResult<Error> UpdateAuthorDisplayName(string? authorDisplayName)
+    {
+        AuthorDisplayName = string.IsNullOrWhiteSpace(authorDisplayName)
+            ? "Аноним"
+            : authorDisplayName.Trim();
+
         return UnitResult.Success<Error>();
     }
 }

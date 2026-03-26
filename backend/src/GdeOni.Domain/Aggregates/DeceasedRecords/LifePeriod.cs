@@ -1,7 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Domain.Shared;
 
-namespace GdeOni.Domain.Aggregates.Deceased;
+namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
 public sealed class LifePeriod : ValueObject
 {

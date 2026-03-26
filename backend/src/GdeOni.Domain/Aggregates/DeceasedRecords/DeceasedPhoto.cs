@@ -1,7 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Domain.Shared;
 
-namespace GdeOni.Domain.Aggregates.Deceased;
+namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
 public sealed class DeceasedPhoto : Entity<Guid>
 {
@@ -89,6 +89,18 @@ public sealed class DeceasedPhoto : Entity<Guid>
     public UnitResult<Error> UpdateDescription(string? description)
     {
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        return UnitResult.Success<Error>();
+    }
+    
+    public UnitResult<Error> UpdateUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return Errors.DeceasedPhoto.UrlRequired();
+
+        if (!Uri.IsWellFormedUriString(url, UriKind.Absolute))
+            return Errors.DeceasedPhoto.UrlInvalid();
+
+        Url = url.Trim();
         return UnitResult.Success<Error>();
     }
 }
