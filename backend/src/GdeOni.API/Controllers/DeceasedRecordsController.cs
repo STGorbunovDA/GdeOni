@@ -5,6 +5,8 @@ using GdeOni.Application.DeceasedRecords.GetAll.Model;
 using GdeOni.Application.DeceasedRecords.GetAll.UseCase;
 using GdeOni.Application.DeceasedRecords.GetById.Model;
 using GdeOni.Application.DeceasedRecords.GetById.UseCase;
+using GdeOni.Application.DeceasedRecords.Update.Model;
+using GdeOni.Application.DeceasedRecords.Update.UseCase;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
@@ -46,6 +48,22 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         CancellationToken cancellationToken)
     {
         var result = await getDeceasedByIdUseCase.Execute(id, cancellationToken);
+        return FromResult(result);
+    }
+    
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Update(
+        Guid id,
+        [FromBody] UpdateDeceasedRequest request,
+        [FromServices] IUpdateDeceasedUseCase updateDeceasedUseCase,
+        CancellationToken cancellationToken)
+    {
+        request.Id = id;
+
+        var result = await updateDeceasedUseCase.Execute(request, cancellationToken);
         return FromResult(result);
     }
 }
