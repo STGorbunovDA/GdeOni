@@ -25,8 +25,6 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
     {
         return await dbContext.DeceasedRecords
             .AsNoTracking()
-            .Include(x => x.Photos)
-            .Include(x => x.Memories)
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
     }

@@ -25,7 +25,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
                 ApiResponse<CreateDeceasedResponse>.Success(value)));
     }
     
-    [HttpGet]
+    [HttpGet] // TODO добавить фильтрацию
     [ProducesResponseType(typeof(ApiResponse<List<DeceasedListItemResponse>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(
         [FromServices] IGetAllDeceasedUseCase getAllDeceasedUseCase,
