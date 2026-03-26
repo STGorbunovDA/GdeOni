@@ -1,6 +1,8 @@
-﻿using GdeOni.API.Response;
+﻿using GdeOni.API.Extensions;
+using GdeOni.API.Response;
 using GdeOni.Application.DeceasedRecords.Create.Model;
 using GdeOni.Application.DeceasedRecords.Create.UseCase;
+using GdeOni.Application.DeceasedRecords.Delete.UseCase;
 using GdeOni.Application.DeceasedRecords.GetAll.Model;
 using GdeOni.Application.DeceasedRecords.GetAll.UseCase;
 using GdeOni.Application.DeceasedRecords.GetById.Model;
@@ -62,8 +64,23 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         CancellationToken cancellationToken)
     {
         request.Id = id;
-
         var result = await updateDeceasedUseCase.Execute(request, cancellationToken);
         return FromResult(result);
+    }
+    
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] IDeleteDeceasedUseCase deleteDeceasedUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await deleteDeceasedUseCase.Execute(id, cancellationToken);
+
+        if (result.IsFailure)
+            return result.Error.ToErrorResponse<object>();
+
+        return NoContent();
     }
 }
