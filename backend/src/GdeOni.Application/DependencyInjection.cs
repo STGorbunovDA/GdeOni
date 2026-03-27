@@ -6,6 +6,7 @@ using GdeOni.Application.DeceasedRecords.Create.UseCase;
 using GdeOni.Application.DeceasedRecords.Delete.UseCase;
 using GdeOni.Application.DeceasedRecords.GetAll.UseCase;
 using GdeOni.Application.DeceasedRecords.GetById.UseCase;
+using GdeOni.Application.DeceasedRecords.GetDistance.UseCase;
 using GdeOni.Application.DeceasedRecords.RemoveMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.RemovePhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Update.UseCase;
@@ -28,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IAddPhotoUseCase, AddPhotoUseCase>();
         services.AddScoped<IRemovePhotoUseCase, RemovePhotoUseCase>();
         services.AddScoped<IAddMemoryUseCase, AddMemoryUseCase>();
+        services.AddScoped<IGetDistanceUseCase, GetDistanceUseCase>();
         services.AddScoped<IUpdateMetadataUseCase, UpdateMetadataUseCase>();
         services.AddScoped<IRemoveMemoryUseCase, RemoveMemoryUseCase>();
         services.AddScoped<IDeleteDeceasedUseCase, DeleteDeceasedUseCase>();

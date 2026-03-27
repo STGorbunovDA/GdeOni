@@ -11,6 +11,8 @@ using GdeOni.Application.DeceasedRecords.GetAll.Model;
 using GdeOni.Application.DeceasedRecords.GetAll.UseCase;
 using GdeOni.Application.DeceasedRecords.GetById.Model;
 using GdeOni.Application.DeceasedRecords.GetById.UseCase;
+using GdeOni.Application.DeceasedRecords.GetDistance.Model;
+using GdeOni.Application.DeceasedRecords.GetDistance.UseCase;
 using GdeOni.Application.DeceasedRecords.RemoveMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.RemovePhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Update.Model;
@@ -162,6 +164,19 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     {
         request.DeceasedId = id;
         var result = await updateMetadataUseCase.Execute(request, cancellationToken);
+        return FromResult(result);
+    }
+    
+    [HttpGet("{id:guid}/distance")]
+    [ProducesResponseType(typeof(ApiResponse<GetDistanceResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDistance(
+        Guid id,
+        [FromQuery] double latitude,
+        [FromQuery] double longitude,
+        [FromServices] IGetDistanceUseCase getDistanceUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await getDistanceUseCase.Execute(id, latitude, longitude, cancellationToken);
         return FromResult(result);
     }
 }
