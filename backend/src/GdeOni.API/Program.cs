@@ -1,6 +1,8 @@
 using GdeOni.Application;
 using GdeOni.Infrastructure;
 
+// TODO для фото сделать ручку по назначению статуса модерации
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplication();

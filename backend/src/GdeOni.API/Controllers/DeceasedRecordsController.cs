@@ -1,5 +1,7 @@
 ﻿using GdeOni.API.Extensions;
 using GdeOni.API.Response;
+using GdeOni.Application.DeceasedRecords.AddPhoto.Model;
+using GdeOni.Application.DeceasedRecords.AddPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Create.Model;
 using GdeOni.Application.DeceasedRecords.Create.UseCase;
 using GdeOni.Application.DeceasedRecords.Delete.UseCase;
@@ -84,5 +86,18 @@ public sealed class DeceasedRecordsController : ApiControllerBase
             return result.Error.ToErrorResponse<object>();
 
         return NoContent();
+    }
+    
+    [HttpPost("{id:guid}/photos")]
+    [ProducesResponseType(typeof(ApiResponse<AddPhotoResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> AddPhoto(
+        Guid id,
+        [FromBody] AddPhotoRequest request,
+        [FromServices] IAddPhotoUseCase addPhotoUseCase,
+        CancellationToken cancellationToken)
+    {
+        request.DeceasedId = id;
+        var result = await addPhotoUseCase.Execute(request, cancellationToken);
+        return FromResult(result);
     }
 }
