@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.DeceasedRecords.AddMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.AddPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Create.UseCase;
 using GdeOni.Application.DeceasedRecords.Delete.UseCase;
@@ -24,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<ICreateUserUseCase, CreateUserUseCase>();
         services.AddScoped<IAddPhotoUseCase, AddPhotoUseCase>();
         services.AddScoped<IRemovePhotoUseCase, RemovePhotoUseCase>();
+        services.AddScoped<IAddMemoryUseCase, AddMemoryUseCase>();
         services.AddScoped<IDeleteDeceasedUseCase, DeleteDeceasedUseCase>();
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;

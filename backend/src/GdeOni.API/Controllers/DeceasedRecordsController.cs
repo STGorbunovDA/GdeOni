@@ -1,5 +1,7 @@
 ﻿using GdeOni.API.Extensions;
 using GdeOni.API.Response;
+using GdeOni.Application.DeceasedRecords.AddMemory.Model;
+using GdeOni.Application.DeceasedRecords.AddMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.AddPhoto.Model;
 using GdeOni.Application.DeceasedRecords.AddPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Create.Model;
@@ -116,5 +118,18 @@ public sealed class DeceasedRecordsController : ApiControllerBase
             return result.Error.ToErrorResponse<object>();
 
         return NoContent();
+    }
+    
+    [HttpPost("{id:guid}/memories")]
+    [ProducesResponseType(typeof(ApiResponse<AddMemoryResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> AddMemory(
+        Guid id,
+        [FromBody] AddMemoryRequest request,
+        [FromServices] IAddMemoryUseCase addMemoryUseCase,
+        CancellationToken cancellationToken)
+    {
+        request.DeceasedId = id;
+        var result = await addMemoryUseCase.Execute(request, cancellationToken);
+        return FromResult(result);
     }
 }
