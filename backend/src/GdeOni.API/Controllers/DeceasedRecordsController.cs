@@ -1,6 +1,24 @@
-﻿using GdeOni.API.Response;
+﻿using GdeOni.API.Extensions;
+using GdeOni.API.Response;
+using GdeOni.Application.DeceasedRecords.AddMemory.Model;
+using GdeOni.Application.DeceasedRecords.AddMemory.UseCase;
+using GdeOni.Application.DeceasedRecords.AddPhoto.Model;
+using GdeOni.Application.DeceasedRecords.AddPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Create.Model;
 using GdeOni.Application.DeceasedRecords.Create.UseCase;
+using GdeOni.Application.DeceasedRecords.Delete.UseCase;
+using GdeOni.Application.DeceasedRecords.GetAll.Model;
+using GdeOni.Application.DeceasedRecords.GetAll.UseCase;
+using GdeOni.Application.DeceasedRecords.GetById.Model;
+using GdeOni.Application.DeceasedRecords.GetById.UseCase;
+using GdeOni.Application.DeceasedRecords.GetDistance.Model;
+using GdeOni.Application.DeceasedRecords.GetDistance.UseCase;
+using GdeOni.Application.DeceasedRecords.RemoveMemory.UseCase;
+using GdeOni.Application.DeceasedRecords.RemovePhoto.UseCase;
+using GdeOni.Application.DeceasedRecords.Update.Model;
+using GdeOni.Application.DeceasedRecords.Update.UseCase;
+using GdeOni.Application.DeceasedRecords.UpdateMetadata.Model;
+using GdeOni.Application.DeceasedRecords.UpdateMetadata.UseCase;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
@@ -10,10 +28,6 @@ public sealed class DeceasedRecordsController : ApiControllerBase
 {
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Create(
         [FromBody] CreateDeceasedRequest request,
         [FromServices] ICreateDeceasedUseCase createDeceasedUseCase,
@@ -23,6 +37,146 @@ public sealed class DeceasedRecordsController : ApiControllerBase
 
         return FromResult(
             result,
-            value => Created($"/api/deceased-records/{value.Id}", ApiResponse<CreateDeceasedResponse>.Success(value)));
+            value => Created($"/api/deceased-records/{value.Id}",
+                ApiResponse<CreateDeceasedResponse>.Success(value)));
+    }
+    
+    [HttpGet]
+    [ProducesResponseType(typeof(ApiResponse<PagedResponse<DeceasedListItemResponse>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResponse<DeceasedListItemResponse>>), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetAll(
+        [FromQuery] GetAllDeceasedQuery query,
+        [FromServices] IGetAllDeceasedUseCase getAllDeceasedUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await getAllDeceasedUseCase.Execute(query, cancellationToken);
+        return FromResult(result);
+    }
+    
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<DeceasedDetailsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<DeceasedDetailsResponse>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetById(
+        Guid id,
+        [FromServices] IGetDeceasedByIdUseCase getDeceasedByIdUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await getDeceasedByIdUseCase.Execute(id, cancellationToken);
+        return FromResult(result);
+    }
+    
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Update(
+        Guid id,
+        [FromBody] UpdateDeceasedRequest request,
+        [FromServices] IUpdateDeceasedUseCase updateDeceasedUseCase,
+        CancellationToken cancellationToken)
+    {
+        request.Id = id;
+        var result = await updateDeceasedUseCase.Execute(request, cancellationToken);
+        return FromResult(result);
+    }
+    
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] IDeleteDeceasedUseCase deleteDeceasedUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await deleteDeceasedUseCase.Execute(id, cancellationToken);
+
+        if (result.IsFailure)
+            return result.Error.ToErrorResponse<object>();
+
+        return NoContent();
+    }
+    
+    [HttpPost("{id:guid}/photos")]
+    [ProducesResponseType(typeof(ApiResponse<AddPhotoResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> AddPhoto(
+        Guid id,
+        [FromBody] AddPhotoRequest request,
+        [FromServices] IAddPhotoUseCase addPhotoUseCase,
+        CancellationToken cancellationToken)
+    {
+        request.DeceasedId = id;
+        var result = await addPhotoUseCase.Execute(request, cancellationToken);
+        return FromResult(result);
+    }
+    
+    [HttpDelete("{id:guid}/photos/{photoId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RemovePhoto(
+        Guid id,
+        Guid photoId,
+        [FromServices] IRemovePhotoUseCase removePhotoUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await removePhotoUseCase.Execute(id, photoId, cancellationToken);
+
+        if (result.IsFailure)
+            return result.Error.ToErrorResponse<object>();
+
+        return NoContent();
+    }
+    
+    [HttpPost("{id:guid}/memories")]
+    [ProducesResponseType(typeof(ApiResponse<AddMemoryResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> AddMemory(
+        Guid id,
+        [FromBody] AddMemoryRequest request,
+        [FromServices] IAddMemoryUseCase addMemoryUseCase,
+        CancellationToken cancellationToken)
+    {
+        request.DeceasedId = id;
+        var result = await addMemoryUseCase.Execute(request, cancellationToken);
+        return FromResult(result);
+    }
+    
+    [HttpDelete("{id:guid}/memories/{memoryId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RemoveMemory(
+        Guid id,
+        Guid memoryId,
+        [FromServices] IRemoveMemoryUseCase removeMemoryUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await removeMemoryUseCase.Execute(id, memoryId, cancellationToken);
+
+        if (result.IsFailure)
+            return result.Error.ToErrorResponse<object>();
+
+        return NoContent();
+    }
+    
+    [HttpPut("{id:guid}/metadata")]
+    [ProducesResponseType(typeof(ApiResponse<UpdateMetadataResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateMetadata(
+        Guid id,
+        [FromBody] UpdateMetadataRequest request,
+        [FromServices] IUpdateMetadataUseCase updateMetadataUseCase,
+        CancellationToken cancellationToken)
+    {
+        request.DeceasedId = id;
+        var result = await updateMetadataUseCase.Execute(request, cancellationToken);
+        return FromResult(result);
+    }
+    
+    [HttpGet("{id:guid}/distance")]
+    [ProducesResponseType(typeof(ApiResponse<GetDistanceResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDistance(
+        Guid id,
+        [FromQuery] double latitude,
+        [FromQuery] double longitude,
+        [FromServices] IGetDistanceUseCase getDistanceUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await getDistanceUseCase.Execute(id, latitude, longitude, cancellationToken);
+        return FromResult(result);
     }
 }

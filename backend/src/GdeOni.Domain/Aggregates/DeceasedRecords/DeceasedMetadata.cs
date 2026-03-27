@@ -1,14 +1,8 @@
-﻿namespace GdeOni.Domain.Aggregates.DeceasedRecords;
+﻿using CSharpFunctionalExtensions;
 
-// {
-//     "Epitaph": "Любим, помним, скорбим",
-//     "Religion": "Православный",
-//     "Source": "Архив семьи",
-//     "IsMilitaryService": true,
-//     "AdditionalInfo": "Участник войны"
-// }
+namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
-public sealed class DeceasedMetadata
+public sealed class DeceasedMetadata : ValueObject
 {
     public string? Epitaph { get; private set; }
     public string? Religion { get; private set; }
@@ -16,9 +10,7 @@ public sealed class DeceasedMetadata
     public bool IsMilitaryService { get; private set; }
     public string? AdditionalInfo { get; private set; }
 
-    private DeceasedMetadata()
-    {
-    }
+    private DeceasedMetadata() { }
 
     private DeceasedMetadata(
         string? epitaph,
@@ -34,8 +26,7 @@ public sealed class DeceasedMetadata
         AdditionalInfo = string.IsNullOrWhiteSpace(additionalInfo) ? null : additionalInfo.Trim();
     }
 
-    public static DeceasedMetadata Empty() =>
-        new(null, null, null, false, null);
+    public static DeceasedMetadata Empty() => new(null, null, null, false, null);
 
     public static DeceasedMetadata Create(
         string? epitaph,
@@ -50,5 +41,14 @@ public sealed class DeceasedMetadata
             source,
             isMilitaryService,
             additionalInfo);
+    }
+
+    protected override IEnumerable<object> GetEqualityComponents()
+    {
+        yield return Epitaph ?? string.Empty;
+        yield return Religion ?? string.Empty;
+        yield return Source ?? string.Empty;
+        yield return IsMilitaryService;
+        yield return AdditionalInfo ?? string.Empty;
     }
 }

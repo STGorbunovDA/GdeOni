@@ -128,6 +128,7 @@ public sealed class Deceased : Entity<Guid>
             D(birthDate),
             D(deathDate),
             N(burialLocation.CemeteryName),
+            N(burialLocation.City),
             N(burialLocation.PlotNumber),
             N(burialLocation.GraveNumber));
     }
