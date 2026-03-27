@@ -6,6 +6,7 @@ using GdeOni.Application.DeceasedRecords.Create.UseCase;
 using GdeOni.Application.DeceasedRecords.Delete.UseCase;
 using GdeOni.Application.DeceasedRecords.GetAll.UseCase;
 using GdeOni.Application.DeceasedRecords.GetById.UseCase;
+using GdeOni.Application.DeceasedRecords.RemoveMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.RemovePhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Update.UseCase;
 using GdeOni.Application.Users.Create.UseCase;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IAddPhotoUseCase, AddPhotoUseCase>();
         services.AddScoped<IRemovePhotoUseCase, RemovePhotoUseCase>();
         services.AddScoped<IAddMemoryUseCase, AddMemoryUseCase>();
+        services.AddScoped<IRemoveMemoryUseCase, RemoveMemoryUseCase>();
         services.AddScoped<IDeleteDeceasedUseCase, DeleteDeceasedUseCase>();
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;

@@ -11,6 +11,7 @@ using GdeOni.Application.DeceasedRecords.GetAll.Model;
 using GdeOni.Application.DeceasedRecords.GetAll.UseCase;
 using GdeOni.Application.DeceasedRecords.GetById.Model;
 using GdeOni.Application.DeceasedRecords.GetById.UseCase;
+using GdeOni.Application.DeceasedRecords.RemoveMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.RemovePhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Update.Model;
 using GdeOni.Application.DeceasedRecords.Update.UseCase;
@@ -131,5 +132,21 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         request.DeceasedId = id;
         var result = await addMemoryUseCase.Execute(request, cancellationToken);
         return FromResult(result);
+    }
+    
+    [HttpDelete("{id:guid}/memories/{memoryId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RemoveMemory(
+        Guid id,
+        Guid memoryId,
+        [FromServices] IRemoveMemoryUseCase removeMemoryUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await removeMemoryUseCase.Execute(id, memoryId, cancellationToken);
+
+        if (result.IsFailure)
+            return result.Error.ToErrorResponse<object>();
+
+        return NoContent();
     }
 }
