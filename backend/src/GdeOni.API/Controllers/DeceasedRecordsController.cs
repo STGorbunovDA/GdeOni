@@ -1,6 +1,14 @@
-﻿using GdeOni.API.Response;
+﻿using GdeOni.API.Extensions;
+using GdeOni.API.Response;
 using GdeOni.Application.DeceasedRecords.Create.Model;
 using GdeOni.Application.DeceasedRecords.Create.UseCase;
+using GdeOni.Application.DeceasedRecords.Delete.UseCase;
+using GdeOni.Application.DeceasedRecords.GetAll.Model;
+using GdeOni.Application.DeceasedRecords.GetAll.UseCase;
+using GdeOni.Application.DeceasedRecords.GetById.Model;
+using GdeOni.Application.DeceasedRecords.GetById.UseCase;
+using GdeOni.Application.DeceasedRecords.Update.Model;
+using GdeOni.Application.DeceasedRecords.Update.UseCase;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
@@ -10,10 +18,6 @@ public sealed class DeceasedRecordsController : ApiControllerBase
 {
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Create(
         [FromBody] CreateDeceasedRequest request,
         [FromServices] ICreateDeceasedUseCase createDeceasedUseCase,
@@ -23,6 +27,62 @@ public sealed class DeceasedRecordsController : ApiControllerBase
 
         return FromResult(
             result,
-            value => Created($"/api/deceased-records/{value.Id}", ApiResponse<CreateDeceasedResponse>.Success(value)));
+            value => Created($"/api/deceased-records/{value.Id}",
+                ApiResponse<CreateDeceasedResponse>.Success(value)));
+    }
+    
+    [HttpGet]
+    [ProducesResponseType(typeof(ApiResponse<PagedResponse<DeceasedListItemResponse>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResponse<DeceasedListItemResponse>>), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetAll(
+        [FromQuery] GetAllDeceasedQuery query,
+        [FromServices] IGetAllDeceasedUseCase getAllDeceasedUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await getAllDeceasedUseCase.Execute(query, cancellationToken);
+        return FromResult(result);
+    }
+    
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<DeceasedDetailsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<DeceasedDetailsResponse>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetById(
+        Guid id,
+        [FromServices] IGetDeceasedByIdUseCase getDeceasedByIdUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await getDeceasedByIdUseCase.Execute(id, cancellationToken);
+        return FromResult(result);
+    }
+    
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Update(
+        Guid id,
+        [FromBody] UpdateDeceasedRequest request,
+        [FromServices] IUpdateDeceasedUseCase updateDeceasedUseCase,
+        CancellationToken cancellationToken)
+    {
+        request.Id = id;
+        var result = await updateDeceasedUseCase.Execute(request, cancellationToken);
+        return FromResult(result);
+    }
+    
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromServices] IDeleteDeceasedUseCase deleteDeceasedUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await deleteDeceasedUseCase.Execute(id, cancellationToken);
+
+        if (result.IsFailure)
+            return result.Error.ToErrorResponse<object>();
+
+        return NoContent();
     }
 }
