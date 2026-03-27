@@ -15,6 +15,8 @@ using GdeOni.Application.DeceasedRecords.RemoveMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.RemovePhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Update.Model;
 using GdeOni.Application.DeceasedRecords.Update.UseCase;
+using GdeOni.Application.DeceasedRecords.UpdateMetadata.Model;
+using GdeOni.Application.DeceasedRecords.UpdateMetadata.UseCase;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
@@ -148,5 +150,18 @@ public sealed class DeceasedRecordsController : ApiControllerBase
             return result.Error.ToErrorResponse<object>();
 
         return NoContent();
+    }
+    
+    [HttpPut("{id:guid}/metadata")]
+    [ProducesResponseType(typeof(ApiResponse<UpdateMetadataResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateMetadata(
+        Guid id,
+        [FromBody] UpdateMetadataRequest request,
+        [FromServices] IUpdateMetadataUseCase updateMetadataUseCase,
+        CancellationToken cancellationToken)
+    {
+        request.DeceasedId = id;
+        var result = await updateMetadataUseCase.Execute(request, cancellationToken);
+        return FromResult(result);
     }
 }
