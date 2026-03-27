@@ -31,13 +31,15 @@ public sealed class DeceasedRecordsController : ApiControllerBase
                 ApiResponse<CreateDeceasedResponse>.Success(value)));
     }
     
-    [HttpGet] // TODO добавить фильтрацию
-    [ProducesResponseType(typeof(ApiResponse<List<DeceasedListItemResponse>>), StatusCodes.Status200OK)]
+    [HttpGet]
+    [ProducesResponseType(typeof(ApiResponse<PagedResponse<DeceasedListItemResponse>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResponse<DeceasedListItemResponse>>), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetAll(
+        [FromQuery] GetAllDeceasedQuery query,
         [FromServices] IGetAllDeceasedUseCase getAllDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await getAllDeceasedUseCase.Execute(cancellationToken);
+        var result = await getAllDeceasedUseCase.Execute(query, cancellationToken);
         return FromResult(result);
     }
     

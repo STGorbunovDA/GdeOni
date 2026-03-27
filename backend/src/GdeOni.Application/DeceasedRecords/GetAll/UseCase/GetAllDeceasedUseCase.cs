@@ -1,18 +1,33 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.DeceasedRecords.GetAll.Model;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.GetAll.UseCase;
 
-public sealed class GetAllDeceasedUseCase(IDeceasedRepository deceasedRepository)
+public sealed class GetAllDeceasedUseCase(
+    IDeceasedRepository deceasedRepository,
+    IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetAllDeceasedUseCase
 {
-    public async Task<Result<List<DeceasedListItemResponse>, Error>> Execute(CancellationToken cancellationToken)
+    public Task<Result<PagedResponse<DeceasedListItemResponse>, Error>> Execute(
+        GetAllDeceasedQuery query,
+        CancellationToken cancellationToken)
     {
-        var items = await deceasedRepository.GetAll(cancellationToken);
+        return validatedUseCaseExecutor.Execute(
+            query,
+            Handle,
+            cancellationToken);
+    }
 
-        var response = items.Select(x => new DeceasedListItemResponse
+    private async Task<Result<PagedResponse<DeceasedListItemResponse>, Error>> Handle(
+        GetAllDeceasedQuery query,
+        CancellationToken cancellationToken)
+    {
+        var (items, totalCount) = await deceasedRepository.GetPaged(query, cancellationToken);
+
+        var responseItems = items.Select(x => new DeceasedListItemResponse
         {
             Id = x.Id,
             FullName = x.Name.FullName,
@@ -21,12 +36,18 @@ public sealed class GetAllDeceasedUseCase(IDeceasedRepository deceasedRepository
             Country = x.BurialLocation.Country,
             City = x.BurialLocation.City,
             CemeteryName = x.BurialLocation.CemeteryName,
-            PlotNumber = x.BurialLocation.PlotNumber,
-            GraveNumber = x.BurialLocation.GraveNumber,
             IsVerified = x.IsVerified,
             CreatedAtUtc = x.CreatedAtUtc
         }).ToList();
 
-        return Result.Success<List<DeceasedListItemResponse>, Error>(response);
+        var response = new PagedResponse<DeceasedListItemResponse>
+        {
+            Items = responseItems,
+            TotalCount = totalCount,
+            Page = query.Page,
+            PageSize = query.PageSize
+        };
+
+        return Result.Success<PagedResponse<DeceasedListItemResponse>, Error>(response);
     }
 }

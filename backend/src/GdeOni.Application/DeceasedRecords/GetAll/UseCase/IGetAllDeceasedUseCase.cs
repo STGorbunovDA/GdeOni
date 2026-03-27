@@ -6,5 +6,7 @@ namespace GdeOni.Application.DeceasedRecords.GetAll.UseCase;
 
 public interface IGetAllDeceasedUseCase
 {
-    Task<Result<List<DeceasedListItemResponse>, Error>> Execute(CancellationToken cancellationToken);
+    Task<Result<PagedResponse<DeceasedListItemResponse>, Error>> Execute(
+        GetAllDeceasedQuery query,
+        CancellationToken cancellationToken);
 }
