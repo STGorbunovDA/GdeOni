@@ -35,6 +35,8 @@ public sealed class GetAllDeceasedUseCase(
             DeathDate = x.LifePeriod.DeathDate,
             Country = x.BurialLocation.Country,
             City = x.BurialLocation.City,
+            PlotNumber = x.BurialLocation.PlotNumber,
+            GraveNumber = x.BurialLocation.GraveNumber,
             CemeteryName = x.BurialLocation.CemeteryName,
             IsVerified = x.IsVerified,
             CreatedAtUtc = x.CreatedAtUtc

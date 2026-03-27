@@ -42,6 +42,9 @@ public sealed class DeceasedPhoto : Entity<Guid>
         if (string.IsNullOrWhiteSpace(url))
             return Errors.DeceasedPhoto.UrlRequired();
 
+        if (!Uri.IsWellFormedUriString(url, UriKind.Absolute))
+            return Errors.DeceasedPhoto.UrlInvalid();
+
         if (addedByUserId == Guid.Empty)
             return Errors.DeceasedPhoto.AddedByRequired();
 
