@@ -23,8 +23,8 @@ public sealed class Deceased : Entity<Guid>
 
     private readonly List<DeceasedMemoryEntry> _memories = new();
     public IReadOnlyCollection<DeceasedMemoryEntry> Memories => _memories.AsReadOnly();
-    public string SearchKey { get; private set; } = null!;
 
+    public string SearchKey { get; private set; } = null!;
     public DeceasedMetadata Metadata { get; private set; }
 
     private Deceased() : base(Guid.Empty)
@@ -91,11 +91,19 @@ public sealed class Deceased : Entity<Guid>
             string.IsNullOrWhiteSpace(biography) ? null : biography.Trim(),
             createdByUserId,
             DateTime.UtcNow);
-        
-        
+
         return Result.Success<Deceased, Error>(deceased);
     }
-    
+
+    public int? AgeAtDeath() => LifePeriod.AgeAtDeath();
+
+    public DeceasedPhoto? GetPrimaryPhoto() =>
+        _photos.FirstOrDefault(x => x.IsPrimary);
+
+    public bool HasPhotos() => _photos.Count > 0;
+
+    public bool HasMemories() => _memories.Count > 0;
+
     private void RebuildSearchKey()
     {
         SearchKey = BuildSearchKey(
@@ -106,7 +114,7 @@ public sealed class Deceased : Entity<Guid>
             LifePeriod.DeathDate,
             BurialLocation);
     }
-    
+
     private static string BuildSearchKey(
         string firstName,
         string lastName,
@@ -156,6 +164,7 @@ public sealed class Deceased : Entity<Guid>
         Biography = string.IsNullOrWhiteSpace(biography) ? null : biography.Trim();
         UpdatedAtUtc = DateTime.UtcNow;
         RebuildSearchKey();
+
         return UnitResult.Success<Error>();
     }
 
@@ -166,7 +175,6 @@ public sealed class Deceased : Entity<Guid>
 
         BurialLocation = burialLocation;
         UpdatedAtUtc = DateTime.UtcNow;
-        
         RebuildSearchKey();
 
         return UnitResult.Success<Error>();
@@ -215,6 +223,62 @@ public sealed class Deceased : Entity<Guid>
         return UnitResult.Success<Error>();
     }
 
+    public UnitResult<Error> UpdatePhotoDescription(Guid photoId, string? description)
+    {
+        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
+        if (photo is null)
+            return Errors.DeceasedPhoto.NotFound(photoId);
+
+        var result = photo.UpdateDescription(description);
+        if (result.IsFailure)
+            return result.Error;
+
+        UpdatedAtUtc = DateTime.UtcNow;
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> UpdatePhotoUrl(Guid photoId, string url)
+    {
+        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
+        if (photo is null)
+            return Errors.DeceasedPhoto.NotFound(photoId);
+
+        var result = photo.UpdateUrl(url);
+        if (result.IsFailure)
+            return result.Error;
+
+        UpdatedAtUtc = DateTime.UtcNow;
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> ApprovePhoto(Guid photoId)
+    {
+        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
+        if (photo is null)
+            return Errors.DeceasedPhoto.NotFound(photoId);
+
+        var result = photo.Approve();
+        if (result.IsFailure)
+            return result.Error;
+
+        UpdatedAtUtc = DateTime.UtcNow;
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> RejectPhoto(Guid photoId)
+    {
+        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
+        if (photo is null)
+            return Errors.DeceasedPhoto.NotFound(photoId);
+
+        var result = photo.Reject();
+        if (result.IsFailure)
+            return result.Error;
+
+        UpdatedAtUtc = DateTime.UtcNow;
+        return UnitResult.Success<Error>();
+    }
+
     public UnitResult<Error> RemovePhoto(Guid photoId)
     {
         var photo = _photos.FirstOrDefault(x => x.Id == photoId);
@@ -243,6 +307,62 @@ public sealed class Deceased : Entity<Guid>
         UpdatedAtUtc = DateTime.UtcNow;
 
         return Result.Success<DeceasedMemoryEntry, Error>(memoryResult.Value);
+    }
+
+    public UnitResult<Error> EditMemory(Guid memoryId, string text)
+    {
+        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
+        if (memory is null)
+            return Errors.DeceasedMemory.NotFound(memoryId);
+
+        var result = memory.EditText(text);
+        if (result.IsFailure)
+            return result.Error;
+
+        UpdatedAtUtc = DateTime.UtcNow;
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> UpdateMemoryAuthorDisplayName(Guid memoryId, string? authorDisplayName)
+    {
+        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
+        if (memory is null)
+            return Errors.DeceasedMemory.NotFound(memoryId);
+
+        var result = memory.UpdateAuthorDisplayName(authorDisplayName);
+        if (result.IsFailure)
+            return result.Error;
+
+        UpdatedAtUtc = DateTime.UtcNow;
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> ApproveMemory(Guid memoryId)
+    {
+        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
+        if (memory is null)
+            return Errors.DeceasedMemory.NotFound(memoryId);
+
+        var result = memory.Approve();
+        if (result.IsFailure)
+            return result.Error;
+
+        UpdatedAtUtc = DateTime.UtcNow;
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> RejectMemory(Guid memoryId)
+    {
+        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
+        if (memory is null)
+            return Errors.DeceasedMemory.NotFound(memoryId);
+
+        var result = memory.Reject();
+        if (result.IsFailure)
+            return result.Error;
+
+        UpdatedAtUtc = DateTime.UtcNow;
+        return UnitResult.Success<Error>();
     }
 
     public UnitResult<Error> RemoveMemory(Guid memoryId)
@@ -285,6 +405,14 @@ public sealed class Deceased : Entity<Guid>
             return Errors.Deceased.MetadataRequired();
 
         Metadata = metadata;
+        UpdatedAtUtc = DateTime.UtcNow;
+
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> ClearMetadata()
+    {
+        Metadata = DeceasedMetadata.Empty();
         UpdatedAtUtc = DateTime.UtcNow;
 
         return UnitResult.Success<Error>();

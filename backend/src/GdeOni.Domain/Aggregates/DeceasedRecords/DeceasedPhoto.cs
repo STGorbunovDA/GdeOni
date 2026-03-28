@@ -94,7 +94,7 @@ public sealed class DeceasedPhoto : Entity<Guid>
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         return UnitResult.Success<Error>();
     }
-    
+
     public UnitResult<Error> UpdateUrl(string url)
     {
         if (string.IsNullOrWhiteSpace(url))
@@ -106,4 +106,8 @@ public sealed class DeceasedPhoto : Entity<Guid>
         Url = url.Trim();
         return UnitResult.Success<Error>();
     }
+
+    public bool IsApproved() => ModerationStatus == ModerationStatus.Approved;
+    public bool IsRejected() => ModerationStatus == ModerationStatus.Rejected;
+    public bool IsPending() => ModerationStatus == ModerationStatus.Pending;
 }
