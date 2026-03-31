@@ -1,4 +1,4 @@
-﻿namespace GdeOni.Application.DeceasedRecords.GetAll.Model;
+﻿namespace GdeOni.Application.Common.Shared;
 
 public sealed class PagedResponse<T>
 {

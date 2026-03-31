@@ -2,5 +2,5 @@
 
 public static class PasswordPolicy
 {
-    public const int MinPasswordLength = 7;
+    public const int MinPasswordLength = 8;
 }

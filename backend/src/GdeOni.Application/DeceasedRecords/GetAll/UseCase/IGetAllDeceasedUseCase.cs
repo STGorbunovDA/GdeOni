@@ -1,4 +1,6 @@
 ﻿using CSharpFunctionalExtensions;
+using GdeOni.Application.Common;
+using GdeOni.Application.Common.Shared;
 using GdeOni.Application.DeceasedRecords.GetAll.Model;
 using GdeOni.Domain.Shared;
 

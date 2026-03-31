@@ -97,4 +97,11 @@ public sealed class TrackedDeceased : Entity<Guid>
         Status = TrackStatus.Active;
         return UnitResult.Success<Error>();
     }
+
+    public bool IsActive() => Status == TrackStatus.Active;
+    public bool IsMuted() => Status == TrackStatus.Muted;
+    public bool IsArchived() => Status == TrackStatus.Archived;
+
+    public bool HasNotificationsEnabled() =>
+        NotifyOnDeathAnniversary || NotifyOnBirthAnniversary;
 }

@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Constants;
 using GdeOni.Application.Users.Create.Model;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Users.Create.Validation;
 

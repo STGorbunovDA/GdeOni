@@ -1,5 +1,6 @@
 ﻿using GdeOni.API.Extensions;
 using GdeOni.API.Response;
+using GdeOni.Application.Common.Shared;
 using GdeOni.Application.DeceasedRecords.AddMemory.Model;
 using GdeOni.Application.DeceasedRecords.AddMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.AddPhoto.Model;
@@ -35,10 +36,14 @@ using GdeOni.Application.DeceasedRecords.UpdateMetadata.Model;
 using GdeOni.Application.DeceasedRecords.UpdateMetadata.UseCase;
 using GdeOni.Application.DeceasedRecords.UpdatePhoto.Model;
 using GdeOni.Application.DeceasedRecords.UpdatePhoto.UseCase;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
 
+/// <summary>
+/// 
+/// </summary>
 [Route("api/deceased-records")]
 public sealed class DeceasedRecordsController : ApiControllerBase
 {
@@ -50,6 +55,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPost]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<CreateDeceasedResponse>), StatusCodes.Status201Created)]
     public async Task<IActionResult> Create(
         [FromBody] CreateDeceasedRequest request,
@@ -72,6 +78,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpGet]
+    [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<PagedResponse<DeceasedListItemResponse>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<PagedResponse<DeceasedListItemResponse>>), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetAll(
@@ -91,6 +98,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpGet("{id:guid}")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<DeceasedDetailsResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<DeceasedDetailsResponse>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(
@@ -111,6 +119,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPut("{id:guid}")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status409Conflict)]
@@ -133,6 +142,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpDelete("{id:guid}")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
@@ -149,7 +159,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     }
 
     /// <summary>
-    ///  Метод добавления фотографии для умершего
+    /// Метод добавления фотографии для умершего
     /// </summary>
     /// <param name="id"></param>
     /// <param name="request"></param>
@@ -157,6 +167,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPost("{id:guid}/photos")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<AddPhotoResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> AddPhoto(
         Guid id,
@@ -179,6 +190,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPut("{id:guid}/photos/{photoId:guid}")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdatePhotoResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdatePhoto(
         Guid id,
@@ -203,6 +215,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPut("{id:guid}/photos/{photoId:guid}/primary")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<SetPrimaryPhotoResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> SetPrimaryPhoto(
         Guid id,
@@ -229,6 +242,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPut("{id:guid}/photos/{photoId:guid}/approve")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<ApprovePhotoResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ApprovePhoto(
         Guid id,
@@ -255,6 +269,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPut("{id:guid}/photos/{photoId:guid}/reject")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<RejectPhotoResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> RejectPhoto(
         Guid id,
@@ -281,6 +296,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpDelete("{id:guid}/photos/{photoId:guid}")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> RemovePhoto(
         Guid id,
@@ -305,6 +321,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPost("{id:guid}/memories")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<AddMemoryResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> AddMemory(
         Guid id,
@@ -327,6 +344,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPut("{id:guid}/memories/{memoryId:guid}")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateMemoryResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateMemory(
         Guid id,
@@ -351,6 +369,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPut("{id:guid}/memories/{memoryId:guid}/approve")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<ApproveMemoryResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ApproveMemory(
         Guid id,
@@ -377,6 +396,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPut("{id:guid}/memories/{memoryId:guid}/reject")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<RejectMemoryResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> RejectMemory(
         Guid id,
@@ -403,6 +423,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpDelete("{id:guid}/memories/{memoryId:guid}")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> RemoveMemory(
         Guid id,
@@ -427,6 +448,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPut("{id:guid}/metadata")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateMetadataResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateMetadata(
         Guid id,
@@ -447,6 +469,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpDelete("{id:guid}/metadata")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<ClearMetadataResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ClearMetadata(
         Guid id,
@@ -472,6 +495,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpGet("{id:guid}/distance")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<GetDistanceResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetDistance(
         Guid id,

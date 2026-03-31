@@ -4,25 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GdeOni.Infrastructure.Persistence;
 
-/// <summary>
-/// Главный DbContext приложения.
-/// Он знает только о корневых агрегатах:
-/// - Deceased
-/// - User
-/// Вложенные сущности (DeceasedPhoto, MemoryEntry, TrackedDeceased)
-/// будут подтянуты через конфигурации.
-/// </summary>
-public sealed class AppDbContext : DbContext
+public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     // Корневой агрегат умерших
     public DbSet<Deceased> DeceasedRecords => Set<Deceased>();
 
     // Корневой агрегат пользователей
     public DbSet<User> Users => Set<User>();
-
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
-    {
-    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

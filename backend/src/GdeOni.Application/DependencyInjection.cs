@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Auth.Login.UseCase;
 using GdeOni.Application.DeceasedRecords.AddMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.AddPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.ApproveMemory.UseCase;
@@ -19,7 +20,20 @@ using GdeOni.Application.DeceasedRecords.Update.UseCase;
 using GdeOni.Application.DeceasedRecords.UpdateMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.UpdateMetadata.UseCase;
 using GdeOni.Application.DeceasedRecords.UpdatePhoto.UseCase;
+using GdeOni.Application.Users.ActivateTracking.UseCase;
+using GdeOni.Application.Users.ChangeEmail.UseCase;
+using GdeOni.Application.Users.ChangePassword.UseCase;
+using GdeOni.Application.Users.ChangeUserRole.UseCase;
 using GdeOni.Application.Users.Create.UseCase;
+using GdeOni.Application.Users.Delete.UseCase;
+using GdeOni.Application.Users.GetAll.UseCase;
+using GdeOni.Application.Users.GetById.UseCase;
+using GdeOni.Application.Users.GetTrackedDeceased.UseCase;
+using GdeOni.Application.Users.MuteTracking.UseCase;
+using GdeOni.Application.Users.StopTracking.UseCase;
+using GdeOni.Application.Users.TrackDeceased.UseCase;
+using GdeOni.Application.Users.UpdateProfile.UseCase;
+using GdeOni.Application.Users.UpdateTracking.UseCase;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GdeOni.Application;
@@ -30,11 +44,29 @@ public static class DependencyInjection
     {
         services.AddScoped<IValidatedUseCaseExecutor, ValidatedUseCaseExecutor>();
 
+        services.AddScoped<ILoginUseCase, LoginUseCase>();
+
+        services.AddScoped<ICreateUserUseCase, CreateUserUseCase>();
+        services.AddScoped<IGetUserByIdUseCase, GetUserByIdUseCase>();
+        services.AddScoped<IUpdateUserProfileUseCase, UpdateUserProfileUseCase>();
+        services.AddScoped<IChangePasswordUseCase, ChangePasswordUseCase>();
+        services.AddScoped<IChangeUserRoleUseCase, ChangeUserRoleUseCase>();
+        services.AddScoped<IChangeEmailUseCase, ChangeEmailUseCase>();
+        services.AddScoped<IGetAllUsersUseCase, GetAllUsersUseCase>();
+
+        services.AddScoped<ITrackDeceasedUseCase, TrackDeceasedUseCase>();
+        services.AddScoped<IGetTrackedDeceasedUseCase, GetTrackedDeceasedUseCase>();
+        services.AddScoped<IUpdateTrackingUseCase, UpdateTrackingUseCase>();
+        services.AddScoped<IStopTrackingUseCase, StopTrackingUseCase>();
+        services.AddScoped<IMuteTrackingUseCase, MuteTrackingUseCase>();
+        services.AddScoped<IActivateTrackingUseCase, ActivateTrackingUseCase>();
+
         services.AddScoped<ICreateDeceasedUseCase, CreateDeceasedUseCase>();
         services.AddScoped<IGetAllDeceasedUseCase, GetAllDeceasedUseCase>();
         services.AddScoped<IGetDeceasedByIdUseCase, GetDeceasedByIdUseCase>();
         services.AddScoped<IUpdateDeceasedUseCase, UpdateDeceasedUseCase>();
         services.AddScoped<IDeleteDeceasedUseCase, DeleteDeceasedUseCase>();
+        services.AddScoped<IDeleteUserUseCase, DeleteUserUseCase>();
 
         services.AddScoped<IAddPhotoUseCase, AddPhotoUseCase>();
         services.AddScoped<IRemovePhotoUseCase, RemovePhotoUseCase>();
@@ -52,8 +84,6 @@ public static class DependencyInjection
         services.AddScoped<IUpdateMetadataUseCase, UpdateMetadataUseCase>();
         services.AddScoped<IClearMetadataUseCase, ClearMetadataUseCase>();
         services.AddScoped<IGetDistanceUseCase, GetDistanceUseCase>();
-
-        services.AddScoped<ICreateUserUseCase, CreateUserUseCase>();
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;
