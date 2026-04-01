@@ -58,7 +58,7 @@ public sealed class User : Entity<Guid>
         if (!IsValidEmail(email))
             return Errors.User.EmailInvalid();
 
-        if (!Enum.IsDefined(typeof(UserRole), role) || role == UserRole.Unknown)
+        if (!Enum.IsDefined(typeof(UserRole), role) || role == UserRole.Unknown || role == UserRole.SuperAdmin)
             return Errors.User.RoleInvalid();
 
         var normalizedEmail = email.Trim().ToLowerInvariant();

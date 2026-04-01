@@ -29,7 +29,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
-
+//TODO следующий обязательный шаг — ограничение владельца ресурса. Иначе обычный авторизованный пользователь потенциально сможет обращаться к чужим /api/users/{id} ручкам, если там нет дополнительной проверки внутри use case/controller.
 /// <summary>
 /// Пользователи
 /// </summary>

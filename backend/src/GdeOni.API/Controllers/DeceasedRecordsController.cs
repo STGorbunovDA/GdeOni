@@ -47,6 +47,11 @@ namespace GdeOni.API.Controllers;
 [Route("api/deceased-records")]
 public sealed class DeceasedRecordsController : ApiControllerBase
 {
+    //TODO Реализовать метод получения возраста(AgeAtDeath)
+    //TODO Реализовать метод получения есть ли фото(HasPhotos)
+    //TODO Реализовать метод получения есть ли записки памяти(HasMemories)
+    //TODO Реализовать метод верефикации(Verify)
+    //TODO Реализовать метод отмены верефикации(Unverify)
     /// <summary>
     /// Метод создания умершего
     /// </summary>
