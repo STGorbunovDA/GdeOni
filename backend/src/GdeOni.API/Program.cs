@@ -10,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .WriteTo.Debug()
+    .WriteTo.Seq(builder.Configuration["Seq:Url"] ?? throw new ArgumentNullException($"Seq url is null"))
     .Enrich.WithThreadId()
     .Enrich.WithEnvironmentName()
     .Enrich.WithMachineName()

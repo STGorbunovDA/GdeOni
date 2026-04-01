@@ -1,6 +1,4 @@
-﻿using GdeOni.Domain.Shared;
-
-namespace GdeOni.Application.Users.Create.Model;
+﻿namespace GdeOni.Application.Users.Create.Model;
 
 public sealed class CreateUserRequest
 {

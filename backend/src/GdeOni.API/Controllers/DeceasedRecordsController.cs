@@ -36,6 +36,16 @@ using GdeOni.Application.DeceasedRecords.UpdateMetadata.Model;
 using GdeOni.Application.DeceasedRecords.UpdateMetadata.UseCase;
 using GdeOni.Application.DeceasedRecords.UpdatePhoto.Model;
 using GdeOni.Application.DeceasedRecords.UpdatePhoto.UseCase;
+using GdeOni.Application.DeceasedRecords.GetAgeAtDeath.Model;
+using GdeOni.Application.DeceasedRecords.GetAgeAtDeath.UseCase;
+using GdeOni.Application.DeceasedRecords.HasPhotos.Model;
+using GdeOni.Application.DeceasedRecords.HasPhotos.UseCase;
+using GdeOni.Application.DeceasedRecords.HasMemories.Model;
+using GdeOni.Application.DeceasedRecords.HasMemories.UseCase;
+using GdeOni.Application.DeceasedRecords.Verify.Model;
+using GdeOni.Application.DeceasedRecords.Verify.UseCase;
+using GdeOni.Application.DeceasedRecords.Unverify.Model;
+using GdeOni.Application.DeceasedRecords.Unverify.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -47,11 +57,6 @@ namespace GdeOni.API.Controllers;
 [Route("api/deceased-records")]
 public sealed class DeceasedRecordsController : ApiControllerBase
 {
-    //TODO Реализовать метод получения возраста(AgeAtDeath)
-    //TODO Реализовать метод получения есть ли фото(HasPhotos)
-    //TODO Реализовать метод получения есть ли записки памяти(HasMemories)
-    //TODO Реализовать метод верефикации(Verify)
-    //TODO Реализовать метод отмены верефикации(Unverify)
     /// <summary>
     /// Метод создания умершего
     /// </summary>
@@ -510,6 +515,103 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         CancellationToken cancellationToken)
     {
         var result = await getDistanceUseCase.Execute(id, latitude, longitude, cancellationToken);
+        return FromResult(result);
+    }
+    
+    /// <summary>
+    /// Получить возраст на момент смерти
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="getAgeAtDeathUseCase"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    [HttpGet("{id:guid}/age-at-death")]
+    [ProducesResponseType(typeof(ApiResponse<GetAgeAtDeathResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<GetAgeAtDeathResponse>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAgeAtDeath(
+        Guid id,
+        [FromServices] IGetAgeAtDeathUseCase getAgeAtDeathUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await getAgeAtDeathUseCase.Execute(id, cancellationToken);
+        return FromResult(result);
+    }
+    
+    /// <summary>
+    /// Есть ли фото у умершего
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="hasPhotosUseCase"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    [HttpGet("{id:guid}/has-photos")]
+    [ProducesResponseType(typeof(ApiResponse<HasPhotosResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<HasPhotosResponse>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> HasPhotos(
+        Guid id,
+        [FromServices] IHasPhotosUseCase hasPhotosUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await hasPhotosUseCase.Execute(id, cancellationToken);
+        return FromResult(result);
+    }
+    
+    /// <summary>
+    /// Есть ли записки памяти
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="hasMemoriesUseCase"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    [HttpGet("{id:guid}/has-memories")]
+    [ProducesResponseType(typeof(ApiResponse<HasMemoriesResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<HasMemoriesResponse>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> HasMemories(
+        Guid id,
+        [FromServices] IHasMemoriesUseCase hasMemoriesUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await hasMemoriesUseCase.Execute(id, cancellationToken);
+        return FromResult(result);
+    }
+    
+    /// <summary>
+    /// Верифицировать запись
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="verifyDeceasedUseCase"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    [HttpPut("{id:guid}/verify")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(ApiResponse<VerifyDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<VerifyDeceasedResponse>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Verify(
+        Guid id,
+        [FromServices] IVerifyDeceasedUseCase verifyDeceasedUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await verifyDeceasedUseCase.Execute(id, cancellationToken);
+        return FromResult(result);
+    }
+    
+    /// <summary>
+    /// Снять верификацию
+    /// </summary>
+    /// <param name="id"></param>
+    /// <param name="unverifyDeceasedUseCase"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    [HttpPut("{id:guid}/unverify")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(ApiResponse<UnverifyDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<UnverifyDeceasedResponse>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Unverify(
+        Guid id,
+        [FromServices] IUnverifyDeceasedUseCase unverifyDeceasedUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await unverifyDeceasedUseCase.Execute(id, cancellationToken);
         return FromResult(result);
     }
 }

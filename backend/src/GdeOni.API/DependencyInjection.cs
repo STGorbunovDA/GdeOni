@@ -40,8 +40,8 @@ public static class DependencyInjection
 
         services.AddAuthorization();
         services.AddHttpContextAccessor();
-        
         services.AddScoped<IJwtProvider, JwtProvider>();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
         return services;
     }
 }
