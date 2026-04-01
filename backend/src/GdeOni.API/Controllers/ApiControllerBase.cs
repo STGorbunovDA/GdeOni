@@ -20,4 +20,12 @@ public abstract class ApiControllerBase : ControllerBase
 
         return result.Value.ToOkResponse();
     }
+
+    protected bool CanAccessUserResource(Guid targetUserId, Guid? currentUserId, bool isAdmin)
+    {
+        if (isAdmin)
+            return true;
+
+        return currentUserId.HasValue && currentUserId.Value == targetUserId;
+    }
 }
