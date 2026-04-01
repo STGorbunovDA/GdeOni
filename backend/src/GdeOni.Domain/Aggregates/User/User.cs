@@ -202,6 +202,16 @@ public sealed class User : Entity<Guid>
 
         return tracked.ChangeNotifications(notifyOnDeathAnniversary, notifyOnBirthAnniversary);
     }
+    
+    public UnitResult<Error> RemoveTracking(Guid deceasedId)
+    {
+        var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
+        if (tracked is null)
+            return Errors.Tracking.NotFound(deceasedId);
+
+        _trackedDeceasedItems.Remove(tracked);
+        return UnitResult.Success<Error>();
+    }
 
     private static bool IsValidEmail(string email)
     {
