@@ -65,6 +65,8 @@ public sealed class User : Entity<Guid>
         var finalUserName = string.IsNullOrWhiteSpace(userName)
             ? normalizedEmail.Split('@')[0]
             : userName.Trim();
+        
+        var normalizedUserName = finalUserName.ToLowerInvariant();
 
         if (string.IsNullOrWhiteSpace(finalUserName))
             return Errors.User.UserNameRequired();
@@ -72,7 +74,7 @@ public sealed class User : Entity<Guid>
         return Result.Success<User, Error>(new User(
             Guid.NewGuid(),
             normalizedEmail,
-            finalUserName,
+            normalizedUserName,
             string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim(),
             passwordHash,
             role,
