@@ -1,4 +1,5 @@
 ﻿using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Users.GetAll.Model;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
 using Microsoft.EntityFrameworkCore;
@@ -8,27 +9,58 @@ namespace GdeOni.Infrastructure.Persistence.Repositories;
 
 public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 {
+    private IQueryable<User> UsersQuery() =>
+        dbContext.Users.Where(x => x.Role != UserRole.SuperAdmin);
+
+    public Task<User?> GetById(Guid userId, CancellationToken cancellationToken)
+    {
+        return UsersQuery()
+            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
+    }
+
+    public Task<User?> GetByIdWithTracking(Guid userId, CancellationToken cancellationToken)
+    {
+        return UsersQuery()
+            .Include(x => x.TrackedDeceasedItems)
+            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
+    }
+    
+    public Task<User?> GetByEmail(string email, CancellationToken cancellationToken)
+    {
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+
+        return dbContext.Users
+            .FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
+    }
+
     public Task<bool> ExistsById(Guid userId, CancellationToken cancellationToken)
     {
-        return dbContext.Users.AnyAsync(x => x.Id == userId, cancellationToken);
+        return UsersQuery().AnyAsync(x => x.Id == userId, cancellationToken);
     }
 
     public Task<bool> ExistsByEmail(string email, CancellationToken cancellationToken)
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
 
-        return dbContext.Users.AnyAsync(
+        return UsersQuery().AnyAsync(
             x => x.Email == normalizedEmail,
             cancellationToken);
     }
 
     public Task<bool> ExistsByUserName(string userName, CancellationToken cancellationToken)
     {
-        var normalizedUserName = userName.Trim().ToLowerInvariant();
+        var normalizedUserName = userName
+            .Trim()
+            .ToLowerInvariant();
 
-        return dbContext.Users.AnyAsync(
-            x => x.UserName == normalizedUserName,
+        return UsersQuery().AnyAsync(
+            x => x.UserName.ToLower() == normalizedUserName,
             cancellationToken);
+    }
+    
+    public void Delete(User user)
+    {
+        dbContext.Users.Remove(user);
     }
 
     public async Task Add(User user, CancellationToken cancellationToken)
@@ -48,5 +80,60 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
         {
             throw new UniqueConstraintException(postgresException.ConstraintName);
         }
+    }
+
+    public async Task<(List<User> Items, int TotalCount)> GetPaged(
+        GetAllUsersQuery query,
+        CancellationToken cancellationToken)
+    {
+        var dbQuery = UsersQuery()
+            .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var search = query.Search.Trim();
+
+            dbQuery = dbQuery.Where(x =>
+                EF.Functions.ILike(x.Email, $"%{search}%") ||
+                EF.Functions.ILike(x.UserName, $"%{search}%") ||
+                (x.FullName != null && EF.Functions.ILike(x.FullName, $"%{search}%"))
+            );
+        }
+
+        if (query.Role.HasValue)
+        {
+            dbQuery = dbQuery.Where(x => x.Role == query.Role.Value);
+        }
+
+        if (query.RegisteredAtUtc.HasValue)
+        {
+            var date = DateTime.SpecifyKind(query.RegisteredAtUtc.Value.Date, DateTimeKind.Utc);
+            var nextDate = date.AddDays(1);
+
+            dbQuery = dbQuery.Where(x =>
+                x.RegisteredAtUtc >= date &&
+                x.RegisteredAtUtc < nextDate);
+        }
+
+        if (query.LastLoginAtUtc.HasValue)
+        {
+            var date = DateTime.SpecifyKind(query.LastLoginAtUtc.Value.Date, DateTimeKind.Utc);
+            var nextDate = date.AddDays(1);
+
+            dbQuery = dbQuery.Where(x =>
+                x.LastLoginAtUtc.HasValue &&
+                x.LastLoginAtUtc.Value >= date &&
+                x.LastLoginAtUtc.Value < nextDate);
+        }
+
+        var totalCount = await dbQuery.CountAsync(cancellationToken);
+
+        var items = await dbQuery
+            .OrderByDescending(x => x.RegisteredAtUtc)
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
     }
 }

@@ -43,6 +43,15 @@ public sealed class DeceasedMetadata : ValueObject
             additionalInfo);
     }
 
+    public bool IsEmpty() =>
+        string.IsNullOrWhiteSpace(Epitaph) &&
+        string.IsNullOrWhiteSpace(Religion) &&
+        string.IsNullOrWhiteSpace(Source) &&
+        !IsMilitaryService &&
+        string.IsNullOrWhiteSpace(AdditionalInfo);
+
+    public bool HasAnyData() => !IsEmpty();
+
     protected override IEnumerable<object> GetEqualityComponents()
     {
         yield return Epitaph ?? string.Empty;

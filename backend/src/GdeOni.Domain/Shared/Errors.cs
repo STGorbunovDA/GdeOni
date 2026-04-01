@@ -145,10 +145,10 @@ public static class Errors
 
         public static Error PasswordHashRequired() =>
             Error.Validation("user.password_hash.required", "Password hash is required");
-        
+
         public static Error PasswordRequired() =>
             Error.Validation("user.password.required", "Password is required");
-        
+
         public static Error PasswordTooShort() =>
             Error.Validation("user.password.too_short", "Password too short");
 
@@ -160,6 +160,15 @@ public static class Errors
 
         public static Error UserNameAlreadyExists() =>
             Error.Conflict("user.user_name.already.exists", "User with this user name already exists");
+
+        public static Error InvalidCredentials() =>
+            Error.Conflict("user.invalid.credentials", "Invalid email or password");
+
+        public static Error CurrentPasswordInvalid() =>
+            Error.Conflict("user.current_password.invalid", "Current password is invalid");
+
+        public static Error RoleInvalid() =>
+            Error.Validation("user.role.invalid", "User role is invalid");
     }
 
     public static class Tracking

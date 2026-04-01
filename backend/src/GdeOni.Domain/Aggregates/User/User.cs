@@ -10,6 +10,7 @@ public sealed class User : Entity<Guid>
     public string UserName { get; private set; }
     public string? FullName { get; private set; }
     public string PasswordHash { get; private set; }
+    public UserRole Role { get; private set; }
     public DateTime RegisteredAtUtc { get; }
     public DateTime? LastLoginAtUtc { get; private set; }
 
@@ -21,6 +22,7 @@ public sealed class User : Entity<Guid>
         Email = null!;
         UserName = null!;
         PasswordHash = null!;
+        Role = UserRole.Unknown;
     }
 
     private User(
@@ -29,12 +31,14 @@ public sealed class User : Entity<Guid>
         string userName,
         string? fullName,
         string passwordHash,
+        UserRole role,
         DateTime registeredAtUtc) : base(id)
     {
         Email = email;
         UserName = userName;
         FullName = fullName;
         PasswordHash = passwordHash;
+        Role = role;
         RegisteredAtUtc = registeredAtUtc;
     }
 
@@ -42,7 +46,8 @@ public sealed class User : Entity<Guid>
         string email,
         string passwordHash,
         string? fullName = null,
-        string? userName = null)
+        string? userName = null,
+        UserRole role = UserRole.RegularUser)
     {
         if (string.IsNullOrWhiteSpace(email))
             return Errors.User.EmailRequired();
@@ -52,6 +57,9 @@ public sealed class User : Entity<Guid>
 
         if (!IsValidEmail(email))
             return Errors.User.EmailInvalid();
+
+        if (!Enum.IsDefined(typeof(UserRole), role) || role == UserRole.Unknown || role == UserRole.SuperAdmin)
+            return Errors.User.RoleInvalid();
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
         var finalUserName = string.IsNullOrWhiteSpace(userName)
@@ -67,6 +75,7 @@ public sealed class User : Entity<Guid>
             finalUserName,
             string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim(),
             passwordHash,
+            role,
             DateTime.UtcNow));
     }
 
@@ -81,12 +90,33 @@ public sealed class User : Entity<Guid>
         return UnitResult.Success<Error>();
     }
 
+    public UnitResult<Error> ChangeEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return Errors.User.EmailRequired();
+
+        if (!IsValidEmail(email))
+            return Errors.User.EmailInvalid();
+
+        Email = email.Trim().ToLowerInvariant();
+        return UnitResult.Success<Error>();
+    }
+
     public UnitResult<Error> ChangePasswordHash(string newPasswordHash)
     {
         if (string.IsNullOrWhiteSpace(newPasswordHash))
             return Errors.User.PasswordHashRequired();
 
         PasswordHash = newPasswordHash;
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> ChangeRole(UserRole role)
+    {
+        if (!Enum.IsDefined(typeof(UserRole), role) || role == UserRole.Unknown || role == UserRole.SuperAdmin)
+            return Errors.User.RoleInvalid();
+
+        Role = role;
         return UnitResult.Success<Error>();
     }
 
@@ -120,6 +150,12 @@ public sealed class User : Entity<Guid>
         return Result.Success<TrackedDeceased, Error>(trackedResult.Value);
     }
 
+    public TrackedDeceased? GetTracking(Guid deceasedId) =>
+        _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
+
+    public bool IsTracking(Guid deceasedId) =>
+        _trackedDeceasedItems.Any(x => x.DeceasedId == deceasedId && x.Status != TrackStatus.Archived);
+
     public UnitResult<Error> StopTracking(Guid deceasedId)
     {
         var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId && x.Status != TrackStatus.Archived);
@@ -127,6 +163,24 @@ public sealed class User : Entity<Guid>
             return Errors.Tracking.NotFound(deceasedId);
 
         return tracked.Archive();
+    }
+
+    public UnitResult<Error> MuteTracking(Guid deceasedId)
+    {
+        var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
+        if (tracked is null)
+            return Errors.Tracking.NotFound(deceasedId);
+
+        return tracked.Mute();
+    }
+
+    public UnitResult<Error> ActivateTracking(Guid deceasedId)
+    {
+        var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
+        if (tracked is null)
+            return Errors.Tracking.NotFound(deceasedId);
+
+        return tracked.Activate();
     }
 
     public UnitResult<Error> UpdateTracking(

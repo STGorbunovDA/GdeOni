@@ -70,6 +70,10 @@ public sealed class CreateUserUseCase(
         {
             return Errors.User.EmailAlreadyExists();
         }
+        catch (UniqueConstraintException ex) when (ex.ConstraintName == DbConstraints.UxUsersName)
+        {
+            return Errors.User.UserNameAlreadyExists();
+        }
 
         return Result.Success<CreateUserResponse, Error>(
             new CreateUserResponse(user.Id));

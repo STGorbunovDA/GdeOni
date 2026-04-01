@@ -20,7 +20,7 @@ public sealed class LifePeriod : ValueObject
     {
         if (deathDate == default)
             return Errors.LifePeriod.DeathDateRequired();
-        
+
         if (deathDate.Date > DateTime.UtcNow.Date)
             return Errors.LifePeriod.DeathDateInFuture();
 
@@ -30,6 +30,21 @@ public sealed class LifePeriod : ValueObject
         return Result.Success<LifePeriod, Error>(new LifePeriod(
             birthDate?.Date,
             deathDate.Date));
+    }
+
+    public bool HasBirthDate() => BirthDate.HasValue;
+
+    public int? AgeAtDeath()
+    {
+        if (!BirthDate.HasValue)
+            return null;
+
+        var age = DeathDate.Year - BirthDate.Value.Year;
+
+        if (BirthDate.Value.Date > DeathDate.AddYears(-age).Date)
+            age--;
+
+        return age;
     }
 
     protected override IEnumerable<object> GetEqualityComponents()

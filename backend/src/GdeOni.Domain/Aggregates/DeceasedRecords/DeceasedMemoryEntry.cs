@@ -73,7 +73,7 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
         ModerationStatus = ModerationStatus.Rejected;
         return UnitResult.Success<Error>();
     }
-    
+
     public UnitResult<Error> UpdateAuthorDisplayName(string? authorDisplayName)
     {
         AuthorDisplayName = string.IsNullOrWhiteSpace(authorDisplayName)
@@ -82,4 +82,11 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
 
         return UnitResult.Success<Error>();
     }
+
+    public bool IsAnonymous() =>
+        string.Equals(AuthorDisplayName, "Аноним", StringComparison.Ordinal);
+
+    public bool IsApproved() => ModerationStatus == ModerationStatus.Approved;
+    public bool IsRejected() => ModerationStatus == ModerationStatus.Rejected;
+    public bool IsPending() => ModerationStatus == ModerationStatus.Pending;
 }
