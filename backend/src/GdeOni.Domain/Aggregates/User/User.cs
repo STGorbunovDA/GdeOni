@@ -86,7 +86,7 @@ public sealed class User : Entity<Guid>
         if (string.IsNullOrWhiteSpace(userName))
             return Errors.User.UserNameRequired();
 
-        UserName = userName.Trim();
+        UserName = userName.Trim().ToLowerInvariant();
         FullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim();
 
         return UnitResult.Success<Error>();
@@ -151,14 +151,31 @@ public sealed class User : Entity<Guid>
         _trackedDeceasedItems.Add(trackedResult.Value);
         return Result.Success<TrackedDeceased, Error>(trackedResult.Value);
     }
+    
+    public Result<TrackStatus, Error> GetTrackingStatus(Guid deceasedId)
+    {
+        var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
+        if (tracked is null)
+            return Errors.Tracking.NotFound(deceasedId);
+
+        return Result.Success<TrackStatus, Error>(tracked.Status);
+    }
+
+    public UnitResult<Error> ChangeTrackingStatus(Guid deceasedId, TrackStatus status)
+    {
+        return status switch
+        {
+            TrackStatus.Active => ActivateTracking(deceasedId),
+            TrackStatus.Muted => MuteTracking(deceasedId),
+            TrackStatus.Archived => StopTracking(deceasedId),
+            _ => Errors.Tracking.TrackStatusTypeInvalid()
+        };
+    }
 
     public TrackedDeceased? GetTracking(Guid deceasedId) =>
         _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
-
-    public bool IsTracking(Guid deceasedId) =>
-        _trackedDeceasedItems.Any(x => x.DeceasedId == deceasedId && x.Status != TrackStatus.Archived);
-
-    public UnitResult<Error> StopTracking(Guid deceasedId)
+    
+    private UnitResult<Error> StopTracking(Guid deceasedId)
     {
         var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId && x.Status != TrackStatus.Archived);
         if (tracked is null)
@@ -167,7 +184,7 @@ public sealed class User : Entity<Guid>
         return tracked.Archive();
     }
 
-    public UnitResult<Error> MuteTracking(Guid deceasedId)
+    private UnitResult<Error> MuteTracking(Guid deceasedId)
     {
         var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
         if (tracked is null)
@@ -176,7 +193,7 @@ public sealed class User : Entity<Guid>
         return tracked.Mute();
     }
 
-    public UnitResult<Error> ActivateTracking(Guid deceasedId)
+    private UnitResult<Error> ActivateTracking(Guid deceasedId)
     {
         var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
         if (tracked is null)

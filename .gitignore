@@ -8,3 +8,4 @@ launchSettings.json
 appsettings.json
 appsettings.Development.json
 NuGet.Config
+Tasks.cs

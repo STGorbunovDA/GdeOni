@@ -36,10 +36,17 @@ public class Error
 
     public static Error Conflict(string code, string message) =>
         new(code, message, ErrorType.Conflict);
+
+    public static Error Forbidden(string code, string message) =>
+        new(code, message, ErrorType.Forbidden);
+    
+    public static Error Unauthorized(string code, string message) =>
+        new(code, message, ErrorType.Unauthorized);
 }
 
 public sealed record ValidationErrorDetail(
     string PropertyName,
+    string ErrorCode,
     string ErrorMessage);
 
 public enum ErrorType
@@ -48,5 +55,6 @@ public enum ErrorType
     NotFound,
     Failure,
     Conflict,
-    Forbidden
+    Forbidden,
+    Unauthorized
 }

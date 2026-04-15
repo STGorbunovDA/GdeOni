@@ -57,6 +57,7 @@ namespace GdeOni.API.Controllers;
 [Route("api/deceased-records")]
 public sealed class DeceasedRecordsController : ApiControllerBase
 {
+    
     /// <summary>
     /// Метод создания умершего
     /// </summary>
@@ -112,7 +113,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<DeceasedDetailsResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<DeceasedDetailsResponse>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(
-        Guid id,
+        [FromRoute] Guid id,
         [FromServices] IGetDeceasedByIdUseCase getDeceasedByIdUseCase,
         CancellationToken cancellationToken)
     {
@@ -134,7 +135,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Update(
-        Guid id,
+        [FromRoute] Guid id,
         [FromBody] UpdateDeceasedRequest request,
         [FromServices] IUpdateDeceasedUseCase updateDeceasedUseCase,
         CancellationToken cancellationToken)
@@ -156,7 +157,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
-        Guid id,
+        [FromRoute] Guid id,
         [FromServices] IDeleteDeceasedUseCase deleteDeceasedUseCase,
         CancellationToken cancellationToken)
     {
@@ -180,7 +181,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<AddPhotoResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> AddPhoto(
-        Guid id,
+        [FromRoute] Guid id,
         [FromBody] AddPhotoRequest request,
         [FromServices] IAddPhotoUseCase addPhotoUseCase,
         CancellationToken cancellationToken)
@@ -203,8 +204,8 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdatePhotoResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdatePhoto(
-        Guid id,
-        Guid photoId,
+        [FromRoute] Guid id,
+        [FromRoute] Guid photoId,
         [FromBody] UpdatePhotoRequest request,
         [FromServices] IUpdatePhotoUseCase updatePhotoUseCase,
         CancellationToken cancellationToken)
@@ -228,8 +229,8 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<SetPrimaryPhotoResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> SetPrimaryPhoto(
-        Guid id,
-        Guid photoId,
+        [FromRoute] Guid id,
+        [FromRoute] Guid photoId,
         [FromServices] ISetPrimaryPhotoUseCase setPrimaryPhotoUseCase,
         CancellationToken cancellationToken)
     {
@@ -255,8 +256,8 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<ApprovePhotoResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ApprovePhoto(
-        Guid id,
-        Guid photoId,
+        [FromRoute] Guid id,
+        [FromRoute] Guid photoId,
         [FromServices] IApprovePhotoUseCase approvePhotoUseCase,
         CancellationToken cancellationToken)
     {
@@ -282,8 +283,8 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<RejectPhotoResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> RejectPhoto(
-        Guid id,
-        Guid photoId,
+        [FromRoute] Guid id,
+        [FromRoute] Guid photoId,
         [FromServices] IRejectPhotoUseCase rejectPhotoUseCase,
         CancellationToken cancellationToken)
     {
@@ -309,8 +310,8 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> RemovePhoto(
-        Guid id,
-        Guid photoId,
+        [FromRoute] Guid id,
+        [FromRoute] Guid photoId,
         [FromServices] IRemovePhotoUseCase removePhotoUseCase,
         CancellationToken cancellationToken)
     {
@@ -334,7 +335,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<AddMemoryResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> AddMemory(
-        Guid id,
+        [FromRoute] Guid id,
         [FromBody] AddMemoryRequest request,
         [FromServices] IAddMemoryUseCase addMemoryUseCase,
         CancellationToken cancellationToken)
@@ -357,8 +358,8 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateMemoryResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateMemory(
-        Guid id,
-        Guid memoryId,
+        [FromRoute] Guid id,
+        [FromRoute] Guid memoryId,
         [FromBody] UpdateMemoryRequest request,
         [FromServices] IUpdateMemoryUseCase updateMemoryUseCase,
         CancellationToken cancellationToken)
@@ -382,8 +383,8 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<ApproveMemoryResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ApproveMemory(
-        Guid id,
-        Guid memoryId,
+        [FromRoute] Guid id,
+        [FromRoute] Guid memoryId,
         [FromServices] IApproveMemoryUseCase approveMemoryUseCase,
         CancellationToken cancellationToken)
     {
@@ -409,8 +410,8 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<RejectMemoryResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> RejectMemory(
-        Guid id,
-        Guid memoryId,
+        [FromRoute] Guid id,
+        [FromRoute] Guid memoryId,
         [FromServices] IRejectMemoryUseCase rejectMemoryUseCase,
         CancellationToken cancellationToken)
     {
@@ -436,8 +437,8 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> RemoveMemory(
-        Guid id,
-        Guid memoryId,
+        [FromRoute] Guid id,
+        [FromRoute] Guid memoryId,
         [FromServices] IRemoveMemoryUseCase removeMemoryUseCase,
         CancellationToken cancellationToken)
     {
@@ -461,7 +462,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateMetadataResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateMetadata(
-        Guid id,
+        [FromRoute] Guid id,
         [FromBody] UpdateMetadataRequest request,
         [FromServices] IUpdateMetadataUseCase updateMetadataUseCase,
         CancellationToken cancellationToken)
@@ -482,7 +483,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<ClearMetadataResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ClearMetadata(
-        Guid id,
+        [FromRoute] Guid id,
         [FromServices] IClearMetadataUseCase clearMetadataUseCase,
         CancellationToken cancellationToken)
     {
@@ -508,7 +509,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<GetDistanceResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetDistance(
-        Guid id,
+        [FromRoute] Guid id,
         [FromQuery] double latitude,
         [FromQuery] double longitude,
         [FromServices] IGetDistanceUseCase getDistanceUseCase,
@@ -529,7 +530,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<GetAgeAtDeathResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<GetAgeAtDeathResponse>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAgeAtDeath(
-        Guid id,
+        [FromRoute] Guid id,
         [FromServices] IGetAgeAtDeathUseCase getAgeAtDeathUseCase,
         CancellationToken cancellationToken)
     {
@@ -548,7 +549,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<HasPhotosResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<HasPhotosResponse>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> HasPhotos(
-        Guid id,
+        [FromRoute] Guid id,
         [FromServices] IHasPhotosUseCase hasPhotosUseCase,
         CancellationToken cancellationToken)
     {
@@ -567,7 +568,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<HasMemoriesResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<HasMemoriesResponse>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> HasMemories(
-        Guid id,
+        [FromRoute] Guid id,
         [FromServices] IHasMemoriesUseCase hasMemoriesUseCase,
         CancellationToken cancellationToken)
     {
@@ -587,7 +588,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<VerifyDeceasedResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<VerifyDeceasedResponse>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Verify(
-        Guid id,
+        [FromRoute] Guid id,
         [FromServices] IVerifyDeceasedUseCase verifyDeceasedUseCase,
         CancellationToken cancellationToken)
     {
@@ -607,7 +608,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<UnverifyDeceasedResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<UnverifyDeceasedResponse>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Unverify(
-        Guid id,
+        [FromRoute] Guid id,
         [FromServices] IUnverifyDeceasedUseCase unverifyDeceasedUseCase,
         CancellationToken cancellationToken)
     {

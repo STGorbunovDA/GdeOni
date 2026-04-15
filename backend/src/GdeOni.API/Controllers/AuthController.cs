@@ -14,20 +14,20 @@ public sealed class AuthController : ApiControllerBase
     /// <summary>
     /// Логинимся
     /// </summary>
-    /// <param name="request"></param>
+    /// <param name="command"></param>
     /// <param name="loginUseCase"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     [HttpPost("login")]
     [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login(
-        [FromBody] LoginRequest request,
+        [FromBody] LoginCommand command,
         [FromServices] ILoginUseCase loginUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await loginUseCase.Execute(request, cancellationToken);
+        var result = await loginUseCase.Execute(command, cancellationToken);
         return FromResult(result);
     }
 }

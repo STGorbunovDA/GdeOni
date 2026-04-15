@@ -3,16 +3,10 @@ using GdeOni.Domain.Shared;
 
 namespace GdeOni.API.Extensions;
 
-/// <summary>
-/// 
-/// </summary>
-/// <param name="next"></param>
-public class ExceptionMiddleware(RequestDelegate next)
+public class ExceptionMiddleware(
+    RequestDelegate next,
+    ILogger<ExceptionMiddleware> logger)
 {
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="context"></param>
     public async Task InvokeAsync(HttpContext context)
     {
         try
@@ -21,9 +15,13 @@ public class ExceptionMiddleware(RequestDelegate next)
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "Unhandled exception occurred while processing request {Method} {Path}",
+                context.Request.Method,
+                context.Request.Path);
+
             var error = Error.Failure(
                 "server.internal",
-                $"{ex.Message}");
+                "An unexpected server error occurred.");
 
             var response = ApiResponse<object?>.Error(error);
 

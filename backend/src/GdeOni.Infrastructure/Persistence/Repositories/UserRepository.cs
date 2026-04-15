@@ -1,5 +1,5 @@
 ﻿using GdeOni.Application.Abstractions.Persistence;
-using GdeOni.Application.Users.GetAll.Model;
+using GdeOni.Application.Users.Queries.GetAll.Model;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
 using Microsoft.EntityFrameworkCore;
@@ -54,7 +54,7 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .ToLowerInvariant();
 
         return UsersQuery().AnyAsync(
-            x => x.UserName.ToLower() == normalizedUserName,
+            x => x.UserName == normalizedUserName,
             cancellationToken);
     }
     
@@ -87,6 +87,7 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
         CancellationToken cancellationToken)
     {
         var dbQuery = UsersQuery()
+            .Include(x => x.TrackedDeceasedItems)
             .AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(query.Search))

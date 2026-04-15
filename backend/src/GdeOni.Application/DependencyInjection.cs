@@ -25,24 +25,19 @@ using GdeOni.Application.DeceasedRecords.UpdateMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.UpdateMetadata.UseCase;
 using GdeOni.Application.DeceasedRecords.UpdatePhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Verify.UseCase;
-using GdeOni.Application.Users.ActivateTracking.UseCase;
-using GdeOni.Application.Users.ChangeEmail.UseCase;
-using GdeOni.Application.Users.ChangePassword.UseCase;
-using GdeOni.Application.Users.ChangeUserRole.UseCase;
-using GdeOni.Application.Users.Create.UseCase;
-using GdeOni.Application.Users.Delete.UseCase;
-using GdeOni.Application.Users.GetAll.UseCase;
-using GdeOni.Application.Users.GetById.UseCase;
-using GdeOni.Application.Users.GetTrackedDeceased.UseCase;
-using GdeOni.Application.Users.GetTracking.UseCase;
-using GdeOni.Application.Users.HasNotificationsEnabled.UseCase;
-using GdeOni.Application.Users.IsTracking.UseCase;
-using GdeOni.Application.Users.MuteTracking.UseCase;
-using GdeOni.Application.Users.RemoveTracking.UseCase;
-using GdeOni.Application.Users.StopTracking.UseCase;
-using GdeOni.Application.Users.TrackDeceased.UseCase;
-using GdeOni.Application.Users.UpdateProfile.UseCase;
-using GdeOni.Application.Users.UpdateTracking.UseCase;
+using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
+using GdeOni.Application.Users.Commands.ChangePassword.UseCase;
+using GdeOni.Application.Users.Commands.ChangeRole.UseCase;
+using GdeOni.Application.Users.Commands.Delete.UseCase;
+using GdeOni.Application.Users.Commands.Register.UseCase;
+using GdeOni.Application.Users.Commands.RemoveTracking.UseCase;
+using GdeOni.Application.Users.Commands.TrackDeceased.UseCase;
+using GdeOni.Application.Users.Commands.UpdateProfile.UseCase;
+using GdeOni.Application.Users.Commands.UpdateTracking.UseCase;
+using GdeOni.Application.Users.Queries.GetAll.UseCase;
+using GdeOni.Application.Users.Queries.GetById.UseCase;
+using GdeOni.Application.Users.Queries.GetTrackedDeceased.UseCase;
+using GdeOni.Application.Users.Queries.GetTracking.UseCase;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GdeOni.Application;
@@ -55,20 +50,17 @@ public static class DependencyInjection
 
         services.AddScoped<ILoginUseCase, LoginUseCase>();
 
-        services.AddScoped<ICreateUserUseCase, CreateUserUseCase>();
+        services.AddScoped<IRegisterUserUseCase, RegisterUserUseCase>();
         services.AddScoped<IGetUserByIdUseCase, GetUserByIdUseCase>();
         services.AddScoped<IUpdateUserProfileUseCase, UpdateUserProfileUseCase>();
         services.AddScoped<IChangePasswordUseCase, ChangePasswordUseCase>();
-        services.AddScoped<IChangeUserRoleUseCase, ChangeUserRoleUseCase>();
+        services.AddScoped<IChangeRoleUseCase, ChangeRoleUseCase>();
         services.AddScoped<IChangeEmailUseCase, ChangeEmailUseCase>();
         services.AddScoped<IGetAllUsersUseCase, GetAllUsersUseCase>();
 
         services.AddScoped<ITrackDeceasedUseCase, TrackDeceasedUseCase>();
         services.AddScoped<IGetTrackedDeceasedUseCase, GetTrackedDeceasedUseCase>();
         services.AddScoped<IUpdateTrackingUseCase, UpdateTrackingUseCase>();
-        services.AddScoped<IStopTrackingUseCase, StopTrackingUseCase>();
-        services.AddScoped<IMuteTrackingUseCase, MuteTrackingUseCase>();
-        services.AddScoped<IActivateTrackingUseCase, ActivateTrackingUseCase>();
 
         services.AddScoped<ICreateDeceasedUseCase, CreateDeceasedUseCase>();
         services.AddScoped<IGetAllDeceasedUseCase, GetAllDeceasedUseCase>();
@@ -100,9 +92,7 @@ public static class DependencyInjection
         services.AddScoped<IVerifyDeceasedUseCase, VerifyDeceasedUseCase>();
         services.AddScoped<IUnverifyDeceasedUseCase, UnverifyDeceasedUseCase>();
         services.AddScoped<IGetTrackingUseCase, GetTrackingUseCase>();
-        services.AddScoped<IIsTrackingUseCase, IsTrackingUseCase>();
         services.AddScoped<IRemoveTrackingUseCase, RemoveTrackingUseCase>();
-        services.AddScoped<IHasNotificationsEnabledUseCase, HasNotificationsEnabledUseCase>();
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;
     }

@@ -7,6 +7,6 @@ namespace GdeOni.Application.Auth.Login.UseCase;
 public interface ILoginUseCase
 {
     Task<Result<LoginResponse, Error>> Execute(
-        LoginRequest request,
+        LoginCommand command,
         CancellationToken cancellationToken);
 }
