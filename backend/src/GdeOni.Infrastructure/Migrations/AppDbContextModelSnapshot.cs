@@ -84,12 +84,6 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<string>("AuthorDisplayName")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)")
-                        .HasColumnName("author_display_name");
-
                     b.Property<Guid?>("AuthorUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("author_user_id");

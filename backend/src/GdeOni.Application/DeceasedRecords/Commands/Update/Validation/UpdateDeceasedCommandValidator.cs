@@ -1,0 +1,71 @@
+﻿using FluentValidation;
+using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
+using GdeOni.Domain.Shared;
+
+namespace GdeOni.Application.DeceasedRecords.Commands.Update.Validation;
+
+public sealed class UpdateDeceasedCommandValidator : AbstractValidator<UpdateDeceasedCommand>
+{
+    public UpdateDeceasedCommandValidator()
+    {
+        RuleFor(x => x.Id)
+            .NotEmpty()
+            .WithError(Errors.Deceased.IdRequired());
+
+        RuleFor(x => x.FirstName)
+            .NotEmpty()
+            .WithError(Errors.PersonName.FirstNameRequired())
+            .MaximumLength(100)
+            .WithError(Errors.PersonName.FirstNameTooLong(100));
+
+        RuleFor(x => x.LastName)
+            .NotEmpty()
+            .WithError(Errors.PersonName.LastNameRequired())
+            .MaximumLength(100)
+            .WithError(Errors.PersonName.LastNameTooLong(100));
+
+        RuleFor(x => x.MiddleName)
+            .MaximumLength(100)
+            .WithError(Errors.PersonName.MiddleNameTooLong(100))
+            .When(x => !string.IsNullOrWhiteSpace(x.MiddleName));
+
+        RuleFor(x => x.DeathDate)
+            .NotEmpty()
+            .WithError(Errors.LifePeriod.DeathDateRequired());
+
+        RuleFor(x => x.DeathDate)
+            .Must(x => x.Date <= DateTime.UtcNow.Date)
+            .WithError(Errors.LifePeriod.DeathDateInFuture());
+
+        RuleFor(x => x)
+            .Must(x => x.BirthDate is null || x.BirthDate.Value.Date <= x.DeathDate.Date)
+            .WithError(Errors.LifePeriod.BirthDateAfterDeathDate());
+
+        RuleFor(x => x.ShortDescription)
+            .MaximumLength(1000)
+            .WithError(Errors.Deceased.ShortDescriptionTooLong(1000))
+            .When(x => !string.IsNullOrWhiteSpace(x.ShortDescription));
+
+        RuleFor(x => x.Biography)
+            .MaximumLength(10000)
+            .WithError(Errors.Deceased.BiographyTooLong(10000))
+            .When(x => !string.IsNullOrWhiteSpace(x.Biography));
+
+        RuleFor(x => x.BurialLocation)
+            .NotNull()
+            .WithError(Errors.Deceased.BurialLocationRequired());
+
+        When(x => x.BurialLocation is not null, () =>
+        {
+            RuleFor(x => x.BurialLocation!)
+                .SetValidator(new UpdateDeceasedBurialLocationCommandValidator());
+        });
+
+        When(x => x.Metadata is not null, () =>
+        {
+            RuleFor(x => x.Metadata!)
+                .SetValidator(new UpdateDeceasedMetadataCommandValidator());
+        });
+    }
+}

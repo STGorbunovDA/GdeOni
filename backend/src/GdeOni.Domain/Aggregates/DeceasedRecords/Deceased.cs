@@ -296,10 +296,9 @@ public sealed class Deceased : Entity<Guid>
 
     public Result<DeceasedMemoryEntry, Error> AddMemory(
         string text,
-        string? authorDisplayName = null,
         Guid? authorUserId = null)
     {
-        var memoryResult = DeceasedMemoryEntry.Create(text, authorDisplayName, authorUserId);
+        var memoryResult = DeceasedMemoryEntry.Create(text, authorUserId);
         if (memoryResult.IsFailure)
             return memoryResult.Error;
 
@@ -316,20 +315,6 @@ public sealed class Deceased : Entity<Guid>
             return Errors.DeceasedMemory.NotFound(memoryId);
 
         var result = memory.EditText(text);
-        if (result.IsFailure)
-            return result.Error;
-
-        UpdatedAtUtc = DateTime.UtcNow;
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> UpdateMemoryAuthorDisplayName(Guid memoryId, string? authorDisplayName)
-    {
-        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
-        if (memory is null)
-            return Errors.DeceasedMemory.NotFound(memoryId);
-
-        var result = memory.UpdateAuthorDisplayName(authorDisplayName);
         if (result.IsFailure)
             return result.Error;
 

@@ -1,5 +1,7 @@
 ﻿using FluentValidation;
+using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Users.Queries.GetById.Model;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Users.Queries.GetById.Validation;
 
@@ -8,6 +10,7 @@ public sealed class GetUserByIdQueryValidator : AbstractValidator<GetUserByIdQue
     public GetUserByIdQueryValidator()
     {
         RuleFor(x => x.UserId)
-            .NotEmpty();
+            .NotEmpty()
+            .WithError(Errors.User.IdRequired());
     }
 }

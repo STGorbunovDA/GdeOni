@@ -8,7 +8,8 @@ namespace GdeOni.API;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddSecurity(this IServiceCollection services,
+    public static IServiceCollection AddSecurity(
+        this IServiceCollection services,
         IConfiguration configuration)
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
@@ -16,8 +17,22 @@ public static class DependencyInjection
         var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
                          ?? throw new InvalidOperationException("JWT settings are not configured.");
 
+        if (string.IsNullOrWhiteSpace(jwtOptions.Issuer))
+            throw new InvalidOperationException("JWT issuer is not configured.");
+
+        if (string.IsNullOrWhiteSpace(jwtOptions.Audience))
+            throw new InvalidOperationException("JWT audience is not configured.");
+
+        if (string.IsNullOrWhiteSpace(jwtOptions.SecretKey))
+            throw new InvalidOperationException("JWT secret key is not configured.");
+
         services
-            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
             .AddJwtBearer(options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
@@ -42,6 +57,7 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<IJwtProvider, JwtProvider>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+
         return services;
     }
 }

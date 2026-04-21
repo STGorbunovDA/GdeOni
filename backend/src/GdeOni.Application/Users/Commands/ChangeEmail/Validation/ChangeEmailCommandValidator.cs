@@ -1,5 +1,7 @@
 ﻿using FluentValidation;
+using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Users.Commands.ChangeEmail.Validation;
 
@@ -8,10 +10,13 @@ public sealed class ChangeEmailCommandValidator : AbstractValidator<ChangeEmailC
     public ChangeEmailCommandValidator()
     {
         RuleFor(x => x.UserId)
-            .NotEmpty();
+            .NotEmpty()
+            .WithError(Errors.User.IdRequired());
 
         RuleFor(x => x.Email)
             .NotEmpty()
-            .EmailAddress();
+            .WithError(Errors.User.EmailRequired())
+            .EmailAddress()
+            .WithError(Errors.User.EmailInvalid());
     }
 }

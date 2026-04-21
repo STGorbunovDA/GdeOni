@@ -10,6 +10,7 @@ namespace GdeOni.Application.Users.Commands.ChangePassword.UseCase;
 public sealed class ChangePasswordUseCase(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IChangePasswordUseCase
 {
@@ -28,11 +29,22 @@ public sealed class ChangePasswordUseCase(
         if (user is null)
             return Errors.General.NotFound("user", command.UserId);
 
-        var isCurrentPasswordValid =
-            passwordHasher.Verify(command.CurrentPassword, user.PasswordHash);
+        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), UserRole.Admin.ToString());
+        var isSelf = currentUserService.UserId.HasValue && currentUserService.UserId.Value == command.UserId;
 
-        if (!isCurrentPasswordValid)
-            return Errors.User.CurrentPasswordInvalid();
+        var mustVerifyCurrentPassword = !isAdmin || isSelf;
+
+        if (mustVerifyCurrentPassword)
+        {
+            if (string.IsNullOrWhiteSpace(command.CurrentPassword))
+                return Errors.User.CurrentPasswordInvalid();
+
+            var isCurrentPasswordValid =
+                passwordHasher.Verify(command.CurrentPassword, user.PasswordHash);
+
+            if (!isCurrentPasswordValid)
+                return Errors.User.CurrentPasswordInvalid();
+        }
 
         var newPasswordHash = passwordHasher.Hash(command.NewPassword);
 

@@ -2,12 +2,10 @@
 
 namespace GdeOni.Application.Users.Queries.GetAll.Model;
 
-public sealed class GetAllUsersQuery
-{
-    public string? Search { get; set; }
-    public UserRole? Role { get; init; }
-    public DateTime? RegisteredAtUtc { get; init; }
-    public DateTime? LastLoginAtUtc { get; init; }
-    public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 20;
-}
+public sealed record GetAllUsersQuery(
+    string? Search,
+    UserRole? Role,
+    DateTime? RegisteredAtUtc,
+    DateTime? LastLoginAtUtc,
+    int Page = 1,
+    int PageSize = 20);

@@ -65,7 +65,7 @@ public sealed class User : Entity<Guid>
         var finalUserName = string.IsNullOrWhiteSpace(userName)
             ? normalizedEmail.Split('@')[0]
             : userName.Trim();
-        
+
         var normalizedUserName = finalUserName.ToLowerInvariant();
 
         if (string.IsNullOrWhiteSpace(finalUserName))
@@ -135,8 +135,25 @@ public sealed class User : Entity<Guid>
         bool notifyOnDeathAnniversary = false,
         bool notifyOnBirthAnniversary = false)
     {
-        if (_trackedDeceasedItems.Any(x => x.DeceasedId == deceasedId && x.Status != TrackStatus.Archived))
-            return Errors.Tracking.AlreadyTracked();
+        var existingTracking = _trackedDeceasedItems
+            .FirstOrDefault(x => x.DeceasedId == deceasedId);
+
+        if (existingTracking is not null)
+        {
+            if (!existingTracking.IsArchived())
+                return Errors.Tracking.AlreadyTracked();
+
+            var reactivateResult = existingTracking.Reactivate(
+                relationshipType,
+                personalNotes,
+                notifyOnDeathAnniversary,
+                notifyOnBirthAnniversary);
+
+            if (reactivateResult.IsFailure)
+                return reactivateResult.Error;
+
+            return Result.Success<TrackedDeceased, Error>(existingTracking);
+        }
 
         var trackedResult = TrackedDeceased.Create(
             deceasedId,
@@ -151,7 +168,7 @@ public sealed class User : Entity<Guid>
         _trackedDeceasedItems.Add(trackedResult.Value);
         return Result.Success<TrackedDeceased, Error>(trackedResult.Value);
     }
-    
+
     public Result<TrackStatus, Error> GetTrackingStatus(Guid deceasedId)
     {
         var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
@@ -174,7 +191,7 @@ public sealed class User : Entity<Guid>
 
     public TrackedDeceased? GetTracking(Guid deceasedId) =>
         _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
-    
+
     private UnitResult<Error> StopTracking(Guid deceasedId)
     {
         var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId && x.Status != TrackStatus.Archived);
@@ -219,7 +236,7 @@ public sealed class User : Entity<Guid>
 
         return tracked.ChangeNotifications(notifyOnDeathAnniversary, notifyOnBirthAnniversary);
     }
-    
+
     public UnitResult<Error> RemoveTracking(Guid deceasedId)
     {
         var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);

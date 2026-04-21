@@ -1,5 +1,7 @@
 ﻿using FluentValidation;
+using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Users.Queries.GetTracking.Model;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Users.Queries.GetTracking.Validation;
 
@@ -8,9 +10,11 @@ public sealed class GetTrackingQueryValidator : AbstractValidator<GetTrackingQue
     public GetTrackingQueryValidator()
     {
         RuleFor(x => x.UserId)
-            .NotEmpty();
+            .NotEmpty()
+            .WithError(Errors.Tracking.UserIdRequired());
 
         RuleFor(x => x.DeceasedId)
-            .NotEmpty();
+            .NotEmpty()
+            .WithError(Errors.Tracking.DeceasedIdRequired());
     }
 }

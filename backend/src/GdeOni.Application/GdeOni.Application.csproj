@@ -16,6 +16,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Folder Include="DeceasedRecords\Queries\" />
       <Folder Include="Users\Commands\" />
       <Folder Include="Users\Queries\" />
     </ItemGroup>

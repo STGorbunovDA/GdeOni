@@ -6,7 +6,6 @@ namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 public sealed class DeceasedMemoryEntry : Entity<Guid>
 {
     public string Text { get; private set; }
-    public string AuthorDisplayName { get; private set; }
     public Guid? AuthorUserId { get; }
     public DateTime CreatedAtUtc { get; }
     public ModerationStatus ModerationStatus { get; private set; }
@@ -14,18 +13,15 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
     private DeceasedMemoryEntry() : base(Guid.Empty)
     {
         Text = null!;
-        AuthorDisplayName = null!;
     }
 
     private DeceasedMemoryEntry(
         Guid id,
         string text,
-        string authorDisplayName,
         Guid? authorUserId,
         DateTime createdAtUtc) : base(id)
     {
         Text = text;
-        AuthorDisplayName = authorDisplayName;
         AuthorUserId = authorUserId;
         CreatedAtUtc = createdAtUtc;
         ModerationStatus = ModerationStatus.Pending;
@@ -33,7 +29,6 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
 
     public static Result<DeceasedMemoryEntry, Error> Create(
         string text,
-        string? authorDisplayName = null,
         Guid? authorUserId = null)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -42,7 +37,6 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
         return Result.Success<DeceasedMemoryEntry, Error>(new DeceasedMemoryEntry(
             Guid.NewGuid(),
             text.Trim(),
-            string.IsNullOrWhiteSpace(authorDisplayName) ? "Аноним" : authorDisplayName.Trim(),
             authorUserId,
             DateTime.UtcNow));
     }
@@ -73,18 +67,7 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
         ModerationStatus = ModerationStatus.Rejected;
         return UnitResult.Success<Error>();
     }
-
-    public UnitResult<Error> UpdateAuthorDisplayName(string? authorDisplayName)
-    {
-        AuthorDisplayName = string.IsNullOrWhiteSpace(authorDisplayName)
-            ? "Аноним"
-            : authorDisplayName.Trim();
-
-        return UnitResult.Success<Error>();
-    }
-
-    public bool IsAnonymous() =>
-        string.Equals(AuthorDisplayName, "Аноним", StringComparison.Ordinal);
+    
 
     public bool IsApproved() => ModerationStatus == ModerationStatus.Approved;
     public bool IsRejected() => ModerationStatus == ModerationStatus.Rejected;

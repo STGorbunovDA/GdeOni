@@ -98,6 +98,24 @@ public sealed class TrackedDeceased : Entity<Guid>
         return UnitResult.Success<Error>();
     }
 
+    public UnitResult<Error> Reactivate(
+        RelationshipType relationshipType,
+        string? personalNotes,
+        bool notifyOnDeathAnniversary,
+        bool notifyOnBirthAnniversary)
+    {
+        if (Status != TrackStatus.Archived)
+            return Errors.Tracking.AlreadyTracked();
+
+        RelationshipType = relationshipType;
+        PersonalNotes = string.IsNullOrWhiteSpace(personalNotes) ? null : personalNotes.Trim();
+        NotifyOnDeathAnniversary = notifyOnDeathAnniversary;
+        NotifyOnBirthAnniversary = notifyOnBirthAnniversary;
+        Status = TrackStatus.Active;
+
+        return UnitResult.Success<Error>();
+    }
+
     public bool IsActive() => Status == TrackStatus.Active;
     public bool IsMuted() => Status == TrackStatus.Muted;
     public bool IsArchived() => Status == TrackStatus.Archived;

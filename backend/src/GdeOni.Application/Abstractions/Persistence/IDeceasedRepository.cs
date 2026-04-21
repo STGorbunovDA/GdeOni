@@ -1,4 +1,4 @@
-﻿using GdeOni.Application.DeceasedRecords.GetAll.Model;
+﻿using GdeOni.Application.DeceasedRecords.Queries.GetAll.Model;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 
 namespace GdeOni.Application.Abstractions.Persistence;

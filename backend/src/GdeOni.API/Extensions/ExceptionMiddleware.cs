@@ -3,7 +3,7 @@ using GdeOni.Domain.Shared;
 
 namespace GdeOni.API.Extensions;
 
-public class ExceptionMiddleware(
+public sealed class ExceptionMiddleware(
     RequestDelegate next,
     ILogger<ExceptionMiddleware> logger)
 {
@@ -15,9 +15,17 @@ public class ExceptionMiddleware(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unhandled exception occurred while processing request {Method} {Path}",
+            var traceId = context.TraceIdentifier;
+
+            logger.LogError(
+                ex,
+                "Unhandled exception while processing {Method} {Path}. TraceId: {TraceId}",
                 context.Request.Method,
-                context.Request.Path);
+                context.Request.Path,
+                traceId);
+
+            if (context.Response.HasStarted)
+                throw;
 
             var error = Error.Failure(
                 "server.internal",
@@ -25,6 +33,7 @@ public class ExceptionMiddleware(
 
             var response = ApiResponse<object?>.Error(error);
 
+            context.Response.Clear();
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 
