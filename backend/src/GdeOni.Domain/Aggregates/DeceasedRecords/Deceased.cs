@@ -5,6 +5,9 @@ namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
 public sealed class Deceased : Entity<Guid>
 {
+    public const int MaxShortDescriptionLength = 1000;
+    public const int MaxBiographyLength = 10000;
+
     public PersonName Name { get; private set; }
     public LifePeriod LifePeriod { get; private set; }
     public BurialLocation BurialLocation { get; private set; }
@@ -71,6 +74,9 @@ public sealed class Deceased : Entity<Guid>
         if (createdByUserId == Guid.Empty)
             return Errors.Deceased.CreatedByRequired();
 
+        if (burialLocation is null)
+            return Errors.Deceased.BurialLocationRequired();
+
         var nameResult = PersonName.Create(firstName, lastName, middleName);
         if (nameResult.IsFailure)
             return nameResult.Error;
@@ -79,20 +85,24 @@ public sealed class Deceased : Entity<Guid>
         if (periodResult.IsFailure)
             return periodResult.Error;
 
-        if (burialLocation is null)
-            return Errors.Deceased.BurialLocationRequired();
+        var shortDescriptionResult = NormalizeShortDescription(shortDescription);
+        if (shortDescriptionResult.IsFailure)
+            return shortDescriptionResult.Error;
 
-        var deceased = new Deceased(
-            Guid.NewGuid(),
-            nameResult.Value,
-            periodResult.Value,
-            burialLocation,
-            string.IsNullOrWhiteSpace(shortDescription) ? null : shortDescription.Trim(),
-            string.IsNullOrWhiteSpace(biography) ? null : biography.Trim(),
-            createdByUserId,
-            DateTime.UtcNow);
+        var biographyResult = NormalizeBiography(biography);
+        if (biographyResult.IsFailure)
+            return biographyResult.Error;
 
-        return Result.Success<Deceased, Error>(deceased);
+        return Result.Success<Deceased, Error>(
+            new Deceased(
+                Guid.NewGuid(),
+                nameResult.Value,
+                periodResult.Value,
+                burialLocation,
+                shortDescriptionResult.Value,
+                biographyResult.Value,
+                createdByUserId,
+                DateTime.UtcNow));
     }
 
     public int? AgeAtDeath() => LifePeriod.AgeAtDeath();
@@ -103,6 +113,286 @@ public sealed class Deceased : Entity<Guid>
     public bool HasPhotos() => _photos.Count > 0;
 
     public bool HasMemories() => _memories.Count > 0;
+
+    public UnitResult<Error> UpdateMainInfo(
+        string firstName,
+        string lastName,
+        string? middleName,
+        DateTime? birthDate,
+        DateTime deathDate,
+        string? shortDescription,
+        string? biography)
+    {
+        var nameResult = PersonName.Create(firstName, lastName, middleName);
+        if (nameResult.IsFailure)
+            return nameResult.Error;
+
+        var periodResult = LifePeriod.Create(birthDate, deathDate);
+        if (periodResult.IsFailure)
+            return periodResult.Error;
+
+        var shortDescriptionResult = NormalizeShortDescription(shortDescription);
+        if (shortDescriptionResult.IsFailure)
+            return shortDescriptionResult.Error;
+
+        var biographyResult = NormalizeBiography(biography);
+        if (biographyResult.IsFailure)
+            return biographyResult.Error;
+
+        Name = nameResult.Value;
+        LifePeriod = periodResult.Value;
+        ShortDescription = shortDescriptionResult.Value;
+        Biography = biographyResult.Value;
+
+        Touch();
+        RebuildSearchKey();
+
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> ChangeBurialLocation(BurialLocation burialLocation)
+    {
+        if (burialLocation is null)
+            return Errors.Deceased.BurialLocationRequired();
+
+        BurialLocation = burialLocation;
+        Touch();
+        RebuildSearchKey();
+
+        return UnitResult.Success<Error>();
+    }
+
+    public Result<DeceasedPhoto, Error> AddPhoto(
+        string url,
+        Guid addedByUserId,
+        string? description = null,
+        bool makePrimary = false)
+    {
+        var shouldBePrimary = makePrimary || _photos.Count == 0;
+
+        var photoResult = DeceasedPhoto.Create(
+            url,
+            addedByUserId,
+            description,
+            shouldBePrimary);
+
+        if (photoResult.IsFailure)
+            return photoResult.Error;
+
+        var photo = photoResult.Value;
+
+        if (photo.IsPrimary)
+        {
+            foreach (var item in _photos)
+                item.UnmarkPrimary();
+        }
+
+        _photos.Add(photo);
+        Touch();
+
+        return Result.Success<DeceasedPhoto, Error>(photo);
+    }
+
+    public UnitResult<Error> SetPrimaryPhoto(Guid photoId)
+    {
+        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
+        if (photo is null)
+            return Errors.DeceasedPhoto.NotFound(photoId);
+
+        foreach (var item in _photos)
+            item.UnmarkPrimary();
+
+        var makePrimaryResult = photo.MakePrimary();
+        if (makePrimaryResult.IsFailure)
+            return makePrimaryResult.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> UpdatePhotoDescription(Guid photoId, string? description)
+    {
+        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
+        if (photo is null)
+            return Errors.DeceasedPhoto.NotFound(photoId);
+
+        var result = photo.UpdateDescription(description);
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> UpdatePhotoUrl(Guid photoId, string url)
+    {
+        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
+        if (photo is null)
+            return Errors.DeceasedPhoto.NotFound(photoId);
+
+        var result = photo.UpdateUrl(url);
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> ApprovePhoto(Guid photoId)
+    {
+        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
+        if (photo is null)
+            return Errors.DeceasedPhoto.NotFound(photoId);
+
+        var result = photo.Approve();
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> RejectPhoto(Guid photoId)
+    {
+        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
+        if (photo is null)
+            return Errors.DeceasedPhoto.NotFound(photoId);
+
+        var result = photo.Reject();
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> RemovePhoto(Guid photoId)
+    {
+        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
+        if (photo is null)
+            return Errors.DeceasedPhoto.NotFound(photoId);
+
+        _photos.Remove(photo);
+
+        if (_photos.Count > 0 && _photos.All(x => !x.IsPrimary))
+        {
+            var makePrimaryResult = _photos[0].MakePrimary();
+            if (makePrimaryResult.IsFailure)
+                return makePrimaryResult.Error;
+        }
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public Result<DeceasedMemoryEntry, Error> AddMemory(
+        string text,
+        Guid? authorUserId = null)
+    {
+        var memoryResult = DeceasedMemoryEntry.Create(text, authorUserId);
+        if (memoryResult.IsFailure)
+            return memoryResult.Error;
+
+        _memories.Add(memoryResult.Value);
+        Touch();
+
+        return Result.Success<DeceasedMemoryEntry, Error>(memoryResult.Value);
+    }
+
+    public UnitResult<Error> EditMemory(Guid memoryId, string text)
+    {
+        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
+        if (memory is null)
+            return Errors.DeceasedMemory.NotFound(memoryId);
+
+        var result = memory.EditText(text);
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> ApproveMemory(Guid memoryId)
+    {
+        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
+        if (memory is null)
+            return Errors.DeceasedMemory.NotFound(memoryId);
+
+        var result = memory.Approve();
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> RejectMemory(Guid memoryId)
+    {
+        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
+        if (memory is null)
+            return Errors.DeceasedMemory.NotFound(memoryId);
+
+        var result = memory.Reject();
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> RemoveMemory(Guid memoryId)
+    {
+        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
+        if (memory is null)
+            return Errors.DeceasedMemory.NotFound(memoryId);
+
+        _memories.Remove(memory);
+        Touch();
+
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> Verify()
+    {
+        if (IsVerified)
+            return Errors.Deceased.AlreadyVerified();
+
+        IsVerified = true;
+        Touch();
+
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> Unverify()
+    {
+        if (!IsVerified)
+            return Errors.Deceased.NotVerified();
+
+        IsVerified = false;
+        Touch();
+
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> UpdateMetadata(DeceasedMetadata metadata)
+    {
+        if (metadata is null)
+            return Errors.Deceased.MetadataRequired();
+
+        Metadata = metadata;
+        Touch();
+
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> ClearMetadata()
+    {
+        Metadata = DeceasedMetadata.Empty();
+        Touch();
+
+        return UnitResult.Success<Error>();
+    }
 
     private void RebuildSearchKey()
     {
@@ -123,298 +413,54 @@ public sealed class Deceased : Entity<Guid>
         DateTime deathDate,
         BurialLocation burialLocation)
     {
-        static string N(string? value) => string.IsNullOrWhiteSpace(value)
-            ? "-"
-            : value.Trim().ToUpperInvariant();
+        static string NormalizeString(string? value) =>
+            string.IsNullOrWhiteSpace(value)
+                ? "-"
+                : value.Trim().ToUpperInvariant();
 
-        static string D(DateTime? value) => value?.Date.ToString("yyyy-MM-dd") ?? "-";
+        static string NormalizeDate(DateTime? value) =>
+            value?.Date.ToString("yyyy-MM-dd") ?? "-";
 
         return string.Join("|",
-            N(firstName),
-            N(lastName),
-            N(middleName),
-            D(birthDate),
-            D(deathDate),
-            N(burialLocation.CemeteryName),
-            N(burialLocation.City),
-            N(burialLocation.PlotNumber),
-            N(burialLocation.GraveNumber));
+            NormalizeString(firstName),
+            NormalizeString(lastName),
+            NormalizeString(middleName),
+            NormalizeDate(birthDate),
+            NormalizeDate(deathDate),
+            NormalizeString(burialLocation.CemeteryName),
+            NormalizeString(burialLocation.City),
+            NormalizeString(burialLocation.PlotNumber),
+            NormalizeString(burialLocation.GraveNumber));
     }
 
-    public UnitResult<Error> UpdateMainInfo(
-        string firstName,
-        string lastName,
-        string? middleName,
-        DateTime? birthDate,
-        DateTime deathDate,
-        string? shortDescription,
-        string? biography)
+    private static Result<string?, Error> NormalizeShortDescription(string? value)
     {
-        var nameResult = PersonName.Create(firstName, lastName, middleName);
-        if (nameResult.IsFailure)
-            return nameResult.Error;
+        if (string.IsNullOrWhiteSpace(value))
+            return Result.Success<string?, Error>(null);
 
-        var periodResult = LifePeriod.Create(birthDate, deathDate);
-        if (periodResult.IsFailure)
-            return periodResult.Error;
+        var normalized = value.Trim();
 
-        Name = nameResult.Value;
-        LifePeriod = periodResult.Value;
-        ShortDescription = string.IsNullOrWhiteSpace(shortDescription) ? null : shortDescription.Trim();
-        Biography = string.IsNullOrWhiteSpace(biography) ? null : biography.Trim();
-        UpdatedAtUtc = DateTime.UtcNow;
-        RebuildSearchKey();
+        if (normalized.Length > MaxShortDescriptionLength)
+            return Errors.Deceased.ShortDescriptionTooLong(MaxShortDescriptionLength);
 
-        return UnitResult.Success<Error>();
+        return Result.Success<string?, Error>(normalized);
     }
 
-    public UnitResult<Error> ChangeBurialLocation(BurialLocation burialLocation)
+    private static Result<string?, Error> NormalizeBiography(string? value)
     {
-        if (burialLocation is null)
-            return Errors.Deceased.BurialLocationRequired();
+        if (string.IsNullOrWhiteSpace(value))
+            return Result.Success<string?, Error>(null);
 
-        BurialLocation = burialLocation;
-        UpdatedAtUtc = DateTime.UtcNow;
-        RebuildSearchKey();
+        var normalized = value.Trim();
 
-        return UnitResult.Success<Error>();
+        if (normalized.Length > MaxBiographyLength)
+            return Errors.Deceased.BiographyTooLong(MaxBiographyLength);
+
+        return Result.Success<string?, Error>(normalized);
     }
 
-    public Result<DeceasedPhoto, Error> AddPhoto(
-        string url,
-        Guid addedByUserId,
-        string? description = null,
-        bool makePrimary = false)
+    private void Touch()
     {
-        var shouldBePrimary = makePrimary || _photos.Count == 0;
-
-        var photoResult = DeceasedPhoto.Create(url, addedByUserId, description, shouldBePrimary);
-        if (photoResult.IsFailure)
-            return photoResult.Error;
-
-        var photo = photoResult.Value;
-
-        if (photo.IsPrimary)
-        {
-            foreach (var item in _photos)
-                item.UnmarkPrimary();
-        }
-
-        _photos.Add(photo);
         UpdatedAtUtc = DateTime.UtcNow;
-
-        return Result.Success<DeceasedPhoto, Error>(photo);
-    }
-
-    public UnitResult<Error> SetPrimaryPhoto(Guid photoId)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        foreach (var item in _photos)
-            item.UnmarkPrimary();
-
-        var makePrimaryResult = photo.MakePrimary();
-        if (makePrimaryResult.IsFailure)
-            return makePrimaryResult.Error;
-
-        UpdatedAtUtc = DateTime.UtcNow;
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> UpdatePhotoDescription(Guid photoId, string? description)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var result = photo.UpdateDescription(description);
-        if (result.IsFailure)
-            return result.Error;
-
-        UpdatedAtUtc = DateTime.UtcNow;
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> UpdatePhotoUrl(Guid photoId, string url)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var result = photo.UpdateUrl(url);
-        if (result.IsFailure)
-            return result.Error;
-
-        UpdatedAtUtc = DateTime.UtcNow;
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> ApprovePhoto(Guid photoId)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var result = photo.Approve();
-        if (result.IsFailure)
-            return result.Error;
-
-        UpdatedAtUtc = DateTime.UtcNow;
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> RejectPhoto(Guid photoId)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var result = photo.Reject();
-        if (result.IsFailure)
-            return result.Error;
-
-        UpdatedAtUtc = DateTime.UtcNow;
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> RemovePhoto(Guid photoId)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        _photos.Remove(photo);
-
-        if (_photos.Count > 0 && _photos.All(x => !x.IsPrimary))
-            _photos[0].MakePrimary();
-
-        UpdatedAtUtc = DateTime.UtcNow;
-        return UnitResult.Success<Error>();
-    }
-
-    public Result<DeceasedMemoryEntry, Error> AddMemory(
-        string text,
-        string? authorDisplayName = null,
-        Guid? authorUserId = null)
-    {
-        var memoryResult = DeceasedMemoryEntry.Create(text, authorDisplayName, authorUserId);
-        if (memoryResult.IsFailure)
-            return memoryResult.Error;
-
-        _memories.Add(memoryResult.Value);
-        UpdatedAtUtc = DateTime.UtcNow;
-
-        return Result.Success<DeceasedMemoryEntry, Error>(memoryResult.Value);
-    }
-
-    public UnitResult<Error> EditMemory(Guid memoryId, string text)
-    {
-        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
-        if (memory is null)
-            return Errors.DeceasedMemory.NotFound(memoryId);
-
-        var result = memory.EditText(text);
-        if (result.IsFailure)
-            return result.Error;
-
-        UpdatedAtUtc = DateTime.UtcNow;
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> UpdateMemoryAuthorDisplayName(Guid memoryId, string? authorDisplayName)
-    {
-        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
-        if (memory is null)
-            return Errors.DeceasedMemory.NotFound(memoryId);
-
-        var result = memory.UpdateAuthorDisplayName(authorDisplayName);
-        if (result.IsFailure)
-            return result.Error;
-
-        UpdatedAtUtc = DateTime.UtcNow;
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> ApproveMemory(Guid memoryId)
-    {
-        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
-        if (memory is null)
-            return Errors.DeceasedMemory.NotFound(memoryId);
-
-        var result = memory.Approve();
-        if (result.IsFailure)
-            return result.Error;
-
-        UpdatedAtUtc = DateTime.UtcNow;
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> RejectMemory(Guid memoryId)
-    {
-        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
-        if (memory is null)
-            return Errors.DeceasedMemory.NotFound(memoryId);
-
-        var result = memory.Reject();
-        if (result.IsFailure)
-            return result.Error;
-
-        UpdatedAtUtc = DateTime.UtcNow;
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> RemoveMemory(Guid memoryId)
-    {
-        var memory = _memories.FirstOrDefault(x => x.Id == memoryId);
-        if (memory is null)
-            return Errors.DeceasedMemory.NotFound(memoryId);
-
-        _memories.Remove(memory);
-        UpdatedAtUtc = DateTime.UtcNow;
-
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> Verify()
-    {
-        if (IsVerified)
-            return Errors.Deceased.AlreadyVerified();
-
-        IsVerified = true;
-        UpdatedAtUtc = DateTime.UtcNow;
-
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> Unverify()
-    {
-        if (!IsVerified)
-            return Errors.Deceased.NotVerified();
-
-        IsVerified = false;
-        UpdatedAtUtc = DateTime.UtcNow;
-
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> UpdateMetadata(DeceasedMetadata metadata)
-    {
-        if (metadata is null)
-            return Errors.Deceased.MetadataRequired();
-
-        Metadata = metadata;
-        UpdatedAtUtc = DateTime.UtcNow;
-
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> ClearMetadata()
-    {
-        Metadata = DeceasedMetadata.Empty();
-        UpdatedAtUtc = DateTime.UtcNow;
-
-        return UnitResult.Success<Error>();
     }
 }

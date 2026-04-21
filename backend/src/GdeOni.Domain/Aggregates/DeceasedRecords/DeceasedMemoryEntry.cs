@@ -5,8 +5,9 @@ namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
 public sealed class DeceasedMemoryEntry : Entity<Guid>
 {
+    public const int MaxTextLength = 5000;
+
     public string Text { get; private set; }
-    public string AuthorDisplayName { get; private set; }
     public Guid? AuthorUserId { get; }
     public DateTime CreatedAtUtc { get; }
     public ModerationStatus ModerationStatus { get; private set; }
@@ -14,18 +15,15 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
     private DeceasedMemoryEntry() : base(Guid.Empty)
     {
         Text = null!;
-        AuthorDisplayName = null!;
     }
 
     private DeceasedMemoryEntry(
         Guid id,
         string text,
-        string authorDisplayName,
         Guid? authorUserId,
         DateTime createdAtUtc) : base(id)
     {
         Text = text;
-        AuthorDisplayName = authorDisplayName;
         AuthorUserId = authorUserId;
         CreatedAtUtc = createdAtUtc;
         ModerationStatus = ModerationStatus.Pending;
@@ -33,26 +31,30 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
 
     public static Result<DeceasedMemoryEntry, Error> Create(
         string text,
-        string? authorDisplayName = null,
         Guid? authorUserId = null)
     {
-        if (string.IsNullOrWhiteSpace(text))
-            return Errors.DeceasedMemory.TextRequired();
+        if (authorUserId.HasValue && authorUserId.Value == Guid.Empty)
+            return Errors.User.IdRequired();
 
-        return Result.Success<DeceasedMemoryEntry, Error>(new DeceasedMemoryEntry(
-            Guid.NewGuid(),
-            text.Trim(),
-            string.IsNullOrWhiteSpace(authorDisplayName) ? "Аноним" : authorDisplayName.Trim(),
-            authorUserId,
-            DateTime.UtcNow));
+        var textResult = NormalizeAndValidateText(text);
+        if (textResult.IsFailure)
+            return textResult.Error;
+
+        return Result.Success<DeceasedMemoryEntry, Error>(
+            new DeceasedMemoryEntry(
+                Guid.NewGuid(),
+                textResult.Value,
+                authorUserId,
+                DateTime.UtcNow));
     }
 
     public UnitResult<Error> EditText(string text)
     {
-        if (string.IsNullOrWhiteSpace(text))
-            return Errors.DeceasedMemory.TextRequired();
+        var textResult = NormalizeAndValidateText(text);
+        if (textResult.IsFailure)
+            return textResult.Error;
 
-        Text = text.Trim();
+        Text = textResult.Value;
         return UnitResult.Success<Error>();
     }
 
@@ -74,19 +76,16 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
         return UnitResult.Success<Error>();
     }
 
-    public UnitResult<Error> UpdateAuthorDisplayName(string? authorDisplayName)
+    private static Result<string, Error> NormalizeAndValidateText(string text)
     {
-        AuthorDisplayName = string.IsNullOrWhiteSpace(authorDisplayName)
-            ? "Аноним"
-            : authorDisplayName.Trim();
+        if (string.IsNullOrWhiteSpace(text))
+            return Errors.DeceasedMemory.TextRequired();
 
-        return UnitResult.Success<Error>();
+        var normalized = text.Trim();
+
+        if (normalized.Length > MaxTextLength)
+            return Errors.DeceasedMemory.TextTooLong(MaxTextLength);
+
+        return Result.Success<string, Error>(normalized);
     }
-
-    public bool IsAnonymous() =>
-        string.Equals(AuthorDisplayName, "Аноним", StringComparison.Ordinal);
-
-    public bool IsApproved() => ModerationStatus == ModerationStatus.Approved;
-    public bool IsRejected() => ModerationStatus == ModerationStatus.Rejected;
-    public bool IsPending() => ModerationStatus == ModerationStatus.Pending;
 }

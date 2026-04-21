@@ -15,21 +15,21 @@ public sealed class LoginUseCase(
     : ILoginUseCase
 {
     public Task<Result<LoginResponse, Error>> Execute(
-        LoginRequest request,
+        LoginCommand command,
         CancellationToken cancellationToken)
     {
-        return validatedUseCaseExecutor.Execute(request, Handle, cancellationToken);
+        return validatedUseCaseExecutor.Execute(command, Handle, cancellationToken);
     }
 
     private async Task<Result<LoginResponse, Error>> Handle(
-        LoginRequest request,
+        LoginCommand command,
         CancellationToken cancellationToken)
     {
-        var user = await userRepository.GetByEmail(request.Email, cancellationToken);
+        var user = await userRepository.GetByEmail(command.Email, cancellationToken);
         if (user is null)
             return Errors.User.InvalidCredentials();
 
-        var isValid = passwordHasher.Verify(request.Password, user.PasswordHash);
+        var isValid = passwordHasher.Verify(command.Password, user.PasswordHash);
         if (!isValid)
             return Errors.User.InvalidCredentials();
 
@@ -39,7 +39,7 @@ public sealed class LoginUseCase(
 
         await userRepository.Save(cancellationToken);
 
-        var token = "Bearer " + jwtProvider.GenerateToken(user);
+        var token = jwtProvider.GenerateToken(user);
 
         return Result.Success<LoginResponse, Error>(new LoginResponse(
             user.Id,

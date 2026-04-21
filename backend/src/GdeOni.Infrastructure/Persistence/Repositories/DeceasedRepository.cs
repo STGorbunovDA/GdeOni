@@ -1,5 +1,5 @@
 ﻿using GdeOni.Application.Abstractions.Persistence;
-using GdeOni.Application.DeceasedRecords.GetAll.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetAll.Model;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
 using Microsoft.EntityFrameworkCore;

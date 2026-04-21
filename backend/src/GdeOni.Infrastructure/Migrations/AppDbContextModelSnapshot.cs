@@ -29,7 +29,8 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnName("id");
 
                     b.Property<string>("Biography")
-                        .HasColumnType("text")
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)")
                         .HasColumnName("biography");
 
                     b.Property<DateTime>("CreatedAtUtc")
@@ -84,12 +85,6 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<string>("AuthorDisplayName")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)")
-                        .HasColumnName("author_display_name");
-
                     b.Property<Guid?>("AuthorUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("author_user_id");
@@ -104,7 +99,8 @@ namespace GdeOni.Infrastructure.Migrations
 
                     b.Property<string>("Text")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)")
                         .HasColumnName("text");
 
                     b.Property<Guid>("deceased_id")
@@ -359,27 +355,19 @@ namespace GdeOni.Infrastructure.Migrations
 
                             b1.Property<string>("AdditionalInfo")
                                 .HasMaxLength(2000)
-                                .HasColumnType("character varying(2000)")
-                                .HasColumnName("metadata_additional_info");
+                                .HasColumnType("character varying(2000)");
 
                             b1.Property<string>("Epitaph")
                                 .HasMaxLength(500)
-                                .HasColumnType("character varying(500)")
-                                .HasColumnName("metadata_epitaph");
-
-                            b1.Property<bool>("IsMilitaryService")
-                                .HasColumnType("boolean")
-                                .HasColumnName("metadata_is_military_service");
+                                .HasColumnType("character varying(500)");
 
                             b1.Property<string>("Religion")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasColumnName("metadata_religion");
+                                .HasColumnType("character varying(200)");
 
                             b1.Property<string>("Source")
                                 .HasMaxLength(500)
-                                .HasColumnType("character varying(500)")
-                                .HasColumnName("metadata_source");
+                                .HasColumnType("character varying(500)");
 
                             b1.HasKey("DeceasedId");
 

@@ -45,6 +45,16 @@ public static class Errors
 
         public static Error LastNameRequired() =>
             Error.Validation("person_name.last_name.required", "Last name is required");
+        
+        public static Error FirstNameTooLong(int maxLength) =>
+            Error.Validation("person_name.first_name.too_long", $"First name must be at most {maxLength} characters");
+
+        public static Error LastNameTooLong(int maxLength) =>
+            Error.Validation("person_name.last_name.too_long", $"Last name must be at most {maxLength} characters");
+
+        public static Error MiddleNameTooLong(int maxLength) =>
+            Error.Validation("person_name.middle_name.too_long", $"Middle name must be at most {maxLength} characters");
+        
     }
 
     public static class LifePeriod
@@ -69,34 +79,98 @@ public static class Errors
 
         public static Error CountryRequired() =>
             Error.Validation("burial_location.country.required", "Country is required");
+        
+        public static Error CountryTooLong(int maxLength) =>
+            Error.Validation("burial_location.country.too_long", $"Country must be at most {maxLength} characters");
+
+        public static Error RegionTooLong(int maxLength) =>
+            Error.Validation("burial_location.region.too_long", $"Region must be at most {maxLength} characters");
+
+        public static Error CityTooLong(int maxLength) =>
+            Error.Validation("burial_location.city.too_long", $"City must be at most {maxLength} characters");
+
+        public static Error CemeteryNameTooLong(int maxLength) =>
+            Error.Validation("burial_location.cemetery_name.too_long", $"Cemetery name must be at most {maxLength} characters");
+
+        public static Error PlotNumberTooLong(int maxLength) =>
+            Error.Validation("burial_location.plot_number.too_long", $"Plot number must be at most {maxLength} characters");
+
+        public static Error GraveNumberTooLong(int maxLength) =>
+            Error.Validation("burial_location.grave_number.too_long", $"Grave number must be at most {maxLength} characters");
+
+        public static Error AccuracyInvalid() =>
+            Error.Validation("burial_location.accuracy.invalid", "Burial location accuracy is invalid");
     }
 
     public static class Deceased
     {
-        public static Error CreatedByRequired() =>
-            Error.Validation("deceased.created_by.required", "Created by user id is required");
+       public static Error CreatedByRequired() =>
+        Error.Validation("deceased.created_by.required", "Created by user id is required");
 
-        public static Error BurialLocationRequired() =>
-            Error.Validation("deceased.burial_location.required", "Burial location is required");
+    public static Error IdRequired() =>
+        Error.Validation("deceased.id.required", "Deceased id is required");
 
-        public static Error AlreadyVerified() =>
-            Error.Conflict("deceased.already.verified", "Deceased record is already verified");
+    public static Error BurialLocationRequired() =>
+        Error.Validation("deceased.burial_location.required", "Burial location is required");
 
-        public static Error NotVerified() =>
-            Error.Conflict("deceased.not.verified", "Deceased record is not verified");
+    public static Error MetadataRequired() =>
+        Error.Validation("deceased.metadata.required", "Metadata is required");
 
-        public static Error MetadataRequired() =>
-            Error.Validation("deceased.metadata.required", "Metadata is required");
-        
-        public static Error AlreadyExists() =>
-            Error.Conflict("deceased.already.exists", "Such a deceased person already exists.");
+    public static Error AlreadyVerified() =>
+        Error.Conflict("deceased.already.verified", "Deceased record is already verified");
+
+    public static Error NotVerified() =>
+        Error.Conflict("deceased.not.verified", "Deceased record is not verified");
+
+    public static Error AlreadyExists() =>
+        Error.Conflict("deceased.already.exists", "Such a deceased person already exists.");
+
+    public static Error ShortDescriptionTooLong(int maxLength) =>
+        Error.Validation("deceased.short_description.too_long",
+            $"Short description must be at most {maxLength} characters");
+
+    public static Error BiographyTooLong(int maxLength) =>
+        Error.Validation("deceased.biography.too_long",
+            $"Biography must be at most {maxLength} characters");
+
+    public static Error EpitaphTooLong(int maxLength) =>
+        Error.Validation("deceased.metadata.epitaph.too_long",
+            $"Epitaph must be at most {maxLength} characters");
+
+    public static Error ReligionTooLong(int maxLength) =>
+        Error.Validation("deceased.metadata.religion.too_long",
+            $"Religion must be at most {maxLength} characters");
+
+    public static Error SourceTooLong(int maxLength) =>
+        Error.Validation("deceased.metadata.source.too_long",
+            $"Source must be at most {maxLength} characters");
+
+    public static Error AdditionalInfoTooLong(int maxLength) =>
+        Error.Validation("deceased.metadata.additional_info.too_long",
+            $"Additional info must be at most {maxLength} characters");
+
+    public static Error SearchTooLong(int maxLength) =>
+        Error.Validation("deceased.search.too_long",
+            $"Search must be at most {maxLength} characters");
+
+    public static Error CreatedFromMustBeLessOrEqualToCreatedTo() =>
+        Error.Validation("deceased.created_range.invalid",
+            "CreatedFrom must be less than or equal to CreatedTo");
+
+    public static Error CreatedFromInFuture() =>
+        Error.Validation("deceased.created_from.in_future",
+            "CreatedFrom cannot be in the future");
+
+    public static Error CreatedToInFuture() =>
+        Error.Validation("deceased.created_to.in_future",
+            "CreatedTo cannot be in the future");
     }
 
     public static class DeceasedPhoto
     {
         public static Error UrlRequired() =>
             Error.Validation("deceased_photo.url.required", "Photo url is required");
-        
+
         public static Error UrlInvalid() =>
             Error.Validation("deceased_photo.url.invalid", "Photo url invalid");
 
@@ -116,6 +190,12 @@ public static class Errors
 
         public static Error AlreadyRejected() =>
             Error.Conflict("deceased_photo.already.rejected", "Photo is already rejected");
+        
+        public static Error UrlTooLong(int maxLength) =>
+            Error.Validation("deceased_photo.url.too_long", $"Photo url must be at most {maxLength} characters");
+
+        public static Error DescriptionTooLong(int maxLength) =>
+            Error.Validation("deceased_photo.description.too_long", $"Photo description must be at most {maxLength} characters");
     }
 
     public static class DeceasedMemory
@@ -133,15 +213,37 @@ public static class Errors
 
         public static Error AlreadyRejected() =>
             Error.Conflict("deceased_memory.already.rejected", "Memory is already rejected");
+        
+        public static Error TextTooLong(int maxLength) =>
+            Error.Validation("deceased_memory.text.too_long", $"Memory text must be at most {maxLength} characters");
+
     }
 
     public static class User
     {
+        public static Error IdRequired() =>
+            Error.Validation("user.id.required", "User id is required");
+
+        public static Error DtoRequired() =>
+            Error.Validation("user.dto.required", "Request body is required");
+
         public static Error EmailRequired() =>
             Error.Validation("user.email.required", "Email is required");
 
         public static Error EmailInvalid() =>
             Error.Validation("user.email.invalid", "Email is invalid");
+
+        public static Error EmailTooLong(int maxLength) =>
+            Error.Validation("user.email.too_long", $"Email must be at most {maxLength} characters");
+
+        public static Error UserNameRequired() =>
+            Error.Validation("user.user_name.required", "User name is required");
+
+        public static Error UserNameTooLong(int maxLength) =>
+            Error.Validation("user.user_name.too_long", $"User name must be at most {maxLength} characters");
+
+        public static Error FullNameTooLong(int maxLength) =>
+            Error.Validation("user.full_name.too_long", $"Full name must be at most {maxLength} characters");
 
         public static Error PasswordHashRequired() =>
             Error.Validation("user.password_hash.required", "Password hash is required");
@@ -149,11 +251,8 @@ public static class Errors
         public static Error PasswordRequired() =>
             Error.Validation("user.password.required", "Password is required");
 
-        public static Error PasswordTooShort() =>
-            Error.Validation("user.password.too_short", "Password too short");
-
-        public static Error UserNameRequired() =>
-            Error.Validation("user.user_name.required", "User name is required");
+        public static Error PasswordTooShort(int minLength) =>
+            Error.Validation("user.password.too_short", $"Password must be at least {minLength} characters long");
 
         public static Error EmailAlreadyExists() =>
             Error.Conflict("user.email.already.exists", "User with this email already exists");
@@ -162,19 +261,49 @@ public static class Errors
             Error.Conflict("user.user_name.already.exists", "User with this user name already exists");
 
         public static Error InvalidCredentials() =>
-            Error.Conflict("user.invalid.credentials", "Invalid email or password");
+            Error.Unauthorized("user.invalid.credentials", "Invalid email or password");
 
         public static Error CurrentPasswordInvalid() =>
-            Error.Conflict("user.current_password.invalid", "Current password is invalid");
+            Error.Unauthorized("user.current_password.invalid", "Current password is invalid");
 
         public static Error RoleInvalid() =>
             Error.Validation("user.role.invalid", "User role is invalid");
+
+        public static Error RoleUnknownNotAllowed() =>
+            Error.Validation("user.role.unknown.not_allowed", "The role cannot be Unknown");
+
+        public static Error RoleSuperAdminNotAllowed() =>
+            Error.Validation("user.role.super_admin.not_allowed", "The SuperAdmin role cannot be assigned");
+
+        public static Error SearchTooLong(int maxLength) =>
+            Error.Validation("user.search.too_long", $"Search must be at most {maxLength} characters");
+
+        public static Error RegisteredAtUtcInFuture() =>
+            Error.Validation("user.registered_at_utc.in_future", "RegisteredAtUtc cannot be in the future");
+
+        public static Error LastLoginAtUtcInFuture() =>
+            Error.Validation("user.last_login_at_utc.in_future", "LastLoginAtUtc cannot be in the future");
     }
 
     public static class Tracking
     {
+        public static Error UserIdRequired() =>
+            Error.Validation("tracking.user_id.required", "User id is required");
+
         public static Error DeceasedIdRequired() =>
             Error.Validation("tracking.deceased_id.required", "Deceased id is required");
+
+        public static Error DtoRequired() =>
+            Error.Validation("tracking.dto.required", "Request body is required");
+
+        public static Error RelationshipTypeInvalid() =>
+            Error.Validation("tracking.relationship_type.invalid", "Relationship type is invalid");
+        
+        public static Error TrackStatusTypeInvalid() =>
+            Error.Validation("tracking.track_status.invalid", "TrackStatus type is invalid");
+
+        public static Error PersonalNotesTooLong(int maxLength) =>
+            Error.Validation("tracking.personal_notes.too_long", $"Personal notes must be at most {maxLength} characters");
 
         public static Error AlreadyTracked() =>
             Error.Conflict("tracking.already.exists", "Deceased is already tracked by user");
@@ -192,5 +321,14 @@ public static class Errors
 
         public static Error AlreadyActive() =>
             Error.Conflict("tracking.already.active", "Tracking is already active");
+    }
+
+    public static class Pagination
+    {
+        public static Error PageMustBeGreaterThanZero() =>
+            Error.Validation("pagination.page.invalid", "Page must be greater than 0");
+
+        public static Error PageSizeOutOfRange(int min, int max) =>
+            Error.Validation("pagination.page_size.invalid", $"PageSize must be between {min} and {max}");
     }
 }

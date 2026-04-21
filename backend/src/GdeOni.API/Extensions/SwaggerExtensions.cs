@@ -11,18 +11,21 @@ public static class SwaggerExtensions
         {
             var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
             var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-            c.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
-            
+
+            if (File.Exists(xmlPath))
+                c.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+
             c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
-                Description = "Введите JWT токен. Пример: Bearer {токен}",
+                Description = "JWT Authorization header. Пример: Bearer {token}",
                 Name = "Authorization",
                 In = ParameterLocation.Header,
-                Type = SecuritySchemeType.ApiKey,
-                Scheme = "Bearer"
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT"
             });
-            
-            c.AddSecurityRequirement(new OpenApiSecurityRequirement()
+
+            c.AddSecurityRequirement(new OpenApiSecurityRequirement
             {
                 {
                     new OpenApiSecurityScheme
@@ -36,7 +39,6 @@ public static class SwaggerExtensions
                     Array.Empty<string>()
                 }
             });
-            
         });
 
         return services;

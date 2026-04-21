@@ -10,6 +10,7 @@ public static class ValidationExtensions
         var details = validationResult.Errors
             .Select(x => new ValidationErrorDetail(
                 x.PropertyName,
+                x.ErrorCode,
                 x.ErrorMessage))
             .ToArray();
 

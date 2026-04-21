@@ -1,514 +1,264 @@
 ﻿using GdeOni.API.Extensions;
+using GdeOni.API.Models;
+using GdeOni.API.Models.Users;
 using GdeOni.API.Response;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Common.Shared;
-using GdeOni.Application.Users.ActivateTracking.UseCase;
-using GdeOni.Application.Users.ChangeEmail.Model;
-using GdeOni.Application.Users.ChangeEmail.UseCase;
-using GdeOni.Application.Users.ChangePassword.Model;
-using GdeOni.Application.Users.ChangePassword.UseCase;
-using GdeOni.Application.Users.ChangeUserRole.Model;
-using GdeOni.Application.Users.ChangeUserRole.UseCase;
-using GdeOni.Application.Users.Create.Model;
-using GdeOni.Application.Users.Create.UseCase;
-using GdeOni.Application.Users.Delete.UseCase;
-using GdeOni.Application.Users.GetAll.Model;
-using GdeOni.Application.Users.GetAll.UseCase;
-using GdeOni.Application.Users.GetById.Model;
-using GdeOni.Application.Users.GetById.UseCase;
-using GdeOni.Application.Users.GetTrackedDeceased.Model;
-using GdeOni.Application.Users.GetTrackedDeceased.UseCase;
-using GdeOni.Application.Users.GetTracking.Model;
-using GdeOni.Application.Users.GetTracking.UseCase;
-using GdeOni.Application.Users.HasNotificationsEnabled.Model;
-using GdeOni.Application.Users.HasNotificationsEnabled.UseCase;
-using GdeOni.Application.Users.IsTracking.Model;
-using GdeOni.Application.Users.IsTracking.UseCase;
-using GdeOni.Application.Users.MuteTracking.UseCase;
-using GdeOni.Application.Users.RemoveTracking.Model;
-using GdeOni.Application.Users.RemoveTracking.UseCase;
-using GdeOni.Application.Users.StopTracking.UseCase;
-using GdeOni.Application.Users.TrackDeceased.Model;
-using GdeOni.Application.Users.TrackDeceased.UseCase;
-using GdeOni.Application.Users.UpdateProfile.Model;
-using GdeOni.Application.Users.UpdateProfile.UseCase;
-using GdeOni.Application.Users.UpdateTracking.Model;
-using GdeOni.Application.Users.UpdateTracking.UseCase;
+using GdeOni.Application.Users.Commands.ChangeEmail.Model;
+using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
+using GdeOni.Application.Users.Commands.ChangePassword.Model;
+using GdeOni.Application.Users.Commands.ChangePassword.UseCase;
+using GdeOni.Application.Users.Commands.ChangeRole.Model;
+using GdeOni.Application.Users.Commands.ChangeRole.UseCase;
+using GdeOni.Application.Users.Commands.Delete.Model;
+using GdeOni.Application.Users.Commands.Delete.UseCase;
+using GdeOni.Application.Users.Commands.Register.Model;
+using GdeOni.Application.Users.Commands.Register.UseCase;
+using GdeOni.Application.Users.Commands.UpdateProfile.Model;
+using GdeOni.Application.Users.Commands.UpdateProfile.UseCase;
+using GdeOni.Application.Users.Queries.GetAll.Model;
+using GdeOni.Application.Users.Queries.GetAll.UseCase;
+using GdeOni.Application.Users.Queries.GetById.Model;
+using GdeOni.Application.Users.Queries.GetById.UseCase;
+using GdeOni.Domain.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
 
 /// <summary>
-/// Пользователи
+/// Контроллер для управления пользователями.
 /// </summary>
 [Route("api/users")]
 public sealed class UsersController : ApiControllerBase
 {
     /// <summary>
-    /// Создать пользователя
+    /// Регистрирует нового пользователя.
     /// </summary>
-    /// <param name="request"></param>
-    /// <param name="createUserUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPost]
-    [ProducesResponseType(typeof(ApiResponse<CreateUserResponse>), StatusCodes.Status201Created)]
-    public async Task<IActionResult> Create(
-        [FromBody] CreateUserRequest request,
-        [FromServices] ICreateUserUseCase createUserUseCase,
+    [ProducesResponseType(typeof(ApiResponse<RegisterUserResponse>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Register(
+        [FromBody] RegisterUserRequest request,
+        [FromServices] IRegisterUserUseCase registerUserUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await createUserUseCase.Execute(request, cancellationToken);
+        var command = new RegisterUserCommand(
+            request.Email,
+            request.UserName,
+            request.FullName,
+            request.Password);
+
+        var result = await registerUserUseCase.Execute(command, cancellationToken);
 
         return FromResult(
             result,
-            value => Created($"/api/users/{value.Id}", ApiResponse<CreateUserResponse>.Success(value)));
+            value => value.ToCreatedResponse($"/api/users/{value.Id}"));
     }
 
     /// <summary>
-    /// Получить всех пользователей
+    /// Возвращает список пользователей с пагинацией и фильтрацией.
+    /// Доступно только администраторам.
     /// </summary>
-    /// <param name="query"></param>
-    /// <param name="getAllUsersUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpGet]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<PagedResponse<GetAllUsersResponse>>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<PagedResponse<GetAllUsersResponse>>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetAll(
-        [FromQuery] GetAllUsersQuery query,
+        [FromQuery] GetAllUsersRequest request,
         [FromServices] IGetAllUsersUseCase getAllUsersUseCase,
         CancellationToken cancellationToken)
     {
+        var query = new GetAllUsersQuery(
+            request.Search,
+            request.Role,
+            request.RegisteredAtUtc,
+            request.LastLoginAtUtc,
+            request.Page,
+            request.PageSize);
+
         var result = await getAllUsersUseCase.Execute(query, cancellationToken);
         return FromResult(result);
     }
 
     /// <summary>
-    /// Получить пользователя по Id
+    /// Возвращает пользователя по идентификатору.
+    /// Доступен владельцу профиля или администратору.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="currentUserService"></param>
-    /// <param name="getUserByIdUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpGet("{id:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<GetUserByIdResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(
-        Guid id,
+        [FromRoute] Guid id,
         [FromServices] ICurrentUserService currentUserService,
         [FromServices] IGetUserByIdUseCase getUserByIdUseCase,
         CancellationToken cancellationToken)
     {
-        var isAdmin = currentUserService.IsInRole("SuperAdmin", "Admin");
+        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error.ToErrorResponse();
 
-        if (!CanAccessUserResource(id, currentUserService.UserId, isAdmin))
-            return Forbid();
+        var isAdmin = currentUserService.IsInRole(
+            UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
 
-        var result = await getUserByIdUseCase.Execute(id, cancellationToken);
+        var accessDenied = EnsureUserResourceAccess(id, currentUserIdResult.Value, isAdmin);
+        if (accessDenied is not null)
+            return accessDenied;
+
+        var query = new GetUserByIdQuery(id);
+        var result = await getUserByIdUseCase.Execute(query, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// Обновить профиль пользователя
+    /// Обновляет профиль пользователя.
+    /// Доступен владельцу профиля или администратору.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="request"></param>
-    /// <param name="currentUserService"></param>
-    /// <param name="updateUserProfileUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    [HttpPut("{id:guid}")]
+    [HttpPatch("{id:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateUserProfileResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateProfile(
-        Guid id,
+        [FromRoute] Guid id,
         [FromBody] UpdateUserProfileRequest request,
         [FromServices] ICurrentUserService currentUserService,
         [FromServices] IUpdateUserProfileUseCase updateUserProfileUseCase,
         CancellationToken cancellationToken)
     {
-        var isAdmin = currentUserService.IsInRole("SuperAdmin", "Admin");
+        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error.ToErrorResponse();
 
-        if (!CanAccessUserResource(id, currentUserService.UserId, isAdmin))
-            return Forbid();
+        var isAdmin = currentUserService.IsInRole(
+            UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
 
-        request.UserId = id;
-        var result = await updateUserProfileUseCase.Execute(request, cancellationToken);
+        var accessDenied = EnsureUserResourceAccess(id, currentUserIdResult.Value, isAdmin);
+        if (accessDenied is not null)
+            return accessDenied;
+
+        var command = new UpdateUserProfileCommand(id, request.UserName, request.FullName);
+        var result = await updateUserProfileUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// Изменить пароль
+    /// Меняет пароль пользователя.
+    /// Доступен владельцу профиля или администратору.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="request"></param>
-    /// <param name="changePasswordUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPut("{id:guid}/password")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<ChangePasswordResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ChangePassword(
-        Guid id,
+        [FromRoute] Guid id,
         [FromBody] ChangePasswordRequest request,
+        [FromServices] ICurrentUserService currentUserService,
         [FromServices] IChangePasswordUseCase changePasswordUseCase,
         CancellationToken cancellationToken)
     {
-        request.UserId = id;
-        var result = await changePasswordUseCase.Execute(request, cancellationToken);
+        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error.ToErrorResponse();
+
+        var isAdmin = currentUserService.IsInRole(
+            UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
+
+        var accessDenied = EnsureUserResourceAccess(id, currentUserIdResult.Value, isAdmin);
+        if (accessDenied is not null)
+            return accessDenied;
+
+        var command = new ChangePasswordCommand(id, request.CurrentPassword, request.NewPassword);
+        var result = await changePasswordUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// Изменить роль
+    /// Меняет email пользователя.
+    /// Доступен владельцу профиля или администратору.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="request"></param>
-    /// <param name="changeUserRoleUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    [HttpPut("{id:guid}/userRole")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [ProducesResponseType(typeof(ApiResponse<ChangeUserRoleResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ChangeUserRole(
-        Guid id,
-        [FromBody] ChangeUserRoleRequest request,
-        [FromServices] IChangeUserRoleUseCase changeUserRoleUseCase,
-        CancellationToken cancellationToken)
-    {
-        request.UserId = id;
-        var result = await changeUserRoleUseCase.Execute(request, cancellationToken);
-        return FromResult(result);
-    }
-
-    /// <summary>
-    /// Изменить почту
-    /// </summary>
-    /// <param name="id"></param>
-    /// <param name="request"></param>
-    /// <param name="changeEmailUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPut("{id:guid}/email")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<ChangeEmailResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ChangeEmail(
-        Guid id,
+        [FromRoute] Guid id,
         [FromBody] ChangeEmailRequest request,
+        [FromServices] ICurrentUserService currentUserService,
         [FromServices] IChangeEmailUseCase changeEmailUseCase,
         CancellationToken cancellationToken)
     {
-        request.UserId = id;
-        var result = await changeEmailUseCase.Execute(request, cancellationToken);
+        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error.ToErrorResponse();
+
+        var isAdmin = currentUserService.IsInRole(
+            UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
+
+        var accessDenied = EnsureUserResourceAccess(id, currentUserIdResult.Value, isAdmin);
+        if (accessDenied is not null)
+            return accessDenied;
+
+        var command = new ChangeEmailCommand(id, request.Email);
+        var result = await changeEmailUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// Удалить пользователя
+    /// Меняет роль пользователя.
+    /// Доступно только супер-администратору.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="deleteUserUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    [HttpPut("{id:guid}/role")]
+    [Authorize(Roles = "SuperAdmin")]
+    [ProducesResponseType(typeof(ApiResponse<ChangeRoleResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ChangeRole(
+        [FromRoute] Guid id,
+        [FromBody] ChangeRoleRequest request,
+        [FromServices] IChangeRoleUseCase changeRoleUseCase,
+        CancellationToken cancellationToken)
+    {
+        var command = new ChangeRoleCommand(id, request.UserRole);
+        var result = await changeRoleUseCase.Execute(command, cancellationToken);
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// Удаляет пользователя.
+    /// Доступно только супер-администратору.
+    /// </summary>
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "SuperAdmin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [Authorize(Roles = "SuperAdmin, Admin")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
-        Guid id,
+        [FromRoute] Guid id,
         [FromServices] IDeleteUserUseCase deleteUserUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await deleteUserUseCase.Execute(id, cancellationToken);
+        var command = new DeleteUserCommand(id);
+        var result = await deleteUserUseCase.Execute(command, cancellationToken);
 
-        if (result.IsFailure)
-            return result.Error.ToErrorResponse<object>();
-
-        return NoContent();
-    }
-
-    /// <summary>
-    /// Получить отслеживаемых умерших у пользователя
-    /// </summary>
-    /// <param name="id"></param>
-    /// <param name="currentUserService"></param>
-    /// <param name="getTrackedDeceasedUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    [HttpGet("{id:guid}/tracked-deceased")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<GetTrackedDeceasedResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetTrackedDeceased(
-        Guid id,
-        [FromServices] ICurrentUserService currentUserService,
-        [FromServices] IGetTrackedDeceasedUseCase getTrackedDeceasedUseCase,
-        CancellationToken cancellationToken)
-    {
-        var isAdmin = currentUserService.IsInRole("SuperAdmin", "Admin");
-
-        if (!CanAccessUserResource(id, currentUserService.UserId, isAdmin))
-            return Forbid();
-
-        var result = await getTrackedDeceasedUseCase.Execute(id, cancellationToken);
-        return FromResult(result);
-    }
-
-    /// <summary>
-    /// Добавить умершего для отслеживания пользователю
-    /// </summary>
-    /// <param name="id"></param>
-    /// <param name="request"></param>
-    /// <param name="currentUserService"></param>
-    /// <param name="trackDeceasedUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    [HttpPost("{id:guid}/tracked-deceased")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<TrackDeceasedResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> TrackDeceased(
-        Guid id,
-        [FromBody] TrackDeceasedRequest request,
-        [FromServices] ICurrentUserService currentUserService,
-        [FromServices] ITrackDeceasedUseCase trackDeceasedUseCase,
-        CancellationToken cancellationToken)
-    {
-        var isAdmin = currentUserService.IsInRole("SuperAdmin", "Admin");
-
-        if (!CanAccessUserResource(id, currentUserService.UserId, isAdmin))
-            return Forbid();
-
-        request.UserId = id;
-        var result = await trackDeceasedUseCase.Execute(request, cancellationToken);
-        return FromResult(result);
-    }
-
-    /// <summary>
-    /// Обновить отслеживание умершего для пользователя
-    /// </summary>
-    /// <param name="id"></param>
-    /// <param name="deceasedId"></param>
-    /// <param name="request"></param>
-    /// <param name="currentUserService"></param>
-    /// <param name="updateTrackingUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    [HttpPut("{id:guid}/tracked-deceased/{deceasedId:guid}")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<UpdateTrackingResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UpdateTracking(
-        Guid id,
-        Guid deceasedId,
-        [FromBody] UpdateTrackingRequest request,
-        [FromServices] ICurrentUserService currentUserService,
-        [FromServices] IUpdateTrackingUseCase updateTrackingUseCase,
-        CancellationToken cancellationToken)
-    {
-        var isAdmin = currentUserService.IsInRole("SuperAdmin", "Admin");
-
-        if (!CanAccessUserResource(id, currentUserService.UserId, isAdmin))
-            return Forbid();
-
-        request.UserId = id;
-        request.DeceasedId = deceasedId;
-
-        var result = await updateTrackingUseCase.Execute(request, cancellationToken);
-        return FromResult(result);
-    }
-
-    /// <summary>
-    /// Остановить отслеживание умершего для пользователя
-    /// </summary>
-    /// <param name="id"></param>
-    /// <param name="deceasedId"></param>
-    /// <param name="currentUserService"></param>
-    /// <param name="stopTrackingUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    [HttpDelete("{id:guid}/tracked-deceased/{deceasedId:guid}")]
-    [Authorize]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> StopTracking(
-        Guid id,
-        Guid deceasedId,
-        [FromServices] ICurrentUserService currentUserService,
-        [FromServices] IStopTrackingUseCase stopTrackingUseCase,
-        CancellationToken cancellationToken)
-    {
-        var isAdmin = currentUserService.IsInRole("SuperAdmin", "Admin");
-
-        if (!CanAccessUserResource(id, currentUserService.UserId, isAdmin))
-            return Forbid();
-
-        var result = await stopTrackingUseCase.Execute(id, deceasedId, cancellationToken);
-
-        if (result.IsFailure)
-            return result.Error.ToErrorResponse<object>();
-
-        return NoContent();
-    }
-
-    /// <summary>
-    /// Отключить уведомления отслеживания умершего у пользователя
-    /// </summary>
-    /// <param name="id"></param>
-    /// <param name="deceasedId"></param>
-    /// <param name="currentUserService"></param>
-    /// <param name="muteTrackingUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    [HttpPut("{id:guid}/tracked-deceased/{deceasedId:guid}/mute")]
-    [Authorize]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> MuteTracking(
-        Guid id,
-        Guid deceasedId,
-        [FromServices] ICurrentUserService currentUserService,
-        [FromServices] IMuteTrackingUseCase muteTrackingUseCase,
-        CancellationToken cancellationToken)
-    {
-        var isAdmin = currentUserService.IsInRole("SuperAdmin", "Admin");
-
-        if (!CanAccessUserResource(id, currentUserService.UserId, isAdmin))
-            return Forbid();
-
-        var result = await muteTrackingUseCase.Execute(id, deceasedId, cancellationToken);
-
-        if (result.IsFailure)
-            return result.Error.ToErrorResponse<object>();
-
-        return NoContent();
-    }
-
-    /// <summary>
-    /// Активировать отслеживание умерщего у пользователя
-    /// </summary>
-    /// <param name="id"></param>
-    /// <param name="deceasedId"></param>
-    /// <param name="currentUserService"></param>
-    /// <param name="activateTrackingUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    [HttpPut("{id:guid}/tracked-deceased/{deceasedId:guid}/activate")]
-    [Authorize]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> ActivateTracking(
-        Guid id,
-        Guid deceasedId,
-        [FromServices] ICurrentUserService currentUserService,
-        [FromServices] IActivateTrackingUseCase activateTrackingUseCase,
-        CancellationToken cancellationToken)
-    {
-        var isAdmin = currentUserService.IsInRole("SuperAdmin", "Admin");
-
-        if (!CanAccessUserResource(id, currentUserService.UserId, isAdmin))
-            return Forbid();
-
-        var result = await activateTrackingUseCase.Execute(id, deceasedId, cancellationToken);
-
-        if (result.IsFailure)
-            return result.Error.ToErrorResponse<object>();
-
-        return NoContent();
-    }
-    
-    /// <summary>
-    /// Получить конкретное отслеживание пользователя
-    /// </summary>
-    [HttpGet("{id:guid}/tracked-deceased/{deceasedId:guid}")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<GetTrackingResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetTracking(
-        Guid id,
-        Guid deceasedId,
-        [FromServices] ICurrentUserService currentUserService,
-        [FromServices] IGetTrackingUseCase getTrackingUseCase,
-        CancellationToken cancellationToken)
-    {
-        var isAdmin = currentUserService.IsInRole("SuperAdmin", "Admin");
-
-        if (!CanAccessUserResource(id, currentUserService.UserId, isAdmin))
-            return Forbid();
-
-        var result = await getTrackingUseCase.Execute(id, deceasedId, cancellationToken);
-        return FromResult(result);
-    }
-    
-    /// <summary>
-    /// Проверить, отслеживает ли пользователь указанного deceased
-    /// </summary>
-    [HttpGet("{id:guid}/tracked-deceased/{deceasedId:guid}/is-tracking")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<IsTrackingResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> IsTracking(
-        Guid id,
-        Guid deceasedId,
-        [FromServices] ICurrentUserService currentUserService,
-        [FromServices] IIsTrackingUseCase isTrackingUseCase,
-        CancellationToken cancellationToken)
-    {
-        var isAdmin = currentUserService.IsInRole("SuperAdmin", "Admin");
-
-        if (!CanAccessUserResource(id, currentUserService.UserId, isAdmin))
-            return Forbid();
-
-        var result = await isTrackingUseCase.Execute(id, deceasedId, cancellationToken);
-        return FromResult(result);
-    }
-    
-    /// <summary>
-    /// Полностью удалить отслеживание пользователя
-    /// </summary>
-    [HttpDelete("{id:guid}/tracked-deceased/{deceasedId:guid}/hard")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [ProducesResponseType(typeof(ApiResponse<RemoveTrackingResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> RemoveTracking(
-        Guid id,
-        Guid deceasedId,
-        [FromServices] IRemoveTrackingUseCase removeTrackingUseCase,
-        CancellationToken cancellationToken)
-    {
-        var result = await removeTrackingUseCase.Execute(id, deceasedId, cancellationToken);
-        return FromResult(result);
-    }
-    
-    /// <summary>
-    /// Проверить, включены ли уведомления у отслеживания пользователя
-    /// </summary>
-    [HttpGet("{id:guid}/tracked-deceased/{deceasedId:guid}/has-notifications-enabled")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<HasNotificationsEnabledResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> HasNotificationsEnabled(
-        Guid id,
-        Guid deceasedId,
-        [FromServices] ICurrentUserService currentUserService,
-        [FromServices] IHasNotificationsEnabledUseCase hasNotificationsEnabledUseCase,
-        CancellationToken cancellationToken)
-    {
-        var isAdmin = currentUserService.IsInRole("SuperAdmin", "Admin");
-
-        if (!CanAccessUserResource(id, currentUserService.UserId, isAdmin))
-            return Forbid();
-
-        var result = await hasNotificationsEnabledUseCase.Execute(id, deceasedId, cancellationToken);
-        return FromResult(result);
+        return FromUnitResult(result);
     }
 }

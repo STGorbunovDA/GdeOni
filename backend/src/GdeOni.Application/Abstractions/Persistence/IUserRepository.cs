@@ -1,4 +1,4 @@
-﻿using GdeOni.Application.Users.GetAll.Model;
+﻿using GdeOni.Application.Users.Queries.GetAll.Model;
 using GdeOni.Domain.Aggregates.User;
 
 namespace GdeOni.Application.Abstractions.Persistence;
