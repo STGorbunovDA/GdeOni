@@ -7,8 +7,6 @@ namespace GdeOni.Application.DeceasedRecords.Queries.GetDistance.UseCase;
 public interface IGetDistanceUseCase
 {
     Task<Result<GetDistanceResponse, Error>> Execute(
-        Guid deceasedId,
-        double latitude,
-        double longitude,
+        GetDistanceQuery query,
         CancellationToken cancellationToken);
 }

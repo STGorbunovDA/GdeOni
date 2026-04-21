@@ -1,20 +1,30 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.DeceasedRecords.Commands.Unverified.Model;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Commands.Unverified.UseCase;
 
-public sealed class UnverifiedDeceasedUseCase(IDeceasedRepository deceasedRepository)
+public sealed class UnverifiedDeceasedUseCase(
+    IDeceasedRepository deceasedRepository,
+    IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IUnverifiedDeceasedUseCase
 {
-    public async Task<Result<UnverifiedDeceasedResponse, Error>> Execute(
-        Guid deceasedId,
+    public Task<Result<UnverifyDeceasedResponse, Error>> Execute(
+        UnverifyDeceasedCommand command,
         CancellationToken cancellationToken)
     {
-        var deceased = await deceasedRepository.GetById(deceasedId, cancellationToken);
+        return validatedUseCaseExecutor.Execute(command, Handle, cancellationToken);
+    }
+
+    private async Task<Result<UnverifyDeceasedResponse, Error>> Handle(
+        UnverifyDeceasedCommand command,
+        CancellationToken cancellationToken)
+    {
+        var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceased is null)
-            return Errors.General.NotFound("deceased", deceasedId);
+            return Errors.General.NotFound("deceased", command.DeceasedId);
 
         var result = deceased.Unverify();
         if (result.IsFailure)
@@ -22,7 +32,7 @@ public sealed class UnverifiedDeceasedUseCase(IDeceasedRepository deceasedReposi
 
         await deceasedRepository.Save(cancellationToken);
 
-        return Result.Success<UnverifiedDeceasedResponse, Error>(
-            new UnverifiedDeceasedResponse(deceased.Id, deceased.IsVerified));
+        return Result.Success<UnverifyDeceasedResponse, Error>(
+            new UnverifyDeceasedResponse(deceased.Id, deceased.IsVerified));
     }
 }

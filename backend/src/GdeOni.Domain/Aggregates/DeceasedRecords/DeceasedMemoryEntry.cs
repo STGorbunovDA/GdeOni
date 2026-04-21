@@ -5,6 +5,8 @@ namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
 public sealed class DeceasedMemoryEntry : Entity<Guid>
 {
+    public const int MaxTextLength = 5000;
+
     public string Text { get; private set; }
     public Guid? AuthorUserId { get; }
     public DateTime CreatedAtUtc { get; }
@@ -31,22 +33,28 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
         string text,
         Guid? authorUserId = null)
     {
-        if (string.IsNullOrWhiteSpace(text))
-            return Errors.DeceasedMemory.TextRequired();
+        if (authorUserId.HasValue && authorUserId.Value == Guid.Empty)
+            return Errors.User.IdRequired();
 
-        return Result.Success<DeceasedMemoryEntry, Error>(new DeceasedMemoryEntry(
-            Guid.NewGuid(),
-            text.Trim(),
-            authorUserId,
-            DateTime.UtcNow));
+        var textResult = NormalizeAndValidateText(text);
+        if (textResult.IsFailure)
+            return textResult.Error;
+
+        return Result.Success<DeceasedMemoryEntry, Error>(
+            new DeceasedMemoryEntry(
+                Guid.NewGuid(),
+                textResult.Value,
+                authorUserId,
+                DateTime.UtcNow));
     }
 
     public UnitResult<Error> EditText(string text)
     {
-        if (string.IsNullOrWhiteSpace(text))
-            return Errors.DeceasedMemory.TextRequired();
+        var textResult = NormalizeAndValidateText(text);
+        if (textResult.IsFailure)
+            return textResult.Error;
 
-        Text = text.Trim();
+        Text = textResult.Value;
         return UnitResult.Success<Error>();
     }
 
@@ -67,9 +75,17 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
         ModerationStatus = ModerationStatus.Rejected;
         return UnitResult.Success<Error>();
     }
-    
 
-    public bool IsApproved() => ModerationStatus == ModerationStatus.Approved;
-    public bool IsRejected() => ModerationStatus == ModerationStatus.Rejected;
-    public bool IsPending() => ModerationStatus == ModerationStatus.Pending;
+    private static Result<string, Error> NormalizeAndValidateText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return Errors.DeceasedMemory.TextRequired();
+
+        var normalized = text.Trim();
+
+        if (normalized.Length > MaxTextLength)
+            return Errors.DeceasedMemory.TextTooLong(MaxTextLength);
+
+        return Result.Success<string, Error>(normalized);
+    }
 }

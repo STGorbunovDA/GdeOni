@@ -26,14 +26,26 @@ public sealed class CreateDeceasedUseCase(
         CreateDeceasedCommand command,
         CancellationToken cancellationToken)
     {
-        var isSuperAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString());
-
-        if (!isSuperAdmin)
+        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
         {
-            var creatorExists = await userRepository.ExistsById(command.CreatedByUserId, cancellationToken);
-            if (!creatorExists)
-                return Errors.General.NotFound("user", command.CreatedByUserId);
+            return Error.Unauthorized("auth.unauthorized", "Authentication is required.");
         }
+
+        var currentUserId = currentUserService.UserId.Value;
+        var isAdmin = currentUserService.IsInRole(
+            UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
+
+        if (!isAdmin && command.CreatedByUserId != currentUserId)
+        {
+            return Error.Forbidden(
+                "deceased.created_by.forbidden",
+                "You cannot create a deceased record on behalf of another user.");
+        }
+
+        var creatorExists = await userRepository.ExistsById(command.CreatedByUserId, cancellationToken);
+        if (!creatorExists)
+            return Errors.General.NotFound("user", command.CreatedByUserId);
 
         var burialLocationResult = BurialLocation.Create(
             command.BurialLocation.Latitude,
@@ -73,13 +85,17 @@ public sealed class CreateDeceasedUseCase(
         {
             foreach (var photo in command.Photos)
             {
-                if (!isSuperAdmin)
+                if (!isAdmin && photo.AddedByUserId != currentUserId)
                 {
-                    var addedByUserExists = await userRepository.ExistsById(photo.AddedByUserId, cancellationToken);
-                    if (!addedByUserExists)
-                        return Errors.General.NotFound("user", photo.AddedByUserId);
+                    return Error.Forbidden(
+                        "deceased_photo.added_by.forbidden",
+                        "You cannot attach a photo on behalf of another user.");
                 }
-                
+
+                var addedByExists = await userRepository.ExistsById(photo.AddedByUserId, cancellationToken);
+                if (!addedByExists)
+                    return Errors.General.NotFound("user", photo.AddedByUserId);
+
                 var addPhotoResult = deceased.AddPhoto(
                     photo.Url,
                     photo.AddedByUserId,
@@ -97,18 +113,19 @@ public sealed class CreateDeceasedUseCase(
             {
                 if (memory.AuthorUserId.HasValue)
                 {
-                    if (!isSuperAdmin)
+                    if (!isAdmin && memory.AuthorUserId.Value != currentUserId)
                     {
-                        var authorExists = await userRepository.ExistsById(memory.AuthorUserId.Value, cancellationToken);
-                        if (!authorExists)
-                            return Errors.General.NotFound("user", memory.AuthorUserId.Value);
+                        return Error.Forbidden(
+                            "deceased_memory.author.forbidden",
+                            "You cannot attach a memory on behalf of another user.");
                     }
+
+                    var authorExists = await userRepository.ExistsById(memory.AuthorUserId.Value, cancellationToken);
+                    if (!authorExists)
+                        return Errors.General.NotFound("user", memory.AuthorUserId.Value);
                 }
 
-                var addMemoryResult = deceased.AddMemory(
-                    memory.Text,
-                    memory.AuthorUserId);
-
+                var addMemoryResult = deceased.AddMemory(memory.Text, memory.AuthorUserId);
                 if (addMemoryResult.IsFailure)
                     return addMemoryResult.Error;
             }
@@ -116,14 +133,17 @@ public sealed class CreateDeceasedUseCase(
 
         if (command.Metadata is not null)
         {
-            var metadata = DeceasedMetadata.Create(
+            var metadataResult = DeceasedMetadata.Create(
                 command.Metadata.Epitaph,
                 command.Metadata.Religion,
                 command.Metadata.Source,
                 command.Metadata.IsMilitaryService,
                 command.Metadata.AdditionalInfo);
 
-            var updateMetadataResult = deceased.UpdateMetadata(metadata);
+            if (metadataResult.IsFailure)
+                return metadataResult.Error;
+
+            var updateMetadataResult = deceased.UpdateMetadata(metadataResult.Value);
             if (updateMetadataResult.IsFailure)
                 return updateMetadataResult.Error;
         }

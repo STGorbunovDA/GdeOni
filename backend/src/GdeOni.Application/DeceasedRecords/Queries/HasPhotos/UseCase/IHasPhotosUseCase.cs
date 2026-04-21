@@ -7,6 +7,6 @@ namespace GdeOni.Application.DeceasedRecords.Queries.HasPhotos.UseCase;
 public interface IHasPhotosUseCase
 {
     Task<Result<HasPhotosResponse, Error>> Execute(
-        Guid deceasedId,
+        HasPhotosQuery query,
         CancellationToken cancellationToken);
 }

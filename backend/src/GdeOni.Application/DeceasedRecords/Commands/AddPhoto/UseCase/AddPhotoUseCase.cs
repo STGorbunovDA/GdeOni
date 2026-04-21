@@ -3,6 +3,7 @@ using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Commands.AddPhoto.Model;
+using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Commands.AddPhoto.UseCase;
@@ -25,18 +26,30 @@ public sealed class AddPhotoUseCase(
         AddPhotoCommand command,
         CancellationToken cancellationToken)
     {
+        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
+        {
+            return Error.Unauthorized("auth.unauthorized", "Authentication is required.");
+        }
+
+        var currentUserId = currentUserService.UserId.Value;
+        var isAdmin = currentUserService.IsInRole(
+            UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
+
+        if (!isAdmin && command.AddedByUserId != currentUserId)
+        {
+            return Error.Forbidden(
+                "deceased_photo.added_by.forbidden",
+                "You cannot add a photo on behalf of another user.");
+        }
+
         var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
 
-        var isSuperAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString());
-
-        if (!isSuperAdmin)
-        {
-            var userExists = await userRepository.ExistsById(command.AddedByUserId, cancellationToken);
-            if (!userExists)
-                return Errors.General.NotFound("user", command.AddedByUserId);
-        }
+        var addedByUserExists = await userRepository.ExistsById(command.AddedByUserId, cancellationToken);
+        if (!addedByUserExists)
+            return Errors.General.NotFound("user", command.AddedByUserId);
 
         var photoResult = deceased.AddPhoto(
             command.Url,

@@ -27,14 +27,17 @@ public sealed class UpdateMetadataUseCase(
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
 
-        var metadata = DeceasedMetadata.Create(
+        var metadataResult = DeceasedMetadata.Create(
             command.Epitaph,
             command.Religion,
             command.Source,
             command.IsMilitaryService,
             command.AdditionalInfo);
 
-        var result = deceased.UpdateMetadata(metadata);
+        if (metadataResult.IsFailure)
+            return metadataResult.Error;
+
+        var result = deceased.UpdateMetadata(metadataResult.Value);
         if (result.IsFailure)
             return result.Error;
 

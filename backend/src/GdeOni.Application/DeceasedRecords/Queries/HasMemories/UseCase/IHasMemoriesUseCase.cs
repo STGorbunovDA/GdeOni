@@ -7,6 +7,6 @@ namespace GdeOni.Application.DeceasedRecords.Queries.HasMemories.UseCase;
 public interface IHasMemoriesUseCase
 {
     Task<Result<HasMemoriesResponse, Error>> Execute(
-        Guid deceasedId,
+        HasMemoriesQuery query,
         CancellationToken cancellationToken);
 }

@@ -7,6 +7,6 @@ namespace GdeOni.Application.DeceasedRecords.Commands.Verify.UseCase;
 public interface IVerifyDeceasedUseCase
 {
     Task<Result<VerifyDeceasedResponse, Error>> Execute(
-        Guid deceasedId,
+        VerifyDeceasedCommand command,
         CancellationToken cancellationToken);
 }

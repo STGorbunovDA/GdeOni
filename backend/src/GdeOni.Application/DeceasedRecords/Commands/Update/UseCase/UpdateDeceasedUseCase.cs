@@ -59,14 +59,17 @@ public sealed class UpdateDeceasedUseCase(
 
         if (command.Metadata is not null)
         {
-            var metadata = DeceasedMetadata.Create(
+            var metadataResult = DeceasedMetadata.Create(
                 command.Metadata.Epitaph,
                 command.Metadata.Religion,
                 command.Metadata.Source,
                 command.Metadata.IsMilitaryService,
                 command.Metadata.AdditionalInfo);
 
-            var updateMetadataResult = deceased.UpdateMetadata(metadata);
+            if (metadataResult.IsFailure)
+                return metadataResult.Error;
+
+            var updateMetadataResult = deceased.UpdateMetadata(metadataResult.Value);
             if (updateMetadataResult.IsFailure)
                 return updateMetadataResult.Error;
         }

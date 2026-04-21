@@ -1,4 +1,4 @@
-﻿using GdeOni.API.Models;
+﻿using GdeOni.API.Extensions;
 using GdeOni.API.Models.Users;
 using GdeOni.API.Response;
 using GdeOni.Application.Common.Security;
@@ -19,13 +19,14 @@ using Microsoft.AspNetCore.Mvc;
 namespace GdeOni.API.Controllers;
 
 /// <summary>
-/// Отслеживание умерших
+/// Контроллер для управления отслеживанием умерших пользователем.
 /// </summary>
 [Route("api/users")]
 public sealed class UserTrackingController : ApiControllerBase
 {
     /// <summary>
-    /// Получить отслеживаемых умерших у пользователя
+    /// Возвращает список отслеживаемых умерших для указанного пользователя.
+    /// Доступен владельцу данных или администратору.
     /// </summary>
     [HttpGet("{userId:guid}/trackings")]
     [Authorize]
@@ -38,8 +39,15 @@ public sealed class UserTrackingController : ApiControllerBase
         [FromServices] IGetTrackedDeceasedUseCase getTrackedDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), UserRole.Admin.ToString());
-        var accessDenied = EnsureUserResourceAccess(userId, currentUserService.UserId, isAdmin);
+        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error.ToErrorResponse();
+
+        var isAdmin = currentUserService.IsInRole(
+            UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
+
+        var accessDenied = EnsureUserResourceAccess(userId, currentUserIdResult.Value, isAdmin);
         if (accessDenied is not null)
             return accessDenied;
 
@@ -50,7 +58,8 @@ public sealed class UserTrackingController : ApiControllerBase
     }
 
     /// <summary>
-    /// Добавить умершего для отслеживания пользователю
+    /// Добавляет умершего в список отслеживаемых пользователем.
+    /// Доступен владельцу данных или администратору.
     /// </summary>
     [HttpPost("{userId:guid}/trackings")]
     [Authorize]
@@ -66,8 +75,15 @@ public sealed class UserTrackingController : ApiControllerBase
         [FromServices] ITrackDeceasedUseCase trackDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), UserRole.Admin.ToString());
-        var accessDenied = EnsureUserResourceAccess(userId, currentUserService.UserId, isAdmin);
+        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error.ToErrorResponse();
+
+        var isAdmin = currentUserService.IsInRole(
+            UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
+
+        var accessDenied = EnsureUserResourceAccess(userId, currentUserIdResult.Value, isAdmin);
         if (accessDenied is not null)
             return accessDenied;
 
@@ -84,7 +100,8 @@ public sealed class UserTrackingController : ApiControllerBase
     }
 
     /// <summary>
-    /// Обновить отслеживание умершего для пользователя
+    /// Обновляет настройки отслеживания умершего.
+    /// Доступен владельцу данных или администратору.
     /// </summary>
     [HttpPut("{userId:guid}/trackings/{deceasedId:guid}")]
     [Authorize]
@@ -101,8 +118,15 @@ public sealed class UserTrackingController : ApiControllerBase
         [FromServices] IUpdateTrackingUseCase updateTrackingUseCase,
         CancellationToken cancellationToken)
     {
-        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), UserRole.Admin.ToString());
-        var accessDenied = EnsureUserResourceAccess(userId, currentUserService.UserId, isAdmin);
+        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error.ToErrorResponse();
+
+        var isAdmin = currentUserService.IsInRole(
+            UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
+
+        var accessDenied = EnsureUserResourceAccess(userId, currentUserIdResult.Value, isAdmin);
         if (accessDenied is not null)
             return accessDenied;
 
@@ -120,7 +144,8 @@ public sealed class UserTrackingController : ApiControllerBase
     }
 
     /// <summary>
-    /// Получить конкретное отслеживание пользователя
+    /// Возвращает конкретную запись отслеживания умершего.
+    /// Доступен владельцу данных или администратору.
     /// </summary>
     [HttpGet("{userId:guid}/trackings/{deceasedId:guid}")]
     [Authorize]
@@ -134,8 +159,15 @@ public sealed class UserTrackingController : ApiControllerBase
         [FromServices] IGetTrackingUseCase getTrackingUseCase,
         CancellationToken cancellationToken)
     {
-        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), UserRole.Admin.ToString());
-        var accessDenied = EnsureUserResourceAccess(userId, currentUserService.UserId, isAdmin);
+        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error.ToErrorResponse();
+
+        var isAdmin = currentUserService.IsInRole(
+            UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
+
+        var accessDenied = EnsureUserResourceAccess(userId, currentUserIdResult.Value, isAdmin);
         if (accessDenied is not null)
             return accessDenied;
 
@@ -146,7 +178,8 @@ public sealed class UserTrackingController : ApiControllerBase
     }
 
     /// <summary>
-    /// Полностью удалить отслеживание пользователя
+    /// Удаляет запись отслеживания умершего.
+    /// Доступен владельцу данных или администратору.
     /// </summary>
     [HttpDelete("{userId:guid}/trackings/{deceasedId:guid}")]
     [Authorize]
@@ -160,8 +193,15 @@ public sealed class UserTrackingController : ApiControllerBase
         [FromServices] IRemoveTrackingUseCase removeTrackingUseCase,
         CancellationToken cancellationToken)
     {
-        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), UserRole.Admin.ToString());
-        var accessDenied = EnsureUserResourceAccess(userId, currentUserService.UserId, isAdmin);
+        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error.ToErrorResponse();
+
+        var isAdmin = currentUserService.IsInRole(
+            UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
+
+        var accessDenied = EnsureUserResourceAccess(userId, currentUserIdResult.Value, isAdmin);
         if (accessDenied is not null)
             return accessDenied;
 

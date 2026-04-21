@@ -5,6 +5,9 @@ namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
 public sealed class DeceasedPhoto : Entity<Guid>
 {
+    public const int MaxUrlLength = 2000;
+    public const int MaxDescriptionLength = 1000;
+
     public string Url { get; private set; }
     public string? Description { get; private set; }
     public bool IsPrimary { get; private set; }
@@ -39,22 +42,25 @@ public sealed class DeceasedPhoto : Entity<Guid>
         string? description = null,
         bool isPrimary = false)
     {
-        if (string.IsNullOrWhiteSpace(url))
-            return Errors.DeceasedPhoto.UrlRequired();
-
-        if (!Uri.IsWellFormedUriString(url, UriKind.Absolute))
-            return Errors.DeceasedPhoto.UrlInvalid();
-
         if (addedByUserId == Guid.Empty)
             return Errors.DeceasedPhoto.AddedByRequired();
 
-        return Result.Success<DeceasedPhoto, Error>(new DeceasedPhoto(
-            Guid.NewGuid(),
-            url.Trim(),
-            string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
-            isPrimary,
-            addedByUserId,
-            DateTime.UtcNow));
+        var urlResult = NormalizeAndValidateUrl(url);
+        if (urlResult.IsFailure)
+            return urlResult.Error;
+
+        var descriptionResult = NormalizeAndValidateDescription(description);
+        if (descriptionResult.IsFailure)
+            return descriptionResult.Error;
+
+        return Result.Success<DeceasedPhoto, Error>(
+            new DeceasedPhoto(
+                Guid.NewGuid(),
+                urlResult.Value,
+                descriptionResult.Value,
+                isPrimary,
+                addedByUserId,
+                DateTime.UtcNow));
     }
 
     public UnitResult<Error> MakePrimary()
@@ -69,6 +75,26 @@ public sealed class DeceasedPhoto : Entity<Guid>
     public void UnmarkPrimary()
     {
         IsPrimary = false;
+    }
+
+    public UnitResult<Error> UpdateDescription(string? description)
+    {
+        var descriptionResult = NormalizeAndValidateDescription(description);
+        if (descriptionResult.IsFailure)
+            return descriptionResult.Error;
+
+        Description = descriptionResult.Value;
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> UpdateUrl(string url)
+    {
+        var urlResult = NormalizeAndValidateUrl(url);
+        if (urlResult.IsFailure)
+            return urlResult.Error;
+
+        Url = urlResult.Value;
+        return UnitResult.Success<Error>();
     }
 
     public UnitResult<Error> Approve()
@@ -89,25 +115,32 @@ public sealed class DeceasedPhoto : Entity<Guid>
         return UnitResult.Success<Error>();
     }
 
-    public UnitResult<Error> UpdateDescription(string? description)
-    {
-        Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> UpdateUrl(string url)
+    private static Result<string, Error> NormalizeAndValidateUrl(string url)
     {
         if (string.IsNullOrWhiteSpace(url))
             return Errors.DeceasedPhoto.UrlRequired();
 
-        if (!Uri.IsWellFormedUriString(url, UriKind.Absolute))
+        var normalized = url.Trim();
+
+        if (normalized.Length > MaxUrlLength)
+            return Errors.DeceasedPhoto.UrlTooLong(MaxUrlLength);
+
+        if (!Uri.IsWellFormedUriString(normalized, UriKind.Absolute))
             return Errors.DeceasedPhoto.UrlInvalid();
 
-        Url = url.Trim();
-        return UnitResult.Success<Error>();
+        return Result.Success<string, Error>(normalized);
     }
 
-    public bool IsApproved() => ModerationStatus == ModerationStatus.Approved;
-    public bool IsRejected() => ModerationStatus == ModerationStatus.Rejected;
-    public bool IsPending() => ModerationStatus == ModerationStatus.Pending;
+    private static Result<string?, Error> NormalizeAndValidateDescription(string? description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+            return Result.Success<string?, Error>(null);
+
+        var normalized = description.Trim();
+
+        if (normalized.Length > MaxDescriptionLength)
+            return Errors.DeceasedPhoto.DescriptionTooLong(MaxDescriptionLength);
+
+        return Result.Success<string?, Error>(normalized);
+    }
 }

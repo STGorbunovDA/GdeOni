@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
+using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Users.Commands.ChangeEmail.Validation;
@@ -17,6 +18,8 @@ public sealed class ChangeEmailCommandValidator : AbstractValidator<ChangeEmailC
             .NotEmpty()
             .WithError(Errors.User.EmailRequired())
             .EmailAddress()
-            .WithError(Errors.User.EmailInvalid());
+            .WithError(Errors.User.EmailInvalid())
+            .MaximumLength(User.MaxEmailLength)
+            .WithError(Errors.User.EmailTooLong(User.MaxEmailLength));
     }
 }

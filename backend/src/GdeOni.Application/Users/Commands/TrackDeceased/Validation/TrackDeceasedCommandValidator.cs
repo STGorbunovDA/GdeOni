@@ -1,14 +1,13 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Users.Commands.TrackDeceased.Model;
+using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Users.Commands.TrackDeceased.Validation;
 
 public sealed class TrackDeceasedCommandValidator : AbstractValidator<TrackDeceasedCommand>
 {
-    private const int MaxPersonalNotesLength = 2000;
-
     public TrackDeceasedCommandValidator()
     {
         RuleFor(x => x.UserId)
@@ -24,8 +23,8 @@ public sealed class TrackDeceasedCommandValidator : AbstractValidator<TrackDecea
             .WithError(Errors.Tracking.RelationshipTypeInvalid());
 
         RuleFor(x => x.PersonalNotes)
-            .MaximumLength(MaxPersonalNotesLength)
-            .WithError(Errors.Tracking.PersonalNotesTooLong(MaxPersonalNotesLength))
+            .MaximumLength(TrackedDeceased.MaxPersonalNotesLength)
+            .WithError(Errors.Tracking.PersonalNotesTooLong(TrackedDeceased.MaxPersonalNotesLength))
             .When(x => !string.IsNullOrWhiteSpace(x.PersonalNotes));
     }
 }

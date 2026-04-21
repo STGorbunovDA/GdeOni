@@ -1,5 +1,4 @@
-﻿using GdeOni.API.Models;
-using GdeOni.API.Models.DeceasedRecords;
+﻿using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddPhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.Model;

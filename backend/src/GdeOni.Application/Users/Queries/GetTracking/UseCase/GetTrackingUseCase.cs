@@ -1,6 +1,8 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
+using GdeOni.Application.Users.Common;
 using GdeOni.Application.Users.Queries.GetTracking.Model;
 using GdeOni.Domain.Shared;
 
@@ -8,6 +10,7 @@ namespace GdeOni.Application.Users.Queries.GetTracking.UseCase;
 
 public sealed class GetTrackingUseCase(
     IUserRepository userRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetTrackingUseCase
 {
@@ -22,6 +25,10 @@ public sealed class GetTrackingUseCase(
         GetTrackingQuery query,
         CancellationToken cancellationToken)
     {
+        var accessError = UserAccessGuard.EnsureCanAccessUser(query.UserId, currentUserService);
+        if (accessError is not null)
+            return accessError;
+
         var user = await userRepository.GetByIdWithTracking(query.UserId, cancellationToken);
         if (user is null)
             return Errors.General.NotFound("user", query.UserId);

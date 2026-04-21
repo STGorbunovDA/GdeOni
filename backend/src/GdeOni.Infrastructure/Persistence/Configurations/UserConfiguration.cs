@@ -19,17 +19,17 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(x => x.Email)
             .HasColumnName("email")
-            .HasMaxLength(320)
+            .HasMaxLength(User.MaxEmailLength)
             .IsRequired();
 
         builder.Property(x => x.UserName)
             .HasColumnName("user_name")
-            .HasMaxLength(100)
+            .HasMaxLength(User.MaxUserNameLength)
             .IsRequired();
 
         builder.Property(x => x.FullName)
             .HasColumnName("full_name")
-            .HasMaxLength(300);
+            .HasMaxLength(User.MaxFullNameLength);
 
         builder.Property(x => x.PasswordHash)
             .HasColumnName("password_hash")

@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Commands.Update.Validation;
@@ -21,32 +22,32 @@ public sealed class UpdateDeceasedBurialLocationCommandValidator
         RuleFor(x => x.Country)
             .NotEmpty()
             .WithError(Errors.BurialLocation.CountryRequired())
-            .MaximumLength(200)
-            .WithError(Errors.BurialLocation.CountryTooLong(200));
+            .MaximumLength(BurialLocation.MaxCountryLength)
+            .WithError(Errors.BurialLocation.CountryTooLong(BurialLocation.MaxCountryLength));
 
         RuleFor(x => x.Region)
-            .MaximumLength(200)
-            .WithError(Errors.BurialLocation.RegionTooLong(200))
+            .MaximumLength(BurialLocation.MaxRegionLength)
+            .WithError(Errors.BurialLocation.RegionTooLong(BurialLocation.MaxRegionLength))
             .When(x => !string.IsNullOrWhiteSpace(x.Region));
 
         RuleFor(x => x.City)
-            .MaximumLength(200)
-            .WithError(Errors.BurialLocation.CityTooLong(200))
+            .MaximumLength(BurialLocation.MaxCityLength)
+            .WithError(Errors.BurialLocation.CityTooLong(BurialLocation.MaxCityLength))
             .When(x => !string.IsNullOrWhiteSpace(x.City));
 
         RuleFor(x => x.CemeteryName)
-            .MaximumLength(300)
-            .WithError(Errors.BurialLocation.CemeteryNameTooLong(300))
+            .MaximumLength(BurialLocation.MaxCemeteryNameLength)
+            .WithError(Errors.BurialLocation.CemeteryNameTooLong(BurialLocation.MaxCemeteryNameLength))
             .When(x => !string.IsNullOrWhiteSpace(x.CemeteryName));
 
         RuleFor(x => x.PlotNumber)
-            .MaximumLength(100)
-            .WithError(Errors.BurialLocation.PlotNumberTooLong(100))
+            .MaximumLength(BurialLocation.MaxPlotNumberLength)
+            .WithError(Errors.BurialLocation.PlotNumberTooLong(BurialLocation.MaxPlotNumberLength))
             .When(x => !string.IsNullOrWhiteSpace(x.PlotNumber));
 
         RuleFor(x => x.GraveNumber)
-            .MaximumLength(100)
-            .WithError(Errors.BurialLocation.GraveNumberTooLong(100))
+            .MaximumLength(BurialLocation.MaxGraveNumberLength)
+            .WithError(Errors.BurialLocation.GraveNumberTooLong(BurialLocation.MaxGraveNumberLength))
             .When(x => !string.IsNullOrWhiteSpace(x.GraveNumber));
 
         RuleFor(x => x.Accuracy)

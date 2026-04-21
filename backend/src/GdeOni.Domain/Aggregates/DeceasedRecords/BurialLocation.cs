@@ -5,6 +5,13 @@ namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
 public sealed class BurialLocation : ValueObject
 {
+    public const int MaxCountryLength = 200;
+    public const int MaxRegionLength = 200;
+    public const int MaxCityLength = 200;
+    public const int MaxCemeteryNameLength = 300;
+    public const int MaxPlotNumberLength = 100;
+    public const int MaxGraveNumberLength = 100;
+
     public double Latitude { get; }
     public double Longitude { get; }
     public string Country { get; }
@@ -73,16 +80,44 @@ public sealed class BurialLocation : ValueObject
         if (string.IsNullOrWhiteSpace(country))
             return Errors.BurialLocation.CountryRequired();
 
-        return Result.Success<BurialLocation, Error>(new BurialLocation(
-            latitude,
-            longitude,
-            country.Trim(),
-            string.IsNullOrWhiteSpace(region) ? null : region.Trim(),
-            string.IsNullOrWhiteSpace(city) ? null : city.Trim(),
-            string.IsNullOrWhiteSpace(cemeteryName) ? null : cemeteryName.Trim(),
-            string.IsNullOrWhiteSpace(plotNumber) ? null : plotNumber.Trim(),
-            string.IsNullOrWhiteSpace(graveNumber) ? null : graveNumber.Trim(),
-            accuracy));
+        if (!Enum.IsDefined(typeof(LocationAccuracy), accuracy))
+            return Errors.BurialLocation.AccuracyInvalid();
+
+        var normalizedCountry = country.Trim();
+        if (normalizedCountry.Length > MaxCountryLength)
+            return Errors.BurialLocation.CountryTooLong(MaxCountryLength);
+
+        var normalizedRegion = NormalizeOptional(region);
+        if (normalizedRegion is not null && normalizedRegion.Length > MaxRegionLength)
+            return Errors.BurialLocation.RegionTooLong(MaxRegionLength);
+
+        var normalizedCity = NormalizeOptional(city);
+        if (normalizedCity is not null && normalizedCity.Length > MaxCityLength)
+            return Errors.BurialLocation.CityTooLong(MaxCityLength);
+
+        var normalizedCemeteryName = NormalizeOptional(cemeteryName);
+        if (normalizedCemeteryName is not null && normalizedCemeteryName.Length > MaxCemeteryNameLength)
+            return Errors.BurialLocation.CemeteryNameTooLong(MaxCemeteryNameLength);
+
+        var normalizedPlotNumber = NormalizeOptional(plotNumber);
+        if (normalizedPlotNumber is not null && normalizedPlotNumber.Length > MaxPlotNumberLength)
+            return Errors.BurialLocation.PlotNumberTooLong(MaxPlotNumberLength);
+
+        var normalizedGraveNumber = NormalizeOptional(graveNumber);
+        if (normalizedGraveNumber is not null && normalizedGraveNumber.Length > MaxGraveNumberLength)
+            return Errors.BurialLocation.GraveNumberTooLong(MaxGraveNumberLength);
+
+        return Result.Success<BurialLocation, Error>(
+            new BurialLocation(
+                latitude,
+                longitude,
+                normalizedCountry,
+                normalizedRegion,
+                normalizedCity,
+                normalizedCemeteryName,
+                normalizedPlotNumber,
+                normalizedGraveNumber,
+                accuracy));
     }
 
     public double DistanceTo(double latitude, double longitude)
@@ -96,6 +131,13 @@ public sealed class BurialLocation : ValueObject
 
         var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
         return 6371 * c;
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
     }
 
     private static double ToRadians(double degrees) => degrees * Math.PI / 180.0;

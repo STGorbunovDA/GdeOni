@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.DeceasedRecords.Commands.Create.Model;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Commands.Create.Validation;
@@ -14,11 +15,11 @@ public sealed class CreateDeceasedMemoryCommandValidator
             .NotEqual(Guid.Empty)
             .WithError(Errors.User.IdRequired())
             .When(x => x.AuthorUserId.HasValue);
-        
+
         RuleFor(x => x.Text)
             .NotEmpty()
             .WithError(Errors.DeceasedMemory.TextRequired())
-            .MaximumLength(5000)
-            .WithError(Errors.DeceasedMemory.TextTooLong(5000));
+            .MaximumLength(DeceasedMemoryEntry.MaxTextLength)
+            .WithError(Errors.DeceasedMemory.TextTooLong(DeceasedMemoryEntry.MaxTextLength));
     }
 }

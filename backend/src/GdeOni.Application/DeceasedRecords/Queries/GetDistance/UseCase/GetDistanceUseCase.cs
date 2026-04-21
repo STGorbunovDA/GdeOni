@@ -1,30 +1,38 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.DeceasedRecords.Queries.GetDistance.Model;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Queries.GetDistance.UseCase;
 
-public sealed class GetDistanceUseCase(IDeceasedRepository deceasedRepository)
+public sealed class GetDistanceUseCase(
+    IDeceasedRepository deceasedRepository,
+    IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetDistanceUseCase
 {
-    public async Task<Result<GetDistanceResponse, Error>> Execute(
-        Guid deceasedId,
-        double latitude,
-        double longitude,
+    public Task<Result<GetDistanceResponse, Error>> Execute(
+        GetDistanceQuery query,
         CancellationToken cancellationToken)
     {
-        var deceased = await deceasedRepository.GetById(deceasedId, cancellationToken);
-        if (deceased is null)
-            return Errors.General.NotFound("deceased", deceasedId);
+        return validatedUseCaseExecutor.Execute(query, Handle, cancellationToken);
+    }
 
-        var distance = deceased.BurialLocation.DistanceTo(latitude, longitude);
+    private async Task<Result<GetDistanceResponse, Error>> Handle(
+        GetDistanceQuery query,
+        CancellationToken cancellationToken)
+    {
+        var deceased = await deceasedRepository.GetById(query.DeceasedId, cancellationToken);
+        if (deceased is null)
+            return Errors.General.NotFound("deceased", query.DeceasedId);
+
+        var distance = deceased.BurialLocation.DistanceTo(query.Latitude, query.Longitude);
 
         return Result.Success<GetDistanceResponse, Error>(
             new GetDistanceResponse(
                 deceased.Id,
-                latitude,
-                longitude,
+                query.Latitude,
+                query.Longitude,
                 distance));
     }
 }

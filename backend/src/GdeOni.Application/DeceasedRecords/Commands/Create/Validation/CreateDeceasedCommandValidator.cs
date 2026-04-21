@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.DeceasedRecords.Commands.Create.Model;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Commands.Create.Validation;
@@ -12,18 +13,18 @@ public sealed class CreateDeceasedCommandValidator : AbstractValidator<CreateDec
         RuleFor(x => x.FirstName)
             .NotEmpty()
             .WithError(Errors.PersonName.FirstNameRequired())
-            .MaximumLength(100)
-            .WithError(Errors.PersonName.FirstNameTooLong(100));
+            .MaximumLength(200)
+            .WithError(Errors.PersonName.FirstNameTooLong(200));
 
         RuleFor(x => x.LastName)
             .NotEmpty()
             .WithError(Errors.PersonName.LastNameRequired())
-            .MaximumLength(100)
-            .WithError(Errors.PersonName.LastNameTooLong(100));
+            .MaximumLength(200)
+            .WithError(Errors.PersonName.LastNameTooLong(200));
 
         RuleFor(x => x.MiddleName)
-            .MaximumLength(100)
-            .WithError(Errors.PersonName.MiddleNameTooLong(100))
+            .MaximumLength(200)
+            .WithError(Errors.PersonName.MiddleNameTooLong(200))
             .When(x => !string.IsNullOrWhiteSpace(x.MiddleName));
 
         RuleFor(x => x.DeathDate)
@@ -39,13 +40,13 @@ public sealed class CreateDeceasedCommandValidator : AbstractValidator<CreateDec
             .WithError(Errors.LifePeriod.BirthDateAfterDeathDate());
 
         RuleFor(x => x.ShortDescription)
-            .MaximumLength(1000)
-            .WithError(Errors.Deceased.ShortDescriptionTooLong(1000))
+            .MaximumLength(Deceased.MaxShortDescriptionLength)
+            .WithError(Errors.Deceased.ShortDescriptionTooLong(Deceased.MaxShortDescriptionLength))
             .When(x => !string.IsNullOrWhiteSpace(x.ShortDescription));
 
         RuleFor(x => x.Biography)
-            .MaximumLength(10000)
-            .WithError(Errors.Deceased.BiographyTooLong(10000))
+            .MaximumLength(Deceased.MaxBiographyLength)
+            .WithError(Errors.Deceased.BiographyTooLong(Deceased.MaxBiographyLength))
             .When(x => !string.IsNullOrWhiteSpace(x.Biography));
 
         RuleFor(x => x.CreatedByUserId)
@@ -56,22 +57,20 @@ public sealed class CreateDeceasedCommandValidator : AbstractValidator<CreateDec
             .NotNull()
             .WithError(Errors.Deceased.BurialLocationRequired());
 
-        When(x => x.BurialLocation is not null, () =>
-        {
-            RuleFor(x => x.BurialLocation!)
-                .SetValidator(new CreateDeceasedBurialLocationCommandValidator());
-        });
+        RuleFor(x => x.BurialLocation!)
+            .SetValidator(new CreateDeceasedBurialLocationCommandValidator())
+            .When(x => x.BurialLocation is not null);
 
-        RuleForEach(x => x.Photos)
-            .SetValidator(new CreateDeceasedPhotoCommandValidator());
+        RuleForEach(x => x.Photos!)
+            .SetValidator(new CreateDeceasedPhotoCommandValidator())
+            .When(x => x.Photos is not null);
 
-        RuleForEach(x => x.Memories)
-            .SetValidator(new CreateDeceasedMemoryCommandValidator());
+        RuleForEach(x => x.Memories!)
+            .SetValidator(new CreateDeceasedMemoryCommandValidator())
+            .When(x => x.Memories is not null);
 
-        When(x => x.Metadata is not null, () =>
-        {
-            RuleFor(x => x.Metadata!)
-                .SetValidator(new CreateDeceasedMetadataCommandValidator());
-        });
+        RuleFor(x => x.Metadata!)
+            .SetValidator(new CreateDeceasedMetadataCommandValidator())
+            .When(x => x.Metadata is not null);
     }
 }

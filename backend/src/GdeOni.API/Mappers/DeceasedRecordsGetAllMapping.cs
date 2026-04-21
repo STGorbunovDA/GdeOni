@@ -1,5 +1,4 @@
-﻿using GdeOni.API.Models;
-using GdeOni.API.Models.DeceasedRecords;
+﻿using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.Application.Common.Shared;
 using GdeOni.Application.DeceasedRecords.Queries.GetAll.Model;
 

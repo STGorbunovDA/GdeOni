@@ -23,6 +23,7 @@ public sealed class DeceasedMemoryEntryConfiguration : IEntityTypeConfiguration<
 
         builder.Property(x => x.Text)
             .HasColumnName("text")
+            .HasMaxLength(DeceasedMemoryEntry.MaxTextLength)
             .IsRequired();
 
         builder.Property(x => x.AuthorUserId)

@@ -1,5 +1,4 @@
-﻿using GdeOni.API.Models;
-using GdeOni.API.Models.Users;
+﻿using GdeOni.API.Models.Users;
 using GdeOni.API.Response;
 using GdeOni.Application.Auth.Login.Model;
 using GdeOni.Application.Auth.Login.UseCase;
@@ -8,13 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 namespace GdeOni.API.Controllers;
 
 /// <summary>
-/// Авторизация
+/// Контроллер авторизации.
 /// </summary>
 [Route("api/auth")]
 public sealed class AuthController : ApiControllerBase
 {
     /// <summary>
-    /// Логин
+    /// Выполняет вход пользователя по email и паролю.
     /// </summary>
     [HttpPost("login")]
     [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status200OK)]

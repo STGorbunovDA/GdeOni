@@ -10,6 +10,7 @@ using GdeOni.Application.DeceasedRecords.Commands.AddPhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.ApprovePhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ApprovePhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ClearMetadata.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ClearMetadata.UseCase;
@@ -19,11 +20,15 @@ using GdeOni.Application.DeceasedRecords.Commands.Delete.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Delete.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.RejectPhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RejectPhoto.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.RemoveMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RemoveMemory.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.RemovePhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RemovePhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.SetPrimaryPhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.SetPrimaryPhoto.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.Unverified.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Unverified.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Update.UseCase;
@@ -33,6 +38,7 @@ using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.UpdatePhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdatePhoto.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.Verify.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Verify.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetAgeAtDeath.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetAgeAtDeath.UseCase;
@@ -51,13 +57,14 @@ using Microsoft.AspNetCore.Mvc;
 namespace GdeOni.API.Controllers;
 
 /// <summary>
-/// 
+/// Контроллер для управления карточками умерших,
+/// фотографиями, воспоминаниями и метаданными.
 /// </summary>
 [Route("api/deceased-records")]
 public sealed class DeceasedRecordsController : ApiControllerBase
 {
     /// <summary>
-    /// !Создать запись об умершем
+    /// Создает новую карточку умершего.
     /// </summary>
     [HttpPost]
     [Authorize]
@@ -72,10 +79,11 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] ICreateDeceasedUseCase createDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.UserId.HasValue)
-            return Unauthorized();
+        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error.ToErrorResponse();
 
-        var command = request.ToCreateCommand(currentUserService.UserId.Value);
+        var command = request.ToCreateCommand(currentUserIdResult.Value);
         var result = await createDeceasedUseCase.Execute(command, cancellationToken);
 
         return FromResult(
@@ -84,7 +92,8 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     }
 
     /// <summary>
-    /// !Метод получения всех умерших
+    /// Возвращает список всех карточек умерших с пагинацией и фильтрацией.
+    /// Доступно только администраторам.
     /// </summary>
     [HttpGet]
     [Authorize(Roles = "SuperAdmin,Admin")]
@@ -102,7 +111,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     }
 
     /// <summary>
-    /// !Метод получения умершего по Id
+    /// Возвращает карточку умершего по идентификатору.
     /// </summary>
     [HttpGet("{id:guid}")]
     [Authorize]
@@ -120,7 +129,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     }
 
     /// <summary>
-    /// !Обновление
+    /// Обновляет основную информацию карточки умершего.
     /// </summary>
     [HttpPut("{id:guid}")]
     [Authorize]
@@ -139,9 +148,10 @@ public sealed class DeceasedRecordsController : ApiControllerBase
 
         return FromResult(result);
     }
-    
+
     /// <summary>
-    /// !Удалить запись об умершем
+    /// Удаляет карточку умершего.
+    /// Доступно только администраторам.
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "SuperAdmin,Admin")]
@@ -155,21 +165,12 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         var command = new DeleteDeceasedCommand(id);
         var result = await deleteDeceasedUseCase.Execute(command, cancellationToken);
 
-        if (result.IsFailure)
-            return result.Error.ToErrorResponse();
-
-        return NoContent();
+        return FromUnitResult(result);
     }
 
     /// <summary>
-    /// !Добавить фото
+    /// Добавляет фотографию к карточке умершего.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="request"></param>
-    /// <param name="currentUserService"></param>
-    /// <param name="addPhotoUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPost("{id:guid}/photos")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<AddPhotoResponse>), StatusCodes.Status200OK)]
@@ -181,23 +182,19 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IAddPhotoUseCase addPhotoUseCase,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.UserId.HasValue)
-            return Unauthorized();
+        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error.ToErrorResponse();
 
-        var command = request.ToCommand(id, currentUserService.UserId.Value);
+        var command = request.ToCommand(id, currentUserIdResult.Value);
         var result = await addPhotoUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// !Обновление фотографии и описания
+    /// Обновляет фотографию карточки умершего.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="photoId"></param>
-    /// <param name="request"></param>
-    /// <param name="updatePhotoUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPut("{id:guid}/photos/{photoId:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdatePhotoResponse>), StatusCodes.Status200OK)]
@@ -210,17 +207,13 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     {
         var command = request.ToCommand(id, photoId);
         var result = await updatePhotoUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
-    
+
     /// <summary>
-    /// !Удалить фотографию у умершего
+    /// Удаляет фотографию у карточки умершего.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="photoId"></param>
-    /// <param name="removePhotoUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpDelete("{id:guid}/photos/{photoId:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -230,18 +223,15 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IRemovePhotoUseCase removePhotoUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await removePhotoUseCase.Execute(id, photoId, cancellationToken);
+        var command = new RemovePhotoCommand(id, photoId);
+        var result = await removePhotoUseCase.Execute(command, cancellationToken);
+
         return FromUnitResult(result);
     }
 
     /// <summary>
-    /// !Сделать фотографию основной для умершего
+    /// Делает указанную фотографию основной.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="photoId"></param>
-    /// <param name="setPrimaryPhotoUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPut("{id:guid}/photos/{photoId:guid}/primary")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<SetPrimaryPhotoResponse>), StatusCodes.Status200OK)]
@@ -253,20 +243,17 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     {
         var command = DeceasedRecordsMapping.ToCommand(id, photoId);
         var result = await setPrimaryPhotoUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// !Одобрить фотографию умершего
+    /// Одобряет фотографию карточки умершего.
+    /// Доступно только администраторам.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="photoId"></param>
-    /// <param name="approvePhotoUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPut("{id:guid}/photos/{photoId:guid}/approve")]
     [Authorize(Roles = "SuperAdmin,Admin")]
-    [ProducesResponseType(typeof(ApiResponse<GdeOni.Application.DeceasedRecords.Commands.ApprovePhoto.Model.ApprovePhotoResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<ApprovePhotoResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ApprovePhoto(
         [FromRoute] Guid id,
         [FromRoute] Guid photoId,
@@ -275,20 +262,17 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     {
         var command = DeceasedRecordsMapping.ToApprovePhotoCommand(id, photoId);
         var result = await approvePhotoUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
-    
+
     /// <summary>
-    /// !Отклонить фотографию умершего
+    /// Отклоняет фотографию карточки умершего.
+    /// Доступно только администраторам.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="photoId"></param>
-    /// <param name="rejectPhotoUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPut("{id:guid}/photos/{photoId:guid}/reject")]
     [Authorize(Roles = "SuperAdmin,Admin")]
-    [ProducesResponseType(typeof(ApiResponse<GdeOni.Application.DeceasedRecords.Commands.RejectPhoto.Model.RejectPhotoResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<RejectPhotoResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> RejectPhoto(
         [FromRoute] Guid id,
         [FromRoute] Guid photoId,
@@ -297,18 +281,13 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     {
         var command = DeceasedRecordsMapping.ToRejectPhotoCommand(id, photoId);
         var result = await rejectPhotoUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// !Добавить воспоминание об умершем
+    /// Добавляет воспоминание к карточке умершего.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="currentUserService"></param>
-    /// <param name="addMemoryUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <param name="request"></param>
-    /// <returns></returns>
     [HttpPost("{id:guid}/memories")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<AddMemoryResponse>), StatusCodes.Status200OK)]
@@ -320,23 +299,19 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IAddMemoryUseCase addMemoryUseCase,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.UserId.HasValue)
-            return Unauthorized();
+        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error.ToErrorResponse();
 
-        var command = request.ToCommand(id, currentUserService.UserId.Value);
+        var command = request.ToCommand(id, currentUserIdResult.Value);
         var result = await addMemoryUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// !Обновить воспоминание об умершем
+    /// Обновляет воспоминание у карточки умершего.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="memoryId"></param>
-    /// <param name="request"></param>
-    /// <param name="updateMemoryUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPut("{id:guid}/memories/{memoryId:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateMemoryResponse>), StatusCodes.Status200OK)]
@@ -349,17 +324,14 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     {
         var command = request.ToCommand(id, memoryId);
         var result = await updateMemoryUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// !Одобрить воспоминание об умершем
+    /// Одобряет воспоминание.
+    /// Доступно только администраторам.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="memoryId"></param>
-    /// <param name="approveMemoryUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPut("{id:guid}/memories/{memoryId:guid}/approve")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<ApproveMemoryResponse>), StatusCodes.Status200OK)]
@@ -371,17 +343,14 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     {
         var command = DeceasedRecordsMapping.ToApproveMemoryCommand(id, memoryId);
         var result = await approveMemoryUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// !Отклонить воспоминание об умершем
+    /// Отклоняет воспоминание.
+    /// Доступно только администраторам.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="memoryId"></param>
-    /// <param name="rejectMemoryUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPut("{id:guid}/memories/{memoryId:guid}/reject")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<RejectMemoryResponse>), StatusCodes.Status200OK)]
@@ -393,17 +362,13 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     {
         var command = DeceasedRecordsMapping.ToRejectMemoryCommand(id, memoryId);
         var result = await rejectMemoryUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// !Удалить воспоминание об умершем
+    /// Удаляет воспоминание у карточки умершего.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="memoryId"></param>
-    /// <param name="removeMemoryUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpDelete("{id:guid}/memories/{memoryId:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -413,18 +378,15 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IRemoveMemoryUseCase removeMemoryUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await removeMemoryUseCase.Execute(id, memoryId, cancellationToken);
+        var command = new RemoveMemoryCommand(id, memoryId);
+        var result = await removeMemoryUseCase.Execute(command, cancellationToken);
+
         return FromUnitResult(result);
     }
 
     /// <summary>
-    /// !Обновить вспомогательные данные об умершем
+    /// Обновляет метаданные карточки умершего.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="request"></param>
-    /// <param name="updateMetadataUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPut("{id:guid}/metadata")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateMetadataResponse>), StatusCodes.Status200OK)]
@@ -436,16 +398,13 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     {
         var command = request.ToCommand(id);
         var result = await updateMetadataUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// !Удалить вспомогательные данные об умершем
+    /// Очищает метаданные карточки умершего.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="clearMetadataUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpDelete("{id:guid}/metadata")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<ClearMetadataResponse>), StatusCodes.Status200OK)]
@@ -454,18 +413,16 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IClearMetadataUseCase clearMetadataUseCase,
         CancellationToken cancellationToken)
     {
-        var command = DeceasedRecordsMapping.ToClearMetadataCommand(id);
+        var command = new ClearMetadataCommand(id);
         var result = await clearMetadataUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
-    
+
     /// <summary>
-    /// !Верифицировать запись
+    /// Подтверждает карточку умершего.
+    /// Доступно только администраторам.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="verifyDeceasedUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPut("{id:guid}/verify")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     public async Task<IActionResult> Verify(
@@ -473,17 +430,16 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IVerifyDeceasedUseCase verifyDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await verifyDeceasedUseCase.Execute(id, cancellationToken);
+        var command = new VerifyDeceasedCommand(id);
+        var result = await verifyDeceasedUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
-    
+
     /// <summary>
-    /// !Снять верификацию
+    /// Снимает подтверждение с карточки умершего.
+    /// Доступно только администраторам.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="unverifiedDeceasedUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpPut("{id:guid}/unverified")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     public async Task<IActionResult> Unverified(
@@ -491,19 +447,15 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IUnverifiedDeceasedUseCase unverifiedDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await unverifiedDeceasedUseCase.Execute(id, cancellationToken);
+        var command = new UnverifyDeceasedCommand(id);
+        var result = await unverifiedDeceasedUseCase.Execute(command, cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// !Получить дистанцию до умершего
+    /// Возвращает расстояние от переданных координат до места захоронения.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="latitude"></param>
-    /// <param name="longitude"></param>
-    /// <param name="getDistanceUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpGet("{id:guid}/distance")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<GetDistanceResponse>), StatusCodes.Status200OK)]
@@ -514,17 +466,15 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IGetDistanceUseCase getDistanceUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await getDistanceUseCase.Execute(id, latitude, longitude, cancellationToken);
+        var query = new GetDistanceQuery(id, latitude, longitude);
+        var result = await getDistanceUseCase.Execute(query, cancellationToken);
+
         return FromResult(result);
     }
-    
+
     /// <summary>
-    /// Получить возраст на момент смерти
+    /// Возвращает возраст на момент смерти.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="getAgeAtDeathUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpGet("{id:guid}/age-at-death")]
     [ProducesResponseType(typeof(ApiResponse<GetAgeAtDeathResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<GetAgeAtDeathResponse>), StatusCodes.Status404NotFound)]
@@ -533,17 +483,13 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IGetAgeAtDeathUseCase getAgeAtDeathUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await getAgeAtDeathUseCase.Execute(id, cancellationToken);
+        var result = await getAgeAtDeathUseCase.Execute(new GetAgeAtDeathQuery(id), cancellationToken);
         return FromResult(result);
     }
-    
+
     /// <summary>
-    /// Есть ли фото у умершего
+    /// Проверяет, есть ли у карточки фотографии.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="hasPhotosUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpGet("{id:guid}/has-photos")]
     [ProducesResponseType(typeof(ApiResponse<HasPhotosResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<HasPhotosResponse>), StatusCodes.Status404NotFound)]
@@ -552,17 +498,15 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IHasPhotosUseCase hasPhotosUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await hasPhotosUseCase.Execute(id, cancellationToken);
+        var query = new HasPhotosQuery(id);
+        var result = await hasPhotosUseCase.Execute(query, cancellationToken);
+
         return FromResult(result);
     }
-    
+
     /// <summary>
-    /// Есть ли записки памяти
+    /// Проверяет, есть ли у карточки воспоминания.
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="hasMemoriesUseCase"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     [HttpGet("{id:guid}/has-memories")]
     [ProducesResponseType(typeof(ApiResponse<HasMemoriesResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<HasMemoriesResponse>), StatusCodes.Status404NotFound)]
@@ -571,7 +515,9 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IHasMemoriesUseCase hasMemoriesUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await hasMemoriesUseCase.Execute(id, cancellationToken);
+        var query = new HasMemoriesQuery(id);
+        var result = await hasMemoriesUseCase.Execute(query, cancellationToken);
+
         return FromResult(result);
     }
 }

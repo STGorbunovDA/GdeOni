@@ -6,7 +6,7 @@ namespace GdeOni.Application.DeceasedRecords.Commands.Unverified.UseCase;
 
 public interface IUnverifiedDeceasedUseCase
 {
-    Task<Result<UnverifiedDeceasedResponse, Error>> Execute(
-        Guid deceasedId,
+    Task<Result<UnverifyDeceasedResponse, Error>> Execute(
+        UnverifyDeceasedCommand command,
         CancellationToken cancellationToken);
 }

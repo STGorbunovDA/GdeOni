@@ -1,20 +1,30 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.DeceasedRecords.Commands.Verify.Model;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Commands.Verify.UseCase;
 
-public sealed class VerifyDeceasedUseCase(IDeceasedRepository deceasedRepository)
+public sealed class VerifyDeceasedUseCase(
+    IDeceasedRepository deceasedRepository,
+    IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IVerifyDeceasedUseCase
 {
-    public async Task<Result<VerifyDeceasedResponse, Error>> Execute(
-        Guid deceasedId,
+    public Task<Result<VerifyDeceasedResponse, Error>> Execute(
+        VerifyDeceasedCommand command,
         CancellationToken cancellationToken)
     {
-        var deceased = await deceasedRepository.GetById(deceasedId, cancellationToken);
+        return validatedUseCaseExecutor.Execute(command, Handle, cancellationToken);
+    }
+
+    private async Task<Result<VerifyDeceasedResponse, Error>> Handle(
+        VerifyDeceasedCommand command,
+        CancellationToken cancellationToken)
+    {
+        var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceased is null)
-            return Errors.General.NotFound("deceased", deceasedId);
+            return Errors.General.NotFound("deceased", command.DeceasedId);
 
         var verifyResult = deceased.Verify();
         if (verifyResult.IsFailure)

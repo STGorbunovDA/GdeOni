@@ -5,6 +5,8 @@ namespace GdeOni.Domain.Aggregates.User;
 
 public sealed class TrackedDeceased : Entity<Guid>
 {
+    public const int MaxPersonalNotesLength = 2000;
+
     public Guid DeceasedId { get; }
     public RelationshipType RelationshipType { get; private set; }
     public string? PersonalNotes { get; private set; }
@@ -46,28 +48,49 @@ public sealed class TrackedDeceased : Entity<Guid>
         if (deceasedId == Guid.Empty)
             return Errors.Tracking.DeceasedIdRequired();
 
-        return Result.Success<TrackedDeceased, Error>(new TrackedDeceased(
-            Guid.NewGuid(),
-            deceasedId,
-            relationshipType,
-            string.IsNullOrWhiteSpace(personalNotes) ? null : personalNotes.Trim(),
-            notifyOnDeathAnniversary,
-            notifyOnBirthAnniversary,
-            TrackStatus.Active,
-            DateTime.UtcNow));
+        if (!Enum.IsDefined(typeof(RelationshipType), relationshipType))
+            return Errors.Tracking.RelationshipTypeInvalid();
+
+        var notesResult = NormalizePersonalNotes(personalNotes);
+        if (notesResult.IsFailure)
+            return notesResult.Error;
+
+        return Result.Success<TrackedDeceased, Error>(
+            new TrackedDeceased(
+                Guid.NewGuid(),
+                deceasedId,
+                relationshipType,
+                notesResult.Value,
+                notifyOnDeathAnniversary,
+                notifyOnBirthAnniversary,
+                TrackStatus.Active,
+                DateTime.UtcNow));
     }
 
-    public UnitResult<Error> UpdateRelationship(RelationshipType relationshipType, string? personalNotes)
+    public UnitResult<Error> UpdateRelationship(
+        RelationshipType relationshipType,
+        string? personalNotes)
     {
+        if (!Enum.IsDefined(typeof(RelationshipType), relationshipType))
+            return Errors.Tracking.RelationshipTypeInvalid();
+
+        var notesResult = NormalizePersonalNotes(personalNotes);
+        if (notesResult.IsFailure)
+            return notesResult.Error;
+
         RelationshipType = relationshipType;
-        PersonalNotes = string.IsNullOrWhiteSpace(personalNotes) ? null : personalNotes.Trim();
+        PersonalNotes = notesResult.Value;
+
         return UnitResult.Success<Error>();
     }
 
-    public UnitResult<Error> ChangeNotifications(bool notifyOnDeathAnniversary, bool notifyOnBirthAnniversary)
+    public UnitResult<Error> ChangeNotifications(
+        bool notifyOnDeathAnniversary,
+        bool notifyOnBirthAnniversary)
     {
         NotifyOnDeathAnniversary = notifyOnDeathAnniversary;
         NotifyOnBirthAnniversary = notifyOnBirthAnniversary;
+
         return UnitResult.Success<Error>();
     }
 
@@ -107,12 +130,18 @@ public sealed class TrackedDeceased : Entity<Guid>
         if (Status != TrackStatus.Archived)
             return Errors.Tracking.AlreadyTracked();
 
-        RelationshipType = relationshipType;
-        PersonalNotes = string.IsNullOrWhiteSpace(personalNotes) ? null : personalNotes.Trim();
-        NotifyOnDeathAnniversary = notifyOnDeathAnniversary;
-        NotifyOnBirthAnniversary = notifyOnBirthAnniversary;
-        Status = TrackStatus.Active;
+        var updateRelationshipResult = UpdateRelationship(relationshipType, personalNotes);
+        if (updateRelationshipResult.IsFailure)
+            return updateRelationshipResult.Error;
 
+        var notificationResult = ChangeNotifications(
+            notifyOnDeathAnniversary,
+            notifyOnBirthAnniversary);
+
+        if (notificationResult.IsFailure)
+            return notificationResult.Error;
+
+        Status = TrackStatus.Active;
         return UnitResult.Success<Error>();
     }
 
@@ -122,4 +151,17 @@ public sealed class TrackedDeceased : Entity<Guid>
 
     public bool HasNotificationsEnabled() =>
         NotifyOnDeathAnniversary || NotifyOnBirthAnniversary;
+
+    private static Result<string?, Error> NormalizePersonalNotes(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Result.Success<string?, Error>(null);
+
+        var normalized = value.Trim();
+
+        if (normalized.Length > MaxPersonalNotesLength)
+            return Errors.Tracking.PersonalNotesTooLong(MaxPersonalNotesLength);
+
+        return Result.Success<string?, Error>(normalized);
+    }
 }
