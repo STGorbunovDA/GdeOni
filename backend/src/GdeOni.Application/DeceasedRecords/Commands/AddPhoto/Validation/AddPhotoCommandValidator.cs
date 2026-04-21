@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.DeceasedRecords.Commands.AddPhoto.Model;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Commands.AddPhoto.Validation;
@@ -16,14 +17,14 @@ public sealed class AddPhotoCommandValidator : AbstractValidator<AddPhotoCommand
         RuleFor(x => x.Url)
             .NotEmpty()
             .WithError(Errors.DeceasedPhoto.UrlRequired())
-            .MaximumLength(2000)
-            .WithError(Errors.DeceasedPhoto.UrlTooLong(2000))
+            .MaximumLength(DeceasedPhoto.MaxUrlLength)
+            .WithError(Errors.DeceasedPhoto.UrlTooLong(DeceasedPhoto.MaxUrlLength))
             .Must(x => Uri.IsWellFormedUriString(x, UriKind.Absolute))
             .WithError(Errors.DeceasedPhoto.UrlInvalid());
 
         RuleFor(x => x.Description)
-            .MaximumLength(1000)
-            .WithError(Errors.DeceasedPhoto.DescriptionTooLong(1000))
+            .MaximumLength(DeceasedPhoto.MaxDescriptionLength)
+            .WithError(Errors.DeceasedPhoto.DescriptionTooLong(DeceasedPhoto.MaxDescriptionLength))
             .When(x => !string.IsNullOrWhiteSpace(x.Description));
 
         RuleFor(x => x.AddedByUserId)

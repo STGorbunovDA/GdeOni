@@ -3,7 +3,6 @@ using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.Model;
-using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Commands.AddMemory.UseCase;

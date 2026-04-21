@@ -476,6 +476,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// Возвращает возраст на момент смерти.
     /// </summary>
     [HttpGet("{id:guid}/age-at-death")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<GetAgeAtDeathResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<GetAgeAtDeathResponse>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAgeAtDeath(
@@ -491,6 +492,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// Проверяет, есть ли у карточки фотографии.
     /// </summary>
     [HttpGet("{id:guid}/has-photos")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<HasPhotosResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<HasPhotosResponse>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> HasPhotos(
@@ -508,6 +510,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// Проверяет, есть ли у карточки воспоминания.
     /// </summary>
     [HttpGet("{id:guid}/has-memories")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<HasMemoriesResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<HasMemoriesResponse>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> HasMemories(

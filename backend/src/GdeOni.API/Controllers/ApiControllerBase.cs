@@ -46,7 +46,7 @@ public abstract class ApiControllerBase : ControllerBase
         return Result.Success<Guid, Error>(currentUserService.UserId.Value);
     }
 
-    protected bool CanAccessUserResource(Guid targetUserId, Guid? currentUserId, bool isAdmin)
+    protected bool CanAccessUserResource(Guid targetUserId, Guid currentUserId, bool isAdmin)
     {
         if (isAdmin)
             return true;
@@ -54,7 +54,7 @@ public abstract class ApiControllerBase : ControllerBase
         return currentUserId == targetUserId;
     }
 
-    protected ActionResult? EnsureUserResourceAccess(Guid targetUserId, Guid? currentUserId, bool isAdmin)
+    protected ActionResult? EnsureUserResourceAccess(Guid targetUserId, Guid currentUserId, bool isAdmin)
     {
         return CanAccessUserResource(targetUserId, currentUserId, isAdmin)
             ? null
