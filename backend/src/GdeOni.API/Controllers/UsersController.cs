@@ -27,14 +27,11 @@ using Microsoft.AspNetCore.Mvc;
 namespace GdeOni.API.Controllers;
 
 /// <summary>
-/// Контроллер для управления пользователями.
+/// Пользователи
 /// </summary>
 [Route("api/users")]
 public sealed class UsersController : ApiControllerBase
 {
-    /// <summary>
-    /// Регистрирует нового пользователя.
-    /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<RegisterUserResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
@@ -57,10 +54,6 @@ public sealed class UsersController : ApiControllerBase
             value => value.ToCreatedResponse($"/api/users/{value.Id}"));
     }
 
-    /// <summary>
-    /// Возвращает список пользователей с пагинацией и фильтрацией.
-    /// Доступно только администраторам.
-    /// </summary>
     [HttpGet]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<PagedResponse<GetAllUsersResponse>>), StatusCodes.Status200OK)]
@@ -82,10 +75,6 @@ public sealed class UsersController : ApiControllerBase
         return FromResult(result);
     }
 
-    /// <summary>
-    /// Возвращает пользователя по идентификатору.
-    /// Доступен владельцу профиля или администратору.
-    /// </summary>
     [HttpGet("{id:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<GetUserByIdResponse>), StatusCodes.Status200OK)]
@@ -115,10 +104,6 @@ public sealed class UsersController : ApiControllerBase
         return FromResult(result);
     }
 
-    /// <summary>
-    /// Обновляет профиль пользователя.
-    /// Доступен владельцу профиля или администратору.
-    /// </summary>
     [HttpPatch("{id:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateUserProfileResponse>), StatusCodes.Status200OK)]
@@ -150,10 +135,6 @@ public sealed class UsersController : ApiControllerBase
         return FromResult(result);
     }
 
-    /// <summary>
-    /// Меняет пароль пользователя.
-    /// Доступен владельцу профиля или администратору.
-    /// </summary>
     [HttpPut("{id:guid}/password")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<ChangePasswordResponse>), StatusCodes.Status200OK)]
@@ -186,10 +167,6 @@ public sealed class UsersController : ApiControllerBase
         return FromResult(result);
     }
 
-    /// <summary>
-    /// Меняет email пользователя.
-    /// Доступен владельцу профиля или администратору.
-    /// </summary>
     [HttpPut("{id:guid}/email")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<ChangeEmailResponse>), StatusCodes.Status200OK)]
@@ -222,10 +199,6 @@ public sealed class UsersController : ApiControllerBase
         return FromResult(result);
     }
 
-    /// <summary>
-    /// Меняет роль пользователя.
-    /// Доступно только супер-администратору.
-    /// </summary>
     [HttpPut("{id:guid}/role")]
     [Authorize(Roles = "SuperAdmin")]
     [ProducesResponseType(typeof(ApiResponse<ChangeRoleResponse>), StatusCodes.Status200OK)]
@@ -243,10 +216,6 @@ public sealed class UsersController : ApiControllerBase
         return FromResult(result);
     }
 
-    /// <summary>
-    /// Удаляет пользователя.
-    /// Доступно только супер-администратору.
-    /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "SuperAdmin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

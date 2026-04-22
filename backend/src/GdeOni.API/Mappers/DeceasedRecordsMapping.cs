@@ -87,7 +87,8 @@ public static class DeceasedRecordsMapping
     
     public static UpdateDeceasedCommand ToCommand(
         this UpdateDeceasedRequest request,
-        Guid deceasedId)
+        Guid deceasedId,
+        Guid userId)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.BurialLocation);

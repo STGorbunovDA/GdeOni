@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
@@ -9,6 +10,7 @@ namespace GdeOni.Application.DeceasedRecords.Commands.Update.UseCase;
 
 public sealed class UpdateDeceasedUseCase(
     IDeceasedRepository deceasedRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IUpdateDeceasedUseCase
 {
@@ -23,9 +25,24 @@ public sealed class UpdateDeceasedUseCase(
         UpdateDeceasedCommand command,
         CancellationToken cancellationToken)
     {
+        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
+        {
+            return Error.Unauthorized("auth.unauthorized", "Authentication is required.");
+        }
+        
+        var currentUserId = currentUserService.UserId.Value;
+        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), UserRole.Admin.ToString());
+        
         var deceased = await deceasedRepository.GetById(command.Id, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.Id);
+        
+        if (!isAdmin && deceased.CreatedByUserId != currentUserId)
+        {
+            return Error.Forbidden(
+                "deceased_memory.author.forbidden",
+                "You cannot update a deceased person's card on behalf of another user.");
+        }
 
         var updateMainInfoResult = deceased.UpdateMainInfo(
             command.FirstName,
@@ -73,16 +90,8 @@ public sealed class UpdateDeceasedUseCase(
             if (updateMetadataResult.IsFailure)
                 return updateMetadataResult.Error;
         }
-
-        try
-        {
-            await deceasedRepository.Save(cancellationToken);
-        }
-        catch (UniqueConstraintException ex) when (ex.ConstraintName == DbConstraints.DeceasedSearchKey)
-        {
-            return Errors.Deceased.AlreadyExists();
-        }
-
+        
+        await deceasedRepository.Save(cancellationToken);
         return Result.Success<UpdateDeceasedResponse, Error>(
             new UpdateDeceasedResponse(deceased.Id));
     }
