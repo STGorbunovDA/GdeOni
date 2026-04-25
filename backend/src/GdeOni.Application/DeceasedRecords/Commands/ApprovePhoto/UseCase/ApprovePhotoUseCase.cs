@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Commands.ApprovePhoto.Model;
 using GdeOni.Domain.Shared;
 
@@ -8,6 +9,7 @@ namespace GdeOni.Application.DeceasedRecords.Commands.ApprovePhoto.UseCase;
 
 public sealed class ApprovePhotoUseCase(
     IDeceasedRepository deceasedRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IApprovePhotoUseCase
 {
@@ -22,6 +24,12 @@ public sealed class ApprovePhotoUseCase(
         ApprovePhotoCommand command,
         CancellationToken cancellationToken)
     {
+        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), 
+            UserRole.Admin.ToString());
+        
+        if (!isAdmin)
+            return Errors.DeceasedPhoto.ApprovePhotoForbidden();
+        
         var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);

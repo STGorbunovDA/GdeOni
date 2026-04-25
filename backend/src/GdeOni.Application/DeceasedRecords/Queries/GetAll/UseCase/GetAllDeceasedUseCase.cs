@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.Common.Shared;
 using GdeOni.Application.DeceasedRecords.Queries.GetAll.Model;
 using GdeOni.Domain.Shared;
@@ -9,6 +10,7 @@ namespace GdeOni.Application.DeceasedRecords.Queries.GetAll.UseCase;
 
 public sealed class GetAllDeceasedUseCase(
     IDeceasedRepository deceasedRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetAllDeceasedUseCase
 {
@@ -23,6 +25,15 @@ public sealed class GetAllDeceasedUseCase(
         GetAllDeceasedQuery query,
         CancellationToken cancellationToken)
     {
+        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
+            return Errors.General.Unauthorized();
+        
+        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
+
+        if (!isAdmin)
+            return Errors.Deceased.InsufficientPermissionsToViewAllDeceased();
+        
         var (items, totalCount) = await deceasedRepository.GetPaged(query, cancellationToken);
 
         var response = new PagedResponse<GetAllDeceasedItemResponse>

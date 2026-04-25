@@ -33,13 +33,13 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(x => x.PasswordHash)
             .HasColumnName("password_hash")
-            .HasMaxLength(1000)
+            .HasMaxLength(User.MaxPasswordHash)
             .IsRequired();
 
         builder.Property(x => x.Role)
             .HasColumnName("role")
             .HasConversion<string>()
-            .HasMaxLength(50)
+            .HasMaxLength(User.MaxRole)
             .IsRequired();
 
         builder.Property(x => x.RegisteredAtUtc)

@@ -13,7 +13,7 @@ namespace GdeOni.API.Controllers;
 public sealed class AuthController : ApiControllerBase
 {
     /// <summary>
-    /// Выполняет вход пользователя по email и паролю.
+    /// !Выполняет вход пользователя по email и паролю.
     /// </summary>
     [HttpPost("login")]
     [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status200OK)]

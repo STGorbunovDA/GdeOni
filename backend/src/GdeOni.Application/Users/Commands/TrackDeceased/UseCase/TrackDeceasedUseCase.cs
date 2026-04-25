@@ -3,7 +3,6 @@ using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Users.Commands.TrackDeceased.Model;
-using GdeOni.Application.Users.Common;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Users.Commands.TrackDeceased.UseCase;
@@ -26,13 +25,14 @@ public sealed class TrackDeceasedUseCase(
         TrackDeceasedCommand command,
         CancellationToken cancellationToken)
     {
-        var accessError = UserAccessGuard.EnsureCanAccessUser(command.UserId, currentUserService);
-        if (accessError is not null)
-            return accessError;
+        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
+            return Errors.General.Unauthorized();
 
-        var user = await userRepository.GetByIdWithTracking(command.UserId, cancellationToken);
+        var currentUserId = currentUserService.UserId.Value;
+        
+        var user = await userRepository.GetByIdWithTracking(currentUserId, cancellationToken);
         if (user is null)
-            return Errors.General.NotFound("user", command.UserId);
+            return Errors.General.NotFound("user", currentUserId);
 
         var deceasedExists = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceasedExists is null)

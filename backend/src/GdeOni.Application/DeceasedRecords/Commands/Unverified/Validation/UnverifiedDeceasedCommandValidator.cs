@@ -5,9 +5,9 @@ using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Commands.Unverified.Validation;
 
-public sealed class UnverifyDeceasedCommandValidator : AbstractValidator<UnverifyDeceasedCommand>
+public sealed class UnverifiedDeceasedCommandValidator : AbstractValidator<UnverifiedDeceasedCommand>
 {
-    public UnverifyDeceasedCommandValidator()
+    public UnverifiedDeceasedCommandValidator()
     {
         RuleFor(x => x.DeceasedId)
             .NotEmpty()

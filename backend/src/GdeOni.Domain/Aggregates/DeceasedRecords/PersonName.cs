@@ -5,6 +5,10 @@ namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
 public sealed class PersonName : ValueObject
 {
+    public const int MaxFirstName = 200;
+    public const int MaxLastName = 200;
+    public const int MaxMiddleName = 200;
+    
     public string FirstName { get; }
     public string LastName { get; }
     public string? MiddleName { get; }

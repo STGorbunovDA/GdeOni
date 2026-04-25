@@ -4,5 +4,4 @@ public sealed record AddPhotoCommand(
     Guid DeceasedId,
     string Url,
     string? Description,
-    bool IsPrimary,
-    Guid AddedByUserId);
+    bool IsPrimary);

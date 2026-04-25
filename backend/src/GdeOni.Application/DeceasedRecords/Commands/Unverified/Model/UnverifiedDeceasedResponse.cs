@@ -1,5 +1,5 @@
 ﻿namespace GdeOni.Application.DeceasedRecords.Commands.Unverified.Model;
 
-public sealed record UnverifyDeceasedResponse(
+public sealed record UnverifiedDeceasedResponse(
     Guid DeceasedId,
     bool IsVerified);

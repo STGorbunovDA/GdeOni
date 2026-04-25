@@ -1,3 +1,3 @@
 ﻿namespace GdeOni.Application.DeceasedRecords.Commands.Unverified.Model;
 
-public sealed record UnverifyDeceasedCommand(Guid DeceasedId);
+public sealed record UnverifiedDeceasedCommand(Guid DeceasedId);

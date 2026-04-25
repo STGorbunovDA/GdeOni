@@ -9,10 +9,6 @@ public sealed class GetTrackingQueryValidator : AbstractValidator<GetTrackingQue
 {
     public GetTrackingQueryValidator()
     {
-        RuleFor(x => x.UserId)
-            .NotEmpty()
-            .WithError(Errors.Tracking.UserIdRequired());
-
         RuleFor(x => x.DeceasedId)
             .NotEmpty()
             .WithError(Errors.Tracking.DeceasedIdRequired());

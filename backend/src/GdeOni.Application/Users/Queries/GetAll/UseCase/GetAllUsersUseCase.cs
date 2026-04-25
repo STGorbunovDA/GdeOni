@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.Common.Shared;
 using GdeOni.Application.Users.Queries.GetAll.Model;
 using GdeOni.Domain.Shared;
@@ -9,6 +10,7 @@ namespace GdeOni.Application.Users.Queries.GetAll.UseCase;
 
 public sealed class GetAllUsersUseCase(
     IUserRepository userRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetAllUsersUseCase
 {
@@ -26,6 +28,15 @@ public sealed class GetAllUsersUseCase(
         GetAllUsersQuery query,
         CancellationToken cancellationToken)
     {
+        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
+            return Errors.General.Unauthorized();
+        
+        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(),
+            UserRole.Admin.ToString());
+
+        if (!isAdmin)
+            return Errors.User.InsufficientPermissionsToViewAllUsers();
+        
         var (items, totalCount) = await userRepository.GetPaged(query, cancellationToken);
 
         var responseItems = items.Select(x => new GetAllUsersResponse

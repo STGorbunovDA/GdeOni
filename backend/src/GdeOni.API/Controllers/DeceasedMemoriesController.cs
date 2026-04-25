@@ -30,15 +30,10 @@ public class DeceasedMemoriesController : ApiControllerBase
     public async Task<IActionResult> AddMemory(
         [FromRoute] Guid id,
         [FromBody] AddMemoryRequest request,
-        [FromServices] ICurrentUserService currentUserService,
         [FromServices] IAddMemoryUseCase addMemoryUseCase,
         CancellationToken cancellationToken)
     {
-        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
-        if (currentUserIdResult.IsFailure)
-            return currentUserIdResult.Error.ToErrorResponse();
-
-        var command = request.ToCommand(id, currentUserIdResult.Value);
+        var command = request.ToCommand(id);
         var result = await addMemoryUseCase.Execute(command, cancellationToken);
 
         return FromResult(result);
@@ -78,6 +73,6 @@ public class DeceasedMemoriesController : ApiControllerBase
         var command = new RemoveMemoryCommand(id, memoryId);
         var result = await removeMemoryUseCase.Execute(command, cancellationToken);
 
-        return FromUnitResult(result);
+        return FromResult(result);
     }
 }

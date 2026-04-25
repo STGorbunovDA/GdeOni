@@ -18,8 +18,7 @@ namespace GdeOni.API.Mappers;
 public static class DeceasedRecordsMapping
 {
     public static CreateDeceasedCommand ToCreateCommand(
-        this CreateDeceasedRequest request,
-        Guid currentUserId)
+        this CreateDeceasedRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.BurialLocation);
@@ -32,10 +31,9 @@ public static class DeceasedRecordsMapping
             DeathDate: request.DeathDate,
             ShortDescription: request.ShortDescription,
             Biography: request.Biography,
-            CreatedByUserId: currentUserId,
             BurialLocation: request.BurialLocation.ToCommand(),
-            Photos: request.Photos?.Select(x => x.ToCommand(currentUserId)).ToArray(),
-            Memories: request.Memories?.Select(x => x.ToCommand(currentUserId)).ToArray(),
+            Photos: request.Photos?.Select(x => x.ToCommand()).ToArray(),
+            Memories: request.Memories?.Select(x => x.ToCommand()).ToArray(),
             Metadata: request.Metadata?.ToCommand());
     }
 
@@ -55,23 +53,18 @@ public static class DeceasedRecordsMapping
     }
 
     private static CreateDeceasedPhotoCommand ToCommand(
-        this CreateDeceasedPhotoRequest request,
-        Guid currentUserId)
+        this CreateDeceasedPhotoRequest request)
     {
         return new CreateDeceasedPhotoCommand(
             Url: request.Url,
             Description: request.Description,
-            IsPrimary: request.IsPrimary,
-            AddedByUserId: currentUserId);
+            IsPrimary: request.IsPrimary);
     }
 
     private static CreateDeceasedMemoryCommand ToCommand(
-        this CreateDeceasedMemoryRequest request,
-        Guid currentUserId)
+        this CreateDeceasedMemoryRequest request)
     {
-        return new CreateDeceasedMemoryCommand(
-            Text: request.Text,
-            AuthorUserId: currentUserId);
+        return new CreateDeceasedMemoryCommand(Text: request.Text);
     }
 
     private static CreateDeceasedMetadataCommand ToCommand(
@@ -87,8 +80,7 @@ public static class DeceasedRecordsMapping
     
     public static UpdateDeceasedCommand ToCommand(
         this UpdateDeceasedRequest request,
-        Guid deceasedId,
-        Guid userId)
+        Guid deceasedId)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.BurialLocation);
@@ -134,8 +126,7 @@ public static class DeceasedRecordsMapping
     
     public static AddPhotoCommand ToCommand(
         this AddPhotoRequest request,
-        Guid deceasedId,
-        Guid currentUserId)
+        Guid deceasedId)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -143,8 +134,7 @@ public static class DeceasedRecordsMapping
             deceasedId,
             request.Url,
             request.Description,
-            request.IsPrimary,
-            currentUserId);
+            request.IsPrimary);
     }
     
     public static UpdatePhotoCommand ToCommand(
@@ -163,15 +153,13 @@ public static class DeceasedRecordsMapping
     
     public static AddMemoryCommand ToCommand(
         this AddMemoryRequest request,
-        Guid deceasedId,
-        Guid currentUserId)
+        Guid deceasedId)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         return new AddMemoryCommand(
             deceasedId,
-            request.Text,
-            currentUserId);
+            request.Text);
     }
     
     public static UpdateMemoryCommand ToCommand(

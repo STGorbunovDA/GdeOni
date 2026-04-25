@@ -1,18 +1,16 @@
 ﻿namespace GdeOni.Application.Users.Queries.GetTrackedDeceased.Model;
 
-public sealed class TrackedDeceasedItemResponse
-{
-    public Guid Id { get; init; }
-    public Guid UserId { get; init; }
-    public Guid DeceasedId { get; init; }
-    public string RelationshipType { get; init; }
-    public string? PersonalNotes { get; init; }
-    public bool NotifyOnDeathAnniversary { get; init; }
-    public bool NotifyOnBirthAnniversary { get; init; }
-    public bool HasNotificationsEnabled { get; init; }
-    public string Status { get; init; }
-    public DateTime TrackedAtUtc { get; init; }
-    public bool IsActive { get; init; }
-    public bool IsMuted { get; init; }
-    public bool IsArchived { get; init; }
-}
+public sealed record TrackedDeceasedItemResponse(
+    Guid Id,
+    Guid UserId,
+    Guid DeceasedId,
+    string RelationshipType,
+    string? PersonalNotes,
+    bool NotifyOnDeathAnniversary,
+    bool NotifyOnBirthAnniversary,
+    bool HasNotificationsEnabled,
+    string Status,
+    DateTime TrackedAtUtc,
+    bool IsActive,
+    bool IsMuted,
+    bool IsArchived);

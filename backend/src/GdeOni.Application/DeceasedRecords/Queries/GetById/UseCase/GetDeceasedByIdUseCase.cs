@@ -24,7 +24,7 @@ public sealed class GetDeceasedByIdUseCase(
         CancellationToken cancellationToken)
     {
         var deceased = await deceasedRepository.GetById(query.Id, cancellationToken);
-
+        
         if (deceased is null)
             return Errors.General.NotFound("deceased", query.Id);
 

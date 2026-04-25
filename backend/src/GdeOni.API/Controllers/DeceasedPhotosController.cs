@@ -36,11 +36,7 @@ public class DeceasedPhotosController : ApiControllerBase
         [FromServices] IAddPhotoUseCase addPhotoUseCase,
         CancellationToken cancellationToken)
     {
-        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
-        if (currentUserIdResult.IsFailure)
-            return currentUserIdResult.Error.ToErrorResponse();
-
-        var command = request.ToCommand(id, currentUserIdResult.Value);
+        var command = request.ToCommand(id);
         var result = await addPhotoUseCase.Execute(command, cancellationToken);
 
         return FromResult(result);
@@ -66,24 +62,6 @@ public class DeceasedPhotosController : ApiControllerBase
     }
     
     /// <summary>
-    /// Удаляет фотографию у карточки умершего.
-    /// </summary>
-    [HttpDelete("{id:guid}/photos/{photoId:guid}")]
-    [Authorize]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<IActionResult> RemovePhoto(
-        [FromRoute] Guid id,
-        [FromRoute] Guid photoId,
-        [FromServices] IRemovePhotoUseCase removePhotoUseCase,
-        CancellationToken cancellationToken)
-    {
-        var command = new RemovePhotoCommand(id, photoId);
-        var result = await removePhotoUseCase.Execute(command, cancellationToken);
-
-        return FromUnitResult(result);
-    }
-    
-    /// <summary>
     /// Делает указанную фотографию основной.
     /// </summary>
     [HttpPut("{id:guid}/photos/{photoId:guid}/primary")]
@@ -97,6 +75,24 @@ public class DeceasedPhotosController : ApiControllerBase
     {
         var command = DeceasedRecordsMapping.ToCommand(id, photoId);
         var result = await setPrimaryPhotoUseCase.Execute(command, cancellationToken);
+
+        return FromResult(result);
+    }
+    
+    /// <summary>
+    /// Удаляет фотографию у карточки умершего.
+    /// </summary>
+    [HttpDelete("{id:guid}/photos/{photoId:guid}")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RemovePhoto(
+        [FromRoute] Guid id,
+        [FromRoute] Guid photoId,
+        [FromServices] IRemovePhotoUseCase removePhotoUseCase,
+        CancellationToken cancellationToken)
+    {
+        var command = new RemovePhotoCommand(id, photoId);
+        var result = await removePhotoUseCase.Execute(command, cancellationToken);
 
         return FromResult(result);
     }

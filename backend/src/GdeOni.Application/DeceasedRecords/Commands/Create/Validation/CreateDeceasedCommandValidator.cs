@@ -13,18 +13,18 @@ public sealed class CreateDeceasedCommandValidator : AbstractValidator<CreateDec
         RuleFor(x => x.FirstName)
             .NotEmpty()
             .WithError(Errors.PersonName.FirstNameRequired())
-            .MaximumLength(200)
-            .WithError(Errors.PersonName.FirstNameTooLong(200));
+            .MaximumLength(PersonName.MaxFirstName)
+            .WithError(Errors.PersonName.FirstNameTooLong(PersonName.MaxFirstName));
 
         RuleFor(x => x.LastName)
             .NotEmpty()
             .WithError(Errors.PersonName.LastNameRequired())
-            .MaximumLength(200)
-            .WithError(Errors.PersonName.LastNameTooLong(200));
+            .MaximumLength(PersonName.MaxLastName)
+            .WithError(Errors.PersonName.LastNameTooLong(PersonName.MaxLastName));
 
         RuleFor(x => x.MiddleName)
-            .MaximumLength(200)
-            .WithError(Errors.PersonName.MiddleNameTooLong(200))
+            .MaximumLength(PersonName.MaxMiddleName)
+            .WithError(Errors.PersonName.MiddleNameTooLong(PersonName.MaxMiddleName))
             .When(x => !string.IsNullOrWhiteSpace(x.MiddleName));
 
         RuleFor(x => x.DeathDate)
@@ -48,10 +48,6 @@ public sealed class CreateDeceasedCommandValidator : AbstractValidator<CreateDec
             .MaximumLength(Deceased.MaxBiographyLength)
             .WithError(Errors.Deceased.BiographyTooLong(Deceased.MaxBiographyLength))
             .When(x => !string.IsNullOrWhiteSpace(x.Biography));
-
-        RuleFor(x => x.CreatedByUserId)
-            .NotEmpty()
-            .WithError(Errors.Deceased.CreatedByRequired());
 
         RuleFor(x => x.BurialLocation)
             .NotNull()

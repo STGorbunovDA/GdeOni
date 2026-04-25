@@ -7,6 +7,7 @@ public sealed class Deceased : Entity<Guid>
 {
     public const int MaxShortDescriptionLength = 1000;
     public const int MaxBiographyLength = 10000;
+    public const int MaxSearchKey = 1000;
 
     public PersonName Name { get; private set; }
     public LifePeriod LifePeriod { get; private set; }
@@ -168,13 +169,20 @@ public sealed class Deceased : Entity<Guid>
         string? description = null,
         bool makePrimary = false)
     {
-        var shouldBePrimary = makePrimary || _photos.Count == 0;
+        var normalizedUrlResult = DeceasedPhoto.NormalizeUrl(url);
+        if (normalizedUrlResult.IsFailure)
+            return normalizedUrlResult.Error;
+
+        var normalizedUrl = normalizedUrlResult.Value;
+
+        if (HasDuplicatePhotoUrl(normalizedUrl))
+            return Errors.DeceasedPhoto.DuplicateUrl();
 
         var photoResult = DeceasedPhoto.Create(
-            url,
+            normalizedUrl,
             addedByUserId,
             description,
-            shouldBePrimary);
+            makePrimary || _photos.Count == 0);
 
         if (photoResult.IsFailure)
             return photoResult.Error;
@@ -191,6 +199,36 @@ public sealed class Deceased : Entity<Guid>
         Touch();
 
         return Result.Success<DeceasedPhoto, Error>(photo);
+    }
+
+    public UnitResult<Error> UpdatePhotoUrl(Guid photoId, string url)
+    {
+        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
+        if (photo is null)
+            return Errors.DeceasedPhoto.NotFound(photoId);
+
+        var normalizedUrlResult = DeceasedPhoto.NormalizeUrl(url);
+        if (normalizedUrlResult.IsFailure)
+            return normalizedUrlResult.Error;
+
+        var normalizedUrl = normalizedUrlResult.Value;
+
+        if (HasDuplicatePhotoUrl(normalizedUrl, photoId))
+            return Errors.DeceasedPhoto.DuplicateUrl();
+
+        var result = photo.UpdateUrl(normalizedUrl);
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    private bool HasDuplicatePhotoUrl(string normalizedUrl, Guid? excludingPhotoId = null)
+    {
+        return _photos.Any(x =>
+            x.Id != excludingPhotoId &&
+            string.Equals(x.Url, normalizedUrl, StringComparison.OrdinalIgnoreCase));
     }
 
     public UnitResult<Error> SetPrimaryPhoto(Guid photoId)
@@ -217,20 +255,6 @@ public sealed class Deceased : Entity<Guid>
             return Errors.DeceasedPhoto.NotFound(photoId);
 
         var result = photo.UpdateDescription(description);
-        if (result.IsFailure)
-            return result.Error;
-
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> UpdatePhotoUrl(Guid photoId, string url)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var result = photo.UpdateUrl(url);
         if (result.IsFailure)
             return result.Error;
 

@@ -63,6 +63,9 @@ public sealed class DeceasedPhoto : Entity<Guid>
                 DateTime.UtcNow));
     }
 
+    public static Result<string, Error> NormalizeUrl(string url) =>
+        NormalizeAndValidateUrl(url);
+
     public UnitResult<Error> MakePrimary()
     {
         if (IsPrimary)

@@ -61,21 +61,9 @@ public sealed class RegisterUserUseCase(
 
         var user = userResult.Value;
 
-        try
-        {
-            await userRepository.Add(user, cancellationToken);
-            await userRepository.Save(cancellationToken);
-        }
-        catch (UniqueConstraintException ex) when (ex.ConstraintName == DbConstraints.UxUsersEmail)
-        {
-            return Errors.User.EmailAlreadyExists();
-        }
-        catch (UniqueConstraintException ex) when (ex.ConstraintName == DbConstraints.UxUsersName)
-        {
-            return Errors.User.UserNameAlreadyExists();
-        }
-
-        return Result.Success<RegisterUserResponse, Error>(
-            new RegisterUserResponse(user.Id));
+        await userRepository.Add(user, cancellationToken);
+        await userRepository.Save(cancellationToken);
+        return Result.Success<RegisterUserResponse, Error>(new RegisterUserResponse(user.Id));
+        
     }
 }

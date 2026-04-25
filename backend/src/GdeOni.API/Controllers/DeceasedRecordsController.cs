@@ -40,11 +40,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] ICreateDeceasedUseCase createDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
-        if (currentUserIdResult.IsFailure)
-            return currentUserIdResult.Error.ToErrorResponse();
-
-        var command = request.ToCreateCommand(currentUserIdResult.Value);
+        var command = request.ToCreateCommand();
         var result = await createDeceasedUseCase.Execute(command, cancellationToken);
 
         return FromResult(
@@ -57,7 +53,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// Доступно только администраторам.
     /// </summary>
     [HttpGet]
-    [Authorize(Roles = "SuperAdmin,Admin")]
+    //[Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<PagedResponse<DeceasedListItemDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetAll(
@@ -101,15 +97,11 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     public async Task<IActionResult> Update(
         [FromRoute] Guid id,
         [FromBody] UpdateDeceasedRequest request,
-        [FromServices] ICurrentUserService currentUserService,
         [FromServices] IUpdateDeceasedUseCase updateDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
-        if (currentUserIdResult.IsFailure)
-            return currentUserIdResult.Error.ToErrorResponse();
         
-        var command = request.ToCommand(id, currentUserIdResult.Value);
+        var command = request.ToCommand(id);
         var result = await updateDeceasedUseCase.Execute(command, cancellationToken);
 
         return FromResult(result);
@@ -131,6 +123,6 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         var command = new DeleteDeceasedCommand(id);
         var result = await deleteDeceasedUseCase.Execute(command, cancellationToken);
 
-        return FromUnitResult(result);
+        return FromResult(result);
     }
 }

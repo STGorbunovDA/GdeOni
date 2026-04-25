@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.Model;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
@@ -9,6 +10,7 @@ namespace GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.UseCase;
 
 public sealed class UpdateMetadataUseCase(
     IDeceasedRepository deceasedRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IUpdateMetadataUseCase
 {
@@ -23,9 +25,19 @@ public sealed class UpdateMetadataUseCase(
         UpdateMetadataCommand command,
         CancellationToken cancellationToken)
     {
+        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
+            return Errors.General.Unauthorized();
+        
+        var currentUserId = currentUserService.UserId.Value;
+        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), 
+            UserRole.Admin.ToString());
+        
         var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
+        
+        if (!isAdmin && deceased.CreatedByUserId != currentUserId)
+            return Errors.DeceasedMetadata.UpdateDeceasedMetadataForbidden();
 
         var metadataResult = DeceasedMetadata.Create(
             command.Epitaph,

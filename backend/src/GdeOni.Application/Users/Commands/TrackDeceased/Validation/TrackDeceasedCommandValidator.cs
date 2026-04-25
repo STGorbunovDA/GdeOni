@@ -10,10 +10,6 @@ public sealed class TrackDeceasedCommandValidator : AbstractValidator<TrackDecea
 {
     public TrackDeceasedCommandValidator()
     {
-        RuleFor(x => x.UserId)
-            .NotEmpty()
-            .WithError(Errors.Tracking.UserIdRequired());
-
         RuleFor(x => x.DeceasedId)
             .NotEmpty()
             .WithError(Errors.Tracking.DeceasedIdRequired());

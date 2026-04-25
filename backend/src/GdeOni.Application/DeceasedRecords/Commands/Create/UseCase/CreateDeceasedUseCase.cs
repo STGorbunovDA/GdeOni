@@ -10,8 +10,8 @@ namespace GdeOni.Application.DeceasedRecords.Commands.Create.UseCase;
 
 public sealed class CreateDeceasedUseCase(
     IDeceasedRepository deceasedRepository,
-    IUserRepository userRepository,
     ICurrentUserService currentUserService,
+    IUserRepository userRepository,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : ICreateDeceasedUseCase
 {
@@ -27,26 +27,19 @@ public sealed class CreateDeceasedUseCase(
         CancellationToken cancellationToken)
     {
         if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
-        {
-            return Error.Unauthorized("auth.unauthorized", "Authentication is required.");
-        }
+            return Errors.General.Unauthorized();
 
         var currentUserId = currentUserService.UserId.Value;
-        var isAdmin = currentUserService.IsInRole(
-            UserRole.SuperAdmin.ToString(),
+        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(),
             UserRole.Admin.ToString());
 
-        if (!isAdmin && command.CreatedByUserId != currentUserId)
+        if (!isAdmin)
         {
-            return Error.Forbidden(
-                "deceased.created_by.forbidden",
-                "You cannot create a deceased record on behalf of another user.");
+            var creatorExists = await userRepository.ExistsById(currentUserId, cancellationToken);
+            if (!creatorExists)
+                return Errors.General.NotFound("user", currentUserId);
         }
-
-        var creatorExists = await userRepository.ExistsById(command.CreatedByUserId, cancellationToken);
-        if (!creatorExists)
-            return Errors.General.NotFound("user", command.CreatedByUserId);
-
+        
         var burialLocationResult = BurialLocation.Create(
             command.BurialLocation.Latitude,
             command.BurialLocation.Longitude,
@@ -68,7 +61,7 @@ public sealed class CreateDeceasedUseCase(
             command.BirthDate,
             command.DeathDate,
             burialLocationResult.Value,
-            command.CreatedByUserId,
+            currentUserId,
             command.ShortDescription,
             command.Biography);
 
@@ -85,20 +78,9 @@ public sealed class CreateDeceasedUseCase(
         {
             foreach (var photo in command.Photos)
             {
-                if (!isAdmin && photo.AddedByUserId != currentUserId)
-                {
-                    return Error.Forbidden(
-                        "deceased_photo.added_by.forbidden",
-                        "You cannot attach a photo on behalf of another user.");
-                }
-
-                var addedByExists = await userRepository.ExistsById(photo.AddedByUserId, cancellationToken);
-                if (!addedByExists)
-                    return Errors.General.NotFound("user", photo.AddedByUserId);
-
                 var addPhotoResult = deceased.AddPhoto(
                     photo.Url,
-                    photo.AddedByUserId,
+                    currentUserId,
                     photo.Description,
                     photo.IsPrimary);
 
@@ -111,21 +93,7 @@ public sealed class CreateDeceasedUseCase(
         {
             foreach (var memory in command.Memories)
             {
-                if (memory.AuthorUserId.HasValue)
-                {
-                    if (!isAdmin && memory.AuthorUserId.Value != currentUserId)
-                    {
-                        return Error.Forbidden(
-                            "deceased_memory.author.forbidden",
-                            "You cannot attach a memory on behalf of another user.");
-                    }
-
-                    var authorExists = await userRepository.ExistsById(memory.AuthorUserId.Value, cancellationToken);
-                    if (!authorExists)
-                        return Errors.General.NotFound("user", memory.AuthorUserId.Value);
-                }
-
-                var addMemoryResult = deceased.AddMemory(memory.Text, memory.AuthorUserId);
+                var addMemoryResult = deceased.AddMemory(memory.Text, currentUserId);
                 if (addMemoryResult.IsFailure)
                     return addMemoryResult.Error;
             }
@@ -148,15 +116,8 @@ public sealed class CreateDeceasedUseCase(
                 return updateMetadataResult.Error;
         }
 
-        try
-        {
-            await deceasedRepository.Add(deceased, cancellationToken);
-            await deceasedRepository.Save(cancellationToken);
-        }
-        catch (UniqueConstraintException ex) when (ex.ConstraintName == DbConstraints.DeceasedSearchKey)
-        {
-            return Errors.Deceased.AlreadyExists();
-        }
+        await deceasedRepository.Add(deceased, cancellationToken);
+        await deceasedRepository.Save(cancellationToken);
 
         return Result.Success<CreateDeceasedResponse, Error>(
             new CreateDeceasedResponse(deceased.Id));

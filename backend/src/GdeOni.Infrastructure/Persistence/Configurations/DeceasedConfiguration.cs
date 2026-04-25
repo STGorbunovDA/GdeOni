@@ -8,6 +8,7 @@ namespace GdeOni.Infrastructure.Persistence.Configurations;
 
 public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
 {
+    
     public void Configure(EntityTypeBuilder<Deceased> builder)
     {
         builder.ToTable("deceased_records");
@@ -43,7 +44,7 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
 
         builder.Property(x => x.SearchKey)
             .HasColumnName("search_key")
-            .HasMaxLength(1000)
+            .HasMaxLength(Deceased.MaxSearchKey)
             .IsRequired();
 
         builder.HasIndex(x => x.SearchKey)
@@ -54,17 +55,17 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
         {
             name.Property(x => x.FirstName)
                 .HasColumnName("first_name")
-                .HasMaxLength(200)
+                .HasMaxLength(PersonName.MaxFirstName)
                 .IsRequired();
 
             name.Property(x => x.LastName)
                 .HasColumnName("last_name")
-                .HasMaxLength(200)
+                .HasMaxLength(PersonName.MaxLastName)
                 .IsRequired();
 
             name.Property(x => x.MiddleName)
                 .HasColumnName("middle_name")
-                .HasMaxLength(200);
+                .HasMaxLength(PersonName.MaxMiddleName);
         });
 
         builder.OwnsOne(x => x.LifePeriod, lifePeriod =>

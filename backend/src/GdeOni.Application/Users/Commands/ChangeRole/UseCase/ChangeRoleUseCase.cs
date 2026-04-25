@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.Users.Commands.ChangeRole.Model;
 using GdeOni.Domain.Shared;
 
@@ -8,6 +9,7 @@ namespace GdeOni.Application.Users.Commands.ChangeRole.UseCase;
 
 public sealed class ChangeRoleUseCase(
     IUserRepository userRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IChangeRoleUseCase
 {
@@ -22,6 +24,12 @@ public sealed class ChangeRoleUseCase(
         ChangeRoleCommand command,
         CancellationToken cancellationToken)
     {
+        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), 
+            UserRole.Admin.ToString());
+        
+        if (!isAdmin)
+            return Errors.User.UserForbidden();
+        
         var user = await userRepository.GetById(command.UserId, cancellationToken);
         if (user is null)
             return Errors.General.NotFound("user", command.UserId);
