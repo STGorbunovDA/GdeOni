@@ -6,7 +6,11 @@ public sealed class GetAllDeceasedItemResponse
     public string FullName { get; init; } = null!;
     public DateTime? BirthDate { get; init; }
     public DateTime DeathDate { get; init; }
-    public string Country { get; init; } = null!;
+    public bool HasBurialLocation { get; init; }
+    public double? Latitude { get; init; }
+    public double? Longitude { get; init; }
+    public double? AccuracyMeters { get; init; }
+    public string? Country { get; init; }
     public string? City { get; init; }
     public string? CemeteryName { get; init; }
     public string? PlotNumber { get; init; }

@@ -12,15 +12,17 @@ public sealed class DeceasedDetailsResponse
     public DateTime? BirthDate { get; init; }
     public DateTime DeathDate { get; init; }
 
-    public double Latitude { get; init; }
-    public double Longitude { get; init; }
-    public string Country { get; init; } = null!;
+    public bool HasBurialLocation { get; init; }
+    public double? Latitude { get; init; }
+    public double? Longitude { get; init; }
+    public double? AccuracyMeters { get; init; }
+    public string? Country { get; init; }
     public string? Region { get; init; }
     public string? City { get; init; }
     public string? CemeteryName { get; init; }
     public string? PlotNumber { get; init; }
     public string? GraveNumber { get; init; }
-    public int Accuracy { get; init; }
+    public int? Accuracy { get; init; }
 
     public string? ShortDescription { get; init; }
     public string? Biography { get; init; }

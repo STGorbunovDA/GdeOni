@@ -21,7 +21,6 @@ public static class DeceasedRecordsMapping
         this CreateDeceasedRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(request.BurialLocation);
 
         return new CreateDeceasedCommand(
             FirstName: request.FirstName,
@@ -31,7 +30,7 @@ public static class DeceasedRecordsMapping
             DeathDate: request.DeathDate,
             ShortDescription: request.ShortDescription,
             Biography: request.Biography,
-            BurialLocation: request.BurialLocation.ToCommand(),
+            BurialLocation: request.BurialLocation?.ToCommand(),
             Photos: request.Photos?.Select(x => x.ToCommand()).ToArray(),
             Memories: request.Memories?.Select(x => x.ToCommand()).ToArray(),
             Metadata: request.Metadata?.ToCommand());
@@ -49,7 +48,8 @@ public static class DeceasedRecordsMapping
             CemeteryName: request.CemeteryName,
             PlotNumber: request.PlotNumber,
             GraveNumber: request.GraveNumber,
-            Accuracy: request.Accuracy);
+            Accuracy: request.Accuracy,
+            AccuracyMeters: request.AccuracyMeters);
     }
 
     private static CreateDeceasedPhotoCommand ToCommand(
@@ -83,7 +83,6 @@ public static class DeceasedRecordsMapping
         Guid deceasedId)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(request.BurialLocation);
 
         return new UpdateDeceasedCommand(
             deceasedId,
@@ -94,7 +93,7 @@ public static class DeceasedRecordsMapping
             request.DeathDate,
             request.ShortDescription,
             request.Biography,
-            request.BurialLocation.ToCommand(),
+            request.BurialLocation?.ToCommand(),
             request.Metadata?.ToCommand());
     }
 
@@ -110,7 +109,8 @@ public static class DeceasedRecordsMapping
             request.CemeteryName,
             request.PlotNumber,
             request.GraveNumber,
-            request.Accuracy);
+            request.Accuracy,
+            request.AccuracyMeters);
     }
 
     private static UpdateDeceasedMetadataCommand ToCommand(

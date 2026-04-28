@@ -1,0 +1,102 @@
+ПЛАН GdeOni
+
+A. ЦЕЛЬ
+A1. GPS со смартфона.
+A2. Создать умершего.
+A3. Сохранить координаты могилы.
+A4. Автоматически добавить в отслеживаемые.
+A5. Загрузить фото/документы.
+A6. Построить маршрут до могилы.
+
+B. АРХИТЕКТУРА
+B1. Domain — сущности, value objects, правила.
+B2. Application — use cases, DTO, validators.
+B3. Infrastructure — EF Core, PostgreSQL, MinIO.
+B4. API — controllers, auth, swagger, DI.
+
+C. СУЩНОСТИ
+C1. Deceased.
+C2. BurialLocation.
+C3. User.
+C4. TrackedDeceased.
+C5. DeceasedMedia.
+
+D. BACKEND
+D1. CORS + /api/users/me.
+D2. Seed SuperAdmin.
+D3. Refresh tokens + logout.
+D4. Secrets cleanup.
+D5. BurialLocation nullable.
+D6. AccuracyMeters + CreateFromGps.
+D7. POST /api/deceased-records/at-grave.
+D8. Auto-create TrackedDeceased.
+D9. /api/users/me/tracked-deceased.
+D10. IFileStorage + MinIO.
+D11. DeceasedMedia.
+D12. Media API.
+D13. Route API.
+D14. Tests.
+D15. Backend E2E check.
+
+E. FRONTEND
+E1. Vite + React + TypeScript.
+E2. Auth.
+E3. Получение GPS.
+E4. Форма добавления умершего.
+E5. Список отслеживаемых.
+E6. Карточка умершего.
+E7. Upload фото/документов.
+E8. Карта и маршрут.
+E9. Админка.
+
+F. SECURITY
+F1. userId только из JWT.
+F2. Endpoints через /me.
+F3. Проверки прав в use case.
+F4. GPS хранить с AccuracyMeters.
+F5. Проверять MIME/size файлов.
+F6. Документы private.
+F7. Refresh token хранить hash.
+F8. Secrets не хранить в git.
+F9. 401/403/409 использовать правильно.
+
+G. PR-ПОРЯДОК
+G1. Docs + CORS + /me.
+G2. Seed admin + secrets.
+G3. Refresh/logout.
+G4. Optional BurialLocation.
+G5. AddDeceasedAtGrave.
+G6. MeTrackedDeceased API.
+G7. IFileStorage + MinIO.
+G8. DeceasedMedia.
+G9. Media API.
+G10. Route API.
+G11. Tests.
+G12. Frontend start.
+
+H. НЕ ДЕЛАЕМ СЕЙЧАС
+H1. OCR.
+H2. Push.
+H3. Email.
+H4. PostGIS.
+H5. CDN.
+H6. Antivirus.
+H7. Image optimization.
+H8. Mobile app.
+H9. Complex admin.
+H10. External import.
+H11. Full-text search.
+H12. Production deploy.
+
+I. ГОТОВО, ЕСЛИ
+I1. Работает login/register.
+I2. Работает /me.
+I3. Работает refresh/logout.
+I4. Работает /at-grave.
+I5. Deceased + TrackedDeceased создаются атомарно.
+I6. Работает tracked list.
+I7. Работает media upload.
+I8. Работает MinIO.
+I9. Работает route.
+I10. Чужие данные защищены.
+I11. dotnet test зелёный.

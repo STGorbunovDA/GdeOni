@@ -88,10 +88,12 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
                 .HasColumnName("longitude")
                 .IsRequired();
 
+            location.Property(x => x.AccuracyMeters)
+                .HasColumnName("accuracy_meters");
+
             location.Property(x => x.Country)
                 .HasColumnName("country")
-                .HasMaxLength(BurialLocation.MaxCountryLength)
-                .IsRequired();
+                .HasMaxLength(BurialLocation.MaxCountryLength);
 
             location.Property(x => x.Region)
                 .HasColumnName("region")
@@ -138,7 +140,6 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
 
         builder.Navigation(x => x.Name).IsRequired();
         builder.Navigation(x => x.LifePeriod).IsRequired();
-        builder.Navigation(x => x.BurialLocation).IsRequired();
         builder.Navigation(x => x.Metadata).IsRequired();
 
         builder.HasOne<User>()

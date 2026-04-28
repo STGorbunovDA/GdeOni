@@ -11,7 +11,7 @@ public sealed class Deceased : Entity<Guid>
 
     public PersonName Name { get; private set; }
     public LifePeriod LifePeriod { get; private set; }
-    public BurialLocation BurialLocation { get; private set; }
+    public BurialLocation? BurialLocation { get; private set; }
 
     public string? ShortDescription { get; private set; }
     public string? Biography { get; private set; }
@@ -35,7 +35,6 @@ public sealed class Deceased : Entity<Guid>
     {
         Name = null!;
         LifePeriod = null!;
-        BurialLocation = null!;
         Metadata = DeceasedMetadata.Empty();
     }
 
@@ -43,7 +42,7 @@ public sealed class Deceased : Entity<Guid>
         Guid id,
         PersonName name,
         LifePeriod lifePeriod,
-        BurialLocation burialLocation,
+        BurialLocation? burialLocation,
         string? shortDescription,
         string? biography,
         Guid createdByUserId,
@@ -67,16 +66,13 @@ public sealed class Deceased : Entity<Guid>
         string? middleName,
         DateTime? birthDate,
         DateTime deathDate,
-        BurialLocation burialLocation,
+        BurialLocation? burialLocation,
         Guid createdByUserId,
         string? shortDescription = null,
         string? biography = null)
     {
         if (createdByUserId == Guid.Empty)
             return Errors.Deceased.CreatedByRequired();
-
-        if (burialLocation is null)
-            return Errors.Deceased.BurialLocationRequired();
 
         var nameResult = PersonName.Create(firstName, lastName, middleName);
         if (nameResult.IsFailure)
@@ -151,11 +147,8 @@ public sealed class Deceased : Entity<Guid>
         return UnitResult.Success<Error>();
     }
 
-    public UnitResult<Error> ChangeBurialLocation(BurialLocation burialLocation)
+    public UnitResult<Error> ChangeBurialLocation(BurialLocation? burialLocation)
     {
-        if (burialLocation is null)
-            return Errors.Deceased.BurialLocationRequired();
-
         BurialLocation = burialLocation;
         Touch();
         RebuildSearchKey();
@@ -435,7 +428,7 @@ public sealed class Deceased : Entity<Guid>
         string? middleName,
         DateTime? birthDate,
         DateTime deathDate,
-        BurialLocation burialLocation)
+        BurialLocation? burialLocation)
     {
         static string NormalizeString(string? value) =>
             string.IsNullOrWhiteSpace(value)
@@ -451,10 +444,10 @@ public sealed class Deceased : Entity<Guid>
             NormalizeString(middleName),
             NormalizeDate(birthDate),
             NormalizeDate(deathDate),
-            NormalizeString(burialLocation.CemeteryName),
-            NormalizeString(burialLocation.City),
-            NormalizeString(burialLocation.PlotNumber),
-            NormalizeString(burialLocation.GraveNumber));
+            NormalizeString(burialLocation?.CemeteryName),
+            NormalizeString(burialLocation?.City),
+            NormalizeString(burialLocation?.PlotNumber),
+            NormalizeString(burialLocation?.GraveNumber));
     }
 
     private static Result<string?, Error> NormalizeShortDescription(string? value)

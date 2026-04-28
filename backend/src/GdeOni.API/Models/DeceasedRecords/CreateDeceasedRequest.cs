@@ -14,7 +14,7 @@ public sealed class CreateDeceasedRequest
     public string? ShortDescription { get; set; }
     public string? Biography { get; set; }
 
-    public CreateDeceasedBurialLocationRequest BurialLocation { get; set; } = null!;
+    public CreateDeceasedBurialLocationRequest? BurialLocation { get; set; }
     public IReadOnlyCollection<CreateDeceasedPhotoRequest>? Photos { get; set; }
     public IReadOnlyCollection<CreateDeceasedMemoryRequest>? Memories { get; set; }
     public CreateDeceasedMetadataRequest? Metadata { get; set; }
@@ -24,8 +24,9 @@ public sealed class CreateDeceasedBurialLocationRequest
 {
     public double Latitude { get; set; }
     public double Longitude { get; set; }
+    public double? AccuracyMeters { get; set; }
 
-    public string Country { get; set; } = string.Empty;
+    public string? Country { get; set; }
     public string? Region { get; set; }
     public string? City { get; set; }
     public string? CemeteryName { get; set; }

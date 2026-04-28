@@ -50,10 +50,6 @@ public sealed class UpdateDeceasedCommandValidator : AbstractValidator<UpdateDec
             .WithError(Errors.LifePeriod.BirthDateAfterDeathDate())
             .When(x => x.BirthDate.HasValue);
 
-        RuleFor(x => x.BurialLocation)
-            .NotNull()
-            .WithError(Errors.Deceased.BurialLocationRequired());
-
         RuleFor(x => x.BurialLocation!)
             .SetValidator(new UpdateDeceasedBurialLocationCommandValidator())
             .When(x => x.BurialLocation is not null);

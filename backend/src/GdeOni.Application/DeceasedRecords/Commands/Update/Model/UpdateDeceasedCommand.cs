@@ -11,19 +11,20 @@ public sealed record UpdateDeceasedCommand(
     DateTime DeathDate,
     string? ShortDescription,
     string? Biography,
-    UpdateDeceasedBurialLocationCommand BurialLocation,
+    UpdateDeceasedBurialLocationCommand? BurialLocation,
     UpdateDeceasedMetadataCommand? Metadata);
 
 public sealed record UpdateDeceasedBurialLocationCommand(
     double Latitude,
     double Longitude,
-    string Country,
+    string? Country,
     string? Region,
     string? City,
     string? CemeteryName,
     string? PlotNumber,
     string? GraveNumber,
-    LocationAccuracy Accuracy);
+    LocationAccuracy Accuracy,
+    double? AccuracyMeters);
 
 public sealed record UpdateDeceasedMetadataCommand(
     string? Epitaph,

@@ -27,6 +27,9 @@ public sealed class GetDistanceUseCase(
         if (deceased is null)
             return Errors.General.NotFound("deceased", query.DeceasedId);
 
+        if (deceased.BurialLocation is null)
+            return Errors.Deceased.BurialLocationNotSet();
+
         var distance = deceased.BurialLocation.DistanceTo(query.Latitude, query.Longitude);
 
         return Result.Success<GetDistanceResponse, Error>(

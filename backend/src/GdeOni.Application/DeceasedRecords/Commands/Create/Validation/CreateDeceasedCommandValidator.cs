@@ -49,10 +49,6 @@ public sealed class CreateDeceasedCommandValidator : AbstractValidator<CreateDec
             .WithError(Errors.Deceased.BiographyTooLong(Deceased.MaxBiographyLength))
             .When(x => !string.IsNullOrWhiteSpace(x.Biography));
 
-        RuleFor(x => x.BurialLocation)
-            .NotNull()
-            .WithError(Errors.Deceased.BurialLocationRequired());
-
         RuleFor(x => x.BurialLocation!)
             .SetValidator(new CreateDeceasedBurialLocationCommandValidator())
             .When(x => x.BurialLocation is not null);

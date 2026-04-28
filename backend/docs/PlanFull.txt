@@ -1,0 +1,2271 @@
+ПЛАН РЕАЛИЗАЦИИ GdeOni
+Сценарий: добавление умершего на могиле + хранение координат + отслеживание + маршрут
+
+=====================================================================
+A. ГЛАВНАЯ ЦЕЛЬ
+=====================================================================
+
+Реализовать полный пользовательский сценарий:
+
+1. Пользователь физически находится у могилы.
+2. Пользователь открывает приложение на смартфоне.
+3. Пользователь нажимает кнопку "Добавить умершего".
+4. Приложение запрашивает GPS-координаты телефона.
+5. Пользователь разрешает доступ к геолокации.
+6. Приложение получает:
+   - latitude;
+   - longitude;
+   - accuracyMeters.
+7. Пользователь видит точку на карте.
+8. Пользователь может подтвердить точку или вручную поправить маркер.
+9. Пользователь заполняет данные умершего:
+   - имя;
+   - фамилия;
+   - отчество;
+   - дата рождения;
+   - дата смерти;
+   - описание;
+   - биография;
+   - номер участка;
+   - номер могилы.
+10. Frontend отправляет запрос в backend.
+11. Backend создаёт карточку умершего.
+12. Backend сохраняет GPS-координаты как координаты могилы.
+13. Backend автоматически добавляет этого умершего в список отслеживаемых текущего пользователя.
+14. Пользователь может загрузить:
+   - фото умершего;
+   - фото могилы;
+   - документы.
+15. Позже пользователь открывает список отслеживаемых.
+16. Пользователь выбирает умершего.
+17. Пользователь нажимает "Построить маршрут".
+18. Приложение получает текущие координаты пользователя.
+19. Backend возвращает координаты могилы и ссылки для карт.
+20. Frontend строит маршрут или открывает внешний сервис карт.
+
+Главное правило разработки:
+
+1. Сначала полностью делаем backend.
+2. Потом покрываем backend тестами.
+3. Потом проверяем полный backend-сценарий вручную.
+4. Только после этого начинаем frontend.
+
+Почему именно так:
+
+Frontend зависит от backend API.
+Если начать frontend раньше, придётся постоянно переписывать формы, DTO, обработку ошибок и маршруты.
+Поэтому сначала нужно стабилизировать backend-контракты.
+
+=====================================================================
+B. ТЕКУЩАЯ АРХИТЕКТУРА ПРОЕКТА
+=====================================================================
+
+Проект построен на .NET 8 и Clean Architecture.
+
+Основные проекты:
+
+1. backend/src/GdeOni.Domain
+2. backend/src/GdeOni.Application
+3. backend/src/GdeOni.Infrastructure
+4. backend/src/GdeOni.API
+
+---------------------------------------------------------------------
+B1. Domain
+---------------------------------------------------------------------
+
+Domain — это ядро проекта.
+
+В Domain должны находиться:
+
+- сущности;
+- value objects;
+- enum;
+- доменные методы;
+- бизнес-инварианты;
+- правила, которые не зависят от базы данных, API или frontend.
+
+Примеры:
+
+- Deceased;
+- BurialLocation;
+- User;
+- TrackedDeceased;
+- DeceasedMedia;
+- LifePeriod;
+- PersonName.
+
+В Domain нельзя добавлять:
+
+- EF Core DbContext;
+- HTTP-зависимости;
+- controllers;
+- MinIO SDK;
+- IConfiguration;
+- внешние API-клиенты.
+
+Правило:
+
+Domain должен оставаться чистым.
+Если завтра поменяется PostgreSQL на другую базу или MinIO на S3, Domain не должен измениться.
+
+---------------------------------------------------------------------
+B2. Application
+---------------------------------------------------------------------
+
+Application — слой бизнес-сценариев.
+
+В Application должны находиться:
+
+- use cases;
+- commands;
+- queries;
+- DTO;
+- validators;
+- interfaces для инфраструктуры;
+- application services.
+
+Примеры:
+
+- AddDeceasedAtGraveUseCase;
+- GetTrackedDeceasedUseCase;
+- UploadMediaUseCase;
+- GetRouteToGraveUseCase;
+- IFileStorage;
+- IRouteLinkProvider;
+- ICurrentUserService;
+- IDeceasedRepository;
+- IUserRepository.
+
+Application знает, что нужно сделать, но не знает технических деталей.
+
+Например:
+
+Application знает, что файл нужно загрузить через IFileStorage.
+Но Application не знает, что внутри используется MinIO.
+
+Application знает, что нужно получить текущего пользователя.
+Но Application не должен напрямую читать HttpContext.
+
+---------------------------------------------------------------------
+B3. Infrastructure
+---------------------------------------------------------------------
+
+Infrastructure — слой технических реализаций.
+
+В Infrastructure должны находиться:
+
+- EF Core;
+- AppDbContext;
+- repositories;
+- database configurations;
+- migrations;
+- MinIO implementation;
+- routing link providers;
+- external service implementations.
+
+Примеры:
+
+- DeceasedRepository;
+- UserRepository;
+- MinioFileStorage;
+- MinioOptions;
+- MinioBootstrap;
+- YandexRouteLinkProvider;
+- GoogleMapsRouteLinkProvider;
+- TwoGisRouteLinkProvider.
+
+Infrastructure реализует интерфейсы из Application.
+
+Например:
+
+- IFileStorage -> MinioFileStorage;
+- IRouteLinkProvider -> YandexRouteLinkProvider;
+- IUserRepository -> UserRepository.
+
+---------------------------------------------------------------------
+B4. API
+---------------------------------------------------------------------
+
+API — внешний слой приложения.
+
+В API должны находиться:
+
+- controllers;
+- middleware;
+- swagger;
+- authentication setup;
+- authorization setup;
+- DI registration;
+- Program.cs;
+- request/response mapping, если это не часть Application.
+
+Контроллеры не должны содержать бизнес-логику.
+
+Контроллер должен:
+
+1. Принять HTTP request.
+2. Передать данные в use case.
+3. Получить result.
+4. Вернуть HTTP response.
+
+Плохо:
+
+Контроллер сам создаёт Deceased, сам проверяет права, сам пишет в DbContext.
+
+Хорошо:
+
+Контроллер вызывает AddDeceasedAtGraveUseCase.
+
+---------------------------------------------------------------------
+B5. Используемый стек
+---------------------------------------------------------------------
+
+Backend:
+
+- .NET 8;
+- ASP.NET Core Web API;
+- EF Core;
+- PostgreSQL;
+- JWT authentication;
+- BCrypt;
+- FluentValidation;
+- Serilog;
+- Seq;
+- Docker Compose;
+- MinIO;
+- Clean Architecture.
+
+Frontend в будущем:
+
+- React;
+- TypeScript;
+- Vite;
+- React Router;
+- TanStack Query;
+- Zustand;
+- Axios;
+- Mantine;
+- React Hook Form;
+- Zod;
+- Yandex Maps API.
+
+=====================================================================
+C. КЛЮЧЕВЫЕ СУЩНОСТИ
+=====================================================================
+
+---------------------------------------------------------------------
+C1. Deceased
+---------------------------------------------------------------------
+
+Deceased — карточка умершего.
+
+Она должна хранить:
+
+- Id;
+- имя;
+- фамилию;
+- отчество;
+- дату рождения;
+- дату смерти;
+- краткое описание;
+- биографию;
+- место захоронения;
+- координаты могилы;
+- автора записи;
+- статус подтверждения;
+- search key;
+- медиафайлы;
+- воспоминания.
+
+Главное изменение:
+
+BurialLocation должен стать nullable.
+
+Причина:
+
+Не всегда у пользователя есть полный адрес захоронения.
+В сценарии "пользователь стоит у могилы" у него часто есть только GPS-координаты со смартфона.
+
+Примеры допустимых состояний:
+
+1. Умерший создан с полным местом захоронения:
+   - Country;
+   - City;
+   - CemeteryName;
+   - PlotNumber;
+   - GraveNumber;
+   - Latitude;
+   - Longitude.
+
+2. Умерший создан только с GPS:
+   - Latitude;
+   - Longitude;
+   - AccuracyMeters.
+
+3. Умерший создан вообще без BurialLocation:
+   - место будет добавлено позже.
+
+Domain-правила:
+
+- Deceased должен уметь существовать без BurialLocation.
+- Если BurialLocation есть, координаты должны быть валидными.
+- SearchKey не должен падать, если BurialLocation == null.
+- Автор записи должен сохраняться через CreatedByUserId.
+- Изменение BurialLocation должно происходить через доменный метод.
+
+---------------------------------------------------------------------
+C2. BurialLocation
+---------------------------------------------------------------------
+
+BurialLocation — value object места захоронения.
+
+Должен хранить:
+
+- Latitude;
+- Longitude;
+- AccuracyMeters;
+- Country;
+- City;
+- CemeteryName;
+- PlotNumber;
+- GraveNumber.
+
+Новые правила:
+
+- Latitude обязателен, если BurialLocation создан.
+- Longitude обязателен, если BurialLocation создан.
+- Latitude должен быть от -90 до 90.
+- Longitude должен быть от -180 до 180.
+- AccuracyMeters должен быть >= 0, если передан.
+- Country больше не обязателен.
+- City больше не обязателен.
+- CemeteryName больше не обязателен.
+- PlotNumber опционален.
+- GraveNumber опционален.
+
+Нужный factory method:
+
+BurialLocation.CreateFromGps(latitude, longitude, accuracyMeters)
+
+Этот метод нужен для сценария со смартфоном.
+
+Пример:
+
+Пользователь стоит у могилы.
+Телефон возвращает:
+
+latitude = 55.7558
+longitude = 37.6173
+accuracyMeters = 8.5
+
+Backend создаёт BurialLocation без Country и City, но с координатами.
+
+---------------------------------------------------------------------
+C3. User
+---------------------------------------------------------------------
+
+User — пользователь системы.
+
+Должен хранить:
+
+- Id;
+- Email;
+- UserName;
+- FullName;
+- Role;
+- TrackedDeceased;
+- RefreshTokens.
+
+Основные задачи User:
+
+- хранить профиль пользователя;
+- хранить роль;
+- хранить список отслеживаемых умерших;
+- уметь добавить умершего в отслеживаемые;
+- уметь убрать умершего из отслеживаемых;
+- уметь обновить настройки отслеживания.
+
+В будущем User также должен хранить refresh tokens.
+
+---------------------------------------------------------------------
+C4. TrackedDeceased
+---------------------------------------------------------------------
+
+TrackedDeceased — связь пользователя с конкретным умершим.
+
+Должен хранить:
+
+- Id;
+- UserId;
+- DeceasedId;
+- RelationshipType;
+- PersonalNotes;
+- NotifyOnDeathAnniversary;
+- NotifyOnBirthAnniversary;
+- Status;
+- TrackedAtUtc.
+
+Статусы:
+
+- Active;
+- Muted;
+- Archived.
+
+Главное правило:
+
+Когда пользователь добавляет умершего на могиле через AddDeceasedAtGrave, backend должен автоматически создать TrackedDeceased для текущего пользователя.
+
+Почему:
+
+Если пользователь сам добавил умершего на могиле, логично, что эта запись сразу появляется у него в списке отслеживаемых.
+Не нужно заставлять пользователя отдельно нажимать "Отслеживать".
+
+---------------------------------------------------------------------
+C5. DeceasedMedia
+---------------------------------------------------------------------
+
+DeceasedMedia — универсальная сущность файлов.
+
+Она должна заменить старый подход, где фото хранится просто как URL.
+
+DeceasedMedia должна поддерживать:
+
+- фото умершего;
+- фото могилы;
+- документы;
+- прочие файлы.
+
+Поля:
+
+- Id;
+- DeceasedId;
+- UploadedByUserId;
+- Kind;
+- OriginalFileName;
+- Bucket;
+- StorageKey;
+- ContentType;
+- SizeBytes;
+- Description;
+- IsMainPhoto;
+- ModerationStatus;
+- CreatedAtUtc;
+- UpdatedAtUtc.
+
+MediaKind:
+
+- DeceasedPhoto;
+- GravePhoto;
+- Document;
+- Other.
+
+Правила:
+
+- DeceasedPhoto может быть главным фото.
+- GravePhoto не должно быть главным фото карточки умершего.
+- Document не может быть главным фото.
+- У одного Deceased может быть только одно главное DeceasedPhoto.
+- Документы должны быть приватными.
+- Фото могут быть публичными для чтения.
+- Binary-файл хранится в MinIO.
+- Metadata файла хранится в PostgreSQL.
+
+=====================================================================
+D. BACKEND ROADMAP
+=====================================================================
+
+Backend делаем по этапам.
+
+D1. Фундамент API.
+D2. Optional BurialLocation.
+D3. AddDeceasedAtGrave.
+D4. MeTrackedDeceased API.
+D5. MinIO + IFileStorage.
+D6. DeceasedMedia.
+D7. Media API.
+D8. Route API.
+D9. Tests.
+D10. Backend E2E check.
+
+Правило:
+
+Не переходить к frontend, пока D1-D10 не завершены.
+
+=====================================================================
+D1. ФУНДАМЕНТ API
+=====================================================================
+
+Цель:
+
+Подготовить API к работе с frontend и нормальной авторизацией.
+
+---------------------------------------------------------------------
+D1.1 CORS
+---------------------------------------------------------------------
+
+Нужно добавить CORS, чтобы frontend мог обращаться к backend.
+
+Для разработки разрешить origins:
+
+- http://localhost:5173;
+- http://localhost:3000.
+
+CORS должен быть подключён в Program.cs до:
+
+- UseAuthentication;
+- UseAuthorization.
+
+Важно:
+
+Нельзя использовать AllowAnyOrigin вместе с AllowCredentials.
+Нужно указывать конкретные origins.
+
+Готово, если:
+
+[ ] Preflight OPTIONS проходит.
+[ ] Frontend origin разрешён.
+[ ] Authorization header разрешён.
+[ ] Content-Type header разрешён.
+
+---------------------------------------------------------------------
+D1.2 GET /api/users/me
+---------------------------------------------------------------------
+
+Нужно добавить endpoint:
+
+GET /api/users/me
+
+Назначение:
+
+Frontend должен уметь получить текущего пользователя по access token.
+
+Важно:
+
+userId нельзя принимать из query, route или body.
+userId должен браться только из JWT через ICurrentUserService.
+
+Пример ответа:
+
+{
+  "id": "...",
+  "email": "...",
+  "userName": "...",
+  "fullName": "...",
+  "role": "RegularUser"
+}
+
+Готово, если:
+
+[ ] Авторизованный пользователь получает свой профиль.
+[ ] Неавторизованный пользователь получает 401.
+[ ] userId нигде не передаётся с клиента.
+
+---------------------------------------------------------------------
+D1.3 Seed первого SuperAdmin
+---------------------------------------------------------------------
+
+Нужно добавить автоматическое создание первого администратора.
+
+Файл:
+
+GdeOni.Infrastructure/Data/DbInitializer.cs
+
+Настройки:
+
+Seed:
+  SuperAdmin:
+    Email
+    Password
+    FullName
+
+Логика:
+
+1. При старте приложения проверить, есть ли SuperAdmin.
+2. Если SuperAdmin уже есть — ничего не делать.
+3. Если SuperAdmin нет — создать.
+4. Пароль сохранить только в виде BCrypt hash.
+5. Вывести лог, что SuperAdmin создан.
+
+Готово, если:
+
+[ ] При первом запуске SuperAdmin создаётся.
+[ ] При повторном запуске дубликат не создаётся.
+[ ] Пароль в БД хранится как hash.
+
+---------------------------------------------------------------------
+D1.4 Refresh tokens и logout
+---------------------------------------------------------------------
+
+Нужно добавить нормальный механизм сессии.
+
+Сущность RefreshToken:
+
+- Id;
+- UserId;
+- TokenHash;
+- ExpiresAtUtc;
+- RevokedAtUtc;
+- CreatedAtUtc;
+- CreatedFromIp.
+
+Endpoints:
+
+POST /api/auth/refresh
+POST /api/auth/logout
+
+Правила:
+
+- refresh token хранить в БД только как hash;
+- plain refresh token возвращать пользователю только один раз;
+- при refresh делать rotation;
+- старый refresh token должен отзываться;
+- новый refresh token должен создаваться;
+- logout должен отзывать текущий refresh token;
+- access token можно сделать на 15 минут;
+- refresh token можно сделать на 14 дней.
+
+Готово, если:
+
+[ ] Login возвращает access token и refresh token.
+[ ] Refresh возвращает новый access token.
+[ ] Refresh делает rotation refresh token.
+[ ] Старый refresh token после rotation не работает.
+[ ] Logout отзывает refresh token.
+[ ] После logout refresh не работает.
+
+---------------------------------------------------------------------
+D1.5 Secrets cleanup
+---------------------------------------------------------------------
+
+В appsettings.json не должно быть настоящих секретов.
+
+Нужно убрать:
+
+- настоящий JWT secret;
+- production connection string;
+- production MinIO secret;
+- другие приватные ключи.
+
+В appsettings.json оставить placeholder:
+
+"Secret": "REPLACE_ME"
+
+Для локальной разработки использовать:
+
+- user secrets;
+- appsettings.local.json;
+- environment variables.
+
+Готово, если:
+
+[ ] В git нет настоящих secrets.
+[ ] README объясняет, как настроить secrets локально.
+[ ] Приложение не стартует с небезопасным Secret в production.
+
+---------------------------------------------------------------------
+D1.6 UniqueConstraintException -> 409
+---------------------------------------------------------------------
+
+Если возникает конфликт уникальности, API не должен возвращать 500.
+
+Примеры конфликтов:
+
+- email уже существует;
+- username уже существует;
+- search key уже существует;
+- duplicate tracking.
+
+Нужно возвращать:
+
+HTTP 409 Conflict
+
+Пример:
+
+{
+  "errorCode": "user.email.already_exists",
+  "errorMessage": "Пользователь с таким email уже существует."
+}
+
+Готово, если:
+
+[ ] Дубликат email возвращает 409.
+[ ] Дубликат username возвращает 409.
+[ ] Ошибка не уходит в ExceptionMiddleware как 500.
+[ ] Frontend получает понятный errorCode.
+
+=====================================================================
+D2. OPTIONAL BURIALLOCATION
+=====================================================================
+
+Цель:
+
+Разрешить создавать умершего без полного адреса захоронения.
+Разрешить создавать место захоронения только по GPS-координатам со смартфона.
+
+---------------------------------------------------------------------
+D2.1 Изменить Deceased
+---------------------------------------------------------------------
+
+Было:
+
+BurialLocation BurialLocation
+
+Должно стать:
+
+BurialLocation? BurialLocation
+
+Нужно проверить все места, где используется BurialLocation:
+
+- CreateDeceasedUseCase;
+- UpdateDeceasedUseCase;
+- GetDeceasedByIdUseCase;
+- Search;
+- Distance endpoint;
+- DTO mapping;
+- RebuildSearchKey.
+
+Готово, если:
+
+[ ] Deceased может существовать без BurialLocation.
+[ ] Код не падает на null BurialLocation.
+
+---------------------------------------------------------------------
+D2.2 Изменить BurialLocation
+---------------------------------------------------------------------
+
+Country сделать nullable:
+
+string? Country
+
+Добавить:
+
+double? AccuracyMeters
+
+Убрать обязательность Country.
+
+Готово, если:
+
+[ ] BurialLocation можно создать без Country.
+[ ] AccuracyMeters сохраняется.
+[ ] Невалидный AccuracyMeters отклоняется.
+
+---------------------------------------------------------------------
+D2.3 Добавить CreateFromGps
+---------------------------------------------------------------------
+
+Добавить метод:
+
+BurialLocation.CreateFromGps(
+    double latitude,
+    double longitude,
+    double? accuracyMeters
+)
+
+Метод должен проверять:
+
+- latitude от -90 до 90;
+- longitude от -180 до 180;
+- accuracyMeters >= 0, если передан.
+
+Метод должен создавать location без:
+
+- country;
+- city;
+- cemeteryName.
+
+Готово, если:
+
+[ ] GPS-only location создаётся.
+[ ] Невалидный latitude даёт ошибку.
+[ ] Невалидный longitude даёт ошибку.
+[ ] Невалидный accuracyMeters даёт ошибку.
+
+---------------------------------------------------------------------
+D2.4 Обновить EF Core mapping
+---------------------------------------------------------------------
+
+Owned columns BurialLocation должны стать nullable.
+
+Нужно сделать migration:
+
+MakeBurialLocationOptional
+
+Готово, если:
+
+[ ] Миграция создана.
+[ ] Миграция применяется.
+[ ] Колонки address/location не требуют NOT NULL там, где это больше не нужно.
+
+---------------------------------------------------------------------
+D2.5 Обновить validators
+---------------------------------------------------------------------
+
+Нужно убрать обязательность Country.
+
+Проверки должны остаться для:
+
+- latitude;
+- longitude;
+- accuracyMeters;
+- deathDate;
+- birthDate.
+
+Готово, если:
+
+[ ] Validator не требует Country.
+[ ] Validator проверяет координаты.
+[ ] Старые запросы продолжают работать.
+
+=====================================================================
+D3. ADD DECEASED AT GRAVE
+=====================================================================
+
+Цель:
+
+Сделать главный сценарий одним backend-запросом.
+
+Endpoint:
+
+POST /api/deceased-records/at-grave
+
+---------------------------------------------------------------------
+D3.1 Request
+---------------------------------------------------------------------
+
+Запрос должен принимать:
+
+- firstName;
+- lastName;
+- middleName;
+- birthDate;
+- deathDate;
+- shortDescription;
+- biography;
+- graveLocation;
+- tracking.
+
+graveLocation:
+
+- latitude;
+- longitude;
+- accuracyMeters;
+- country;
+- city;
+- cemeteryName;
+- plotNumber;
+- graveNumber.
+
+tracking:
+
+- relationshipType;
+- personalNotes;
+- notifyOnDeathAnniversary;
+- notifyOnBirthAnniversary.
+
+---------------------------------------------------------------------
+D3.2 Response
+---------------------------------------------------------------------
+
+Успешный ответ:
+
+HTTP 201 Created
+
+{
+  "deceasedId": "...",
+  "trackingId": "...",
+  "trackingStatus": "Active"
+}
+
+---------------------------------------------------------------------
+D3.3 Use case logic
+---------------------------------------------------------------------
+
+AddDeceasedAtGraveUseCase должен делать:
+
+1. Взять currentUserId из JWT.
+2. Проверить, что пользователь авторизован.
+3. Загрузить User вместе с TrackedDeceased.
+4. Создать BurialLocation через CreateFromGps.
+5. Создать Deceased.
+6. Добавить Deceased в DeceasedRepository.
+7. Вызвать user.TrackDeceased(deceased.Id, ...).
+8. Сделать один SaveChanges.
+9. Вернуть deceasedId и trackingId.
+
+---------------------------------------------------------------------
+D3.4 Atomicity
+---------------------------------------------------------------------
+
+Важно:
+
+Deceased и TrackedDeceased должны создаваться атомарно.
+
+Нельзя:
+
+1. Save Deceased.
+2. Save Tracking.
+
+Нужно:
+
+1. Add Deceased.
+2. Add Tracking.
+3. Один SaveChanges.
+
+Если tracking не создался, Deceased не должен сохраниться.
+
+Готово, если:
+
+[ ] Deceased и TrackedDeceased сохраняются вместе.
+[ ] При ошибке tracking Deceased не появляется в БД.
+[ ] При ошибке SaveChanges не остаётся половинчатых данных.
+
+---------------------------------------------------------------------
+D3.5 Validation
+---------------------------------------------------------------------
+
+Проверить:
+
+- firstName обязателен;
+- lastName обязателен;
+- deathDate обязателен;
+- deathDate не в будущем;
+- birthDate не позже deathDate;
+- latitude от -90 до 90;
+- longitude от -180 до 180;
+- accuracyMeters >= 0;
+- relationshipType валидный.
+
+Готово, если:
+
+[ ] Валидный запрос возвращает 201.
+[ ] Невалидные координаты возвращают 400.
+[ ] Неавторизованный пользователь получает 401.
+[ ] Невалидные даты возвращают 400.
+[ ] Запись появляется в tracked list.
+
+=====================================================================
+D4. ME TRACKED DECEASED API
+=====================================================================
+
+Цель:
+
+Сделать API для списка отслеживаемых текущего пользователя.
+
+Base route:
+
+/api/users/me/tracked-deceased
+
+---------------------------------------------------------------------
+D4.1 GET list
+---------------------------------------------------------------------
+
+Endpoint:
+
+GET /api/users/me/tracked-deceased
+
+Назначение:
+
+Вернуть список умерших, которых отслеживает текущий пользователь.
+
+DTO должен содержать:
+
+- trackingId;
+- deceasedId;
+- fullName;
+- birthDate;
+- deathDate;
+- hasGraveLocation;
+- graveLatitude;
+- graveLongitude;
+- mainPhotoUrl;
+- relationshipType;
+- status;
+- notifyOnDeathAnniversary;
+- notifyOnBirthAnniversary;
+- trackedAtUtc.
+
+Готово, если:
+
+[ ] Пользователь видит только свои записи.
+[ ] Чужие записи не попадают в ответ.
+[ ] Есть pagination.
+[ ] Есть основные данные для карточки на frontend.
+
+---------------------------------------------------------------------
+D4.2 GET detail
+---------------------------------------------------------------------
+
+Endpoint:
+
+GET /api/users/me/tracked-deceased/{deceasedId}
+
+Назначение:
+
+Вернуть детальную карточку отслеживаемого умершего.
+
+Если пользователь не отслеживает умершего:
+
+HTTP 403 Forbidden
+
+Готово, если:
+
+[ ] Свой tracked deceased открывается.
+[ ] Чужой deceased возвращает 403.
+[ ] Неавторизованный пользователь получает 401.
+
+---------------------------------------------------------------------
+D4.3 GET exists
+---------------------------------------------------------------------
+
+Endpoint:
+
+GET /api/users/me/tracked-deceased/{deceasedId}/exists
+
+Ответ:
+
+{
+  "tracked": true
+}
+
+или:
+
+{
+  "tracked": false
+}
+
+Назначение:
+
+Нужно для frontend-кнопки "Отслеживать".
+
+Готово, если:
+
+[ ] Возвращает true, если пользователь отслеживает.
+[ ] Возвращает false, если не отслеживает.
+
+---------------------------------------------------------------------
+D4.4 POST add tracking
+---------------------------------------------------------------------
+
+Endpoint:
+
+POST /api/users/me/tracked-deceased/{deceasedId}
+
+Назначение:
+
+Добавить существующего умершего в отслеживаемые.
+
+Важно:
+
+userId брать только из JWT.
+
+Готово, если:
+
+[ ] Можно добавить existing deceased в tracking.
+[ ] Повторное добавление не создаёт дубль.
+[ ] Ошибка duplicate возвращает понятный Conflict.
+
+---------------------------------------------------------------------
+D4.5 PATCH update tracking
+---------------------------------------------------------------------
+
+Endpoint:
+
+PATCH /api/users/me/tracked-deceased/{deceasedId}
+
+Можно менять:
+
+- relationshipType;
+- personalNotes;
+- notifyOnDeathAnniversary;
+- notifyOnBirthAnniversary;
+- status.
+
+Готово, если:
+
+[ ] Пользователь обновляет свои настройки.
+[ ] Чужие настройки обновить нельзя.
+[ ] Невалидные значения отклоняются.
+
+---------------------------------------------------------------------
+D4.6 DELETE tracking
+---------------------------------------------------------------------
+
+Endpoint:
+
+DELETE /api/users/me/tracked-deceased/{deceasedId}
+
+Назначение:
+
+Убрать умершего из отслеживаемых.
+
+Готово, если:
+
+[ ] Свой tracking удаляется или архивируется.
+[ ] Чужой tracking удалить нельзя.
+[ ] После удаления запись не видна в active list.
+
+=====================================================================
+D5. MINIO + IFILESTORAGE
+=====================================================================
+
+Цель:
+
+Подключить загрузку файлов через MinIO, но спрятать MinIO за интерфейсом.
+
+---------------------------------------------------------------------
+D5.1 Application abstraction
+---------------------------------------------------------------------
+
+В Application добавить:
+
+- IFileStorage;
+- StoredFile;
+- FileKind.
+
+IFileStorage должен поддерживать:
+
+- UploadAsync;
+- DeleteAsync;
+- OpenReadAsync;
+- GetPublicUrl;
+- GetPresignedUrlAsync.
+
+StoredFile должен хранить:
+
+- Bucket;
+- ObjectKey;
+- ContentType;
+- SizeBytes;
+- OriginalFileName.
+
+FileKind:
+
+- DeceasedPhoto;
+- GravePhoto;
+- Document;
+- Other.
+
+Готово, если:
+
+[ ] Application содержит интерфейс.
+[ ] Application не зависит от MinIO SDK.
+[ ] Use cases могут работать через IFileStorage.
+
+---------------------------------------------------------------------
+D5.2 Infrastructure implementation
+---------------------------------------------------------------------
+
+В Infrastructure добавить:
+
+- MinioFileStorage;
+- MinioOptions;
+- MinioBootstrap.
+
+MinioOptions:
+
+- Endpoint;
+- AccessKey;
+- SecretKey;
+- UseSsl;
+- PublicBaseUrl;
+- Buckets.
+
+Buckets:
+
+- deceased-photos;
+- grave-photos;
+- deceased-documents.
+
+Готово, если:
+
+[ ] MinioFileStorage реализует IFileStorage.
+[ ] MinioOptions читается из configuration.
+[ ] MinioBootstrap создаёт buckets при старте.
+
+---------------------------------------------------------------------
+D5.3 Access rules
+---------------------------------------------------------------------
+
+Правила доступа:
+
+- deceased-photos — public read;
+- grave-photos — public read;
+- deceased-documents — private;
+- документы отдавать через presigned URL.
+
+Готово, если:
+
+[ ] Фото можно открыть по public URL.
+[ ] Документы нельзя открыть напрямую.
+[ ] Документы открываются через presigned URL.
+
+---------------------------------------------------------------------
+D5.4 File validation
+---------------------------------------------------------------------
+
+Фото:
+
+- image/jpeg;
+- image/png;
+- image/webp;
+- максимум 10 MB.
+
+Документы:
+
+- application/pdf;
+- максимум 25 MB.
+
+StorageKey:
+
+Не использовать имя файла пользователя как путь.
+
+Формат:
+
+{kind}/{deceasedId}/{guid}.{extension}
+
+Готово, если:
+
+[ ] Невалидный MIME отклоняется.
+[ ] Слишком большой файл отклоняется.
+[ ] StorageKey генерируется безопасно.
+
+=====================================================================
+D6. DECEASED MEDIA
+=====================================================================
+
+Цель:
+
+Заменить старую модель фото на универсальную модель медиафайлов.
+
+---------------------------------------------------------------------
+D6.1 Domain entity
+---------------------------------------------------------------------
+
+Создать DeceasedMedia.
+
+Поля:
+
+- Id;
+- DeceasedId;
+- UploadedByUserId;
+- Kind;
+- OriginalFileName;
+- Bucket;
+- StorageKey;
+- ContentType;
+- SizeBytes;
+- Description;
+- IsMainPhoto;
+- ModerationStatus;
+- CreatedAtUtc;
+- UpdatedAtUtc.
+
+Создать enum MediaKind:
+
+- DeceasedPhoto;
+- GravePhoto;
+- Document;
+- Other.
+
+Готово, если:
+
+[ ] Entity создана.
+[ ] Enum создан.
+[ ] Domain компилируется.
+
+---------------------------------------------------------------------
+D6.2 Deceased methods
+---------------------------------------------------------------------
+
+Добавить в Deceased методы:
+
+- AddMedia;
+- RemoveMedia;
+- SetMainPhoto;
+- UpdateMediaDescription;
+- ApproveMedia;
+- RejectMedia.
+
+Правила:
+
+- main photo только для DeceasedPhoto;
+- Document не может быть main photo;
+- если одно фото стало главным, остальные сбрасываются;
+- StorageKey должен быть уникален.
+
+Готово, если:
+
+[ ] AddMedia работает.
+[ ] RemoveMedia работает.
+[ ] SetMainPhoto работает.
+[ ] Нельзя сделать Document главным фото.
+[ ] Нельзя добавить duplicate StorageKey.
+
+---------------------------------------------------------------------
+D6.3 EF mapping
+---------------------------------------------------------------------
+
+Создать таблицу:
+
+deceased_media
+
+Индексы:
+
+- deceased_id;
+- kind;
+- uploaded_by_user_id;
+- storage_key.
+
+Сделать миграцию:
+
+IntroduceDeceasedMedia
+
+Готово, если:
+
+[ ] Таблица создаётся.
+[ ] FK на Deceased работает.
+[ ] Cascade delete настроен.
+[ ] Миграция применяется.
+
+=====================================================================
+D7. MEDIA API
+=====================================================================
+
+Цель:
+
+Дать frontend возможность загружать фото умершего, фото могилы и документы.
+
+---------------------------------------------------------------------
+D7.1 Upload media
+---------------------------------------------------------------------
+
+Endpoint:
+
+POST /api/deceased-records/{id}/media
+
+Content-Type:
+
+multipart/form-data
+
+Поля:
+
+- file;
+- kind;
+- description.
+
+Порядок:
+
+1. Проверить авторизацию.
+2. Проверить права.
+3. Проверить MIME и size.
+4. Загрузить файл в MinIO.
+5. Создать DeceasedMedia.
+6. Сохранить metadata в PostgreSQL.
+
+Важно:
+
+Если файл загрузился в MinIO, но БД save упал, нужно удалить файл из MinIO.
+
+Готово, если:
+
+[ ] Фото умершего загружается.
+[ ] Фото могилы загружается.
+[ ] PDF загружается.
+[ ] Файл появляется в MinIO.
+[ ] Metadata появляется в PostgreSQL.
+[ ] При ошибке БД файл удаляется из MinIO.
+
+---------------------------------------------------------------------
+D7.2 List media
+---------------------------------------------------------------------
+
+Endpoint:
+
+GET /api/deceased-records/{id}/media
+
+Query:
+
+- kind;
+- moderationStatus;
+- page;
+- pageSize.
+
+Готово, если:
+
+[ ] Возвращается список файлов.
+[ ] Можно фильтровать по kind.
+[ ] Можно фильтровать по status.
+[ ] Есть pagination.
+
+---------------------------------------------------------------------
+D7.3 Get media
+---------------------------------------------------------------------
+
+Endpoint:
+
+GET /api/deceased-records/{id}/media/{mediaId}
+
+Возвращает:
+
+- metadata;
+- publicUrl для фото;
+- presignedUrl для документов.
+
+Готово, если:
+
+[ ] Фото возвращает public URL.
+[ ] Документ возвращает presigned URL.
+[ ] Чужие приватные документы недоступны без прав.
+
+---------------------------------------------------------------------
+D7.4 Delete media
+---------------------------------------------------------------------
+
+Endpoint:
+
+DELETE /api/deceased-records/{id}/media/{mediaId}
+
+Права:
+
+- автор файла;
+- создатель Deceased;
+- admin.
+
+Готово, если:
+
+[ ] Metadata удаляется.
+[ ] Файл удаляется из MinIO.
+[ ] Чужой файл нельзя удалить без прав.
+
+---------------------------------------------------------------------
+D7.5 Main photo
+---------------------------------------------------------------------
+
+Endpoint:
+
+PATCH /api/deceased-records/{id}/media/{mediaId}/main-photo
+
+Правила:
+
+- только DeceasedPhoto может быть main photo;
+- назначить может создатель Deceased или admin;
+- остальные DeceasedPhoto должны стать не главными.
+
+Готово, если:
+
+[ ] Main photo назначается.
+[ ] Document нельзя назначить main photo.
+[ ] Старое main photo сбрасывается.
+
+---------------------------------------------------------------------
+D7.6 Moderation
+---------------------------------------------------------------------
+
+Endpoints:
+
+PATCH /api/deceased-records/{id}/media/{mediaId}/approve
+PATCH /api/deceased-records/{id}/media/{mediaId}/reject
+
+Права:
+
+- только Admin/SuperAdmin.
+
+Готово, если:
+
+[ ] Admin может approve.
+[ ] Admin может reject.
+[ ] Обычный пользователь не может approve/reject.
+
+=====================================================================
+D8. ROUTE API
+=====================================================================
+
+Цель:
+
+Дать пользователю возможность построить маршрут до могилы.
+
+Backend не строит маршрут сам.
+Backend возвращает координаты и deep links.
+
+---------------------------------------------------------------------
+D8.1 Routing abstractions
+---------------------------------------------------------------------
+
+Создать:
+
+- RoutingMode;
+- IRouteLinkProvider.
+
+RoutingMode:
+
+- Auto;
+- Pedestrian;
+- MassTransit;
+- Bicycle.
+
+IRouteLinkProvider:
+
+- ProviderKey;
+- BuildLink(fromLat, fromLon, toLat, toLon, mode).
+
+Готово, если:
+
+[ ] Интерфейс создан.
+[ ] RoutingMode создан.
+[ ] Application не зависит от конкретной карты.
+
+---------------------------------------------------------------------
+D8.2 Providers
+---------------------------------------------------------------------
+
+Создать реализации:
+
+- YandexRouteLinkProvider;
+- GoogleMapsRouteLinkProvider;
+- TwoGisRouteLinkProvider.
+
+Каждый provider должен вернуть ссылку для построения маршрута.
+
+Готово, если:
+
+[ ] Yandex link создаётся.
+[ ] Google link создаётся.
+[ ] 2GIS link создаётся.
+
+---------------------------------------------------------------------
+D8.3 Route use case
+---------------------------------------------------------------------
+
+Создать:
+
+GetRouteToGraveUseCase
+
+Логика:
+
+1. Взять currentUserId из JWT.
+2. Проверить, что пользователь отслеживает deceasedId.
+3. Загрузить Deceased.
+4. Проверить BurialLocation.
+5. Проверить Latitude/Longitude.
+6. Собрать links через IRouteLinkProvider.
+7. Вернуть response.
+
+Ошибки:
+
+Если пользователь не отслеживает умершего:
+
+HTTP 403 Forbidden
+
+Если координат могилы нет:
+
+HTTP 409 Conflict
+
+Готово, если:
+
+[ ] Трекер получает маршрут.
+[ ] Не трекер получает 403.
+[ ] Если координат нет, возвращается 409.
+
+---------------------------------------------------------------------
+D8.4 Route endpoint
+---------------------------------------------------------------------
+
+Endpoint:
+
+GET /api/users/me/tracked-deceased/{deceasedId}/route?fromLat=55.7&fromLon=37.6&mode=auto
+
+Ответ:
+
+{
+  "deceasedId": "...",
+  "graveLocation": {
+    "latitude": 55.7558,
+    "longitude": 37.6173,
+    "accuracyMeters": 8.5
+  },
+  "from": {
+    "latitude": 55.7,
+    "longitude": 37.6
+  },
+  "mode": "auto",
+  "links": [
+    {
+      "provider": "yandex",
+      "url": "..."
+    },
+    {
+      "provider": "google",
+      "url": "..."
+    },
+    {
+      "provider": "2gis",
+      "url": "..."
+    }
+  ]
+}
+
+Готово, если:
+
+[ ] Endpoint возвращает 200.
+[ ] В ответе есть координаты могилы.
+[ ] В ответе есть from coordinates.
+[ ] В ответе есть links.
+[ ] Links открываются в браузере.
+
+=====================================================================
+D9. TESTS
+=====================================================================
+
+Цель:
+
+Покрыть критичную бизнес-логику, чтобы изменения не ломали проект.
+
+---------------------------------------------------------------------
+D9.1 Test projects
+---------------------------------------------------------------------
+
+Добавить проекты:
+
+- backend/tests/GdeOni.Domain.Tests;
+- backend/tests/GdeOni.Application.Tests;
+- backend/tests/GdeOni.Infrastructure.Tests;
+- backend/tests/GdeOni.Api.IntegrationTests.
+
+Пакеты:
+
+- xUnit;
+- FluentAssertions;
+- Moq;
+- Microsoft.AspNetCore.Mvc.Testing;
+- Testcontainers.PostgreSql;
+- Testcontainers.Minio.
+
+---------------------------------------------------------------------
+D9.2 Domain tests
+---------------------------------------------------------------------
+
+Покрыть:
+
+[ ] BurialLocation.Create не принимает latitude > 90.
+[ ] BurialLocation.Create не принимает longitude > 180.
+[ ] BurialLocation.CreateFromGps создаёт location без Country.
+[ ] LifePeriod не принимает deathDate в будущем.
+[ ] LifePeriod не принимает birthDate позже deathDate.
+[ ] Deceased.Create работает без BurialLocation.
+[ ] Deceased.SetBurialLocation работает из null в значение.
+[ ] Deceased.AddMedia добавляет media.
+[ ] Deceased.SetMainPhoto работает только для DeceasedPhoto.
+[ ] User.TrackDeceased добавляет tracking.
+[ ] User.TrackDeceased не создаёт дубликат активного tracking.
+
+---------------------------------------------------------------------
+D9.3 Application tests
+---------------------------------------------------------------------
+
+Покрыть:
+
+[ ] AddDeceasedAtGraveUseCase happy path.
+[ ] AddDeceasedAtGraveUseCase создаёт Deceased и TrackedDeceased.
+[ ] AddDeceasedAtGraveUseCase без авторизации возвращает Unauthorized.
+[ ] AddDeceasedAtGraveUseCase с невалидными координатами возвращает ValidationError.
+[ ] GetTrackedDeceasedUseCase возвращает только свои записи.
+[ ] GetRouteToGraveUseCase возвращает 403, если пользователь не трекает deceased.
+[ ] GetRouteToGraveUseCase возвращает 409, если нет координат.
+[ ] UploadMediaUseCase отклоняет невалидный MIME.
+[ ] UploadMediaUseCase отклоняет слишком большой файл.
+[ ] UploadMediaUseCase удаляет файл из MinIO, если SaveChanges упал.
+[ ] DeleteMediaUseCase запрещает удалить чужой файл без прав.
+
+---------------------------------------------------------------------
+D9.4 Integration tests
+---------------------------------------------------------------------
+
+Покрыть:
+
+[ ] POST /api/auth/login возвращает access token.
+[ ] POST /api/auth/refresh обновляет access token.
+[ ] POST /api/auth/logout отзывает refresh token.
+[ ] POST /api/deceased-records/at-grave создаёт Deceased и Tracking.
+[ ] GET /api/users/me/tracked-deceased возвращает созданного умершего.
+[ ] POST /api/deceased-records/{id}/media загружает файл в MinIO.
+[ ] DELETE /api/deceased-records/{id}/media/{mediaId} удаляет файл.
+[ ] GET /route возвращает deep links.
+[ ] Чужой пользователь не видит чужие tracked deceased.
+
+Готово, если:
+
+[ ] dotnet test проходит.
+[ ] Domain tests зелёные.
+[ ] Application tests зелёные.
+[ ] Integration tests зелёные.
+[ ] Основной сценарий покрыт.
+
+=====================================================================
+D10. BACKEND E2E CHECK
+=====================================================================
+
+Цель:
+
+Ручная проверка полного backend-сценария.
+
+Шаги:
+
+1. Запустить инфраструктуру:
+
+docker compose up -d
+
+2. Запустить API:
+
+dotnet run --project backend/src/GdeOni.API
+
+3. Зарегистрировать пользователя или залогиниться.
+
+4. Получить access token.
+
+5. Вызвать:
+
+GET /api/users/me
+
+6. Добавить умершего на могиле:
+
+POST /api/deceased-records/at-grave
+
+7. Проверить список:
+
+GET /api/users/me/tracked-deceased
+
+8. Загрузить фото:
+
+POST /api/deceased-records/{id}/media
+
+9. Получить media list:
+
+GET /api/deceased-records/{id}/media
+
+10. Получить маршрут:
+
+GET /api/users/me/tracked-deceased/{deceasedId}/route?fromLat=...&fromLon=...
+
+11. Открыть ссылку Yandex, Google или 2GIS.
+
+12. Запустить тесты:
+
+dotnet test backend.sln
+
+Backend готов, если:
+
+[ ] API запускается.
+[ ] Login работает.
+[ ] /me работает.
+[ ] /at-grave работает.
+[ ] Deceased создаётся.
+[ ] TrackedDeceased создаётся.
+[ ] Media upload работает.
+[ ] Route работает.
+[ ] Tests проходят.
+
+=====================================================================
+E. FRONTEND ROADMAP
+=====================================================================
+
+Frontend начинать только после D1-D10.
+
+---------------------------------------------------------------------
+E1. Каркас приложения
+---------------------------------------------------------------------
+
+Создать frontend project.
+
+Стек:
+
+- Vite;
+- React;
+- TypeScript;
+- React Router;
+- Axios;
+- TanStack Query;
+- Zustand;
+- Mantine.
+
+Задачи:
+
+- создать проект;
+- настроить routing;
+- настроить axios client;
+- настроить base API URL;
+- настроить auth store;
+- настроить protected routes.
+
+---------------------------------------------------------------------
+E2. Auth
+---------------------------------------------------------------------
+
+Сделать:
+
+- login page;
+- register page;
+- logout;
+- refresh token;
+- хранение access token;
+- получение пользователя через GET /api/users/me;
+- redirect неавторизованных пользователей на login.
+
+---------------------------------------------------------------------
+E3. Добавление умершего на могиле
+---------------------------------------------------------------------
+
+UI flow:
+
+1. Пользователь нажимает "Добавить умершего".
+2. Frontend вызывает navigator.geolocation.getCurrentPosition.
+3. Браузер запрашивает разрешение.
+4. Если пользователь разрешил — получаем координаты.
+5. Показываем карту.
+6. Показываем маркер.
+7. Пользователь может поправить маркер.
+8. Пользователь заполняет форму.
+9. Frontend отправляет POST /api/deceased-records/at-grave.
+10. После успеха frontend переходит на карточку умершего.
+
+Важно:
+
+- на production нужен HTTPS;
+- на localhost работает без HTTPS;
+- пользователь может запретить геолокацию;
+- accuracy может быть плохой;
+- нужно дать возможность поправить точку вручную.
+
+---------------------------------------------------------------------
+E4. Список отслеживаемых
+---------------------------------------------------------------------
+
+Страница:
+
+/tracked
+
+Показывать:
+
+- фото;
+- ФИО;
+- даты жизни;
+- наличие координат;
+- relationshipType;
+- кнопку "Открыть";
+- кнопку "Маршрут".
+
+---------------------------------------------------------------------
+E5. Карточка умершего
+---------------------------------------------------------------------
+
+Страница:
+
+/tracked/:deceasedId
+
+Показывать:
+
+- ФИО;
+- даты;
+- биографию;
+- фото умершего;
+- фото могилы;
+- документы;
+- воспоминания;
+- координаты;
+- кнопку "Построить маршрут";
+- кнопку "Загрузить файл".
+
+---------------------------------------------------------------------
+E6. Загрузка файлов
+---------------------------------------------------------------------
+
+Сделать:
+
+- upload фото умершего;
+- upload фото могилы;
+- upload документа;
+- preview;
+- progress;
+- обработку ошибок MIME;
+- обработку ошибок размера;
+- установку main photo.
+
+---------------------------------------------------------------------
+E7. Маршрут
+---------------------------------------------------------------------
+
+Логика:
+
+1. Получить текущие координаты пользователя.
+2. Вызвать backend route endpoint.
+3. Показать карту.
+4. Показать кнопки:
+   - открыть в Яндекс.Картах;
+   - открыть в Google Maps;
+   - открыть в 2GIS.
+
+Если маршрут внутри кладбища неточный, показать текст:
+
+"Маршрут может быть построен до ближайшей точки или входа на кладбище. Дальше используйте координаты могилы и номер участка."
+
+---------------------------------------------------------------------
+E8. Админка
+---------------------------------------------------------------------
+
+Сделать:
+
+- список pending media;
+- approve media;
+- reject media;
+- просмотр жалоб/модерации;
+- базовую панель администратора.
+
+=====================================================================
+F. SECURITY RULES
+=====================================================================
+
+F1. userId брать только из JWT.
+
+F2. Не принимать userId из body, query или route для пользовательских операций.
+
+F3. Все пользовательские endpoints делать через /me.
+
+F4. Проверки прав делать в use case, а не только через атрибуты контроллера.
+
+F5. Координаты от смартфона хранить вместе с AccuracyMeters.
+
+F6. Не считать GPS абсолютно точным.
+
+F7. Загружаемые файлы проверять по:
+- MIME;
+- extension;
+- size;
+- magic numbers, если возможно.
+
+F8. Документы не делать public.
+
+F9. Фото можно сделать public read.
+
+F10. Refresh token хранить только как hash.
+
+F11. Plain refresh token не хранить в БД.
+
+F12. Secrets не хранить в git.
+
+F13. Бизнес-ошибки не должны возвращать 500.
+
+F14. 401 использовать для неавторизованных.
+
+F15. 403 использовать для запрета доступа.
+
+F16. 409 использовать для конфликтов.
+
+=====================================================================
+G. ПОРЯДОК PR
+=====================================================================
+
+G1. PR-001: Docs + CORS + /me
+
+Сделать:
+
+- добавить docs/grave-location-tracking-plan.txt;
+- добавить CORS;
+- добавить GET /api/users/me;
+- проверить Swagger.
+
+---------------------------------------------------------------------
+
+G2. PR-002: Seed admin + secrets cleanup
+
+Сделать:
+
+- добавить DbInitializer;
+- добавить seed SuperAdmin;
+- убрать реальные secrets из appsettings;
+- обновить README.
+
+---------------------------------------------------------------------
+
+G3. PR-003: Refresh tokens
+
+Сделать:
+
+- добавить RefreshToken;
+- добавить migration;
+- добавить refresh endpoint;
+- добавить logout endpoint;
+- добавить rotation refresh token.
+
+---------------------------------------------------------------------
+
+G4. PR-004: Optional BurialLocation
+
+Сделать:
+
+- сделать BurialLocation nullable;
+- сделать Country nullable;
+- добавить AccuracyMeters;
+- добавить CreateFromGps;
+- обновить validators;
+- сделать migration.
+
+---------------------------------------------------------------------
+
+G5. PR-005: AddDeceasedAtGrave
+
+Сделать:
+
+- добавить command;
+- добавить validator;
+- добавить use case;
+- добавить endpoint;
+- проверить атомарность.
+
+---------------------------------------------------------------------
+
+G6. PR-006: MeTrackedDeceased API
+
+Сделать:
+
+- list;
+- detail;
+- exists;
+- add;
+- patch;
+- delete.
+
+---------------------------------------------------------------------
+
+G7. PR-007: IFileStorage + MinIO
+
+Сделать:
+
+- добавить abstraction;
+- добавить MinioFileStorage;
+- добавить MinioOptions;
+- добавить MinioBootstrap;
+- проверить buckets.
+
+---------------------------------------------------------------------
+
+G8. PR-008: DeceasedMedia
+
+Сделать:
+
+- добавить entity;
+- добавить MediaKind;
+- добавить EF config;
+- добавить migration;
+- добавить domain methods.
+
+---------------------------------------------------------------------
+
+G9. PR-009: Media API
+
+Сделать:
+
+- upload;
+- list;
+- get;
+- delete;
+- main photo;
+- approve/reject.
+
+---------------------------------------------------------------------
+
+G10. PR-010: Route API
+
+Сделать:
+
+- RoutingMode;
+- IRouteLinkProvider;
+- Yandex provider;
+- Google provider;
+- 2GIS provider;
+- GetRouteToGraveUseCase;
+- endpoint.
+
+---------------------------------------------------------------------
+
+G11. PR-011: Tests
+
+Сделать:
+
+- Domain tests;
+- Application tests;
+- Infrastructure tests;
+- Integration tests;
+- Testcontainers.
+
+---------------------------------------------------------------------
+
+G12. PR-012: Frontend start
+
+Начинать только после зелёного backend.
+
+=====================================================================
+H. ЧТО НЕ ДЕЛАЕМ СЕЙЧАС
+=====================================================================
+
+H1. OCR фото памятника.
+
+Почему не сейчас:
+
+Это отдельная сложная задача:
+- распознавание текста;
+- обработка фото;
+- ошибки OCR;
+- автозаполнение формы;
+- модерация результата.
+
+---------------------------------------------------------------------
+
+H2. Push notifications.
+
+Почему не сейчас:
+
+Сначала нужно реализовать базовый сценарий.
+Push-уведомления требуют отдельной инфраструктуры.
+
+---------------------------------------------------------------------
+
+H3. Email notifications.
+
+Почему не сейчас:
+
+Понадобятся:
+- SMTP provider;
+- шаблоны писем;
+- background jobs;
+- retry logic.
+
+---------------------------------------------------------------------
+
+H4. PostGIS.
+
+Почему не сейчас:
+
+Сейчас достаточно обычных latitude/longitude.
+PostGIS можно добавить позже для:
+- radius search;
+- bbox search;
+- nearest graves.
+
+---------------------------------------------------------------------
+
+H5. CDN.
+
+Почему не сейчас:
+
+Для MVP достаточно MinIO.
+CDN понадобится позже для production-нагрузки.
+
+---------------------------------------------------------------------
+
+H6. Антивирус.
+
+Почему не сейчас:
+
+Для MVP достаточно MIME/size validation.
+Антивирус можно добавить позже через ClamAV.
+
+---------------------------------------------------------------------
+
+H7. Оптимизация изображений.
+
+Почему не сейчас:
+
+Сначала нужно загрузить и отобразить файлы.
+Оптимизацию через thumbnails/libvips можно добавить позже.
+
+---------------------------------------------------------------------
+
+H8. Mobile app.
+
+Почему не сейчас:
+
+Сначала делаем web frontend.
+Смартфон уже может отдавать GPS через browser geolocation.
+
+---------------------------------------------------------------------
+
+H9. Сложная админка.
+
+Почему не сейчас:
+
+Сначала нужна базовая модерация.
+Сложную панель можно сделать позже.
+
+---------------------------------------------------------------------
+
+H10. Импорт из внешних реестров.
+
+Почему не сейчас:
+
+Это отдельная интеграционная задача.
+
+---------------------------------------------------------------------
+
+H11. Full-text search.
+
+Почему не сейчас:
+
+Для начала достаточно текущего search key.
+PostgreSQL full-text можно добавить позже.
+
+---------------------------------------------------------------------
+
+H12. Production deploy.
+
+Почему не сейчас:
+
+Сначала нужно завершить backend и тесты.
+
+---------------------------------------------------------------------
+
+H13. httpOnly cookie refresh token.
+
+Почему не сейчас:
+
+Для MVP можно начать с simpler token flow.
+Позже перейти на httpOnly cookie для лучшей безопасности.
+
+=====================================================================
+I. ФИНАЛЬНЫЙ КРИТЕРИЙ ГОТОВНОСТИ
+=====================================================================
+
+Backend считается готовым для перехода к frontend, если:
+
+[ ] Работает регистрация.
+[ ] Работает логин.
+[ ] Работает GET /api/users/me.
+[ ] Работает refresh token.
+[ ] Работает logout.
+[ ] Работает POST /api/deceased-records/at-grave.
+[ ] Deceased создаётся.
+[ ] TrackedDeceased создаётся автоматически.
+[ ] Deceased и TrackedDeceased сохраняются атомарно.
+[ ] Работает GET /api/users/me/tracked-deceased.
+[ ] Работает detail tracked deceased.
+[ ] Работает exists tracked deceased.
+[ ] Работает добавление tracking.
+[ ] Работает удаление tracking.
+[ ] Работает обновление tracking.
+[ ] Работает загрузка фото умершего.
+[ ] Работает загрузка фото могилы.
+[ ] Работает загрузка документа.
+[ ] Файлы лежат в MinIO.
+[ ] Metadata файлов лежит в PostgreSQL.
+[ ] Фото открываются по public URL.
+[ ] Документы открываются через presigned URL.
+[ ] Работает route endpoint.
+[ ] Возвращаются ссылки Yandex, Google, 2GIS.
+[ ] Чужие пользователи не видят чужие tracked deceased.
+[ ] Чужие пользователи не могут удалить чужие файлы.
+[ ] Бизнес-ошибки возвращают понятные errorCode.
+[ ] 401/403/409 используются корректно.
+[ ] Domain tests проходят.
+[ ] Application tests проходят.
+[ ] Integration tests проходят.
+[ ] dotnet test backend.sln зелёный.
+
+После выполнения всех пунктов можно начинать frontend.

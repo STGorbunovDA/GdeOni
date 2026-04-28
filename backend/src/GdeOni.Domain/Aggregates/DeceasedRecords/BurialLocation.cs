@@ -1,4 +1,4 @@
-﻿using CSharpFunctionalExtensions;
+using CSharpFunctionalExtensions;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Domain.Aggregates.DeceasedRecords;
@@ -14,7 +14,8 @@ public sealed class BurialLocation : ValueObject
 
     public double Latitude { get; }
     public double Longitude { get; }
-    public string Country { get; }
+    public double? AccuracyMeters { get; }
+    public string? Country { get; }
     public string? Region { get; }
     public string? City { get; }
     public string? CemeteryName { get; }
@@ -24,13 +25,13 @@ public sealed class BurialLocation : ValueObject
 
     private BurialLocation()
     {
-        Country = null!;
     }
 
     private BurialLocation(
         double latitude,
         double longitude,
-        string country,
+        double? accuracyMeters,
+        string? country,
         string? region,
         string? city,
         string? cemeteryName,
@@ -40,6 +41,7 @@ public sealed class BurialLocation : ValueObject
     {
         Latitude = latitude;
         Longitude = longitude;
+        AccuracyMeters = accuracyMeters;
         Country = country;
         Region = region;
         City = city;
@@ -63,13 +65,14 @@ public sealed class BurialLocation : ValueObject
     public static Result<BurialLocation, Error> Create(
         double latitude,
         double longitude,
-        string country,
+        string? country = null,
         string? region = null,
         string? city = null,
         string? cemeteryName = null,
         string? plotNumber = null,
         string? graveNumber = null,
-        LocationAccuracy accuracy = LocationAccuracy.Exact)
+        LocationAccuracy accuracy = LocationAccuracy.Exact,
+        double? accuracyMeters = null)
     {
         if (latitude < -90 || latitude > 90)
             return Errors.BurialLocation.LatitudeInvalid();
@@ -77,14 +80,14 @@ public sealed class BurialLocation : ValueObject
         if (longitude < -180 || longitude > 180)
             return Errors.BurialLocation.LongitudeInvalid();
 
-        if (string.IsNullOrWhiteSpace(country))
-            return Errors.BurialLocation.CountryRequired();
+        if (accuracyMeters is < 0)
+            return Errors.BurialLocation.AccuracyMetersInvalid();
 
         if (!Enum.IsDefined(typeof(LocationAccuracy), accuracy))
             return Errors.BurialLocation.AccuracyInvalid();
 
-        var normalizedCountry = country.Trim();
-        if (normalizedCountry.Length > MaxCountryLength)
+        var normalizedCountry = NormalizeOptional(country);
+        if (normalizedCountry is not null && normalizedCountry.Length > MaxCountryLength)
             return Errors.BurialLocation.CountryTooLong(MaxCountryLength);
 
         var normalizedRegion = NormalizeOptional(region);
@@ -111,6 +114,7 @@ public sealed class BurialLocation : ValueObject
             new BurialLocation(
                 latitude,
                 longitude,
+                accuracyMeters,
                 normalizedCountry,
                 normalizedRegion,
                 normalizedCity,
@@ -118,6 +122,24 @@ public sealed class BurialLocation : ValueObject
                 normalizedPlotNumber,
                 normalizedGraveNumber,
                 accuracy));
+    }
+
+    public static Result<BurialLocation, Error> CreateFromGps(
+        double latitude,
+        double longitude,
+        double? accuracyMeters)
+    {
+        return Create(
+            latitude,
+            longitude,
+            country: null,
+            region: null,
+            city: null,
+            cemeteryName: null,
+            plotNumber: null,
+            graveNumber: null,
+            accuracy: LocationAccuracy.Exact,
+            accuracyMeters: accuracyMeters);
     }
 
     public double DistanceTo(double latitude, double longitude)
@@ -146,7 +168,8 @@ public sealed class BurialLocation : ValueObject
     {
         yield return Latitude;
         yield return Longitude;
-        yield return Country;
+        yield return AccuracyMeters ?? double.NaN;
+        yield return Country ?? string.Empty;
         yield return Region ?? string.Empty;
         yield return City ?? string.Empty;
         yield return CemeteryName ?? string.Empty;

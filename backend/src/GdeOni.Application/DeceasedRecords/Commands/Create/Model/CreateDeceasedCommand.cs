@@ -10,7 +10,7 @@ public sealed record CreateDeceasedCommand(
     DateTime DeathDate,
     string? ShortDescription,
     string? Biography,
-    CreateDeceasedBurialLocationCommand BurialLocation,
+    CreateDeceasedBurialLocationCommand? BurialLocation,
     IReadOnlyCollection<CreateDeceasedPhotoCommand>? Photos,
     IReadOnlyCollection<CreateDeceasedMemoryCommand>? Memories,
     CreateDeceasedMetadataCommand? Metadata);
@@ -18,13 +18,14 @@ public sealed record CreateDeceasedCommand(
 public sealed record CreateDeceasedBurialLocationCommand(
     double Latitude,
     double Longitude,
-    string Country,
+    string? Country,
     string? Region,
     string? City,
     string? CemeteryName,
     string? PlotNumber,
     string? GraveNumber,
-    LocationAccuracy Accuracy);
+    LocationAccuracy Accuracy,
+    double? AccuracyMeters);
 
 public sealed record CreateDeceasedPhotoCommand(
     string Url,

@@ -43,13 +43,17 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
         if (!string.IsNullOrWhiteSpace(query.Country))
         {
             var country = query.Country.Trim();
-            dbQuery = dbQuery.Where(x => EF.Functions.ILike(x.BurialLocation.Country, country));
+            dbQuery = dbQuery.Where(x =>
+                x.BurialLocation != null &&
+                x.BurialLocation.Country != null &&
+                EF.Functions.ILike(x.BurialLocation.Country, country));
         }
 
         if (!string.IsNullOrWhiteSpace(query.City))
         {
             var city = query.City.Trim();
             dbQuery = dbQuery.Where(x =>
+                x.BurialLocation != null &&
                 x.BurialLocation.City != null &&
                 EF.Functions.ILike(x.BurialLocation.City, city));
         }

@@ -87,11 +87,11 @@ public static class Errors
         public static Error LongitudeInvalid() =>
             Error.Validation("burial_location.longitude.invalid", "Longitude is invalid");
 
-        public static Error CountryRequired() =>
-            Error.Validation("burial_location.country.required", "Country is required");
-        
         public static Error CountryTooLong(int maxLength) =>
             Error.Validation("burial_location.country.too_long", $"Country must be at most {maxLength} characters");
+
+        public static Error AccuracyMetersInvalid() =>
+            Error.Validation("burial_location.accuracy_meters.invalid", "Accuracy meters must be greater than or equal to zero");
 
         public static Error RegionTooLong(int maxLength) =>
             Error.Validation("burial_location.region.too_long", $"Region must be at most {maxLength} characters");
@@ -120,8 +120,8 @@ public static class Errors
         public static Error IdRequired() =>
             Error.Validation("deceased.id.required", "Deceased id is required");
 
-        public static Error BurialLocationRequired() =>
-            Error.Validation("deceased.burial_location.required", "Burial location is required");
+        public static Error BurialLocationNotSet() =>
+            Error.Conflict("deceased.burial_location.not_set", "Burial location is not set for this deceased record");
 
         public static Error MetadataRequired() =>
             Error.Validation("deceased.metadata.required", "Metadata is required");

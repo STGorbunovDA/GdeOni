@@ -51,21 +51,28 @@ public sealed class UpdateDeceasedUseCase(
         if (updateMainInfoResult.IsFailure)
             return updateMainInfoResult.Error;
 
-        var burialLocationResult = BurialLocation.Create(
-            command.BurialLocation.Latitude,
-            command.BurialLocation.Longitude,
-            command.BurialLocation.Country,
-            command.BurialLocation.Region,
-            command.BurialLocation.City,
-            command.BurialLocation.CemeteryName,
-            command.BurialLocation.PlotNumber,
-            command.BurialLocation.GraveNumber,
-            command.BurialLocation.Accuracy);
+        BurialLocation? burialLocation = null;
+        if (command.BurialLocation is not null)
+        {
+            var burialLocationResult = BurialLocation.Create(
+                command.BurialLocation.Latitude,
+                command.BurialLocation.Longitude,
+                command.BurialLocation.Country,
+                command.BurialLocation.Region,
+                command.BurialLocation.City,
+                command.BurialLocation.CemeteryName,
+                command.BurialLocation.PlotNumber,
+                command.BurialLocation.GraveNumber,
+                command.BurialLocation.Accuracy,
+                command.BurialLocation.AccuracyMeters);
 
-        if (burialLocationResult.IsFailure)
-            return burialLocationResult.Error;
+            if (burialLocationResult.IsFailure)
+                return burialLocationResult.Error;
 
-        var changeBurialLocationResult = deceased.ChangeBurialLocation(burialLocationResult.Value);
+            burialLocation = burialLocationResult.Value;
+        }
+
+        var changeBurialLocationResult = deceased.ChangeBurialLocation(burialLocation);
         if (changeBurialLocationResult.IsFailure)
             return changeBurialLocationResult.Error;
 
