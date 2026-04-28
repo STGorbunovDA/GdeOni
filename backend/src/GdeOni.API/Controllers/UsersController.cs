@@ -1,8 +1,6 @@
 ﻿using GdeOni.API.Extensions;
-using GdeOni.API.Models;
 using GdeOni.API.Models.Users;
 using GdeOni.API.Response;
-using GdeOni.Application.Common.Security;
 using GdeOni.Application.Common.Shared;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
 using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
@@ -20,20 +18,19 @@ using GdeOni.Application.Users.Queries.GetAll.Model;
 using GdeOni.Application.Users.Queries.GetAll.UseCase;
 using GdeOni.Application.Users.Queries.GetById.Model;
 using GdeOni.Application.Users.Queries.GetById.UseCase;
-using GdeOni.Domain.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
 
 /// <summary>
-/// Контроллер для управления пользователями.
+/// Пользователи
 /// </summary>
 [Route("api/users")]
 public sealed class UsersController : ApiControllerBase
 {
     /// <summary>
-    /// Регистрирует нового пользователя.
+    /// Регистрация нового пользователя.
     /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<RegisterUserResponse>), StatusCodes.Status201Created)]
@@ -58,7 +55,7 @@ public sealed class UsersController : ApiControllerBase
     }
 
     /// <summary>
-    /// Возвращает список пользователей с пагинацией и фильтрацией.
+    /// Получение списка всех пользователей (с пагинацией и фильтрацией).
     /// Доступно только администраторам.
     /// </summary>
     [HttpGet]
@@ -83,8 +80,7 @@ public sealed class UsersController : ApiControllerBase
     }
 
     /// <summary>
-    /// Возвращает пользователя по идентификатору.
-    /// Доступен владельцу профиля или администратору.
+    /// Получение информации о конкретном пользователе по идентификатору.
     /// </summary>
     [HttpGet("{id:guid}")]
     [Authorize]
@@ -93,22 +89,9 @@ public sealed class UsersController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(
         [FromRoute] Guid id,
-        [FromServices] ICurrentUserService currentUserService,
         [FromServices] IGetUserByIdUseCase getUserByIdUseCase,
         CancellationToken cancellationToken)
     {
-        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
-        if (currentUserIdResult.IsFailure)
-            return currentUserIdResult.Error.ToErrorResponse();
-
-        var isAdmin = currentUserService.IsInRole(
-            UserRole.SuperAdmin.ToString(),
-            UserRole.Admin.ToString());
-
-        var accessDenied = EnsureUserResourceAccess(id, currentUserIdResult.Value, isAdmin);
-        if (accessDenied is not null)
-            return accessDenied;
-
         var query = new GetUserByIdQuery(id);
         var result = await getUserByIdUseCase.Execute(query, cancellationToken);
 
@@ -116,8 +99,8 @@ public sealed class UsersController : ApiControllerBase
     }
 
     /// <summary>
-    /// Обновляет профиль пользователя.
-    /// Доступен владельцу профиля или администратору.
+    /// Обновление профиля пользователя.
+    /// Доступен текущему пользователю или администратору.
     /// </summary>
     [HttpPatch("{id:guid}")]
     [Authorize]
@@ -128,22 +111,9 @@ public sealed class UsersController : ApiControllerBase
     public async Task<IActionResult> UpdateProfile(
         [FromRoute] Guid id,
         [FromBody] UpdateUserProfileRequest request,
-        [FromServices] ICurrentUserService currentUserService,
         [FromServices] IUpdateUserProfileUseCase updateUserProfileUseCase,
         CancellationToken cancellationToken)
     {
-        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
-        if (currentUserIdResult.IsFailure)
-            return currentUserIdResult.Error.ToErrorResponse();
-
-        var isAdmin = currentUserService.IsInRole(
-            UserRole.SuperAdmin.ToString(),
-            UserRole.Admin.ToString());
-
-        var accessDenied = EnsureUserResourceAccess(id, currentUserIdResult.Value, isAdmin);
-        if (accessDenied is not null)
-            return accessDenied;
-
         var command = new UpdateUserProfileCommand(id, request.UserName, request.FullName);
         var result = await updateUserProfileUseCase.Execute(command, cancellationToken);
 
@@ -151,8 +121,8 @@ public sealed class UsersController : ApiControllerBase
     }
 
     /// <summary>
-    /// Меняет пароль пользователя.
-    /// Доступен владельцу профиля или администратору.
+    /// Изменение пароля пользователя.
+    /// Доступен текущему пользователю или администратору.
     /// </summary>
     [HttpPut("{id:guid}/password")]
     [Authorize]
@@ -164,22 +134,9 @@ public sealed class UsersController : ApiControllerBase
     public async Task<IActionResult> ChangePassword(
         [FromRoute] Guid id,
         [FromBody] ChangePasswordRequest request,
-        [FromServices] ICurrentUserService currentUserService,
         [FromServices] IChangePasswordUseCase changePasswordUseCase,
         CancellationToken cancellationToken)
     {
-        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
-        if (currentUserIdResult.IsFailure)
-            return currentUserIdResult.Error.ToErrorResponse();
-
-        var isAdmin = currentUserService.IsInRole(
-            UserRole.SuperAdmin.ToString(),
-            UserRole.Admin.ToString());
-
-        var accessDenied = EnsureUserResourceAccess(id, currentUserIdResult.Value, isAdmin);
-        if (accessDenied is not null)
-            return accessDenied;
-
         var command = new ChangePasswordCommand(id, request.CurrentPassword, request.NewPassword);
         var result = await changePasswordUseCase.Execute(command, cancellationToken);
 
@@ -187,8 +144,8 @@ public sealed class UsersController : ApiControllerBase
     }
 
     /// <summary>
-    /// Меняет email пользователя.
-    /// Доступен владельцу профиля или администратору.
+    /// Изменение email пользователя.
+    /// Доступен текущему пользователю или администратору.
     /// </summary>
     [HttpPut("{id:guid}/email")]
     [Authorize]
@@ -200,22 +157,9 @@ public sealed class UsersController : ApiControllerBase
     public async Task<IActionResult> ChangeEmail(
         [FromRoute] Guid id,
         [FromBody] ChangeEmailRequest request,
-        [FromServices] ICurrentUserService currentUserService,
         [FromServices] IChangeEmailUseCase changeEmailUseCase,
         CancellationToken cancellationToken)
     {
-        var currentUserIdResult = GetRequiredCurrentUserId(currentUserService);
-        if (currentUserIdResult.IsFailure)
-            return currentUserIdResult.Error.ToErrorResponse();
-
-        var isAdmin = currentUserService.IsInRole(
-            UserRole.SuperAdmin.ToString(),
-            UserRole.Admin.ToString());
-
-        var accessDenied = EnsureUserResourceAccess(id, currentUserIdResult.Value, isAdmin);
-        if (accessDenied is not null)
-            return accessDenied;
-
         var command = new ChangeEmailCommand(id, request.Email);
         var result = await changeEmailUseCase.Execute(command, cancellationToken);
 
@@ -223,11 +167,11 @@ public sealed class UsersController : ApiControllerBase
     }
 
     /// <summary>
-    /// Меняет роль пользователя.
-    /// Доступно только супер-администратору.
+    /// Изменение роли пользователя.
+    /// Доступно только администраторам.
     /// </summary>
     [HttpPut("{id:guid}/role")]
-    [Authorize(Roles = "SuperAdmin")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<ChangeRoleResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -244,12 +188,12 @@ public sealed class UsersController : ApiControllerBase
     }
 
     /// <summary>
-    /// Удаляет пользователя.
-    /// Доступно только супер-администратору.
+    /// Удаление пользователя.
+    /// Доступно только администраторам.
     /// </summary>
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "SuperAdmin")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
@@ -259,6 +203,6 @@ public sealed class UsersController : ApiControllerBase
         var command = new DeleteUserCommand(id);
         var result = await deleteUserUseCase.Execute(command, cancellationToken);
 
-        return FromUnitResult(result);
+        return FromResult(result);
     }
 }

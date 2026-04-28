@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMemory.Model;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Commands.UpdateMemory.Validation;
@@ -20,7 +21,7 @@ public sealed class UpdateMemoryCommandValidator : AbstractValidator<UpdateMemor
         RuleFor(x => x.Text)
             .NotEmpty()
             .WithError(Errors.DeceasedMemory.TextRequired())
-            .MaximumLength(5000)
-            .WithError(Errors.DeceasedMemory.TextTooLong(5000));
+            .MaximumLength(DeceasedMemoryEntry.MaxTextLength)
+            .WithError(Errors.DeceasedMemory.TextTooLong(DeceasedMemoryEntry.MaxTextLength));
     }
 }

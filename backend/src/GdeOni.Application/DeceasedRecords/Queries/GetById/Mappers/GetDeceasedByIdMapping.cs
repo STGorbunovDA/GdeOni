@@ -36,8 +36,6 @@ public static class GetDeceasedByIdMapping
             CreatedAtUtc = deceased.CreatedAtUtc,
             UpdatedAtUtc = deceased.UpdatedAtUtc,
 
-            SearchKey = deceased.SearchKey,
-
             Metadata = new DeceasedMetadataResponse
             {
                 Epitaph = deceased.Metadata.Epitaph,

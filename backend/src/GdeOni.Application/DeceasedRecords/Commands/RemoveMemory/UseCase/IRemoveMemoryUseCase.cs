@@ -6,7 +6,7 @@ namespace GdeOni.Application.DeceasedRecords.Commands.RemoveMemory.UseCase;
 
 public interface IRemoveMemoryUseCase
 {
-    Task<UnitResult<Error>> Execute(
+    Task<Result<RemoveMemoryResponse, Error>> Execute(
         RemoveMemoryCommand command,
         CancellationToken cancellationToken);
 }

@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.DeceasedRecords.Queries.GetAll.Model;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Queries.GetAll.Validation;
@@ -10,8 +11,6 @@ public sealed class GetAllDeceasedQueryValidator : AbstractValidator<GetAllDecea
     private const int MinPageSize = 1;
     private const int MaxPageSize = 100;
     private const int MaxSearchLength = 200;
-    private const int MaxCountryLength = 200;
-    private const int MaxCityLength = 200;
 
     public GetAllDeceasedQueryValidator()
     {
@@ -29,13 +28,13 @@ public sealed class GetAllDeceasedQueryValidator : AbstractValidator<GetAllDecea
             .When(x => !string.IsNullOrWhiteSpace(x.Search));
 
         RuleFor(x => x.Country)
-            .MaximumLength(MaxCountryLength)
-            .WithError(Errors.BurialLocation.CountryTooLong(MaxCountryLength))
+            .MaximumLength(BurialLocation.MaxCountryLength)
+            .WithError(Errors.BurialLocation.CountryTooLong(BurialLocation.MaxCountryLength))
             .When(x => !string.IsNullOrWhiteSpace(x.Country));
 
         RuleFor(x => x.City)
-            .MaximumLength(MaxCityLength)
-            .WithError(Errors.BurialLocation.CityTooLong(MaxCityLength))
+            .MaximumLength(BurialLocation.MaxCityLength)
+            .WithError(Errors.BurialLocation.CityTooLong(BurialLocation.MaxCityLength))
             .When(x => !string.IsNullOrWhiteSpace(x.City));
 
         RuleFor(x => x)

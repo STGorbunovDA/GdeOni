@@ -9,8 +9,7 @@ namespace GdeOni.Infrastructure.Persistence.Repositories;
 
 public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 {
-    private IQueryable<User> UsersQuery() =>
-        dbContext.Users.Where(x => x.Role != UserRole.SuperAdmin);
+    private IQueryable<User> UsersQuery() => dbContext.Users;
 
     public Task<User?> GetById(Guid userId, CancellationToken cancellationToken)
     {
@@ -20,7 +19,7 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 
     public Task<User?> GetByIdWithTracking(Guid userId, CancellationToken cancellationToken)
     {
-        return UsersQuery()
+        return dbContext.Users
             .Include(x => x.TrackedDeceasedItems)
             .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
     }
@@ -87,6 +86,7 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
         CancellationToken cancellationToken)
     {
         var dbQuery = UsersQuery()
+            .Where(x => x.Role != UserRole.SuperAdmin)
             .Include(x => x.TrackedDeceasedItems)
             .AsNoTracking();
 

@@ -2,7 +2,6 @@
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
-using GdeOni.Application.Users.Common;
 using GdeOni.Application.Users.Queries.GetTracking.Model;
 using GdeOni.Domain.Shared;
 
@@ -25,13 +24,15 @@ public sealed class GetTrackingUseCase(
         GetTrackingQuery query,
         CancellationToken cancellationToken)
     {
-        var accessError = UserAccessGuard.EnsureCanAccessUser(query.UserId, currentUserService);
-        if (accessError is not null)
-            return accessError;
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
 
-        var user = await userRepository.GetByIdWithTracking(query.UserId, cancellationToken);
+        var currentUserId = currentUserIdResult.Value;
+
+        var user = await userRepository.GetByIdWithTracking(currentUserId, cancellationToken);
         if (user is null)
-            return Errors.General.NotFound("user", query.UserId);
+            return Errors.General.NotFound("user", currentUserId);
 
         var tracking = user.GetTracking(query.DeceasedId);
         if (tracking is null)

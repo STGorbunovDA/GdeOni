@@ -1,8 +1,6 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
-using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
-using GdeOni.Application.Users.Common;
 using GdeOni.Application.Users.Queries.GetTrackedDeceased.Model;
 using GdeOni.Domain.Shared;
 
@@ -10,52 +8,40 @@ namespace GdeOni.Application.Users.Queries.GetTrackedDeceased.UseCase;
 
 public sealed class GetTrackedDeceasedUseCase(
     IUserRepository userRepository,
-    ICurrentUserService currentUserService,
-    IValidatedUseCaseExecutor validatedUseCaseExecutor)
+    ICurrentUserService currentUserService)
     : IGetTrackedDeceasedUseCase
 {
-    public Task<Result<GetTrackedDeceasedResponse, Error>> Execute(
-        GetTrackedDeceasedQuery query,
+    public async Task<Result<GetTrackedDeceasedResponse, Error>> Execute(
         CancellationToken cancellationToken)
     {
-        return validatedUseCaseExecutor.Execute(query, Handle, cancellationToken);
-    }
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
 
-    private async Task<Result<GetTrackedDeceasedResponse, Error>> Handle(
-        GetTrackedDeceasedQuery query,
-        CancellationToken cancellationToken)
-    {
-        var accessError = UserAccessGuard.EnsureCanAccessUser(query.UserId, currentUserService);
-        if (accessError is not null)
-            return accessError;
+        var currentUserId = currentUserIdResult.Value;
 
-        var user = await userRepository.GetByIdWithTracking(query.UserId, cancellationToken);
+        var user = await userRepository.GetByIdWithTracking(currentUserId, cancellationToken);
         if (user is null)
-            return Errors.General.NotFound("user", query.UserId);
+            return Errors.General.NotFound("user", currentUserId);
 
         var items = user.TrackedDeceasedItems
-            .Select(x => new TrackedDeceasedItemResponse
-            {
-                Id = x.Id,
-                UserId = query.UserId,
-                DeceasedId = x.DeceasedId,
-                RelationshipType = x.RelationshipType.ToString(),
-                PersonalNotes = x.PersonalNotes,
-                NotifyOnDeathAnniversary = x.NotifyOnDeathAnniversary,
-                NotifyOnBirthAnniversary = x.NotifyOnBirthAnniversary,
-                HasNotificationsEnabled = x.HasNotificationsEnabled(),
-                Status = x.Status.ToString(),
-                TrackedAtUtc = x.TrackedAtUtc,
-                IsActive = x.IsActive(),
-                IsMuted = x.IsMuted(),
-                IsArchived = x.IsArchived()
-            })
+            .Select(x => new TrackedDeceasedItemResponse(
+                Id: x.Id,
+                UserId: currentUserId,
+                DeceasedId: x.DeceasedId,
+                RelationshipType: x.RelationshipType.ToString(),
+                PersonalNotes: x.PersonalNotes,
+                NotifyOnDeathAnniversary: x.NotifyOnDeathAnniversary,
+                NotifyOnBirthAnniversary: x.NotifyOnBirthAnniversary,
+                HasNotificationsEnabled: x.HasNotificationsEnabled(),
+                Status: x.Status.ToString(),
+                TrackedAtUtc: x.TrackedAtUtc,
+                IsActive: x.IsActive(),
+                IsMuted: x.IsMuted(),
+                IsArchived: x.IsArchived()))
             .ToList();
 
         return Result.Success<GetTrackedDeceasedResponse, Error>(
-            new GetTrackedDeceasedResponse
-            {
-                Items = items
-            });
+            new GetTrackedDeceasedResponse(items));
     }
 }

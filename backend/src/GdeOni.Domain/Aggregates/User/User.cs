@@ -9,7 +9,8 @@ public sealed class User : Entity<Guid>
     public const int MaxEmailLength = 320;
     public const int MaxUserNameLength = 100;
     public const int MaxFullNameLength = 300;
-
+    public const int MaxRole = 50;
+    public const int MaxPasswordHash = 1000;
     public string Email { get; private set; }
     public string UserName { get; private set; }
     public string? FullName { get; private set; }

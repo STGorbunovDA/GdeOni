@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Commands.UpdatePhoto.Model;
 using GdeOni.Domain.Shared;
 
@@ -8,6 +9,7 @@ namespace GdeOni.Application.DeceasedRecords.Commands.UpdatePhoto.UseCase;
 
 public sealed class UpdatePhotoUseCase(
     IDeceasedRepository deceasedRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IUpdatePhotoUseCase
 {
@@ -22,9 +24,19 @@ public sealed class UpdatePhotoUseCase(
         UpdatePhotoCommand command,
         CancellationToken cancellationToken)
     {
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
+
+        var currentUserId = currentUserIdResult.Value;
+        var isAdmin = currentUserService.IsAdmin();
+        
         var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
+        
+        if (!isAdmin && deceased.CreatedByUserId != currentUserId)
+            return Errors.DeceasedPhoto.UpdatePhotoForbidden();
 
         var updateUrlResult = deceased.UpdatePhotoUrl(command.PhotoId, command.Url);
         if (updateUrlResult.IsFailure)

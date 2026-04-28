@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.Model;
 using GdeOni.Domain.Shared;
 
@@ -8,6 +9,7 @@ namespace GdeOni.Application.DeceasedRecords.Commands.RejectMemory.UseCase;
 
 public sealed class RejectMemoryUseCase(
     IDeceasedRepository deceasedRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IRejectMemoryUseCase
 {
@@ -22,6 +24,13 @@ public sealed class RejectMemoryUseCase(
         RejectMemoryCommand command,
         CancellationToken cancellationToken)
     {
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
+
+        if (!currentUserService.IsAdmin())
+            return Errors.DeceasedMemory.RejectMemoryForbidden();
+        
         var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);

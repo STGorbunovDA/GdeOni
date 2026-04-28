@@ -25,27 +25,29 @@ public sealed class ChangePasswordUseCase(
         ChangePasswordCommand command,
         CancellationToken cancellationToken)
     {
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
+
+        var currentUserId = currentUserIdResult.Value;
+        var isAdmin = currentUserService.IsAdmin();
+        
         var user = await userRepository.GetById(command.UserId, cancellationToken);
         if (user is null)
             return Errors.General.NotFound("user", command.UserId);
+        
+        if (!isAdmin && user.Id != currentUserId)
+            return Errors.User.UserForbidden();
+        
+        if (string.IsNullOrWhiteSpace(command.CurrentPassword))
+            return Errors.User.CurrentPasswordInvalid();
 
-        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), UserRole.Admin.ToString());
-        var isSelf = currentUserService.UserId.HasValue && currentUserService.UserId.Value == command.UserId;
+        var isCurrentPasswordValid = 
+            passwordHasher.Verify(command.CurrentPassword, user.PasswordHash);
 
-        var mustVerifyCurrentPassword = !isAdmin || isSelf;
-
-        if (mustVerifyCurrentPassword)
-        {
-            if (string.IsNullOrWhiteSpace(command.CurrentPassword))
-                return Errors.User.CurrentPasswordInvalid();
-
-            var isCurrentPasswordValid =
-                passwordHasher.Verify(command.CurrentPassword, user.PasswordHash);
-
-            if (!isCurrentPasswordValid)
-                return Errors.User.CurrentPasswordInvalid();
-        }
-
+        if (!isCurrentPasswordValid) 
+            return Errors.User.CurrentPasswordInvalid();
+        
         var newPasswordHash = passwordHasher.Hash(command.NewPassword);
 
         var result = user.ChangePasswordHash(newPasswordHash);

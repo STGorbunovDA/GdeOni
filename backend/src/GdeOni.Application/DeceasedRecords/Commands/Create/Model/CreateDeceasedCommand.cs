@@ -10,7 +10,6 @@ public sealed record CreateDeceasedCommand(
     DateTime DeathDate,
     string? ShortDescription,
     string? Biography,
-    Guid CreatedByUserId,
     CreateDeceasedBurialLocationCommand BurialLocation,
     IReadOnlyCollection<CreateDeceasedPhotoCommand>? Photos,
     IReadOnlyCollection<CreateDeceasedMemoryCommand>? Memories,
@@ -30,12 +29,10 @@ public sealed record CreateDeceasedBurialLocationCommand(
 public sealed record CreateDeceasedPhotoCommand(
     string Url,
     string? Description,
-    bool IsPrimary,
-    Guid AddedByUserId);
+    bool IsPrimary);
 
 public sealed record CreateDeceasedMemoryCommand(
-    string Text,
-    Guid? AuthorUserId);
+    string Text);
 
 public sealed record CreateDeceasedMetadataCommand(
     string? Epitaph,

@@ -36,6 +36,16 @@ public static class Errors
         {
             return Error.Failure(code, message);
         }
+
+        public static Error Unauthorized(string code = "auth.unauthorized", string message = "Authentication is required.")
+        {
+            return Error.Unauthorized(code, message);
+        }
+
+        public static Error Forbidden(string code, string message)
+        {
+            return Error.Forbidden(code, message);
+        }
     }
 
     public static class PersonName
@@ -104,78 +114,147 @@ public static class Errors
 
     public static class Deceased
     {
-       public static Error CreatedByRequired() =>
-        Error.Validation("deceased.created_by.required", "Created by user id is required");
+        public static Error CreatedByRequired() =>
+            Error.Validation("deceased.created_by.required", "Created by user id is required");
 
-    public static Error IdRequired() =>
-        Error.Validation("deceased.id.required", "Deceased id is required");
+        public static Error IdRequired() =>
+            Error.Validation("deceased.id.required", "Deceased id is required");
 
-    public static Error BurialLocationRequired() =>
-        Error.Validation("deceased.burial_location.required", "Burial location is required");
+        public static Error BurialLocationRequired() =>
+            Error.Validation("deceased.burial_location.required", "Burial location is required");
 
-    public static Error MetadataRequired() =>
-        Error.Validation("deceased.metadata.required", "Metadata is required");
+        public static Error MetadataRequired() =>
+            Error.Validation("deceased.metadata.required", "Metadata is required");
 
-    public static Error AlreadyVerified() =>
-        Error.Conflict("deceased.already.verified", "Deceased record is already verified");
+        public static Error AddMemoryForbidden() =>
+            Error.Forbidden(
+                "deceased_memory.author.forbidden",
+                "You cannot create a memory on behalf of another user.");
+        
+        public static Error UpdateMemoryForbidden() =>
+            Error.Forbidden(
+                "deceased_memory.author.forbidden",
+                "You cannot update a memory on behalf of another user.");
+        
+        public static Error DeleteMemoryForbidden() =>
+            Error.Forbidden(
+                "deceased_memory.author.forbidden",
+                "You cannot delete a memory on behalf of another user.");
+        
+        public static Error UpdateForbidden() =>
+            Error.Forbidden(
+                "deceased.update.forbidden",
+                "You cannot update a deceased person's card on behalf of another user.");
 
-    public static Error NotVerified() =>
-        Error.Conflict("deceased.not.verified", "Deceased record is not verified");
+        public static Error AlreadyVerified() =>
+            Error.Conflict("deceased.already.verified", "Deceased record is already verified");
 
-    public static Error AlreadyExists() =>
-        Error.Conflict("deceased.already.exists", "Such a deceased person already exists.");
+        public static Error NotVerified() =>
+            Error.Conflict("deceased.not.verified", "Deceased record is not verified");
 
-    public static Error ShortDescriptionTooLong(int maxLength) =>
-        Error.Validation("deceased.short_description.too_long",
-            $"Short description must be at most {maxLength} characters");
+        public static Error AlreadyExists() =>
+            Error.Conflict("deceased.already.exists", "Such a deceased person already exists.");
 
-    public static Error BiographyTooLong(int maxLength) =>
-        Error.Validation("deceased.biography.too_long",
-            $"Biography must be at most {maxLength} characters");
+        public static Error ShortDescriptionTooLong(int maxLength) =>
+            Error.Validation("deceased.short_description.too_long",
+                $"Short description must be at most {maxLength} characters");
 
-    public static Error EpitaphTooLong(int maxLength) =>
-        Error.Validation("deceased.metadata.epitaph.too_long",
-            $"Epitaph must be at most {maxLength} characters");
+        public static Error BiographyTooLong(int maxLength) =>
+            Error.Validation("deceased.biography.too_long",
+                $"Biography must be at most {maxLength} characters");
+        
+        public static Error InsufficientPermissionsToViewAllDeceased() =>
+            Error.Unauthorized("deceased.insufficient_permissions.view_all", 
+                "You don't have permission to view all deceased. Admin or SuperAdmin rights are required.");
 
-    public static Error ReligionTooLong(int maxLength) =>
-        Error.Validation("deceased.metadata.religion.too_long",
-            $"Religion must be at most {maxLength} characters");
+        public static Error EpitaphTooLong(int maxLength) =>
+            Error.Validation("deceased.metadata.epitaph.too_long",
+                $"Epitaph must be at most {maxLength} characters");
 
-    public static Error SourceTooLong(int maxLength) =>
-        Error.Validation("deceased.metadata.source.too_long",
-            $"Source must be at most {maxLength} characters");
+        public static Error ReligionTooLong(int maxLength) =>
+            Error.Validation("deceased.metadata.religion.too_long",
+                $"Religion must be at most {maxLength} characters");
 
-    public static Error AdditionalInfoTooLong(int maxLength) =>
-        Error.Validation("deceased.metadata.additional_info.too_long",
-            $"Additional info must be at most {maxLength} characters");
+        public static Error SourceTooLong(int maxLength) =>
+            Error.Validation("deceased.metadata.source.too_long",
+                $"Source must be at most {maxLength} characters");
 
-    public static Error SearchTooLong(int maxLength) =>
-        Error.Validation("deceased.search.too_long",
-            $"Search must be at most {maxLength} characters");
+        public static Error AdditionalInfoTooLong(int maxLength) =>
+            Error.Validation("deceased.metadata.additional_info.too_long",
+                $"Additional info must be at most {maxLength} characters");
 
-    public static Error CreatedFromMustBeLessOrEqualToCreatedTo() =>
-        Error.Validation("deceased.created_range.invalid",
-            "CreatedFrom must be less than or equal to CreatedTo");
+        public static Error SearchTooLong(int maxLength) =>
+            Error.Validation("deceased.search.too_long",
+                $"Search must be at most {maxLength} characters");
 
-    public static Error CreatedFromInFuture() =>
-        Error.Validation("deceased.created_from.in_future",
-            "CreatedFrom cannot be in the future");
+        public static Error CreatedFromMustBeLessOrEqualToCreatedTo() =>
+            Error.Validation("deceased.created_range.invalid",
+                "CreatedFrom must be less than or equal to CreatedTo");
 
-    public static Error CreatedToInFuture() =>
-        Error.Validation("deceased.created_to.in_future",
-            "CreatedTo cannot be in the future");
+        public static Error CreatedFromInFuture() =>
+            Error.Validation("deceased.created_from.in_future",
+                "CreatedFrom cannot be in the future");
+
+        public static Error CreatedToInFuture() =>
+            Error.Validation("deceased.created_to.in_future",
+                "CreatedTo cannot be in the future");
+        
+        public static Error DeleteForbidden() =>
+            Error.Forbidden(
+                "deceased.delete.forbidden",
+                "You do not have permission to delete a deceased record.");
+  
+        public static Error VerifyForbidden() =>
+            Error.Forbidden(
+                "deceased.verify.forbidden",
+                "You do not have permission to verify the deceased's account.");
+        
+        public static Error UnverifiedForbidden() =>
+            Error.Forbidden(
+                "deceased.unverified.forbidden",
+                "You do not have permission to verify the deceased's account.");
     }
-
+    
     public static class DeceasedPhoto
     {
+        public static Error DuplicateUrl() =>
+            Error.Conflict(
+                "deceased_photo.url.duplicate",
+                "A photo with the same URL already exists for this deceased card.");
+        
         public static Error UrlRequired() =>
             Error.Validation("deceased_photo.url.required", "Photo url is required");
+        
+        public static Error AddPhotoForbidden() =>
+            Error.Forbidden(
+                "deceased_photo_add.author.forbidden",
+                "You cannot added a photo on behalf of another user.");
+        
+        public static Error SetPrimaryPhotoForbidden() =>
+            Error.Forbidden(
+                "deceased_set_primary_photo.author.forbidden",
+                "You cannot set primary photo on behalf of another user.");
+        
+        public static Error UpdatePhotoForbidden() =>
+            Error.Forbidden(
+                "deceased_update_photo.author.forbidden",
+                "You cannot updated a photo on behalf of another user.");
 
         public static Error UrlInvalid() =>
             Error.Validation("deceased_photo.url.invalid", "Photo url invalid");
 
         public static Error AddedByRequired() =>
             Error.Validation("deceased_photo.added_by.required", "Added by user id is required");
+
+        public static Error ApprovePhotoForbidden() =>
+            Error.Forbidden(
+                "deceased_photo_approve.verify.forbidden",
+                "You do not have the right to verify the photo of the deceased");
+        
+        public static Error RejectPhotoForbidden() =>
+            Error.Forbidden(
+                "deceased_photo_reject.verify.forbidden",
+                "You do not have permission to reject the confirmation of the deceased's photo");
 
         public static Error NotFound(Guid? id = null) =>
             Error.NotFound("deceased_photo.not.found", id == null
@@ -190,18 +269,46 @@ public static class Errors
 
         public static Error AlreadyRejected() =>
             Error.Conflict("deceased_photo.already.rejected", "Photo is already rejected");
-        
+
         public static Error UrlTooLong(int maxLength) =>
             Error.Validation("deceased_photo.url.too_long", $"Photo url must be at most {maxLength} characters");
 
+        public static Error DeletePhotoForbidden() =>
+            Error.Forbidden(
+                "deceased_photo.author.forbidden",
+                "You cannot delete a photo on behalf of another user.");
+        
         public static Error DescriptionTooLong(int maxLength) =>
             Error.Validation("deceased_photo.description.too_long", $"Photo description must be at most {maxLength} characters");
+    }
+    
+    public static class DeceasedMetadata
+    {
+        public static Error UpdateDeceasedMetadataForbidden() =>
+            Error.Forbidden(
+                "deceased_metadata.update.forbidden",
+                "You cannot update a deceased person's metadata card on behalf of another user.");
+        
+        public static Error DeleteDeceasedMetadataForbidden() =>
+            Error.Forbidden(
+                "deceased_metadata.author.forbidden",
+                "You cannot delete a deceased person's metadata card on behalf of another user.");
     }
 
     public static class DeceasedMemory
     {
         public static Error TextRequired() =>
             Error.Validation("deceased_memory.text.required", "Memory text is required");
+
+        public static Error ApproveMemoryForbidden() =>
+            Error.Forbidden(
+                "deceased_memory_approve.verify.forbidden",
+                "You have no right to verify the authenticity of a deceased person's recording.");
+        
+        public static Error RejectMemoryForbidden() =>
+            Error.Forbidden(
+                "deceased_memory_reject.verify.forbidden",
+                "You have no right to verify the authenticity of a deceased person's recording.");
 
         public static Error NotFound(Guid? id = null) =>
             Error.NotFound("deceased_memory.not.found", id == null
@@ -213,19 +320,15 @@ public static class Errors
 
         public static Error AlreadyRejected() =>
             Error.Conflict("deceased_memory.already.rejected", "Memory is already rejected");
-        
+
         public static Error TextTooLong(int maxLength) =>
             Error.Validation("deceased_memory.text.too_long", $"Memory text must be at most {maxLength} characters");
-
     }
 
     public static class User
     {
         public static Error IdRequired() =>
             Error.Validation("user.id.required", "User id is required");
-
-        public static Error DtoRequired() =>
-            Error.Validation("user.dto.required", "Request body is required");
 
         public static Error EmailRequired() =>
             Error.Validation("user.email.required", "Email is required");
@@ -268,6 +371,9 @@ public static class Errors
 
         public static Error RoleInvalid() =>
             Error.Validation("user.role.invalid", "User role is invalid");
+        
+        public static Error UserForbidden() =>
+            Error.Validation("user.forbidden", "You do not have permission to access the current user.");
 
         public static Error RoleUnknownNotAllowed() =>
             Error.Validation("user.role.unknown.not_allowed", "The role cannot be Unknown");
@@ -283,13 +389,14 @@ public static class Errors
 
         public static Error LastLoginAtUtcInFuture() =>
             Error.Validation("user.last_login_at_utc.in_future", "LastLoginAtUtc cannot be in the future");
+        
+        public static Error InsufficientPermissionsToViewAllUsers() =>
+            Error.Unauthorized("user.insufficient_permissions.view_all", 
+                "You don't have permission to view all users. Admin or SuperAdmin rights are required.");
     }
 
     public static class Tracking
     {
-        public static Error UserIdRequired() =>
-            Error.Validation("tracking.user_id.required", "User id is required");
-
         public static Error DeceasedIdRequired() =>
             Error.Validation("tracking.deceased_id.required", "Deceased id is required");
 

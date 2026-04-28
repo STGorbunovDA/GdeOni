@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
@@ -9,6 +10,7 @@ namespace GdeOni.Application.DeceasedRecords.Commands.Update.UseCase;
 
 public sealed class UpdateDeceasedUseCase(
     IDeceasedRepository deceasedRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IUpdateDeceasedUseCase
 {
@@ -23,9 +25,19 @@ public sealed class UpdateDeceasedUseCase(
         UpdateDeceasedCommand command,
         CancellationToken cancellationToken)
     {
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
+
+        var currentUserId = currentUserIdResult.Value;
+        var isAdmin = currentUserService.IsAdmin();
+
         var deceased = await deceasedRepository.GetById(command.Id, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.Id);
+
+        if (!isAdmin && deceased.CreatedByUserId != currentUserId)
+            return Errors.Deceased.UpdateForbidden();
 
         var updateMainInfoResult = deceased.UpdateMainInfo(
             command.FirstName,
@@ -74,15 +86,7 @@ public sealed class UpdateDeceasedUseCase(
                 return updateMetadataResult.Error;
         }
 
-        try
-        {
-            await deceasedRepository.Save(cancellationToken);
-        }
-        catch (UniqueConstraintException ex) when (ex.ConstraintName == DbConstraints.DeceasedSearchKey)
-        {
-            return Errors.Deceased.AlreadyExists();
-        }
-
+        await deceasedRepository.Save(cancellationToken);
         return Result.Success<UpdateDeceasedResponse, Error>(
             new UpdateDeceasedResponse(deceased.Id));
     }

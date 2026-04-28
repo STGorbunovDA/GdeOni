@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Commands.RemoveMemory.Model;
 using GdeOni.Domain.Shared;
 
@@ -8,42 +9,41 @@ namespace GdeOni.Application.DeceasedRecords.Commands.RemoveMemory.UseCase;
 
 public sealed class RemoveMemoryUseCase(
     IDeceasedRepository deceasedRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IRemoveMemoryUseCase
 {
-    public async Task<UnitResult<Error>> Execute(
+    public Task<Result<RemoveMemoryResponse, Error>> Execute(
         RemoveMemoryCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await validatedUseCaseExecutor.Execute(
-            command,
-            async (request, token) =>
-            {
-                var handleResult = await Handle(request, token);
-                return handleResult.IsFailure
-                    ? Result.Failure<bool, Error>(handleResult.Error)
-                    : Result.Success<bool, Error>(true);
-            },
-            cancellationToken);
-
-        return result.IsSuccess
-            ? UnitResult.Success<Error>()
-            : UnitResult.Failure(result.Error);
+        return validatedUseCaseExecutor.Execute(command, Handle, cancellationToken);
     }
 
-    private async Task<UnitResult<Error>> Handle(
+    private async Task<Result<RemoveMemoryResponse, Error>> Handle(
         RemoveMemoryCommand command,
         CancellationToken cancellationToken)
     {
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
+
+        var currentUserId = currentUserIdResult.Value;
+        var isAdmin = currentUserService.IsAdmin();
+        
         var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
+        
+        if (!isAdmin && deceased.CreatedByUserId != currentUserId)
+            return Errors.Deceased.DeleteMemoryForbidden();
 
         var result = deceased.RemoveMemory(command.MemoryId);
         if (result.IsFailure)
             return result.Error;
 
         await deceasedRepository.Save(cancellationToken);
-        return UnitResult.Success<Error>();
+        return Result.Success<RemoveMemoryResponse, Error>(
+            new RemoveMemoryResponse(true));
     }
 }

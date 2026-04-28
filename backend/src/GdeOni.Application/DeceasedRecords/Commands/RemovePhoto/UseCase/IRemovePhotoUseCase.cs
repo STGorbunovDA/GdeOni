@@ -6,7 +6,7 @@ namespace GdeOni.Application.DeceasedRecords.Commands.RemovePhoto.UseCase;
 
 public interface IRemovePhotoUseCase
 {
-    Task<UnitResult<Error>> Execute(
+    Task<Result<RemovePhotoResponse, Error>> Execute(
         RemovePhotoCommand command,
         CancellationToken cancellationToken);
 }

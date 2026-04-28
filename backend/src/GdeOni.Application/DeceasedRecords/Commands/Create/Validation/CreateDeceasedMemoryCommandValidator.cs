@@ -11,11 +11,6 @@ public sealed class CreateDeceasedMemoryCommandValidator
 {
     public CreateDeceasedMemoryCommandValidator()
     {
-        RuleFor(x => x.AuthorUserId)
-            .NotEqual(Guid.Empty)
-            .WithError(Errors.User.IdRequired())
-            .When(x => x.AuthorUserId.HasValue);
-
         RuleFor(x => x.Text)
             .NotEmpty()
             .WithError(Errors.DeceasedMemory.TextRequired())

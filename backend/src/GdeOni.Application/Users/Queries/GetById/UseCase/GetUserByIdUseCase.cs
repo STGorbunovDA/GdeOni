@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.Users.Queries.GetById.Model;
 using GdeOni.Domain.Shared;
 
@@ -8,6 +9,7 @@ namespace GdeOni.Application.Users.Queries.GetById.UseCase;
 
 public sealed class GetUserByIdUseCase(
     IUserRepository userRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetUserByIdUseCase
 {
@@ -22,10 +24,20 @@ public sealed class GetUserByIdUseCase(
         GetUserByIdQuery query,
         CancellationToken cancellationToken)
     {
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
+
+        var currentUserId = currentUserIdResult.Value;
+        var isAdmin = currentUserService.IsAdmin();
+        
         var user = await userRepository.GetByIdWithTracking(query.UserId, cancellationToken);
         if (user is null)
             return Errors.General.NotFound("user", query.UserId);
-
+        
+        if (!isAdmin && user.Id != currentUserId)
+            return Errors.User.UserForbidden();
+        
         return Result.Success<GetUserByIdResponse, Error>(new GetUserByIdResponse
         {
             Id = user.Id,

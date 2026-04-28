@@ -3,7 +3,6 @@
 namespace GdeOni.Application.Users.Commands.UpdateTracking.Model;
 
 public record UpdateTrackingCommand(
-    Guid UserId,
     Guid DeceasedId,
     RelationshipType RelationshipType,
     string? PersonalNotes,

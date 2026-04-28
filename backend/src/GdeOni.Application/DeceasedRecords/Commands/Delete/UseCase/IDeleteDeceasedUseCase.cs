@@ -6,7 +6,7 @@ namespace GdeOni.Application.DeceasedRecords.Commands.Delete.UseCase;
 
 public interface IDeleteDeceasedUseCase
 {
-    Task<UnitResult<Error>> Execute(
+    Task<Result<DeleteDeceasedResponse, Error>> Execute(
         DeleteDeceasedCommand command,
         CancellationToken cancellationToken);
 }

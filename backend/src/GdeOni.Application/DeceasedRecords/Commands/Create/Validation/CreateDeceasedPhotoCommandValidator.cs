@@ -23,9 +23,6 @@ public sealed class CreateDeceasedPhotoCommandValidator
             .MaximumLength(DeceasedPhoto.MaxDescriptionLength)
             .WithError(Errors.DeceasedPhoto.DescriptionTooLong(DeceasedPhoto.MaxDescriptionLength))
             .When(x => !string.IsNullOrWhiteSpace(x.Description));
-
-        RuleFor(x => x.AddedByUserId)
-            .NotEmpty()
-            .WithError(Errors.DeceasedPhoto.AddedByRequired());
+        
     }
 }

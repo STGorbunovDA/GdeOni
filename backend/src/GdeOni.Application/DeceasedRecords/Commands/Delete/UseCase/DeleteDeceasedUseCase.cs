@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Commands.Delete.Model;
 using GdeOni.Domain.Shared;
 
@@ -8,27 +9,28 @@ namespace GdeOni.Application.DeceasedRecords.Commands.Delete.UseCase;
 
 public sealed class DeleteDeceasedUseCase(
     IDeceasedRepository deceasedRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IDeleteDeceasedUseCase
 {
-    public async Task<UnitResult<Error>> Execute(
+    public Task<Result<DeleteDeceasedResponse, Error>> Execute(
         DeleteDeceasedCommand command,
         CancellationToken cancellationToken)
     {
-        var validationResult = await validatedUseCaseExecutor.Execute(
-            command,
-            Handle,
-            cancellationToken);
-
-        return validationResult.IsFailure
-            ? UnitResult.Failure(validationResult.Error)
-            : UnitResult.Success<Error>();
+        return validatedUseCaseExecutor.Execute(command, Handle, cancellationToken);
     }
 
-    private async Task<Result<bool, Error>> Handle(
+    private async Task<Result<DeleteDeceasedResponse, Error>> Handle(
         DeleteDeceasedCommand command,
         CancellationToken cancellationToken)
     {
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
+
+        if (!currentUserService.IsAdmin())
+            return Errors.Deceased.DeleteForbidden();
+        
         var deceased = await deceasedRepository.GetById(command.Id, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.Id);
@@ -36,6 +38,7 @@ public sealed class DeleteDeceasedUseCase(
         deceasedRepository.Delete(deceased);
         await deceasedRepository.Save(cancellationToken);
 
-        return true;
+        return Result.Success<DeleteDeceasedResponse, Error>(
+            new DeleteDeceasedResponse(true));
     }
 }

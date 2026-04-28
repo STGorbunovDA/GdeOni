@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.Users.Commands.Delete.Model;
 using GdeOni.Domain.Shared;
 
@@ -8,6 +9,7 @@ namespace GdeOni.Application.Users.Commands.Delete.UseCase;
 
 public sealed class DeleteUserUseCase(
     IUserRepository userRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IDeleteUserUseCase
 {
@@ -22,6 +24,13 @@ public sealed class DeleteUserUseCase(
         DeleteUserCommand command,
         CancellationToken cancellationToken)
     {
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
+
+        if (!currentUserService.IsAdmin())
+            return Errors.User.UserForbidden();
+        
         var user = await userRepository.GetById(command.UserId, cancellationToken);
 
         if (user is null)

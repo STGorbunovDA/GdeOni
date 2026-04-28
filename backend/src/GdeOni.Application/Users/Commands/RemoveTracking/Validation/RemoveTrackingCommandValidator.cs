@@ -9,10 +9,6 @@ public sealed class RemoveTrackingCommandValidator : AbstractValidator<RemoveTra
 {
     public RemoveTrackingCommandValidator()
     {
-        RuleFor(x => x.UserId)
-            .NotEmpty()
-            .WithError(Errors.Tracking.UserIdRequired());
-
         RuleFor(x => x.DeceasedId)
             .NotEmpty()
             .WithError(Errors.Tracking.DeceasedIdRequired());

@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.Model;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.Validation;
@@ -15,23 +16,23 @@ public sealed class UpdateMetadataCommandValidator
             .WithError(Errors.Deceased.IdRequired());
 
         RuleFor(x => x.Epitaph)
-            .MaximumLength(500)
-            .WithError(Errors.Deceased.EpitaphTooLong(500))
+            .MaximumLength(DeceasedMetadata.MaxEpitaphLength)
+            .WithError(Errors.Deceased.EpitaphTooLong(DeceasedMetadata.MaxEpitaphLength))
             .When(x => !string.IsNullOrWhiteSpace(x.Epitaph));
 
         RuleFor(x => x.Religion)
-            .MaximumLength(200)
-            .WithError(Errors.Deceased.ReligionTooLong(200))
+            .MaximumLength(DeceasedMetadata.MaxReligionLength)
+            .WithError(Errors.Deceased.ReligionTooLong(DeceasedMetadata.MaxReligionLength))
             .When(x => !string.IsNullOrWhiteSpace(x.Religion));
 
         RuleFor(x => x.Source)
-            .MaximumLength(500)
-            .WithError(Errors.Deceased.SourceTooLong(500))
+            .MaximumLength(DeceasedMetadata.MaxSourceLength)
+            .WithError(Errors.Deceased.SourceTooLong(DeceasedMetadata.MaxSourceLength))
             .When(x => !string.IsNullOrWhiteSpace(x.Source));
 
         RuleFor(x => x.AdditionalInfo)
-            .MaximumLength(2000)
-            .WithError(Errors.Deceased.AdditionalInfoTooLong(2000))
+            .MaximumLength(DeceasedMetadata.MaxAdditionalInfoLength)
+            .WithError(Errors.Deceased.AdditionalInfoTooLong(DeceasedMetadata.MaxAdditionalInfoLength))
             .When(x => !string.IsNullOrWhiteSpace(x.AdditionalInfo));
     }
 }
