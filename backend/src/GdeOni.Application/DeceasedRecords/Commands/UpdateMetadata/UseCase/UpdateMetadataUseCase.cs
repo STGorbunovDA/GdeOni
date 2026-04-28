@@ -25,12 +25,12 @@ public sealed class UpdateMetadataUseCase(
         UpdateMetadataCommand command,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
-            return Errors.General.Unauthorized();
-        
-        var currentUserId = currentUserService.UserId.Value;
-        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), 
-            UserRole.Admin.ToString());
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
+
+        var currentUserId = currentUserIdResult.Value;
+        var isAdmin = currentUserService.IsAdmin();
         
         var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceased is null)

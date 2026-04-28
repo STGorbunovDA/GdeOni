@@ -1,7 +1,6 @@
 ﻿using GdeOni.API.Extensions;
 using GdeOni.API.Models.Users;
 using GdeOni.API.Response;
-using GdeOni.Application.Common.Security;
 using GdeOni.Application.Common.Shared;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
 using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
@@ -19,7 +18,6 @@ using GdeOni.Application.Users.Queries.GetAll.Model;
 using GdeOni.Application.Users.Queries.GetAll.UseCase;
 using GdeOni.Application.Users.Queries.GetById.Model;
 using GdeOni.Application.Users.Queries.GetById.UseCase;
-using GdeOni.Domain.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -194,8 +192,8 @@ public sealed class UsersController : ApiControllerBase
     /// Доступно только администраторам.
     /// </summary>
     [HttpDelete("{id:guid}")]
-    //[Authorize(Roles = "SuperAdmin,Admin")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,

@@ -24,12 +24,12 @@ public sealed class ChangeEmailUseCase(
         ChangeEmailCommand command,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
-            return Errors.General.Unauthorized();
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
 
-        var currentUserId = currentUserService.UserId.Value;
-        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(),
-            UserRole.Admin.ToString());
+        var currentUserId = currentUserIdResult.Value;
+        var isAdmin = currentUserService.IsAdmin();
         
         var user = await userRepository.GetById(command.UserId, cancellationToken);
         if (user is null)
@@ -38,13 +38,11 @@ public sealed class ChangeEmailUseCase(
         if (!isAdmin && user.Id != currentUserId)
             return Errors.User.UserForbidden();
         
-        var email = command.Email.Trim();
-
-        var exists = await userRepository.ExistsByEmail(email, cancellationToken);
-        if (exists && !string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase))
+        var exists = await userRepository.ExistsByEmail(command.Email, cancellationToken);
+        if (exists && !string.Equals(user.Email, command.Email.Trim(), StringComparison.OrdinalIgnoreCase))
             return Errors.User.EmailAlreadyExists();
 
-        var result = user.ChangeEmail(email);
+        var result = user.ChangeEmail(command.Email);
         if (result.IsFailure)
             return result.Error;
 

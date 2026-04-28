@@ -24,10 +24,11 @@ public sealed class UpdateTrackingUseCase(
         UpdateTrackingCommand command,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
-            return Errors.General.Unauthorized();
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
 
-        var currentUserId = currentUserService.UserId.Value;
+        var currentUserId = currentUserIdResult.Value;
 
         var user = await userRepository.GetByIdWithTracking(currentUserId, cancellationToken);
         if (user is null)

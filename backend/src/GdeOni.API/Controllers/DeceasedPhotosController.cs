@@ -1,8 +1,6 @@
-﻿using GdeOni.API.Extensions;
-using GdeOni.API.Mappers;
+﻿using GdeOni.API.Mappers;
 using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.API.Response;
-using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Commands.AddPhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.RemovePhoto.Model;
@@ -20,19 +18,18 @@ namespace GdeOni.API.Controllers;
 /// Контроллер для управления фотографиями умерших.
 /// </summary>
 [Route("api/deceased-records")]
-public class DeceasedPhotosController : ApiControllerBase
+public sealed class DeceasedPhotosController : ApiControllerBase
 {
     /// <summary>
     /// Добавляет фотографию к карточке умершего.
     /// </summary>
     [HttpPost("{id:guid}/photos")]
     [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<AddPhotoResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<AddPhotoResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> AddPhoto(
         [FromRoute] Guid id,
         [FromBody] AddPhotoRequest request,
-        [FromServices] ICurrentUserService currentUserService,
         [FromServices] IAddPhotoUseCase addPhotoUseCase,
         CancellationToken cancellationToken)
     {
@@ -84,7 +81,7 @@ public class DeceasedPhotosController : ApiControllerBase
     /// </summary>
     [HttpDelete("{id:guid}/photos/{photoId:guid}")]
     [Authorize]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> RemovePhoto(
         [FromRoute] Guid id,
         [FromRoute] Guid photoId,

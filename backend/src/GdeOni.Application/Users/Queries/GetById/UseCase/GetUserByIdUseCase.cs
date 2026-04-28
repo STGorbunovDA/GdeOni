@@ -24,12 +24,12 @@ public sealed class GetUserByIdUseCase(
         GetUserByIdQuery query,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
-            return Errors.General.Unauthorized();
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
 
-        var currentUserId = currentUserService.UserId.Value;
-        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(),
-            UserRole.Admin.ToString());
+        var currentUserId = currentUserIdResult.Value;
+        var isAdmin = currentUserService.IsAdmin();
         
         var user = await userRepository.GetByIdWithTracking(query.UserId, cancellationToken);
         if (user is null)

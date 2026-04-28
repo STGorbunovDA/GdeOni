@@ -24,10 +24,11 @@ public sealed class UnverifiedDeceasedUseCase(
         UnverifiedDeceasedCommand command,
         CancellationToken cancellationToken)
     {
-        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(), 
-            UserRole.Admin.ToString());
-        
-        if (!isAdmin)
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
+
+        if (!currentUserService.IsAdmin())
             return Errors.Deceased.UnverifiedForbidden();
         
         var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);

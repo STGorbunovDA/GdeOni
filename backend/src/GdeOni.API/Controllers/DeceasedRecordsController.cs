@@ -2,7 +2,6 @@
 using GdeOni.API.Mappers;
 using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.API.Response;
-using GdeOni.Application.Common.Security;
 using GdeOni.Application.Common.Shared;
 using GdeOni.Application.DeceasedRecords.Commands.Create.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Create.UseCase;
@@ -36,7 +35,6 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Create(
         [FromBody] CreateDeceasedRequest request,
-        [FromServices] ICurrentUserService currentUserService,
         [FromServices] ICreateDeceasedUseCase createDeceasedUseCase,
         CancellationToken cancellationToken)
     {
@@ -53,7 +51,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// Доступно только администраторам.
     /// </summary>
     [HttpGet]
-    //[Authorize(Roles = "SuperAdmin,Admin")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<PagedResponse<DeceasedListItemDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetAll(
@@ -113,7 +111,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "SuperAdmin,Admin")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,

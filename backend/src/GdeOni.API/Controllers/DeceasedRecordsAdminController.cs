@@ -119,7 +119,7 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
     /// Доступно только администраторам.
     /// </summary>
     [HttpPut("{id:guid}/memories/{memoryId:guid}/reject")]
-    //[Authorize(Roles = "SuperAdmin,Admin")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<RejectMemoryResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> RejectMemory(
         [FromRoute] Guid id,

@@ -28,33 +28,27 @@ public sealed class RegisterUserUseCase(
         RegisterUserCommand command,
         CancellationToken cancellationToken)
     {
-        var normalizedEmail = command.Email.Trim().ToLowerInvariant();
-
-        var finalUserName = string.IsNullOrWhiteSpace(command.UserName)
-            ? normalizedEmail.Split('@')[0]
-            : command.UserName.Trim();
-
-        var emailExists = await userRepository.ExistsByEmail(
-            normalizedEmail,
-            cancellationToken);
-
+        var emailExists = await userRepository.ExistsByEmail(command.Email, cancellationToken);
         if (emailExists)
             return Errors.User.EmailAlreadyExists();
 
-        var userNameExists = await userRepository.ExistsByUserName(
-            finalUserName,
-            cancellationToken);
+        // Вычисляем эффективный username для проверки уникальности
+        // (домен применяет ту же логику при создании пользователя)
+        var effectiveUserName = string.IsNullOrWhiteSpace(command.UserName)
+            ? command.Email.Trim().ToLowerInvariant().Split('@')[0]
+            : command.UserName.Trim().ToLowerInvariant();
 
+        var userNameExists = await userRepository.ExistsByUserName(effectiveUserName, cancellationToken);
         if (userNameExists)
             return Errors.User.UserNameAlreadyExists();
 
         var passwordHash = passwordHasher.Hash(command.Password);
 
         var userResult = User.Register(
-            normalizedEmail,
+            command.Email,
             passwordHash,
             command.FullName,
-            finalUserName);
+            command.UserName);
 
         if (userResult.IsFailure)
             return userResult.Error;

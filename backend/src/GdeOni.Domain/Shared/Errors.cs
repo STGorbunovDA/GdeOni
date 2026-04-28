@@ -273,6 +273,11 @@ public static class Errors
         public static Error UrlTooLong(int maxLength) =>
             Error.Validation("deceased_photo.url.too_long", $"Photo url must be at most {maxLength} characters");
 
+        public static Error DeletePhotoForbidden() =>
+            Error.Forbidden(
+                "deceased_photo.author.forbidden",
+                "You cannot delete a photo on behalf of another user.");
+        
         public static Error DescriptionTooLong(int maxLength) =>
             Error.Validation("deceased_photo.description.too_long", $"Photo description must be at most {maxLength} characters");
     }

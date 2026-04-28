@@ -1,5 +1,7 @@
 ﻿using System.Security.Claims;
+using CSharpFunctionalExtensions;
 using GdeOni.Application.Common.Security;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.API.Security;
 
@@ -24,5 +26,16 @@ public sealed class CurrentUserService(IHttpContextAccessor httpContextAccessor)
             return false;
 
         return roles.Any(user.IsInRole);
+    }
+
+    public bool IsAdmin() =>
+        IsInRole(UserRole.SuperAdmin.ToString(), UserRole.Admin.ToString());
+
+    public Result<Guid, Error> GetCurrentUserId()
+    {
+        if (!IsAuthenticated || !UserId.HasValue)
+            return Errors.General.Unauthorized();
+
+        return Result.Success<Guid, Error>(UserId.Value);
     }
 }

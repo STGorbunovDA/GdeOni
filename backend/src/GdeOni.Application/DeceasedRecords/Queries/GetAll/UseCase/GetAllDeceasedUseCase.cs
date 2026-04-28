@@ -25,13 +25,11 @@ public sealed class GetAllDeceasedUseCase(
         GetAllDeceasedQuery query,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
-            return Errors.General.Unauthorized();
-        
-        var isAdmin = currentUserService.IsInRole(UserRole.SuperAdmin.ToString(),
-            UserRole.Admin.ToString());
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
 
-        if (!isAdmin)
+        if (!currentUserService.IsAdmin())
             return Errors.Deceased.InsufficientPermissionsToViewAllDeceased();
         
         var (items, totalCount) = await deceasedRepository.GetPaged(query, cancellationToken);

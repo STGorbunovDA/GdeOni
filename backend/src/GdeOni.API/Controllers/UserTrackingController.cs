@@ -1,7 +1,5 @@
-﻿using GdeOni.API.Extensions;
-using GdeOni.API.Models.Users;
+﻿using GdeOni.API.Models.Users;
 using GdeOni.API.Response;
-using GdeOni.Application.Common.Security;
 using GdeOni.Application.Users.Commands.RemoveTracking.Model;
 using GdeOni.Application.Users.Commands.RemoveTracking.UseCase;
 using GdeOni.Application.Users.Commands.TrackDeceased.Model;
@@ -36,7 +34,6 @@ public sealed class UserTrackingController : ApiControllerBase
         [FromServices] IGetTrackedDeceasedUseCase getTrackedDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-       
         var result = await getTrackedDeceasedUseCase.Execute(cancellationToken);
         return FromResult(result);
     }
@@ -46,7 +43,7 @@ public sealed class UserTrackingController : ApiControllerBase
     /// </summary>
     [HttpPost]
     [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<TrackDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<TrackDeceasedResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
