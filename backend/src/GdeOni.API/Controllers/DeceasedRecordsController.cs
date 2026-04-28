@@ -98,7 +98,6 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IUpdateDeceasedUseCase updateDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        
         var command = request.ToCommand(id);
         var result = await updateDeceasedUseCase.Execute(command, cancellationToken);
 

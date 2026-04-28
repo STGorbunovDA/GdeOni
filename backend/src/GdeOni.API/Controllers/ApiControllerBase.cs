@@ -34,31 +34,4 @@ public abstract class ApiControllerBase : ControllerBase
 
         return NoContent();
     }
-
-    protected Result<Guid, Error> GetRequiredCurrentUserId(ICurrentUserService currentUserService)
-    {
-        if (!currentUserService.IsAuthenticated || !currentUserService.UserId.HasValue)
-        {
-            return Result.Failure<Guid, Error>(
-                Error.Unauthorized("auth.unauthorized", "Authentication is required."));
-        }
-
-        return Result.Success<Guid, Error>(currentUserService.UserId.Value);
-    }
-
-    private static bool CanAccessUserResource(Guid targetUserId, Guid currentUserId, bool isAdmin)
-    {
-        if (isAdmin)
-            return true;
-
-        return currentUserId == targetUserId;
-    }
-
-    protected ActionResult? EnsureUserResourceAccess(Guid targetUserId, Guid currentUserId, bool isAdmin)
-    {
-        return CanAccessUserResource(targetUserId, currentUserId, isAdmin)
-            ? null
-            : Error.Forbidden("auth.forbidden", "You do not have access to this resource.")
-                .ToErrorResponse();
-    }
 }
