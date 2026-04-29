@@ -23,6 +23,7 @@ builder.Services.AddCustomSwagger();
 var app = builder.Build();
 
 await app.Services.SeedDatabaseAsync();
+await app.Services.BootstrapStorageAsync();
 
 app.UseSerilogRequestLogging();
 
