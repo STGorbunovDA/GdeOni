@@ -454,10 +454,68 @@ public static class Errors
                 DbConstraints.UxUsersEmail => User.EmailAlreadyExists(),
                 DbConstraints.UxUsersName => User.UserNameAlreadyExists(),
                 DbConstraints.DeceasedSearchKey => Deceased.AlreadyExists(),
+                DbConstraints.UxDeceasedMediaStorageKey => DeceasedMedia.DuplicateStorageKey(),
                 _ => Error.Conflict(
                     "conflict.unique_constraint",
                     "A unique constraint was violated.")
             };
+    }
+
+    public static class DeceasedMedia
+    {
+        public static Error NotFound(Guid mediaId) =>
+            Error.NotFound("deceased_media.not.found", $"Deceased media not found for Id '{mediaId}'");
+
+        public static Error DeceasedIdRequired() =>
+            Error.Validation("deceased_media.deceased_id.required", "DeceasedId is required");
+
+        public static Error UploadedByRequired() =>
+            Error.Validation("deceased_media.uploaded_by.required", "UploadedByUserId is required");
+
+        public static Error KindInvalid() =>
+            Error.Validation("deceased_media.kind.invalid", "Media kind is invalid");
+
+        public static Error SizeBytesInvalid() =>
+            Error.Validation("deceased_media.size_bytes.invalid", "SizeBytes must be greater than 0");
+
+        public static Error OriginalFileNameRequired() =>
+            Error.Validation("deceased_media.original_file_name.required", "Original file name is required");
+
+        public static Error OriginalFileNameTooLong(int maxLength) =>
+            Error.Validation("deceased_media.original_file_name.too_long", $"Original file name must be at most {maxLength} characters");
+
+        public static Error BucketRequired() =>
+            Error.Validation("deceased_media.bucket.required", "Bucket is required");
+
+        public static Error BucketTooLong(int maxLength) =>
+            Error.Validation("deceased_media.bucket.too_long", $"Bucket must be at most {maxLength} characters");
+
+        public static Error StorageKeyRequired() =>
+            Error.Validation("deceased_media.storage_key.required", "Storage key is required");
+
+        public static Error StorageKeyTooLong(int maxLength) =>
+            Error.Validation("deceased_media.storage_key.too_long", $"Storage key must be at most {maxLength} characters");
+
+        public static Error ContentTypeRequired() =>
+            Error.Validation("deceased_media.content_type.required", "Content type is required");
+
+        public static Error ContentTypeTooLong(int maxLength) =>
+            Error.Validation("deceased_media.content_type.too_long", $"Content type must be at most {maxLength} characters");
+
+        public static Error DescriptionTooLong(int maxLength) =>
+            Error.Validation("deceased_media.description.too_long", $"Description must be at most {maxLength} characters");
+
+        public static Error OnlyDeceasedPhotoCanBeMain() =>
+            Error.Conflict("deceased_media.main_photo.only_deceased_photo", "Only DeceasedPhoto can be main photo");
+
+        public static Error AlreadyApproved() =>
+            Error.Conflict("deceased_media.already.approved", "Media is already approved");
+
+        public static Error AlreadyRejected() =>
+            Error.Conflict("deceased_media.already.rejected", "Media is already rejected");
+
+        public static Error DuplicateStorageKey() =>
+            Error.Conflict("deceased_media.storage_key.duplicate", "Media with such storage key already exists");
     }
 
     public static class RefreshToken

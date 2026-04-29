@@ -163,6 +163,14 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
         builder.Navigation(x => x.Memories)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        builder.HasMany(x => x.Media)
+            .WithOne()
+            .HasForeignKey(x => x.DeceasedId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(x => x.Media)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasIndex(x => x.CreatedByUserId)
             .HasDatabaseName("ix_deceased_created_by_user_id");
 

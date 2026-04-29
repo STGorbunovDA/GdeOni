@@ -28,6 +28,9 @@ public sealed class Deceased : Entity<Guid>
     private readonly List<DeceasedMemoryEntry> _memories = new();
     public IReadOnlyCollection<DeceasedMemoryEntry> Memories => _memories.AsReadOnly();
 
+    private readonly List<DeceasedMedia> _media = new();
+    public IReadOnlyCollection<DeceasedMedia> Media => _media.AsReadOnly();
+
     public string SearchKey { get; private set; } = null!;
     public DeceasedMetadata Metadata { get; private set; }
 
@@ -389,6 +392,112 @@ public sealed class Deceased : Entity<Guid>
         IsVerified = false;
         Touch();
 
+        return UnitResult.Success<Error>();
+    }
+
+    public Result<DeceasedMedia, Error> AddMedia(
+        Guid uploadedByUserId,
+        MediaKind kind,
+        string originalFileName,
+        string bucket,
+        string storageKey,
+        string contentType,
+        long sizeBytes,
+        string? description = null)
+    {
+        if (_media.Any(x => string.Equals(x.StorageKey, storageKey, StringComparison.OrdinalIgnoreCase)))
+            return Errors.DeceasedMedia.DuplicateStorageKey();
+
+        var mediaResult = DeceasedMedia.Create(
+            Id,
+            uploadedByUserId,
+            kind,
+            originalFileName,
+            bucket,
+            storageKey,
+            contentType,
+            sizeBytes,
+            description);
+
+        if (mediaResult.IsFailure)
+            return mediaResult.Error;
+
+        _media.Add(mediaResult.Value);
+        Touch();
+
+        return Result.Success<DeceasedMedia, Error>(mediaResult.Value);
+    }
+
+    public UnitResult<Error> RemoveMedia(Guid mediaId)
+    {
+        var media = _media.FirstOrDefault(x => x.Id == mediaId);
+        if (media is null)
+            return Errors.DeceasedMedia.NotFound(mediaId);
+
+        _media.Remove(media);
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> SetMainPhoto(Guid mediaId)
+    {
+        var media = _media.FirstOrDefault(x => x.Id == mediaId);
+        if (media is null)
+            return Errors.DeceasedMedia.NotFound(mediaId);
+
+        if (media.Kind != MediaKind.DeceasedPhoto)
+            return Errors.DeceasedMedia.OnlyDeceasedPhotoCanBeMain();
+
+        foreach (var item in _media.Where(x => x.Kind == MediaKind.DeceasedPhoto && x.Id != mediaId))
+            item.UnmarkMainPhoto();
+
+        var markResult = media.MarkAsMainPhoto();
+        if (markResult.IsFailure)
+            return markResult.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> UpdateMediaDescription(Guid mediaId, string? description)
+    {
+        var media = _media.FirstOrDefault(x => x.Id == mediaId);
+        if (media is null)
+            return Errors.DeceasedMedia.NotFound(mediaId);
+
+        var result = media.UpdateDescription(description);
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> ApproveMedia(Guid mediaId)
+    {
+        var media = _media.FirstOrDefault(x => x.Id == mediaId);
+        if (media is null)
+            return Errors.DeceasedMedia.NotFound(mediaId);
+
+        var result = media.Approve();
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> RejectMedia(Guid mediaId)
+    {
+        var media = _media.FirstOrDefault(x => x.Id == mediaId);
+        if (media is null)
+            return Errors.DeceasedMedia.NotFound(mediaId);
+
+        var result = media.Reject();
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
         return UnitResult.Success<Error>();
     }
 
