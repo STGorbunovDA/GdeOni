@@ -1,4 +1,5 @@
 ﻿using GdeOni.API.Models.DeceasedRecords;
+using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddPhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.Model;
@@ -123,6 +124,47 @@ public static class DeceasedRecordsMapping
             request.Source,
             request.IsMilitaryService,
             request.AdditionalInfo);
+    }
+
+    public static AddDeceasedAtGraveCommand ToCommand(
+        this AddDeceasedAtGraveRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return new AddDeceasedAtGraveCommand(
+            FirstName: request.FirstName,
+            LastName: request.LastName,
+            MiddleName: request.MiddleName,
+            BirthDate: request.BirthDate,
+            DeathDate: request.DeathDate,
+            ShortDescription: request.ShortDescription,
+            Biography: request.Biography,
+            GraveLocation: request.GraveLocation?.ToCommand()!,
+            Tracking: request.Tracking?.ToCommand()!);
+    }
+
+    private static AddDeceasedAtGraveLocationCommand ToCommand(
+        this AddDeceasedAtGraveLocationRequest request)
+    {
+        return new AddDeceasedAtGraveLocationCommand(
+            Latitude: request.Latitude,
+            Longitude: request.Longitude,
+            AccuracyMeters: request.AccuracyMeters,
+            Country: request.Country,
+            City: request.City,
+            CemeteryName: request.CemeteryName,
+            PlotNumber: request.PlotNumber,
+            GraveNumber: request.GraveNumber);
+    }
+
+    private static AddDeceasedAtGraveTrackingCommand ToCommand(
+        this AddDeceasedAtGraveTrackingRequest request)
+    {
+        return new AddDeceasedAtGraveTrackingCommand(
+            RelationshipType: request.RelationshipType,
+            PersonalNotes: request.PersonalNotes,
+            NotifyOnDeathAnniversary: request.NotifyOnDeathAnniversary,
+            NotifyOnBirthAnniversary: request.NotifyOnBirthAnniversary);
     }
 
     public static SetBurialLocationFromGpsCommand ToCommand(

@@ -3,6 +3,7 @@ using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Auth.Login.UseCase;
 using GdeOni.Application.Auth.Logout.UseCase;
 using GdeOni.Application.Auth.Refresh.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.AddPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.UseCase;
@@ -70,6 +71,7 @@ public static class DependencyInjection
         services.AddScoped<IUpdateTrackingUseCase, UpdateTrackingUseCase>();
 
         services.AddScoped<ICreateDeceasedUseCase, CreateDeceasedUseCase>();
+        services.AddScoped<IAddDeceasedAtGraveUseCase, AddDeceasedAtGraveUseCase>();
         services.AddScoped<IGetAllDeceasedUseCase, GetAllDeceasedUseCase>();
         services.AddScoped<IGetDeceasedByIdUseCase, GetDeceasedByIdUseCase>();
         services.AddScoped<IUpdateDeceasedUseCase, UpdateDeceasedUseCase>();

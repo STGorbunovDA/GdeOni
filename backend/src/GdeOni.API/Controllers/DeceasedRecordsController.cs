@@ -3,6 +3,8 @@ using GdeOni.API.Mappers;
 using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.API.Response;
 using GdeOni.Application.Common.Shared;
+using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.Model;
+using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Create.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Create.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Delete.Model;
@@ -44,6 +46,30 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         return FromResult(
             result,
             value => value.ToCreatedResponse($"/api/deceased-records/{value.Id}"));
+    }
+
+    /// <summary>
+    /// Создаёт карточку умершего «у могилы» — атомарно вместе с автотрекингом
+    /// и местом захоронения по GPS-координатам. Главный сценарий мобильного клиента.
+    /// </summary>
+    [HttpPost("at-grave")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<AddDeceasedAtGraveResponse>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AddAtGrave(
+        [FromBody] AddDeceasedAtGraveRequest request,
+        [FromServices] IAddDeceasedAtGraveUseCase addDeceasedAtGraveUseCase,
+        CancellationToken cancellationToken)
+    {
+        var command = request.ToCommand();
+        var result = await addDeceasedAtGraveUseCase.Execute(command, cancellationToken);
+
+        return FromResult(
+            result,
+            value => value.ToCreatedResponse($"/api/deceased-records/{value.DeceasedId}"));
     }
 
     /// <summary>
