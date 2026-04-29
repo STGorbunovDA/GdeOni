@@ -417,9 +417,6 @@ public static class Errors
         public static Error PersonalNotesTooLong(int maxLength) =>
             Error.Validation("tracking.personal_notes.too_long", $"Personal notes must be at most {maxLength} characters");
 
-        public static Error AlreadyTracked() =>
-            Error.Conflict("tracking.already.exists", "Deceased is already tracked by user");
-
         public static Error NotFound(Guid? deceasedId = null) =>
             Error.NotFound("tracking.not.found", deceasedId == null
                 ? "Tracking not found"
@@ -433,6 +430,11 @@ public static class Errors
 
         public static Error AlreadyActive() =>
             Error.Conflict("tracking.already.active", "Tracking is already active");
+
+        public static Error NotTracked() =>
+            Error.Forbidden(
+                "tracking.not_tracked",
+                "Current user does not track this deceased.");
     }
 
     public static class Pagination

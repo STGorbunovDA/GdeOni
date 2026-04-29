@@ -41,8 +41,9 @@ using GdeOni.Application.Users.Commands.UpdateTracking.UseCase;
 using GdeOni.Application.Users.Queries.GetAll.UseCase;
 using GdeOni.Application.Users.Queries.GetById.UseCase;
 using GdeOni.Application.Users.Queries.GetCurrent.UseCase;
-using GdeOni.Application.Users.Queries.GetTrackedDeceased.UseCase;
-using GdeOni.Application.Users.Queries.GetTracking.UseCase;
+using GdeOni.Application.Users.Queries.GetMyTrackedDeceasedDetails.UseCase;
+using GdeOni.Application.Users.Queries.GetMyTrackedDeceasedList.UseCase;
+using GdeOni.Application.Users.Queries.IsTrackedByMe.UseCase;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GdeOni.Application;
@@ -67,8 +68,10 @@ public static class DependencyInjection
         services.AddScoped<IGetAllUsersUseCase, GetAllUsersUseCase>();
 
         services.AddScoped<ITrackDeceasedUseCase, TrackDeceasedUseCase>();
-        services.AddScoped<IGetTrackedDeceasedUseCase, GetTrackedDeceasedUseCase>();
         services.AddScoped<IUpdateTrackingUseCase, UpdateTrackingUseCase>();
+        services.AddScoped<IGetMyTrackedDeceasedListUseCase, GetMyTrackedDeceasedListUseCase>();
+        services.AddScoped<IGetMyTrackedDeceasedDetailsUseCase, GetMyTrackedDeceasedDetailsUseCase>();
+        services.AddScoped<IIsTrackedByMeUseCase, IsTrackedByMeUseCase>();
 
         services.AddScoped<ICreateDeceasedUseCase, CreateDeceasedUseCase>();
         services.AddScoped<IAddDeceasedAtGraveUseCase, AddDeceasedAtGraveUseCase>();
@@ -101,7 +104,6 @@ public static class DependencyInjection
         services.AddScoped<IHasMemoriesUseCase, HasMemoriesUseCase>();
         services.AddScoped<IVerifyDeceasedUseCase, VerifyDeceasedUseCase>();
         services.AddScoped<IUnverifiedDeceasedUseCase, UnverifiedDeceasedUseCase>();
-        services.AddScoped<IGetTrackingUseCase, GetTrackingUseCase>();
         services.AddScoped<IRemoveTrackingUseCase, RemoveTrackingUseCase>();
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;

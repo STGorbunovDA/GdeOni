@@ -1,5 +1,6 @@
 ﻿using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Users.Queries.GetAll.Model;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
 using Microsoft.EntityFrameworkCore;
@@ -79,6 +80,36 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
         {
             throw new UniqueConstraintException(postgresException.ConstraintName);
         }
+    }
+
+    public async Task<(List<(TrackedDeceased Tracking, Deceased Deceased)> Items, int TotalCount)> GetMyTrackedDeceasedPaged(
+        Guid userId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var trackedQuery = dbContext.Set<TrackedDeceased>()
+            .AsNoTracking()
+            .Where(x => EF.Property<Guid>(x, "user_id") == userId);
+
+        var totalCount = await trackedQuery.CountAsync(cancellationToken);
+
+        var pairs = await trackedQuery
+            .OrderByDescending(x => x.TrackedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Join(
+                dbContext.DeceasedRecords.Include(d => d.Photos).AsNoTracking(),
+                tracking => tracking.DeceasedId,
+                deceased => deceased.Id,
+                (tracking, deceased) => new { tracking, deceased })
+            .ToListAsync(cancellationToken);
+
+        var items = pairs
+            .Select(x => (x.tracking, x.deceased))
+            .ToList();
+
+        return (items, totalCount);
     }
 
     public async Task<(List<User> Items, int TotalCount)> GetPaged(

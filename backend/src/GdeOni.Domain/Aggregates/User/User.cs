@@ -153,9 +153,6 @@ public sealed class User : Entity<Guid>
 
         if (existingTracking is not null)
         {
-            if (!existingTracking.IsArchived())
-                return Errors.Tracking.AlreadyTracked();
-
             var reactivateResult = existingTracking.Reactivate(
                 relationshipType,
                 personalNotes,

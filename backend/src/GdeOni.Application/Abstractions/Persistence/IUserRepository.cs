@@ -1,4 +1,5 @@
 ﻿using GdeOni.Application.Users.Queries.GetAll.Model;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.User;
 
 namespace GdeOni.Application.Abstractions.Persistence;
@@ -12,6 +13,11 @@ public interface IUserRepository
     Task<bool> ExistsById(Guid userId, CancellationToken cancellationToken);
     Task<bool> ExistsByEmail(string email, CancellationToken cancellationToken);
     Task<bool> ExistsByUserName(string userName, CancellationToken cancellationToken);
+    Task<(List<(TrackedDeceased Tracking, Deceased Deceased)> Items, int TotalCount)> GetMyTrackedDeceasedPaged(
+        Guid userId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken);
     void Delete(User user);
     Task Add(User user, CancellationToken cancellationToken);
     Task Save(CancellationToken cancellationToken);

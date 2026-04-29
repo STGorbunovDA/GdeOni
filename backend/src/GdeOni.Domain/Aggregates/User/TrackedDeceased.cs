@@ -127,9 +127,6 @@ public sealed class TrackedDeceased : Entity<Guid>
         bool notifyOnDeathAnniversary,
         bool notifyOnBirthAnniversary)
     {
-        if (Status != TrackStatus.Archived)
-            return Errors.Tracking.AlreadyTracked();
-
         var updateRelationshipResult = UpdateRelationship(relationshipType, personalNotes);
         if (updateRelationshipResult.IsFailure)
             return updateRelationshipResult.Error;
