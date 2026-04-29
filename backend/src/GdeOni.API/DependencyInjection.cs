@@ -8,6 +8,41 @@ namespace GdeOni.API;
 
 public static class DependencyInjection
 {
+    public const string CorsPolicyName = "GdeOniCors";
+
+    private static readonly string[] DefaultDevOrigins =
+    [
+        "http://localhost:5173",
+        "http://localhost:3000"
+    ];
+
+    public static IServiceCollection AddCustomCors(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var configuredOrigins = configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>();
+
+        var origins = configuredOrigins is { Length: > 0 }
+            ? configuredOrigins
+            : DefaultDevOrigins;
+
+        services.AddCors(options =>
+        {
+            options.AddPolicy(CorsPolicyName, policy =>
+            {
+                policy
+                    .WithOrigins(origins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            });
+        });
+
+        return services;
+    }
+
     public static IServiceCollection AddSecurity(
         this IServiceCollection services,
         IConfiguration configuration)

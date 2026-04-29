@@ -14,12 +14,15 @@ builder.Host.UseSerilog((context, config) =>
 builder.Services.AddApplication();
 builder.Services.AddSecurity(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddCustomCors(builder.Configuration);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddCustomSwagger();
 
 var app = builder.Build();
+
+await app.Services.SeedDatabaseAsync();
 
 app.UseSerilogRequestLogging();
 
@@ -32,6 +35,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors(GdeOni.API.DependencyInjection.CorsPolicyName);
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -1,5 +1,6 @@
 ﻿using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Common.Security;
+using GdeOni.Infrastructure.Data;
 using GdeOni.Infrastructure.Persistence;
 using GdeOni.Infrastructure.Persistence.Repositories;
 using GdeOni.Infrastructure.Security;
@@ -40,6 +41,16 @@ public static class DependencyInjection
         services.AddScoped<IDeceasedRepository, DeceasedRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
+
+        services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
+
         return services;
+    }
+
+    public static Task SeedDatabaseAsync(
+        this IServiceProvider services,
+        CancellationToken cancellationToken = default)
+    {
+        return DbInitializer.SeedSuperAdminAsync(services, cancellationToken);
     }
 }

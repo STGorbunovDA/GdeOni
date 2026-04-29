@@ -37,6 +37,7 @@ using GdeOni.Application.Users.Commands.UpdateProfile.UseCase;
 using GdeOni.Application.Users.Commands.UpdateTracking.UseCase;
 using GdeOni.Application.Users.Queries.GetAll.UseCase;
 using GdeOni.Application.Users.Queries.GetById.UseCase;
+using GdeOni.Application.Users.Queries.GetCurrent.UseCase;
 using GdeOni.Application.Users.Queries.GetTrackedDeceased.UseCase;
 using GdeOni.Application.Users.Queries.GetTracking.UseCase;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +54,7 @@ public static class DependencyInjection
 
         services.AddScoped<IRegisterUserUseCase, RegisterUserUseCase>();
         services.AddScoped<IGetUserByIdUseCase, GetUserByIdUseCase>();
+        services.AddScoped<IGetCurrentUserUseCase, GetCurrentUserUseCase>();
         services.AddScoped<IUpdateUserProfileUseCase, UpdateUserProfileUseCase>();
         services.AddScoped<IChangePasswordUseCase, ChangePasswordUseCase>();
         services.AddScoped<IChangeRoleUseCase, ChangeRoleUseCase>();

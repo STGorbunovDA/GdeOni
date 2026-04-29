@@ -443,4 +443,18 @@ public static class Errors
         public static Error PageSizeOutOfRange(int min, int max) =>
             Error.Validation("pagination.page_size.invalid", $"PageSize must be between {min} and {max}");
     }
+
+    public static class UniqueConstraint
+    {
+        public static Error FromName(string? constraintName) =>
+            constraintName switch
+            {
+                DbConstraints.UxUsersEmail => User.EmailAlreadyExists(),
+                DbConstraints.UxUsersName => User.UserNameAlreadyExists(),
+                DbConstraints.DeceasedSearchKey => Deceased.AlreadyExists(),
+                _ => Error.Conflict(
+                    "conflict.unique_constraint",
+                    "A unique constraint was violated.")
+            };
+    }
 }

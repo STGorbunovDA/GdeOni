@@ -18,6 +18,8 @@ using GdeOni.Application.Users.Queries.GetAll.Model;
 using GdeOni.Application.Users.Queries.GetAll.UseCase;
 using GdeOni.Application.Users.Queries.GetById.Model;
 using GdeOni.Application.Users.Queries.GetById.UseCase;
+using GdeOni.Application.Users.Queries.GetCurrent.Model;
+using GdeOni.Application.Users.Queries.GetCurrent.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -52,6 +54,23 @@ public sealed class UsersController : ApiControllerBase
         return FromResult(
             result,
             value => value.ToCreatedResponse($"/api/users/{value.Id}"));
+    }
+
+    /// <summary>
+    /// Получение профиля текущего пользователя по access token.
+    /// Идентификатор пользователя берётся только из JWT.
+    /// </summary>
+    [HttpGet("me")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<GetCurrentUserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCurrent(
+        [FromServices] IGetCurrentUserUseCase getCurrentUserUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await getCurrentUserUseCase.Execute(cancellationToken);
+        return FromResult(result);
     }
 
     /// <summary>

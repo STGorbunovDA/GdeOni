@@ -13,6 +13,28 @@ public sealed class ExceptionMiddleware(
         {
             await next(context);
         }
+        catch (UniqueConstraintException ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Unique constraint violation while processing {Method} {Path}. Constraint: {Constraint}. TraceId: {TraceId}",
+                context.Request.Method,
+                context.Request.Path,
+                ex.ConstraintName,
+                context.TraceIdentifier);
+
+            if (context.Response.HasStarted)
+                throw;
+
+            var error = Errors.UniqueConstraint.FromName(ex.ConstraintName);
+            var response = ApiResponse<object?>.Error(error);
+
+            context.Response.Clear();
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+
+            await context.Response.WriteAsJsonAsync(response);
+        }
         catch (Exception ex)
         {
             var traceId = context.TraceIdentifier;
