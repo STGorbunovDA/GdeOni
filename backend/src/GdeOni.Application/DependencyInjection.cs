@@ -1,6 +1,8 @@
 ﻿using FluentValidation;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Auth.Login.UseCase;
+using GdeOni.Application.Auth.Logout.UseCase;
+using GdeOni.Application.Auth.Refresh.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.AddPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.UseCase;
@@ -51,6 +53,8 @@ public static class DependencyInjection
         services.AddScoped<IValidatedUseCaseExecutor, ValidatedUseCaseExecutor>();
 
         services.AddScoped<ILoginUseCase, LoginUseCase>();
+        services.AddScoped<IRefreshUseCase, RefreshUseCase>();
+        services.AddScoped<ILogoutUseCase, LogoutUseCase>();
 
         services.AddScoped<IRegisterUserUseCase, RegisterUserUseCase>();
         services.AddScoped<IGetUserByIdUseCase, GetUserByIdUseCase>();

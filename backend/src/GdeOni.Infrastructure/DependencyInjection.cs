@@ -40,7 +40,9 @@ public static class DependencyInjection
 
         services.AddScoped<IDeceasedRepository, DeceasedRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddSingleton<IRefreshTokenFactory, RefreshTokenFactory>();
 
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
 

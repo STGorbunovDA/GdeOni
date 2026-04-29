@@ -457,4 +457,31 @@ public static class Errors
                     "A unique constraint was violated.")
             };
     }
+
+    public static class RefreshToken
+    {
+        public static Error TokenRequired() =>
+            Error.Validation("refresh_token.token.required", "Refresh token is required");
+
+        public static Error TokenHashRequired() =>
+            Error.Validation("refresh_token.token_hash.required", "Refresh token hash is required");
+
+        public static Error TokenExpiresInPast() =>
+            Error.Validation("refresh_token.expires_at.invalid", "Refresh token expiration must be in the future");
+
+        public static Error IpTooLong(int maxLength) =>
+            Error.Validation("refresh_token.ip.too_long", $"Created from IP must be at most {maxLength} characters");
+
+        public static Error TokenInvalid() =>
+            Error.Unauthorized("refresh_token.invalid", "Refresh token is invalid");
+
+        public static Error TokenExpired() =>
+            Error.Unauthorized("refresh_token.expired", "Refresh token has expired");
+
+        public static Error TokenRevoked() =>
+            Error.Unauthorized("refresh_token.revoked", "Refresh token has been revoked");
+
+        public static Error TokenAlreadyRevoked() =>
+            Error.Conflict("refresh_token.already_revoked", "Refresh token has already been revoked");
+    }
 }

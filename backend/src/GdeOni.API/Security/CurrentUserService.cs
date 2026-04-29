@@ -38,4 +38,7 @@ public sealed class CurrentUserService(IHttpContextAccessor httpContextAccessor)
 
         return Result.Success<Guid, Error>(UserId.Value);
     }
+
+    public string? GetRemoteIpAddress() =>
+        httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
 }

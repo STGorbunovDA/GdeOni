@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using GdeOni.Application.Common.Security;
@@ -12,7 +12,7 @@ public sealed class JwtProvider(IOptions<JwtOptions> options) : IJwtProvider
 {
     private readonly JwtOptions _options = options.Value;
 
-    public string GenerateToken(User user)
+    public AccessToken GenerateAccessToken(User user)
     {
         var claims = new List<Claim>
         {
@@ -26,13 +26,16 @@ public sealed class JwtProvider(IOptions<JwtOptions> options) : IJwtProvider
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SecretKey)),
             SecurityAlgorithms.HmacSha256);
 
+        var expiresAtUtc = DateTime.UtcNow.AddMinutes(_options.AccessTokenLifetimeMinutes);
+
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,
             audience: _options.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(_options.ExpirationMinutes),
+            expires: expiresAtUtc,
             signingCredentials: signingCredentials);
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        var serialized = new JwtSecurityTokenHandler().WriteToken(token);
+        return new AccessToken(serialized, expiresAtUtc);
     }
 }

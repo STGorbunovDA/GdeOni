@@ -1,4 +1,5 @@
-﻿using GdeOni.Domain.Aggregates.DeceasedRecords;
+﻿using GdeOni.Domain.Aggregates.Auth;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.User;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +12,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     // Корневой агрегат пользователей
     public DbSet<User> Users => Set<User>();
+
+    // Refresh-токены (отдельный агрегат)
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
