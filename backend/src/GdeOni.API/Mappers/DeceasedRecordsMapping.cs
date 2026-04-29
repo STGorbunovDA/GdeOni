@@ -7,6 +7,7 @@ using GdeOni.Application.DeceasedRecords.Commands.ClearMetadata.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Create.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RejectPhoto.Model;
+using GdeOni.Application.DeceasedRecords.Commands.SetBurialLocationFromGps.Model;
 using GdeOni.Application.DeceasedRecords.Commands.SetPrimaryPhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMemory.Model;
@@ -122,6 +123,19 @@ public static class DeceasedRecordsMapping
             request.Source,
             request.IsMilitaryService,
             request.AdditionalInfo);
+    }
+
+    public static SetBurialLocationFromGpsCommand ToCommand(
+        this SetBurialLocationFromGpsRequest request,
+        Guid deceasedId)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return new SetBurialLocationFromGpsCommand(
+            deceasedId,
+            request.Latitude,
+            request.Longitude,
+            request.AccuracyMeters);
     }
     
     public static AddPhotoCommand ToCommand(

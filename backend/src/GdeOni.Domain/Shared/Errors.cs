@@ -146,6 +146,11 @@ public static class Errors
                 "deceased.update.forbidden",
                 "You cannot update a deceased person's card on behalf of another user.");
 
+        public static Error SetBurialLocationForbidden() =>
+            Error.Forbidden(
+                "deceased.burial_location.set.forbidden",
+                "You cannot set the burial location on behalf of another user.");
+
         public static Error AlreadyVerified() =>
             Error.Conflict("deceased.already.verified", "Deceased record is already verified");
 

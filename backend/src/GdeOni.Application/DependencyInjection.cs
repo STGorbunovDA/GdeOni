@@ -12,6 +12,7 @@ using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.RejectPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.RemoveMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.RemovePhoto.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.SetBurialLocationFromGps.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.SetPrimaryPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Unverified.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Update.UseCase;
@@ -66,6 +67,7 @@ public static class DependencyInjection
         services.AddScoped<IGetAllDeceasedUseCase, GetAllDeceasedUseCase>();
         services.AddScoped<IGetDeceasedByIdUseCase, GetDeceasedByIdUseCase>();
         services.AddScoped<IUpdateDeceasedUseCase, UpdateDeceasedUseCase>();
+        services.AddScoped<ISetBurialLocationFromGpsUseCase, SetBurialLocationFromGpsUseCase>();
         services.AddScoped<IDeleteDeceasedUseCase, DeleteDeceasedUseCase>();
         services.AddScoped<IDeleteUserUseCase, DeleteUserUseCase>();
 
