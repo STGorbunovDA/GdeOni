@@ -1,35 +1,34 @@
-﻿using CSharpFunctionalExtensions;
+using CSharpFunctionalExtensions;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Domain.Aggregates.DeceasedRecords;
 
 public sealed class LifePeriod : ValueObject
 {
-    public DateTime? BirthDate { get; }
-    public DateTime DeathDate { get; }
+    public DateOnly? BirthDate { get; }
+    public DateOnly DeathDate { get; }
 
     private LifePeriod() { }
 
-    private LifePeriod(DateTime? birthDate, DateTime deathDate)
+    private LifePeriod(DateOnly? birthDate, DateOnly deathDate)
     {
         BirthDate = birthDate;
         DeathDate = deathDate;
     }
 
-    public static Result<LifePeriod, Error> Create(DateTime? birthDate, DateTime deathDate)
+    public static Result<LifePeriod, Error> Create(DateOnly? birthDate, DateOnly deathDate)
     {
         if (deathDate == default)
             return Errors.LifePeriod.DeathDateRequired();
 
-        if (deathDate.Date > DateTime.UtcNow.Date)
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (deathDate > today)
             return Errors.LifePeriod.DeathDateInFuture();
 
-        if (birthDate.HasValue && birthDate.Value.Date > deathDate.Date)
+        if (birthDate.HasValue && birthDate.Value > deathDate)
             return Errors.LifePeriod.BirthDateAfterDeathDate();
 
-        return Result.Success<LifePeriod, Error>(new LifePeriod(
-            birthDate?.Date,
-            deathDate.Date));
+        return Result.Success<LifePeriod, Error>(new LifePeriod(birthDate, deathDate));
     }
 
     public bool HasBirthDate() => BirthDate.HasValue;
@@ -39,9 +38,10 @@ public sealed class LifePeriod : ValueObject
         if (!BirthDate.HasValue)
             return null;
 
-        var age = DeathDate.Year - BirthDate.Value.Year;
+        var birth = BirthDate.Value;
+        var age = DeathDate.Year - birth.Year;
 
-        if (BirthDate.Value.Date > DeathDate.AddYears(-age).Date)
+        if (birth > DeathDate.AddYears(-age))
             age--;
 
         return age;
@@ -49,7 +49,7 @@ public sealed class LifePeriod : ValueObject
 
     protected override IEnumerable<object> GetEqualityComponents()
     {
-        yield return BirthDate?.Date ?? DateTime.MinValue;
-        yield return DeathDate.Date;
+        yield return BirthDate ?? DateOnly.MinValue;
+        yield return DeathDate;
     }
 }

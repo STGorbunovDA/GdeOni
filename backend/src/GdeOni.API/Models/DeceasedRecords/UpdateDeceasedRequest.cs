@@ -8,8 +8,8 @@ public sealed class UpdateDeceasedRequest
     public string LastName { get; set; } = null!;
     public string? MiddleName { get; set; }
 
-    public DateTime? BirthDate { get; set; }
-    public DateTime DeathDate { get; set; }
+    public DateOnly? BirthDate { get; set; }
+    public DateOnly DeathDate { get; set; }
 
     public string? ShortDescription { get; set; }
     public string? Biography { get; set; }

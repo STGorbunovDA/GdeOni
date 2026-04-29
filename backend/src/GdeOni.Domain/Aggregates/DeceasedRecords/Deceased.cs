@@ -64,8 +64,8 @@ public sealed class Deceased : Entity<Guid>
         string firstName,
         string lastName,
         string? middleName,
-        DateTime? birthDate,
-        DateTime deathDate,
+        DateOnly? birthDate,
+        DateOnly deathDate,
         BurialLocation? burialLocation,
         Guid createdByUserId,
         string? shortDescription = null,
@@ -115,8 +115,8 @@ public sealed class Deceased : Entity<Guid>
         string firstName,
         string lastName,
         string? middleName,
-        DateTime? birthDate,
-        DateTime deathDate,
+        DateOnly? birthDate,
+        DateOnly deathDate,
         string? shortDescription,
         string? biography)
     {
@@ -426,8 +426,8 @@ public sealed class Deceased : Entity<Guid>
         string firstName,
         string lastName,
         string? middleName,
-        DateTime? birthDate,
-        DateTime deathDate,
+        DateOnly? birthDate,
+        DateOnly deathDate,
         BurialLocation? burialLocation)
     {
         static string NormalizeString(string? value) =>
@@ -435,8 +435,8 @@ public sealed class Deceased : Entity<Guid>
                 ? "-"
                 : value.Trim().ToUpperInvariant();
 
-        static string NormalizeDate(DateTime? value) =>
-            value?.Date.ToString("yyyy-MM-dd") ?? "-";
+        static string NormalizeDate(DateOnly? value) =>
+            value?.ToString("yyyy-MM-dd") ?? "-";
 
         return string.Join("|",
             NormalizeString(firstName),

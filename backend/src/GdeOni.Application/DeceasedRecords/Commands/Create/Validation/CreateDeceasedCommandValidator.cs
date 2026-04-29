@@ -28,15 +28,15 @@ public sealed class CreateDeceasedCommandValidator : AbstractValidator<CreateDec
             .When(x => !string.IsNullOrWhiteSpace(x.MiddleName));
 
         RuleFor(x => x.DeathDate)
-            .NotEmpty()
+            .Must(x => x != default)
             .WithError(Errors.LifePeriod.DeathDateRequired());
 
         RuleFor(x => x.DeathDate)
-            .Must(x => x.Date <= DateTime.UtcNow.Date)
+            .Must(x => x <= DateOnly.FromDateTime(DateTime.UtcNow))
             .WithError(Errors.LifePeriod.DeathDateInFuture());
 
         RuleFor(x => x)
-            .Must(x => x.BirthDate is null || x.BirthDate.Value.Date <= x.DeathDate.Date)
+            .Must(x => x.BirthDate is null || x.BirthDate.Value <= x.DeathDate)
             .WithError(Errors.LifePeriod.BirthDateAfterDeathDate());
 
         RuleFor(x => x.ShortDescription)
