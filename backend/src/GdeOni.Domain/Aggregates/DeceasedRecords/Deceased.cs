@@ -22,9 +22,6 @@ public sealed class Deceased : Entity<Guid>
     public Guid CreatedByUserId { get; }
     public bool IsVerified { get; private set; }
 
-    private readonly List<DeceasedPhoto> _photos = new();
-    public IReadOnlyCollection<DeceasedPhoto> Photos => _photos.AsReadOnly();
-
     private readonly List<DeceasedMemoryEntry> _memories = new();
     public IReadOnlyCollection<DeceasedMemoryEntry> Memories => _memories.AsReadOnly();
 
@@ -107,10 +104,8 @@ public sealed class Deceased : Entity<Guid>
 
     public int? AgeAtDeath() => LifePeriod.AgeAtDeath();
 
-    public DeceasedPhoto? GetPrimaryPhoto() =>
-        _photos.FirstOrDefault(x => x.IsPrimary);
-
-    public bool HasPhotos() => _photos.Count > 0;
+    public DeceasedMedia? GetMainPhoto() =>
+        _media.FirstOrDefault(x => x.Kind == MediaKind.DeceasedPhoto && x.IsMainPhoto);
 
     public bool HasMemories() => _memories.Count > 0;
 
@@ -156,152 +151,6 @@ public sealed class Deceased : Entity<Guid>
         Touch();
         RebuildSearchKey();
 
-        return UnitResult.Success<Error>();
-    }
-
-    public Result<DeceasedPhoto, Error> AddPhoto(
-        string url,
-        Guid addedByUserId,
-        string? description = null,
-        bool makePrimary = false)
-    {
-        var normalizedUrlResult = DeceasedPhoto.NormalizeUrl(url);
-        if (normalizedUrlResult.IsFailure)
-            return normalizedUrlResult.Error;
-
-        var normalizedUrl = normalizedUrlResult.Value;
-
-        if (HasDuplicatePhotoUrl(normalizedUrl))
-            return Errors.DeceasedPhoto.DuplicateUrl();
-
-        var photoResult = DeceasedPhoto.Create(
-            normalizedUrl,
-            addedByUserId,
-            description,
-            makePrimary || _photos.Count == 0);
-
-        if (photoResult.IsFailure)
-            return photoResult.Error;
-
-        var photo = photoResult.Value;
-
-        if (photo.IsPrimary)
-        {
-            foreach (var item in _photos)
-                item.UnmarkPrimary();
-        }
-
-        _photos.Add(photo);
-        Touch();
-
-        return Result.Success<DeceasedPhoto, Error>(photo);
-    }
-
-    public UnitResult<Error> UpdatePhotoUrl(Guid photoId, string url)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var normalizedUrlResult = DeceasedPhoto.NormalizeUrl(url);
-        if (normalizedUrlResult.IsFailure)
-            return normalizedUrlResult.Error;
-
-        var normalizedUrl = normalizedUrlResult.Value;
-
-        if (HasDuplicatePhotoUrl(normalizedUrl, photoId))
-            return Errors.DeceasedPhoto.DuplicateUrl();
-
-        var result = photo.UpdateUrl(normalizedUrl);
-        if (result.IsFailure)
-            return result.Error;
-
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    private bool HasDuplicatePhotoUrl(string normalizedUrl, Guid? excludingPhotoId = null)
-    {
-        return _photos.Any(x =>
-            x.Id != excludingPhotoId &&
-            string.Equals(x.Url, normalizedUrl, StringComparison.OrdinalIgnoreCase));
-    }
-
-    public UnitResult<Error> SetPrimaryPhoto(Guid photoId)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        foreach (var item in _photos)
-            item.UnmarkPrimary();
-
-        var makePrimaryResult = photo.MakePrimary();
-        if (makePrimaryResult.IsFailure)
-            return makePrimaryResult.Error;
-
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> UpdatePhotoDescription(Guid photoId, string? description)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var result = photo.UpdateDescription(description);
-        if (result.IsFailure)
-            return result.Error;
-
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> ApprovePhoto(Guid photoId)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var result = photo.Approve();
-        if (result.IsFailure)
-            return result.Error;
-
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> RejectPhoto(Guid photoId)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var result = photo.Reject();
-        if (result.IsFailure)
-            return result.Error;
-
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> RemovePhoto(Guid photoId)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        _photos.Remove(photo);
-
-        if (_photos.Count > 0 && _photos.All(x => !x.IsPrimary))
-        {
-            var makePrimaryResult = _photos[0].MakePrimary();
-            if (makePrimaryResult.IsFailure)
-                return makePrimaryResult.Error;
-        }
-
-        Touch();
         return UnitResult.Success<Error>();
     }
 

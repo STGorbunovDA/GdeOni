@@ -47,19 +47,6 @@ public static class GetDeceasedByIdMapping
                 AdditionalInfo = deceased.Metadata.AdditionalInfo
             },
 
-            Photos = deceased.Photos
-                .Select(photo => new DeceasedPhotoResponse
-                {
-                    Id = photo.Id,
-                    Url = photo.Url,
-                    Description = photo.Description,
-                    IsPrimary = photo.IsPrimary,
-                    CreatedAtUtc = photo.CreatedAtUtc,
-                    AddedByUserId = photo.AddedByUserId,
-                    ModerationStatus = (int)photo.ModerationStatus
-                })
-                .ToArray(),
-
             Memories = deceased.Memories
                 .Select(memory => new DeceasedMemoryResponse
                 {

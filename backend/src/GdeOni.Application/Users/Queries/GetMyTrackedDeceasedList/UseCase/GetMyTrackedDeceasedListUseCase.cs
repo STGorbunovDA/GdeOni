@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Common.Shared;
@@ -10,6 +11,7 @@ namespace GdeOni.Application.Users.Queries.GetMyTrackedDeceasedList.UseCase;
 
 public sealed class GetMyTrackedDeceasedListUseCase(
     IUserRepository userRepository,
+    IFileStorage fileStorage,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetMyTrackedDeceasedListUseCase
@@ -39,7 +41,10 @@ public sealed class GetMyTrackedDeceasedListUseCase(
             .Select(pair =>
             {
                 var (tracking, deceased) = pair;
-                var primaryPhoto = deceased.GetPrimaryPhoto();
+                var mainPhoto = deceased.GetMainPhoto();
+                var mainPhotoUrl = mainPhoto is null
+                    ? null
+                    : fileStorage.GetPublicUrl(mainPhoto.Bucket, mainPhoto.StorageKey);
 
                 return new MyTrackedDeceasedListItemResponse
                 {
@@ -51,7 +56,7 @@ public sealed class GetMyTrackedDeceasedListUseCase(
                     HasGraveLocation = deceased.BurialLocation is not null,
                     GraveLatitude = deceased.BurialLocation?.Latitude,
                     GraveLongitude = deceased.BurialLocation?.Longitude,
-                    MainPhotoUrl = primaryPhoto?.Url,
+                    MainPhotoUrl = mainPhotoUrl,
                     RelationshipType = tracking.RelationshipType.ToString(),
                     Status = tracking.Status.ToString(),
                     NotifyOnDeathAnniversary = tracking.NotifyOnDeathAnniversary,

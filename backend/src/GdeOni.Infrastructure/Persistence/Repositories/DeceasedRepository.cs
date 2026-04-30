@@ -17,9 +17,44 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
     public async Task<Deceased?> GetById(Guid id, CancellationToken cancellationToken)
     {
         return await dbContext.DeceasedRecords
-            .Include(x => x.Photos)
             .Include(x => x.Memories)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
+    public async Task<Deceased?> GetByIdWithMedia(Guid id, CancellationToken cancellationToken)
+    {
+        return await dbContext.DeceasedRecords
+            .Include(x => x.Media)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
+    public async Task<(List<DeceasedMedia> Items, int TotalCount)> GetMediaPaged(
+        Guid deceasedId,
+        MediaKind? kind,
+        ModerationStatus? moderationStatus,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.Set<DeceasedMedia>()
+            .AsNoTracking()
+            .Where(x => x.DeceasedId == deceasedId);
+
+        if (kind.HasValue)
+            query = query.Where(x => x.Kind == kind.Value);
+
+        if (moderationStatus.HasValue)
+            query = query.Where(x => x.ModerationStatus == moderationStatus.Value);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
     }
 
     public async Task<(List<Deceased> Items, int TotalCount)> GetPaged(

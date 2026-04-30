@@ -53,10 +53,6 @@ public sealed class CreateDeceasedCommandValidator : AbstractValidator<CreateDec
             .SetValidator(new CreateDeceasedBurialLocationCommandValidator())
             .When(x => x.BurialLocation is not null);
 
-        RuleForEach(x => x.Photos!)
-            .SetValidator(new CreateDeceasedPhotoCommandValidator())
-            .When(x => x.Photos is not null);
-
         RuleForEach(x => x.Memories!)
             .SetValidator(new CreateDeceasedMemoryCommandValidator())
             .When(x => x.Memories is not null);

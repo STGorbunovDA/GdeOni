@@ -1,19 +1,14 @@
 ﻿using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.Model;
-using GdeOni.Application.DeceasedRecords.Commands.AddPhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.Model;
-using GdeOni.Application.DeceasedRecords.Commands.ApprovePhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ClearMetadata.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Create.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.Model;
-using GdeOni.Application.DeceasedRecords.Commands.RejectPhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.SetBurialLocationFromGps.Model;
-using GdeOni.Application.DeceasedRecords.Commands.SetPrimaryPhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.Model;
-using GdeOni.Application.DeceasedRecords.Commands.UpdatePhoto.Model;
 
 namespace GdeOni.API.Mappers;
 
@@ -33,7 +28,6 @@ public static class DeceasedRecordsMapping
             ShortDescription: request.ShortDescription,
             Biography: request.Biography,
             BurialLocation: request.BurialLocation?.ToCommand(),
-            Photos: request.Photos?.Select(x => x.ToCommand()).ToArray(),
             Memories: request.Memories?.Select(x => x.ToCommand()).ToArray(),
             Metadata: request.Metadata?.ToCommand());
     }
@@ -52,15 +46,6 @@ public static class DeceasedRecordsMapping
             GraveNumber: request.GraveNumber,
             Accuracy: request.Accuracy,
             AccuracyMeters: request.AccuracyMeters);
-    }
-
-    private static CreateDeceasedPhotoCommand ToCommand(
-        this CreateDeceasedPhotoRequest request)
-    {
-        return new CreateDeceasedPhotoCommand(
-            Url: request.Url,
-            Description: request.Description,
-            IsPrimary: request.IsPrimary);
     }
 
     private static CreateDeceasedMemoryCommand ToCommand(
@@ -180,33 +165,6 @@ public static class DeceasedRecordsMapping
             request.AccuracyMeters);
     }
     
-    public static AddPhotoCommand ToCommand(
-        this AddPhotoRequest request,
-        Guid deceasedId)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        return new AddPhotoCommand(
-            deceasedId,
-            request.Url,
-            request.Description,
-            request.IsPrimary);
-    }
-    
-    public static UpdatePhotoCommand ToCommand(
-        this UpdatePhotoRequest request,
-        Guid deceasedId,
-        Guid photoId)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        return new UpdatePhotoCommand(
-            deceasedId,
-            photoId,
-            request.Url,
-            request.Description);
-    }
-    
     public static AddMemoryCommand ToCommand(
         this AddMemoryRequest request,
         Guid deceasedId)
@@ -248,19 +206,10 @@ public static class DeceasedRecordsMapping
     
     public static ClearMetadataCommand ToClearMetadataCommand(Guid deceasedId)
         => new(deceasedId);
-    
+
     public static RejectMemoryCommand ToRejectMemoryCommand(Guid deceasedId, Guid memoryId)
         => new(deceasedId, memoryId);
-    
-    public static SetPrimaryPhotoCommand ToCommand(Guid deceasedId, Guid photoId)
-        => new(deceasedId, photoId);
-    
+
     public static ApproveMemoryCommand ToApproveMemoryCommand(Guid deceasedId, Guid memoryId)
         => new(deceasedId, memoryId);
-    
-    public static ApprovePhotoCommand ToApprovePhotoCommand(Guid deceasedId, Guid photoId)
-        => new(deceasedId, photoId);
-    
-    public static RejectPhotoCommand ToRejectPhotoCommand(Guid deceasedId, Guid photoId)
-        => new(deceasedId, photoId);
 }

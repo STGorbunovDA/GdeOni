@@ -5,8 +5,6 @@ using GdeOni.Application.DeceasedRecords.Queries.GetDistance.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetDistance.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.Model;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.UseCase;
-using GdeOni.Application.DeceasedRecords.Queries.HasPhotos.Model;
-using GdeOni.Application.DeceasedRecords.Queries.HasPhotos.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -50,24 +48,6 @@ public sealed class DeceasedRecordsSupportiveController : ApiControllerBase
         CancellationToken cancellationToken)
     {
         var result = await getAgeAtDeathUseCase.Execute(new GetAgeAtDeathQuery(id), cancellationToken);
-        return FromResult(result);
-    }
-
-    /// <summary>
-    /// Проверяет, есть ли у карточки фотографии.
-    /// </summary>
-    [HttpGet("{id:guid}/has-photos")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<HasPhotosResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<HasPhotosResponse>), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> HasPhotos(
-        [FromRoute] Guid id,
-        [FromServices] IHasPhotosUseCase hasPhotosUseCase,
-        CancellationToken cancellationToken)
-    {
-        var query = new HasPhotosQuery(id);
-        var result = await hasPhotosUseCase.Execute(query, cancellationToken);
-
         return FromResult(result);
     }
 

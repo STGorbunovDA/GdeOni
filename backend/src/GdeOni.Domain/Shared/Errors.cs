@@ -220,73 +220,6 @@ public static class Errors
                 "You do not have permission to verify the deceased's account.");
     }
     
-    public static class DeceasedPhoto
-    {
-        public static Error DuplicateUrl() =>
-            Error.Conflict(
-                "deceased_photo.url.duplicate",
-                "A photo with the same URL already exists for this deceased card.");
-        
-        public static Error UrlRequired() =>
-            Error.Validation("deceased_photo.url.required", "Photo url is required");
-        
-        public static Error AddPhotoForbidden() =>
-            Error.Forbidden(
-                "deceased_photo_add.author.forbidden",
-                "You cannot added a photo on behalf of another user.");
-        
-        public static Error SetPrimaryPhotoForbidden() =>
-            Error.Forbidden(
-                "deceased_set_primary_photo.author.forbidden",
-                "You cannot set primary photo on behalf of another user.");
-        
-        public static Error UpdatePhotoForbidden() =>
-            Error.Forbidden(
-                "deceased_update_photo.author.forbidden",
-                "You cannot updated a photo on behalf of another user.");
-
-        public static Error UrlInvalid() =>
-            Error.Validation("deceased_photo.url.invalid", "Photo url invalid");
-
-        public static Error AddedByRequired() =>
-            Error.Validation("deceased_photo.added_by.required", "Added by user id is required");
-
-        public static Error ApprovePhotoForbidden() =>
-            Error.Forbidden(
-                "deceased_photo_approve.verify.forbidden",
-                "You do not have the right to verify the photo of the deceased");
-        
-        public static Error RejectPhotoForbidden() =>
-            Error.Forbidden(
-                "deceased_photo_reject.verify.forbidden",
-                "You do not have permission to reject the confirmation of the deceased's photo");
-
-        public static Error NotFound(Guid? id = null) =>
-            Error.NotFound("deceased_photo.not.found", id == null
-                ? "Photo not found"
-                : $"Photo not found for Id '{id}'");
-
-        public static Error AlreadyPrimary() =>
-            Error.Conflict("deceased_photo.already.primary", "Photo is already primary");
-
-        public static Error AlreadyApproved() =>
-            Error.Conflict("deceased_photo.already.approved", "Photo is already approved");
-
-        public static Error AlreadyRejected() =>
-            Error.Conflict("deceased_photo.already.rejected", "Photo is already rejected");
-
-        public static Error UrlTooLong(int maxLength) =>
-            Error.Validation("deceased_photo.url.too_long", $"Photo url must be at most {maxLength} characters");
-
-        public static Error DeletePhotoForbidden() =>
-            Error.Forbidden(
-                "deceased_photo.author.forbidden",
-                "You cannot delete a photo on behalf of another user.");
-        
-        public static Error DescriptionTooLong(int maxLength) =>
-            Error.Validation("deceased_photo.description.too_long", $"Photo description must be at most {maxLength} characters");
-    }
-    
     public static class DeceasedMetadata
     {
         public static Error UpdateDeceasedMetadataForbidden() =>
@@ -516,6 +449,52 @@ public static class Errors
 
         public static Error DuplicateStorageKey() =>
             Error.Conflict("deceased_media.storage_key.duplicate", "Media with such storage key already exists");
+
+        public static Error UploadForbidden() =>
+            Error.Forbidden(
+                "deceased_media.upload.forbidden",
+                "You don't have permission to upload media for this deceased.");
+
+        public static Error DeleteForbidden() =>
+            Error.Forbidden(
+                "deceased_media.delete.forbidden",
+                "You don't have permission to delete this media.");
+
+        public static Error SetMainPhotoForbidden() =>
+            Error.Forbidden(
+                "deceased_media.main_photo.forbidden",
+                "Only the deceased card author or admin can set the main photo.");
+
+        public static Error ModerationForbidden() =>
+            Error.Forbidden(
+                "deceased_media.moderation.forbidden",
+                "Only Admin or SuperAdmin can moderate media.");
+    }
+
+    public static class Media
+    {
+        public static Error PhotoContentTypeNotAllowed(string contentType) =>
+            Error.Validation(
+                "media.photo.content_type.not_allowed",
+                $"Content type '{contentType}' is not allowed for photos. Allowed: image/jpeg, image/png, image/webp.");
+
+        public static Error DocumentContentTypeNotAllowed(string contentType) =>
+            Error.Validation(
+                "media.document.content_type.not_allowed",
+                $"Content type '{contentType}' is not allowed for documents. Allowed: application/pdf.");
+
+        public static Error PhotoTooLarge(long maxBytes) =>
+            Error.Validation(
+                "media.photo.too_large",
+                $"Photo size exceeds {maxBytes} bytes.");
+
+        public static Error DocumentTooLarge(long maxBytes) =>
+            Error.Validation(
+                "media.document.too_large",
+                $"Document size exceeds {maxBytes} bytes.");
+
+        public static Error FileRequired() =>
+            Error.Validation("media.file.required", "File is required");
     }
 
     public static class RefreshToken

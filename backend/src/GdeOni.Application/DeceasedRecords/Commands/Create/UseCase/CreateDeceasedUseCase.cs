@@ -81,21 +81,6 @@ public sealed class CreateDeceasedUseCase(
         if (alreadyExists)
             return Errors.Deceased.AlreadyExists();
 
-        if (command.Photos is not null)
-        {
-            foreach (var photo in command.Photos)
-            {
-                var addPhotoResult = deceased.AddPhoto(
-                    photo.Url,
-                    currentUserId,
-                    photo.Description,
-                    photo.IsPrimary);
-
-                if (addPhotoResult.IsFailure)
-                    return addPhotoResult.Error;
-            }
-        }
-
         if (command.Memories is not null)
         {
             foreach (var memory in command.Memories)

@@ -147,14 +147,6 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
             .HasForeignKey(x => x.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasMany(x => x.Photos)
-            .WithOne()
-            .HasForeignKey("deceased_id")
-            .OnDelete(DeleteBehavior.Cascade);
-
-        builder.Navigation(x => x.Photos)
-            .UsePropertyAccessMode(PropertyAccessMode.Field);
-
         builder.HasMany(x => x.Memories)
             .WithOne()
             .HasForeignKey("deceased_id")

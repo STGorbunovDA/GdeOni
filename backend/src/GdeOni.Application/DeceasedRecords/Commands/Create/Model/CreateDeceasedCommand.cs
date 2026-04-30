@@ -11,7 +11,6 @@ public sealed record CreateDeceasedCommand(
     string? ShortDescription,
     string? Biography,
     CreateDeceasedBurialLocationCommand? BurialLocation,
-    IReadOnlyCollection<CreateDeceasedPhotoCommand>? Photos,
     IReadOnlyCollection<CreateDeceasedMemoryCommand>? Memories,
     CreateDeceasedMetadataCommand? Metadata);
 
@@ -26,11 +25,6 @@ public sealed record CreateDeceasedBurialLocationCommand(
     string? GraveNumber,
     LocationAccuracy Accuracy,
     double? AccuracyMeters);
-
-public sealed record CreateDeceasedPhotoCommand(
-    string Url,
-    string? Description,
-    bool IsPrimary);
 
 public sealed record CreateDeceasedMemoryCommand(
     string Text);

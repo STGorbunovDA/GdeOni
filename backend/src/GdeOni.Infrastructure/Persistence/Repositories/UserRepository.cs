@@ -99,7 +99,7 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Join(
-                dbContext.DeceasedRecords.Include(d => d.Photos).AsNoTracking(),
+                dbContext.DeceasedRecords.Include(d => d.Media).AsNoTracking(),
                 tracking => tracking.DeceasedId,
                 deceased => deceased.Id,
                 (tracking, deceased) => new { tracking, deceased })

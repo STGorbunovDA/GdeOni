@@ -33,6 +33,5 @@ public sealed class DeceasedDetailsResponse
     public DateTime? UpdatedAtUtc { get; init; }
 
     public DeceasedMetadataResponse Metadata { get; init; } = null!;
-    public IReadOnlyCollection<DeceasedPhotoResponse> Photos { get; init; } = [];
     public IReadOnlyCollection<DeceasedMemoryResponse> Memories { get; init; } = [];
 }

@@ -15,7 +15,6 @@ public sealed class CreateDeceasedRequest
     public string? Biography { get; set; }
 
     public CreateDeceasedBurialLocationRequest? BurialLocation { get; set; }
-    public IReadOnlyCollection<CreateDeceasedPhotoRequest>? Photos { get; set; }
     public IReadOnlyCollection<CreateDeceasedMemoryRequest>? Memories { get; set; }
     public CreateDeceasedMetadataRequest? Metadata { get; set; }
 }
@@ -34,13 +33,6 @@ public sealed class CreateDeceasedBurialLocationRequest
     public string? GraveNumber { get; set; }
 
     public LocationAccuracy Accuracy { get; set; } = LocationAccuracy.Exact;
-}
-
-public sealed class CreateDeceasedPhotoRequest
-{
-    public string Url { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public bool IsPrimary { get; set; }
 }
 
 public sealed class CreateDeceasedMemoryRequest
