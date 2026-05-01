@@ -75,6 +75,8 @@ public static class DependencyInjection
 
         services.AddSingleton<IFileStorage, MinioFileStorage>();
 
+        services.AddHostedService<MinioOrphanCleanupService>();
+
         return services;
     }
 

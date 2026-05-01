@@ -16,6 +16,32 @@ public sealed class MinioOptions
     public string? PublicBaseUrl { get; set; }
 
     public MinioBucketsOptions Buckets { get; set; } = new();
+
+    public MinioCleanupOptions Cleanup { get; set; } = new();
+}
+
+public sealed class MinioCleanupOptions
+{
+    /// <summary>
+    /// Включает фоновый MinioOrphanCleanupService.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Интервал между прогонами cleanup, в часах.
+    /// </summary>
+    public int IntervalHours { get; set; } = 24;
+
+    /// <summary>
+    /// Минимальный возраст файла в MinIO (в часах), чтобы считаться сиротой.
+    /// Защита от race с Upload, который ещё не успел сохранить metadata в БД.
+    /// </summary>
+    public int OrphanAgeHours { get; set; } = 24;
+
+    /// <summary>
+    /// Задержка перед первым прогоном после старта приложения.
+    /// </summary>
+    public int InitialDelayMinutes { get; set; } = 5;
 }
 
 public sealed class MinioBucketsOptions
