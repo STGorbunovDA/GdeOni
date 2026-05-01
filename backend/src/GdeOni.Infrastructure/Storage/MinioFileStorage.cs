@@ -5,12 +5,18 @@ using Minio.DataModel.Args;
 
 namespace GdeOni.Infrastructure.Storage;
 
-internal sealed class MinioFileStorage(
-    IMinioClient client,
-    IOptions<MinioOptions> options)
-    : IFileStorage
+internal sealed class MinioFileStorage : IFileStorage
 {
-    private readonly MinioOptions _options = options.Value;
+    private readonly IMinioClient _client;
+    private readonly IMinioClient _presignedClient;
+    private readonly MinioOptions _options;
+
+    public MinioFileStorage(IMinioClient client, IOptions<MinioOptions> options)
+    {
+        _client = client;
+        _options = options.Value;
+        _presignedClient = BuildPresignedClient(_options) ?? client;
+    }
 
     public async Task<StoredFile> UploadAsync(
         UploadFileRequest request,
@@ -26,7 +32,7 @@ internal sealed class MinioFileStorage(
             .WithObjectSize(request.SizeBytes)
             .WithContentType(request.ContentType);
 
-        await client.PutObjectAsync(args, cancellationToken);
+        await _client.PutObjectAsync(args, cancellationToken);
 
         return new StoredFile(
             bucket,
@@ -42,7 +48,7 @@ internal sealed class MinioFileStorage(
             .WithBucket(bucket)
             .WithObject(objectKey);
 
-        return client.RemoveObjectAsync(args, cancellationToken);
+        return _client.RemoveObjectAsync(args, cancellationToken);
     }
 
     public async Task<Stream> OpenReadAsync(
@@ -57,7 +63,7 @@ internal sealed class MinioFileStorage(
             .WithObject(objectKey)
             .WithCallbackStream(stream => stream.CopyTo(memory));
 
-        await client.GetObjectAsync(args, cancellationToken);
+        await _client.GetObjectAsync(args, cancellationToken);
 
         memory.Position = 0;
         return memory;
@@ -83,7 +89,7 @@ internal sealed class MinioFileStorage(
             .WithObject(objectKey)
             .WithExpiry((int)expiresIn.TotalSeconds);
 
-        return client.PresignedGetObjectAsync(args);
+        return _presignedClient.PresignedGetObjectAsync(args);
     }
 
     private string ResolveBucket(FileKind kind) => kind switch
@@ -100,5 +106,30 @@ internal sealed class MinioFileStorage(
         var extension = Path.GetExtension(request.OriginalFileName);
         var prefix = request.Kind.ToString().ToLowerInvariant();
         return $"{prefix}/{request.DeceasedId}/{Guid.NewGuid()}{extension}";
+    }
+
+    // Если PublicBaseUrl задан, presigned URL должен вести на публичный домен,
+    // а не на внутренний minio:9000. Создаём отдельный клиент, у которого
+    // endpoint = публичный host. PresignedGetObjectAsync генерит ссылку
+    // локально (HMAC-подпись) — никаких сетевых вызовов, поэтому второй
+    // клиент безопасен для use в Singleton MinioFileStorage.
+    private static IMinioClient? BuildPresignedClient(MinioOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(options.PublicBaseUrl))
+            return null;
+
+        if (!Uri.TryCreate(options.PublicBaseUrl, UriKind.Absolute, out var uri))
+            return null;
+
+        var endpoint = uri.IsDefaultPort ? uri.Host : $"{uri.Host}:{uri.Port}";
+        var useSsl = string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+
+        var builder = new MinioClient()
+            .WithEndpoint(endpoint)
+            .WithCredentials(options.AccessKey, options.SecretKey);
+
+        if (useSsl) builder = builder.WithSSL();
+
+        return builder.Build();
     }
 }
