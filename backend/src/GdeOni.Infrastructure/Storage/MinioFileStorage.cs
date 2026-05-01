@@ -51,24 +51,6 @@ internal sealed class MinioFileStorage : IFileStorage
         return _client.RemoveObjectAsync(args, cancellationToken);
     }
 
-    public async Task<Stream> OpenReadAsync(
-        string bucket,
-        string objectKey,
-        CancellationToken cancellationToken)
-    {
-        var memory = new MemoryStream();
-
-        var args = new GetObjectArgs()
-            .WithBucket(bucket)
-            .WithObject(objectKey)
-            .WithCallbackStream(stream => stream.CopyTo(memory));
-
-        await _client.GetObjectAsync(args, cancellationToken);
-
-        memory.Position = 0;
-        return memory;
-    }
-
     public string GetPublicUrl(string bucket, string objectKey)
     {
         var baseUrl = string.IsNullOrWhiteSpace(_options.PublicBaseUrl)

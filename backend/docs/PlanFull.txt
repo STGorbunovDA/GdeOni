@@ -1126,7 +1126,6 @@ IFileStorage должен поддерживать:
 
 - UploadAsync;
 - DeleteAsync;
-- OpenReadAsync;
 - GetPublicUrl;
 - GetPresignedUrlAsync.
 
