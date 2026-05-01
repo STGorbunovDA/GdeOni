@@ -28,6 +28,9 @@ public sealed class Deceased : Entity<Guid>
     private readonly List<DeceasedMedia> _media = new();
     public IReadOnlyCollection<DeceasedMedia> Media => _media.AsReadOnly();
 
+    public Guid? MainMediaId { get; private set; }
+    public DeceasedMedia? MainMedia { get; private set; }
+
     public string SearchKey { get; private set; } = null!;
     public DeceasedMetadata Metadata { get; private set; }
 
@@ -104,11 +107,15 @@ public sealed class Deceased : Entity<Guid>
 
     public int? AgeAtDeath() => LifePeriod.AgeAtDeath();
 
-    public DeceasedMedia? GetMainPhoto() =>
-        _media.FirstOrDefault(x =>
-            x.Kind == MediaKind.DeceasedPhoto
-            && x.IsMainPhoto
-            && x.ModerationStatus != ModerationStatus.Rejected);
+    public DeceasedMedia? GetMainPhoto()
+    {
+        if (MainMediaId is null) return null;
+
+        var photo = MainMedia ?? _media.FirstOrDefault(x => x.Id == MainMediaId);
+        if (photo is null) return null;
+        if (photo.ModerationStatus == ModerationStatus.Rejected) return null;
+        return photo;
+    }
 
     public bool HasMemories() => _memories.Count > 0;
 
@@ -286,6 +293,12 @@ public sealed class Deceased : Entity<Guid>
         if (media is null)
             return Errors.DeceasedMedia.NotFound(mediaId);
 
+        if (MainMediaId == mediaId)
+        {
+            MainMediaId = null;
+            MainMedia = null;
+        }
+
         _media.Remove(media);
         Touch();
         return UnitResult.Success<Error>();
@@ -307,6 +320,8 @@ public sealed class Deceased : Entity<Guid>
         if (markResult.IsFailure)
             return markResult.Error;
 
+        MainMediaId = media.Id;
+        MainMedia = media;
         Touch();
         return UnitResult.Success<Error>();
     }
@@ -348,6 +363,12 @@ public sealed class Deceased : Entity<Guid>
         var result = media.Reject();
         if (result.IsFailure)
             return result.Error;
+
+        if (MainMediaId == mediaId)
+        {
+            MainMediaId = null;
+            MainMedia = null;
+        }
 
         Touch();
         return UnitResult.Success<Error>();
