@@ -151,6 +151,11 @@ public static class Errors
                 "deceased.burial_location.set.forbidden",
                 "You cannot set the burial location on behalf of another user.");
 
+        public static Error ClearBurialLocationForbidden() =>
+            Error.Forbidden(
+                "deceased.burial_location.clear.forbidden",
+                "You cannot clear the burial location on behalf of another user.");
+
         public static Error AlreadyVerified() =>
             Error.Conflict("deceased.already.verified", "Deceased record is already verified");
 

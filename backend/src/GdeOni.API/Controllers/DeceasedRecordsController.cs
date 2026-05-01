@@ -5,6 +5,8 @@ using GdeOni.API.Response;
 using GdeOni.Application.Common.Shared;
 using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.ClearBurialLocation.Model;
+using GdeOni.Application.DeceasedRecords.Commands.ClearBurialLocation.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Create.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Create.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Delete.Model;
@@ -145,6 +147,27 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     {
         var command = new DeleteDeceasedCommand(id);
         var result = await deleteDeceasedUseCase.Execute(command, cancellationToken);
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// Очищает место захоронения карточки умершего.
+    /// Доступно автору карточки и администраторам.
+    /// </summary>
+    [HttpDelete("{id:guid}/burial-location")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<ClearBurialLocationResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ClearBurialLocation(
+        [FromRoute] Guid id,
+        [FromServices] IClearBurialLocationUseCase clearBurialLocationUseCase,
+        CancellationToken cancellationToken)
+    {
+        var command = new ClearBurialLocationCommand(id);
+        var result = await clearBurialLocationUseCase.Execute(command, cancellationToken);
 
         return FromResult(result);
     }

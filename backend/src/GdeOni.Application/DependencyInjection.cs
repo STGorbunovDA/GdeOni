@@ -7,6 +7,7 @@ using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.ClearBurialLocation.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ClearMetadata.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Create.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Delete.UseCase;
@@ -90,6 +91,7 @@ public static class DependencyInjection
 
         services.AddScoped<IUpdateMetadataUseCase, UpdateMetadataUseCase>();
         services.AddScoped<IClearMetadataUseCase, ClearMetadataUseCase>();
+        services.AddScoped<IClearBurialLocationUseCase, ClearBurialLocationUseCase>();
         services.AddScoped<IGetDistanceUseCase, GetDistanceUseCase>();
 
         services.AddScoped<IUploadMediaUseCase, UploadMediaUseCase>();

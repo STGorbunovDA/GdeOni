@@ -51,7 +51,6 @@ public sealed class UpdateDeceasedUseCase(
         if (updateMainInfoResult.IsFailure)
             return updateMainInfoResult.Error;
 
-        BurialLocation? burialLocation = null;
         if (command.BurialLocation is not null)
         {
             var burialLocationResult = BurialLocation.Create(
@@ -69,12 +68,10 @@ public sealed class UpdateDeceasedUseCase(
             if (burialLocationResult.IsFailure)
                 return burialLocationResult.Error;
 
-            burialLocation = burialLocationResult.Value;
+            var changeBurialLocationResult = deceased.ChangeBurialLocation(burialLocationResult.Value);
+            if (changeBurialLocationResult.IsFailure)
+                return changeBurialLocationResult.Error;
         }
-
-        var changeBurialLocationResult = deceased.ChangeBurialLocation(burialLocation);
-        if (changeBurialLocationResult.IsFailure)
-            return changeBurialLocationResult.Error;
 
         if (command.Metadata is not null)
         {
