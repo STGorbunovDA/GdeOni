@@ -495,6 +495,16 @@ public static class Errors
 
         public static Error FileRequired() =>
             Error.Validation("media.file.required", "File is required");
+
+        public static Error MagicBytesMismatch(string contentType) =>
+            Error.Validation(
+                "media.content.magic_bytes_mismatch",
+                $"File content does not match declared content type '{contentType}'.");
+
+        public static Error UnreadableStream() =>
+            Error.Validation(
+                "media.content.unreadable",
+                "File stream cannot be read or sought.");
     }
 
     public static class RefreshToken

@@ -10,3 +10,7 @@ appsettings.Development.json
 NuGet.Config
 Tasks.cs
 CLAUDE.md
+history.txt
+.claude/settings.local.json
+.claude/hooks/*.log
+.claude/hooks/log-history.ps1

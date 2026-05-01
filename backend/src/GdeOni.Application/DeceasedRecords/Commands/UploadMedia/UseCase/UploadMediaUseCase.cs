@@ -38,6 +38,14 @@ public sealed class UploadMediaUseCase(
         if (validationResult.IsFailure)
             return validationResult.Error;
 
+        var magicBytesResult = await FileValidator.ValidateMagicBytesAsync(
+            command.Content,
+            command.ContentType,
+            domainKind,
+            cancellationToken);
+        if (magicBytesResult.IsFailure)
+            return magicBytesResult.Error;
+
         var deceased = await deceasedRepository.GetByIdWithMedia(command.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);

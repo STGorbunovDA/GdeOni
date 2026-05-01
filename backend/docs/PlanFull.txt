@@ -1476,6 +1476,192 @@ PATCH /api/deceased-records/{id}/media/{mediaId}/reject
 [ ] Admin может reject.
 [ ] Обычный пользователь не может approve/reject.
 
+---------------------------------------------------------------------
+D7.7 MIME validation по magic numbers
+---------------------------------------------------------------------
+
+Сейчас FileValidator проверяет только Content-Type из multipart-заголовка.
+Это значение присылает клиент, его можно подделать.
+Можно загрузить .exe под видом image/jpeg.
+
+Нужно валидировать тип файла по первым байтам потока:
+
+- JPEG: FF D8 FF;
+- PNG: 89 50 4E 47 0D 0A 1A 0A;
+- WebP: RIFF .... WEBP;
+- PDF: 25 50 44 46.
+
+Логика:
+
+1. Прочитать первые 12 байт из request.Content.
+2. Сравнить с сигнатурой по FileKind.
+3. Если не совпадает — вернуть Errors.Media.PhotoContentTypeNotAllowed
+   или DocumentContentTypeNotAllowed.
+4. Сбросить позицию потока на 0 перед UploadAsync.
+
+Важно:
+
+- проверка по магическим байтам должна быть в Application (FileValidator),
+  а не в Infrastructure;
+- поток должен быть seekable, либо буферизуемым через MemoryStream;
+- для multipart IFormFile это уже выполняется (поток seekable).
+
+Готово, если:
+
+[ ] FileValidator принимает Stream и сверяет первые байты.
+[ ] .exe с Content-Type image/jpeg отклоняется.
+[ ] PDF с Content-Type image/png отклоняется.
+[ ] Позиция потока после проверки сброшена на 0.
+[ ] Существующие фото и PDF продолжают грузиться.
+
+---------------------------------------------------------------------
+D7.8 Presigned URL для production
+---------------------------------------------------------------------
+
+Сейчас MinioFileStorage.GetPresignedUrlAsync генерирует ссылку через
+IMinioClient, который сконфигурен на MinioOptions.Endpoint.
+В production endpoint = "minio:9000" — внутренний адрес контейнера,
+не доступный из браузера.
+
+Получится presigned URL вида http://minio:9000/... — он не сработает
+ни на каком фронтенде.
+
+Нужно либо:
+
+A. Использовать MinIO server-side переменную MINIO_SERVER_URL
+   (рекомендуется): MinIO сам подставляет публичный host в presigned URL.
+
+B. Настроить второй IMinioClient (publicClient) на PublicBaseUrl
+   и использовать его только для GetPresignedUrlAsync.
+
+C. После генерации ссылки заменить host на PublicBaseUrl.
+
+Документация по варианту A:
+
+- docker-compose: добавить env MINIO_SERVER_URL=https://files.example.com;
+- nginx: проксировать на minio:9000;
+- TLS termination на nginx.
+
+Готово, если:
+
+[ ] В production presigned URL содержит публичный домен.
+[ ] Скачивание PDF из браузера работает извне.
+[ ] В docker-compose описана переменная MINIO_SERVER_URL.
+[ ] В docs/deploy.md описан nginx config.
+[ ] В dev окружении ссылка по-прежнему ведёт на localhost:9000.
+
+---------------------------------------------------------------------
+D7.9 Сброс IsMainPhoto при reject и delete
+---------------------------------------------------------------------
+
+Сейчас DeceasedMedia.Reject() меняет только ModerationStatus.
+Если админ отклонил главное фото, оно остаётся IsMainPhoto = true.
+GetMainPhoto() продолжает его возвращать, в карточке светится
+mainPhotoUrl от rejected-файла.
+
+То же самое для DeleteMedia: если удалили main photo, у Deceased
+больше нет main photo, что ОК, но если осталось другое DeceasedPhoto,
+оно не становится автоматически новым main.
+
+Поведение:
+
+- Reject main photo -> IsMainPhoto = false. Никакое другое фото
+  не становится main автоматически (это решение пользователя).
+- Delete main photo -> главное фото пропадает. Никакое другое фото
+  не становится main автоматически.
+
+Готово, если:
+
+[ ] DeceasedMedia.Reject сбрасывает IsMainPhoto если он был true.
+[ ] Deceased.RemoveMedia корректно удаляет main photo
+    (ничего не назначает автоматически).
+[ ] GetMainPhoto не возвращает rejected-файл.
+[ ] Юнит-тест Domain покрывает оба сценария.
+
+---------------------------------------------------------------------
+D7.10 Cleanup orphan files в MinIO
+---------------------------------------------------------------------
+
+При удалении карточки Deceased EF делает Cascade на deceased_media,
+но физические файлы в MinIO остаются как сироты.
+
+Когда появится use case DeleteDeceased, нужно перед SaveChanges
+собрать все (Bucket, StorageKey) media этого Deceased и удалить их
+из MinIO best-effort после успешного Save.
+
+Дополнительно — фоновая задача-чистильщик:
+
+- раз в сутки;
+- листать MinIO bucket;
+- сверять storage_key с БД;
+- если ключа нет в deceased_media — удалять из MinIO старше 24 часов
+  (защита от race с Upload, который ещё не успел сделать SaveChanges).
+
+Готово, если:
+
+[ ] DeleteDeceasedUseCase удаляет media из MinIO перед/после SaveChanges.
+[ ] Best-effort: ошибка MinIO логируется, не блокирует удаление в БД.
+[ ] Описана периодическая job (BackgroundService) для cleanup сирот.
+[ ] Job проверяет возраст файла > 24 часов перед удалением.
+
+---------------------------------------------------------------------
+D7.11 Стриминг OpenReadAsync
+---------------------------------------------------------------------
+
+Сейчас MinioFileStorage.OpenReadAsync копирует весь объект в
+MemoryStream и возвращает его. Для 25 MB PDF и N concurrent клиентов
+это OOM-риск.
+
+Метод пока нигде не используется (D7 отдаёт URL, а не байты),
+но если когда-то понадобится проксировать файлы через API,
+надо переписать на прямой стрим из MinIO в HttpResponse.BodyWriter.
+
+Варианты:
+
+- GetObjectAsync с CallbackStream писать прямо в response;
+- либо вернуть Stream, который читает из MinIO лениво.
+
+Пока этого endpoint нет — пометить как технический долг и не
+использовать OpenReadAsync до фикса.
+
+Готово, если:
+
+[ ] OpenReadAsync не буферизует весь объект в память.
+[ ] При 25 MB файле и 10 параллельных запросах память не растёт
+    линейно от количества клиентов.
+[ ] Если стриминг отложен — метод помечен [Obsolete] с TODO.
+
+---------------------------------------------------------------------
+D7.12 Performance: фильтрованный Include для main photo
+---------------------------------------------------------------------
+
+В UserRepository.GetMyTrackedDeceasedPaged сейчас
+Include(d => d.Media) тянет ВСЕ типы медиа (фото умершего, фото могилы,
+документы) ради одной строки IsMainPhoto = true && Kind = DeceasedPhoto.
+
+На карточке с десятками документов это лишняя сетевая нагрузка
+на каждого пользователя в списке отслеживаемых.
+
+Варианты:
+
+A. EF 8 filtered include:
+
+   Include(d => d.Media.Where(m => m.IsMainPhoto && m.Kind == MediaKind.DeceasedPhoto))
+
+B. Узкая проекция в SQL: subquery на main photo по deceasedIds.
+
+C. Денормализация: добавить Deceased.MainMediaId как FK с NULL,
+   обновлять при SetMainPhoto/RemoveMedia. Без Include вообще.
+
+По сложности: A < B < C. По производительности: C > B > A.
+
+Готово, если:
+
+[ ] Запрос GetMyTrackedDeceasedPaged не тянет документы и фото могил.
+[ ] План SQL подтверждает, что в выборку идёт <= 1 строка media
+    на каждого Deceased.
+[ ] Существующие тесты не сломались.
+
 =====================================================================
 D8. ROUTE API
 =====================================================================
