@@ -105,7 +105,10 @@ public sealed class Deceased : Entity<Guid>
     public int? AgeAtDeath() => LifePeriod.AgeAtDeath();
 
     public DeceasedMedia? GetMainPhoto() =>
-        _media.FirstOrDefault(x => x.Kind == MediaKind.DeceasedPhoto && x.IsMainPhoto);
+        _media.FirstOrDefault(x =>
+            x.Kind == MediaKind.DeceasedPhoto
+            && x.IsMainPhoto
+            && x.ModerationStatus != ModerationStatus.Rejected);
 
     public bool HasMemories() => _memories.Count > 0;
 

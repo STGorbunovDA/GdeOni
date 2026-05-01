@@ -164,6 +164,7 @@ public sealed class DeceasedMedia : Entity<Guid>
             return Errors.DeceasedMedia.AlreadyRejected();
 
         ModerationStatus = ModerationStatus.Rejected;
+        if (IsMainPhoto) IsMainPhoto = false;
         Touch();
         return UnitResult.Success<Error>();
     }
