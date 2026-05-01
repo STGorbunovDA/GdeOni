@@ -1,11 +1,7 @@
 ﻿using GdeOni.API.Mappers;
 using GdeOni.API.Response;
-using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.Model;
-using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.UseCase;
-using GdeOni.Application.DeceasedRecords.Commands.RejectMediaModeration.Model;
-using GdeOni.Application.DeceasedRecords.Commands.RejectMediaModeration.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Unverified.Model;
@@ -95,45 +91,4 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
         return FromResult(result);
     }
     
-    /// <summary>
-    /// Подтверждает медиафайл. Только для администраторов.
-    /// </summary>
-    [HttpPatch("{mediaId:guid}/approve")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Approve(
-        [FromRoute] Guid id,
-        [FromRoute] Guid mediaId,
-        [FromServices] IApproveMediaModerationUseCase useCase,
-        CancellationToken cancellationToken)
-    {
-        var command = new ApproveMediaModerationCommand(id, mediaId);
-        var result = await useCase.Execute(command, cancellationToken);
-        return FromUnitResult(result);
-    }
-
-    /// <summary>
-    /// Отклоняет медиафайл. Только для администраторов.
-    /// </summary>
-    [HttpPatch("{mediaId:guid}/reject")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Reject(
-        [FromRoute] Guid id,
-        [FromRoute] Guid mediaId,
-        [FromServices] IRejectMediaModerationUseCase useCase,
-        CancellationToken cancellationToken)
-    {
-        var command = new RejectMediaModerationCommand(id, mediaId);
-        var result = await useCase.Execute(command, cancellationToken);
-        return FromUnitResult(result);
-    }
 }
