@@ -9,6 +9,7 @@ namespace GdeOni.Application.Users.Commands.ChangePassword.UseCase;
 
 public sealed class ChangePasswordUseCase(
     IUserRepository userRepository,
+    IRefreshTokenRepository refreshTokenRepository,
     IPasswordHasher passwordHasher,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
@@ -31,28 +32,42 @@ public sealed class ChangePasswordUseCase(
 
         var currentUserId = currentUserIdResult.Value;
         var isAdmin = currentUserService.IsAdmin();
-        
+
         var user = await userRepository.GetById(command.UserId, cancellationToken);
         if (user is null)
             return Errors.General.NotFound("user", command.UserId);
-        
+
         if (!isAdmin && user.Id != currentUserId)
             return Errors.User.UserForbidden();
-        
-        if (string.IsNullOrWhiteSpace(command.CurrentPassword))
-            return Errors.User.CurrentPasswordInvalid();
 
-        var isCurrentPasswordValid = 
-            passwordHasher.Verify(command.CurrentPassword, user.PasswordHash);
+        // Admin сбрасывает пароль другому пользователю — не знает чужой текущий
+        // пароль, поэтому проверка CurrentPassword пропускается. При смене
+        // собственного пароля admin тоже обязан подтвердить текущий.
+        var requiresCurrentPasswordCheck = !isAdmin || user.Id == currentUserId;
+        if (requiresCurrentPasswordCheck)
+        {
+            if (string.IsNullOrWhiteSpace(command.CurrentPassword))
+                return Errors.User.CurrentPasswordInvalid();
 
-        if (!isCurrentPasswordValid) 
-            return Errors.User.CurrentPasswordInvalid();
-        
+            var isCurrentPasswordValid =
+                passwordHasher.Verify(command.CurrentPassword, user.PasswordHash);
+
+            if (!isCurrentPasswordValid)
+                return Errors.User.CurrentPasswordInvalid();
+        }
+
         var newPasswordHash = passwordHasher.Hash(command.NewPassword);
 
         var result = user.ChangePasswordHash(newPasswordHash);
         if (result.IsFailure)
             return result.Error;
+
+        // После смены пароля все активные сессии должны быть инвалидированы.
+        // Новый пароль = новый старт; старые refresh-токены могли быть
+        // украдены, по ним нельзя продолжать пересоздавать access-токены.
+        // Save() ниже зафиксирует и user, и токены одной транзакцией —
+        // оба репозитория делят AppDbContext через scope.
+        await refreshTokenRepository.RevokeAllForUser(user.Id, cancellationToken);
 
         await userRepository.Save(cancellationToken);
 

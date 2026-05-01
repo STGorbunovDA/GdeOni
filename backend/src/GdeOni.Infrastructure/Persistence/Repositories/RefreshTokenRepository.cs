@@ -19,6 +19,17 @@ public sealed class RefreshTokenRepository(AppDbContext dbContext) : IRefreshTok
         await dbContext.RefreshTokens.AddAsync(refreshToken, cancellationToken);
     }
 
+    public async Task RevokeAllForUser(Guid userId, CancellationToken cancellationToken)
+    {
+        var tokens = await dbContext.RefreshTokens
+            .Where(t => t.UserId == userId && !t.IsRevoked)
+            .ToListAsync(cancellationToken);
+
+        var now = DateTime.UtcNow;
+        foreach (var token in tokens)
+            token.Revoke(now);
+    }
+
     public async Task Save(CancellationToken cancellationToken)
     {
         try
