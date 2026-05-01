@@ -7,6 +7,7 @@ using GdeOni.Application.Auth.Logout.Model;
 using GdeOni.Application.Auth.Logout.UseCase;
 using GdeOni.Application.Auth.Refresh.Model;
 using GdeOni.Application.Auth.Refresh.UseCase;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
@@ -54,12 +55,15 @@ public sealed class AuthController : ApiControllerBase
     }
 
     /// <summary>
-    /// Отзывает refresh token. Идемпотентен:
-    /// для несуществующего/уже отозванного токена возвращает 204 без ошибки.
+    /// Отзывает refresh token текущего пользователя. Идемпотентен:
+    /// для несуществующего, уже отозванного или чужого токена возвращает
+    /// 204 без ошибки (одинаковый ответ скрывает существование чужих токенов).
     /// </summary>
     [HttpPost("logout")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Logout(
         [FromBody] LogoutRequest request,
         [FromServices] ILogoutUseCase logoutUseCase,
