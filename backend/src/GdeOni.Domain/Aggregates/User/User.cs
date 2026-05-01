@@ -54,6 +54,38 @@ public sealed class User : Entity<Guid>
         string? userName = null,
         UserRole role = UserRole.RegularUser)
     {
+        if (!Enum.IsDefined(typeof(UserRole), role) ||
+            role == UserRole.Unknown ||
+            role == UserRole.SuperAdmin)
+        {
+            return Errors.User.RoleInvalid();
+        }
+
+        return BuildUser(email, passwordHash, fullName, userName, role);
+    }
+
+    /// <summary>
+    /// Привилегированная фабрика для seed-сценария: создаёт пользователя
+    /// с ролью SuperAdmin. Используется только из инфраструктуры
+    /// (DbInitializer). Через публичный API роль SuperAdmin недостижима —
+    /// Register отвергает её, ChangeRole тоже.
+    /// </summary>
+    public static Result<User, Error> RegisterSuperAdmin(
+        string email,
+        string passwordHash,
+        string? fullName = null,
+        string? userName = null)
+    {
+        return BuildUser(email, passwordHash, fullName, userName, UserRole.SuperAdmin);
+    }
+
+    private static Result<User, Error> BuildUser(
+        string email,
+        string passwordHash,
+        string? fullName,
+        string? userName,
+        UserRole role)
+    {
         if (string.IsNullOrWhiteSpace(passwordHash))
             return Errors.User.PasswordHashRequired();
 
@@ -68,13 +100,6 @@ public sealed class User : Entity<Guid>
         var fullNameResult = NormalizeFullName(fullName);
         if (fullNameResult.IsFailure)
             return fullNameResult.Error;
-
-        if (!Enum.IsDefined(typeof(UserRole), role) ||
-            role == UserRole.Unknown ||
-            role == UserRole.SuperAdmin)
-        {
-            return Errors.User.RoleInvalid();
-        }
 
         return Result.Success<User, Error>(
             new User(

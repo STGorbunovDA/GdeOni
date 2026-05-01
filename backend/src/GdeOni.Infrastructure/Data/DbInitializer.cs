@@ -47,12 +47,11 @@ internal static class DbInitializer
 
         var passwordHash = passwordHasher.Hash(superAdmin.Password);
 
-        var userResult = User.Register(
+        var userResult = User.RegisterSuperAdmin(
             email: superAdmin.Email,
             passwordHash: passwordHash,
             fullName: superAdmin.FullName,
-            userName: superAdmin.UserName,
-            role: UserRole.SuperAdmin);
+            userName: superAdmin.UserName);
 
         if (userResult.IsFailure)
         {
