@@ -168,7 +168,13 @@ public sealed class BurialLocation : ValueObject
     {
         yield return Latitude;
         yield return Longitude;
-        yield return AccuracyMeters ?? double.NaN;
+
+        // Пара (HasValue, Value) вместо `?? double.NaN`: NaN != NaN
+        // по IEEE-754, иначе два BurialLocation без AccuracyMeters
+        // никогда не равны самим себе (ломается reflexive Equals).
+        yield return AccuracyMeters.HasValue;
+        yield return AccuracyMeters ?? 0.0;
+
         yield return Country ?? string.Empty;
         yield return Region ?? string.Empty;
         yield return City ?? string.Empty;

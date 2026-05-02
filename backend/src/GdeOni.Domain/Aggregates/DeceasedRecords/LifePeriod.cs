@@ -49,7 +49,12 @@ public sealed class LifePeriod : ValueObject
 
     protected override IEnumerable<object> GetEqualityComponents()
     {
-        yield return BirthDate ?? DateOnly.MinValue;
+        // Пара (HasValue, Value) вместо `?? DateOnly.MinValue`: иначе
+        // исторический деятель с BirthDate = 0001-01-01 считается
+        // равным LifePeriod без BirthDate.
+        yield return BirthDate.HasValue;
+        yield return BirthDate ?? default(DateOnly);
+
         yield return DeathDate;
     }
 }
