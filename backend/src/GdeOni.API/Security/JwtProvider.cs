@@ -16,6 +16,8 @@ public sealed class JwtProvider(IOptions<JwtOptions> options) : IJwtProvider
     {
         var claims = new List<Claim>
         {
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new(JwtClaimNames.SecurityStamp, user.SecurityStamp.ToString()),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Email, user.Email),
             new(ClaimTypes.Name, user.UserName),

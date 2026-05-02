@@ -19,6 +19,14 @@ public sealed class User : Entity<Guid>
     public DateTime RegisteredAtUtc { get; }
     public DateTime? LastLoginAtUtc { get; private set; }
 
+    /// <summary>
+    /// Метка инвалидации JWT. Кладётся в access-токен как claim "stamp".
+    /// При смене пароля / роли / email обновляется на новый Guid —
+    /// все ранее выпущенные токены становятся невалидны при следующей
+    /// проверке (см. JwtBearerEvents.OnTokenValidated).
+    /// </summary>
+    public Guid SecurityStamp { get; private set; }
+
     private readonly List<TrackedDeceased> _trackedDeceasedItems = new();
     public IReadOnlyCollection<TrackedDeceased> TrackedDeceasedItems => _trackedDeceasedItems.AsReadOnly();
 
@@ -45,6 +53,7 @@ public sealed class User : Entity<Guid>
         PasswordHash = passwordHash;
         Role = role;
         RegisteredAtUtc = registeredAtUtc;
+        SecurityStamp = Guid.NewGuid();
     }
 
     public static Result<User, Error> Register(
@@ -135,6 +144,7 @@ public sealed class User : Entity<Guid>
             return emailResult.Error;
 
         Email = emailResult.Value;
+        SecurityStamp = Guid.NewGuid();
         return UnitResult.Success<Error>();
     }
 
@@ -144,6 +154,7 @@ public sealed class User : Entity<Guid>
             return Errors.User.PasswordHashRequired();
 
         PasswordHash = newPasswordHash;
+        SecurityStamp = Guid.NewGuid();
         return UnitResult.Success<Error>();
     }
 
@@ -157,6 +168,7 @@ public sealed class User : Entity<Guid>
         }
 
         Role = role;
+        SecurityStamp = Guid.NewGuid();
         return UnitResult.Success<Error>();
     }
 
