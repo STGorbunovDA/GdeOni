@@ -317,6 +317,13 @@ public sealed class Deceased : Entity<Guid>
         if (media.Kind != MediaKind.DeceasedPhoto)
             return Errors.DeceasedMedia.OnlyDeceasedPhotoCanBeMain();
 
+        // Только Approved фото может стать main. Защищает от сценария
+        // "загрузил Pending → пометил main → ждёт Approve и автоматически
+        // публикует main без явного решения админа". Юзер сначала
+        // дожидается модерации, потом ставит main явно.
+        if (media.ModerationStatus != ModerationStatus.Approved)
+            return Errors.DeceasedMedia.MainPhotoMustBeApproved();
+
         foreach (var item in _media.Where(x => x.Kind == MediaKind.DeceasedPhoto && x.Id != mediaId))
             item.UnmarkMainPhoto();
 

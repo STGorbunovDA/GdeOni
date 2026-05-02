@@ -466,6 +466,11 @@ public static class Errors
         public static Error OnlyDeceasedPhotoCanBeMain() =>
             Error.Conflict("deceased_media.main_photo.only_deceased_photo", "Only DeceasedPhoto can be main photo");
 
+        public static Error MainPhotoMustBeApproved() =>
+            Error.Conflict(
+                "deceased_media.main_photo.not_approved",
+                "Only an Approved photo can be set as main. Wait for moderation, then try again.");
+
         public static Error AlreadyApproved() =>
             Error.Conflict("deceased_media.already.approved", "Media is already approved");
 
