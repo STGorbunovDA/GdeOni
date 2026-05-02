@@ -5,6 +5,7 @@ using GdeOni.Application.Auth.Refresh.Model;
 using GdeOni.Application.Common.Security;
 using GdeOni.Domain.Aggregates.Auth;
 using GdeOni.Domain.Shared;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace GdeOni.Application.Auth.Refresh.UseCase;
@@ -16,7 +17,8 @@ public sealed class RefreshUseCase(
     IRefreshTokenFactory refreshTokenFactory,
     ICurrentUserService currentUserService,
     IOptions<JwtOptions> jwtOptions,
-    IValidatedUseCaseExecutor validatedUseCaseExecutor)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    ILogger<RefreshUseCase> logger)
     : IRefreshUseCase
 {
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
@@ -40,8 +42,24 @@ public sealed class RefreshUseCase(
 
         var nowUtc = DateTime.UtcNow;
 
+        // Replay revoked-токена. Сценарий: токен украден до того, как
+        // легит-юзер успел его прокрутить, либо после ротации старый
+        // токен выплыл в чужих руках. RFC 6819 / OAuth 2.0 BCP — это
+        // сигнал компрометации семьи. Ревокаем все активные RT юзера,
+        // логируем warning, возвращаем явный код replay_detected.
         if (existingToken.IsRevoked)
-            return Errors.RefreshToken.TokenRevoked();
+        {
+            await refreshTokenRepository.RevokeAllForUser(existingToken.UserId, cancellationToken);
+            await refreshTokenRepository.Save(cancellationToken);
+
+            logger.LogWarning(
+                "Refresh token replay detected for user {UserId}. " +
+                "Revoked all active sessions. ClientIp: {ClientIp}",
+                existingToken.UserId,
+                currentUserService.GetRemoteIpAddress() ?? "unknown");
+
+            return Errors.RefreshToken.ReplayDetected();
+        }
 
         if (existingToken.IsExpired(nowUtc))
             return Errors.RefreshToken.TokenExpired();
@@ -50,15 +68,18 @@ public sealed class RefreshUseCase(
         if (user is null)
             return Errors.RefreshToken.TokenInvalid();
 
-        var revokeResult = existingToken.Revoke(nowUtc);
-        if (revokeResult.IsFailure)
-            return revokeResult.Error;
-
         var accessToken = jwtProvider.GenerateAccessToken(user);
 
         var newPlain = refreshTokenFactory.Generate();
         var newHash = refreshTokenFactory.Hash(newPlain);
         var newExpiresAtUtc = nowUtc.AddDays(_jwtOptions.RefreshTokenLifetimeDays);
+
+        // Связываем старый токен с новым через ReplacedByTokenHash —
+        // получается цепочка ротации, по которой можно восстановить
+        // историю при разборе инцидента.
+        var revokeResult = existingToken.Revoke(nowUtc, newHash);
+        if (revokeResult.IsFailure)
+            return revokeResult.Error;
 
         var newTokenResult = RefreshToken.Issue(
             user.Id,

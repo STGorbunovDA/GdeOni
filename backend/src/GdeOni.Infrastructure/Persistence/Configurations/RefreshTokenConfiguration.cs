@@ -42,6 +42,10 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
             .HasColumnName("created_from_ip")
             .HasMaxLength(RefreshToken.MaxIpLength);
 
+        builder.Property(x => x.ReplacedByTokenHash)
+            .HasColumnName("replaced_by_token_hash")
+            .HasMaxLength(RefreshToken.TokenHashLength);
+
         builder.HasIndex(x => x.TokenHash)
             .IsUnique()
             .HasDatabaseName(DbConstraints.UxRefreshTokensTokenHash);

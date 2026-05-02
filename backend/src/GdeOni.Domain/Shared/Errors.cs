@@ -560,5 +560,10 @@ public static class Errors
 
         public static Error TokenAlreadyRevoked() =>
             Error.Conflict("refresh_token.already_revoked", "Refresh token has already been revoked");
+
+        public static Error ReplayDetected() =>
+            Error.Unauthorized(
+                "refresh_token.replay_detected",
+                "Refresh token replay detected. All active sessions have been revoked.");
     }
 }

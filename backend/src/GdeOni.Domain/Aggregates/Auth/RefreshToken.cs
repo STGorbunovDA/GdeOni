@@ -15,6 +15,15 @@ public sealed class RefreshToken : Entity<Guid>
     public DateTime CreatedAtUtc { get; }
     public string? CreatedFromIp { get; }
 
+    /// <summary>
+    /// Hash следующего токена в цепочке ротации. Заполняется при
+    /// обычном Refresh-rotate и связывает старый токен с новым.
+    /// При replay этого revoked-токена использование цепочки даёт
+    /// сигнал компрометации и триггерит revoke всех активных RT
+    /// пользователя (см. RefreshUseCase, D7.32).
+    /// </summary>
+    public string? ReplacedByTokenHash { get; private set; }
+
     public bool IsRevoked => RevokedAtUtc is not null;
     public bool IsExpired(DateTime nowUtc) => nowUtc >= ExpiresAtUtc;
     public bool IsActive(DateTime nowUtc) => !IsRevoked && !IsExpired(nowUtc);
@@ -67,12 +76,13 @@ public sealed class RefreshToken : Entity<Guid>
             createdFromIp);
     }
 
-    public UnitResult<Error> Revoke(DateTime nowUtc)
+    public UnitResult<Error> Revoke(DateTime nowUtc, string? replacedByTokenHash = null)
     {
         if (IsRevoked)
             return Errors.RefreshToken.TokenAlreadyRevoked();
 
         RevokedAtUtc = nowUtc;
+        ReplacedByTokenHash = replacedByTokenHash;
         return UnitResult.Success<Error>();
     }
 }
