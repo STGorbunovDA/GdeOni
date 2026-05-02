@@ -5,7 +5,9 @@ using GdeOni.Application.Common.Security;
 using GdeOni.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace GdeOni.API;
@@ -104,11 +106,14 @@ public static class DependencyInjection
 
         services.AddAuthorization();
         services.AddHttpContextAccessor();
+        services.AddMemoryCache();
         services.AddScoped<IJwtProvider, JwtProvider>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
         return services;
     }
+
+    internal static string SecurityStampCacheKey(Guid userId) => $"secstamp:{userId}";
 
     private static async Task ValidateSecurityStampAsync(TokenValidatedContext context)
     {
@@ -129,15 +134,30 @@ public static class DependencyInjection
             return;
         }
 
-        var dbContext = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+        // Read-through кеш с коротким TTL — без него SELECT security_stamp
+        // FROM users WHERE id=@uid идёт на КАЖДОМ аутентифицированном запросе.
+        // Trade-off задокументирован в JwtOptions.SecurityStampCacheTtlSeconds.
+        var sp = context.HttpContext.RequestServices;
+        var cache = sp.GetRequiredService<IMemoryCache>();
+        var jwtOptions = sp.GetRequiredService<IOptions<JwtOptions>>().Value;
+        var cacheKey = SecurityStampCacheKey(userId);
 
-        var actualStamp = await dbContext.Users
-            .AsNoTracking()
-            .Where(u => u.Id == userId)
-            .Select(u => (Guid?)u.SecurityStamp)
-            .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
+        if (!cache.TryGetValue<Guid?>(cacheKey, out var cachedStamp))
+        {
+            var dbContext = sp.GetRequiredService<AppDbContext>();
+            cachedStamp = await dbContext.Users
+                .AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => (Guid?)u.SecurityStamp)
+                .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
 
-        if (actualStamp is null || actualStamp.Value != tokenStamp)
+            cache.Set(
+                cacheKey,
+                cachedStamp,
+                TimeSpan.FromSeconds(jwtOptions.SecurityStampCacheTtlSeconds));
+        }
+
+        if (cachedStamp is null || cachedStamp.Value != tokenStamp)
         {
             context.Fail("Security stamp mismatch.");
         }
