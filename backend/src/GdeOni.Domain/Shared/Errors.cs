@@ -318,6 +318,26 @@ public static class Errors
         public static Error UserForbidden() =>
             Error.Validation("user.forbidden", "You do not have permission to access the current user.");
 
+        public static Error ChangeSuperAdminRoleForbidden() =>
+            Error.Forbidden(
+                "user.role.change.super_admin.forbidden",
+                "Only a SuperAdmin can change the role of another SuperAdmin.");
+
+        public static Error ChangePeerAdminRoleForbidden() =>
+            Error.Forbidden(
+                "user.role.change.peer_admin.forbidden",
+                "An Admin cannot change the role of another Admin. Only a SuperAdmin can.");
+
+        public static Error DeleteSuperAdminForbidden() =>
+            Error.Forbidden(
+                "user.delete.super_admin.forbidden",
+                "SuperAdmin cannot be deleted.");
+
+        public static Error DeleteSelfForbidden() =>
+            Error.Forbidden(
+                "user.delete.self.forbidden",
+                "You cannot delete your own account.");
+
         public static Error RoleUnknownNotAllowed() =>
             Error.Validation("user.role.unknown.not_allowed", "The role cannot be Unknown");
 
