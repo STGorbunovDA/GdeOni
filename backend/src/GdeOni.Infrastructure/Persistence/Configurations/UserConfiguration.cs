@@ -49,6 +49,9 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.LastLoginAtUtc)
             .HasColumnName("last_login_at_utc");
 
+        builder.Property(x => x.UpdatedAtUtc)
+            .HasColumnName("updated_at_utc");
+
         builder.Property(x => x.SecurityStamp)
             .HasColumnName("security_stamp")
             .IsRequired();

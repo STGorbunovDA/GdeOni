@@ -18,6 +18,7 @@ public sealed class User : Entity<Guid>
     public UserRole Role { get; private set; }
     public DateTime RegisteredAtUtc { get; }
     public DateTime? LastLoginAtUtc { get; private set; }
+    public DateTime? UpdatedAtUtc { get; private set; }
 
     /// <summary>
     /// Метка инвалидации JWT. Кладётся в access-токен как claim "stamp".
@@ -133,6 +134,7 @@ public sealed class User : Entity<Guid>
 
         UserName = userNameResult.Value;
         FullName = fullNameResult.Value;
+        Touch();
 
         return UnitResult.Success<Error>();
     }
@@ -145,6 +147,7 @@ public sealed class User : Entity<Guid>
 
         Email = emailResult.Value;
         SecurityStamp = Guid.NewGuid();
+        Touch();
         return UnitResult.Success<Error>();
     }
 
@@ -155,6 +158,7 @@ public sealed class User : Entity<Guid>
 
         PasswordHash = newPasswordHash;
         SecurityStamp = Guid.NewGuid();
+        Touch();
         return UnitResult.Success<Error>();
     }
 
@@ -169,13 +173,20 @@ public sealed class User : Entity<Guid>
 
         Role = role;
         SecurityStamp = Guid.NewGuid();
+        Touch();
         return UnitResult.Success<Error>();
     }
 
     public UnitResult<Error> MarkLogin(DateTime? loggedInAtUtc = null)
     {
         LastLoginAtUtc = loggedInAtUtc ?? DateTime.UtcNow;
+        Touch();
         return UnitResult.Success<Error>();
+    }
+
+    private void Touch()
+    {
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 
     public Result<TrackedDeceased, Error> TrackDeceased(

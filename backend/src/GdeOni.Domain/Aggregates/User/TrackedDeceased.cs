@@ -14,6 +14,7 @@ public sealed class TrackedDeceased : Entity<Guid>
     public bool NotifyOnBirthAnniversary { get; private set; }
     public TrackStatus Status { get; private set; }
     public DateTime TrackedAtUtc { get; }
+    public DateTime? UpdatedAtUtc { get; private set; }
 
     private TrackedDeceased() : base(Guid.Empty)
     {
@@ -80,6 +81,7 @@ public sealed class TrackedDeceased : Entity<Guid>
 
         RelationshipType = relationshipType;
         PersonalNotes = notesResult.Value;
+        Touch();
 
         return UnitResult.Success<Error>();
     }
@@ -90,6 +92,7 @@ public sealed class TrackedDeceased : Entity<Guid>
     {
         NotifyOnDeathAnniversary = notifyOnDeathAnniversary;
         NotifyOnBirthAnniversary = notifyOnBirthAnniversary;
+        Touch();
 
         return UnitResult.Success<Error>();
     }
@@ -100,6 +103,7 @@ public sealed class TrackedDeceased : Entity<Guid>
             return Errors.Tracking.AlreadyArchived();
 
         Status = TrackStatus.Archived;
+        Touch();
         return UnitResult.Success<Error>();
     }
 
@@ -109,6 +113,7 @@ public sealed class TrackedDeceased : Entity<Guid>
             return Errors.Tracking.AlreadyMuted();
 
         Status = TrackStatus.Muted;
+        Touch();
         return UnitResult.Success<Error>();
     }
 
@@ -118,6 +123,7 @@ public sealed class TrackedDeceased : Entity<Guid>
             return Errors.Tracking.AlreadyActive();
 
         Status = TrackStatus.Active;
+        Touch();
         return UnitResult.Success<Error>();
     }
 
@@ -139,7 +145,13 @@ public sealed class TrackedDeceased : Entity<Guid>
             return notificationResult.Error;
 
         Status = TrackStatus.Active;
+        Touch();
         return UnitResult.Success<Error>();
+    }
+
+    private void Touch()
+    {
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 
     public bool IsActive() => Status == TrackStatus.Active;

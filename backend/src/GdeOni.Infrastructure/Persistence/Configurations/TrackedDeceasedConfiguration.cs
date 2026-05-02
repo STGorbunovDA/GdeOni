@@ -51,6 +51,9 @@ public sealed class TrackedDeceasedConfiguration : IEntityTypeConfiguration<Trac
             .HasColumnName("tracked_at_utc")
             .IsRequired();
 
+        builder.Property(x => x.UpdatedAtUtc)
+            .HasColumnName("updated_at_utc");
+
         builder.HasIndex("user_id")
             .HasDatabaseName("ix_tracked_deceased_user_id");
 
