@@ -112,13 +112,15 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
         return (items, totalCount);
     }
 
-    public async Task<(List<User> Items, int TotalCount)> GetPaged(
+    public async Task<(List<(User User, int TrackingCount)> Items, int TotalCount)> GetPaged(
         GetAllUsersQuery query,
         CancellationToken cancellationToken)
     {
+        // Без Include(TrackedDeceasedItems) — раньше тянули всю коллекцию
+        // подписок ради одного .Count в response. Сейчас COUNT делается
+        // в SQL через subquery в Select.
         var dbQuery = UsersQuery()
             .Where(x => x.Role != UserRole.SuperAdmin)
-            .Include(x => x.TrackedDeceasedItems)
             .AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(query.Search))
@@ -160,12 +162,32 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 
         var totalCount = await dbQuery.CountAsync(cancellationToken);
 
-        var items = await dbQuery
+        var rows = await dbQuery
             .OrderByDescending(x => x.RegisteredAtUtc)
             .Skip((query.Page - 1) * query.PageSize)
             .Take(query.PageSize)
+            .Select(u => new { User = u, TrackingCount = u.TrackedDeceasedItems.Count() })
             .ToListAsync(cancellationToken);
 
+        var items = rows
+            .Select(x => (x.User, x.TrackingCount))
+            .ToList();
+
         return (items, totalCount);
+    }
+
+    public Task<bool> IsActivelyTracking(Guid userId, Guid deceasedId, CancellationToken cancellationToken)
+    {
+        // SELECT 1 с EXISTS — никакой загрузки User или коллекции.
+        // Endpoint /tracked-deceased/{id}/exists вызывается UI часто
+        // (на каждой карточке/в списке), поэтому стоит остановить
+        // материализацию Tracking-коллекций.
+        return dbContext.Set<TrackedDeceased>()
+            .AsNoTracking()
+            .AnyAsync(
+                t => EF.Property<Guid>(t, "user_id") == userId
+                    && t.DeceasedId == deceasedId
+                    && t.Status != TrackStatus.Archived,
+                cancellationToken);
     }
 }

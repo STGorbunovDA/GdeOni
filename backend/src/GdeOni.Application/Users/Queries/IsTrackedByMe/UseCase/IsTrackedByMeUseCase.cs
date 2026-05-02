@@ -19,12 +19,11 @@ public sealed class IsTrackedByMeUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        var user = await userRepository.GetByIdWithTracking(currentUserIdResult.Value, cancellationToken);
-        if (user is null)
-            return Errors.General.NotFound("user", currentUserIdResult.Value);
-
-        var tracking = user.GetTracking(query.DeceasedId);
-        var tracked = tracking is not null && !tracking.IsArchived();
+        // Один SELECT 1 / EXISTS, без загрузки user и его tracking-коллекции.
+        var tracked = await userRepository.IsActivelyTracking(
+            currentUserIdResult.Value,
+            query.DeceasedId,
+            cancellationToken);
 
         return Result.Success<IsTrackedByMeResponse, Error>(new IsTrackedByMeResponse(tracked));
     }
