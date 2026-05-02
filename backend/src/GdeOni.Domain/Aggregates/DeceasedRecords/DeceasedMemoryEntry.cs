@@ -55,6 +55,12 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
             return textResult.Error;
 
         Text = textResult.Value;
+        // Любая правка текста возвращает запись в Pending. Без этого
+        // обходится модерация: автор пишет одобряемое содержимое,
+        // ждёт Approved, затем редактирует на произвольный текст —
+        // и запись остаётся Approved. Reset при каждом EditText
+        // заставляет каждый текст пройти модерацию заново.
+        ModerationStatus = ModerationStatus.Pending;
         return UnitResult.Success<Error>();
     }
 
