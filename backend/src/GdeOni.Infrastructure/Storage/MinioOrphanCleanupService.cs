@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Minio;
+using Minio.DataModel;
 using Minio.DataModel.Args;
 
 namespace GdeOni.Infrastructure.Storage;
@@ -16,6 +17,11 @@ internal sealed class MinioOrphanCleanupService(
     ILogger<MinioOrphanCleanupService> logger)
     : BackgroundService
 {
+    // Размер пачки объектов из MinIO, для которой делается один SQL-запрос
+    // по списку storage_key. На 1000 keys запрос укладывается в стандартные
+    // лимиты Postgres-параметров и держит RAM ограниченной.
+    private const int BatchSize = 1000;
+
     private readonly MinioOptions _options = options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -69,12 +75,6 @@ internal sealed class MinioOrphanCleanupService(
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var client = scope.ServiceProvider.GetRequiredService<IMinioClient>();
 
-        var knownKeys = await dbContext.Set<DeceasedMedia>()
-            .AsNoTracking()
-            .Select(m => m.StorageKey)
-            .ToListAsync(cancellationToken);
-
-        var knownKeysSet = new HashSet<string>(knownKeys, StringComparer.Ordinal);
         var cutoff = DateTime.UtcNow - ageThreshold;
 
         var buckets = new[]
@@ -90,7 +90,7 @@ internal sealed class MinioOrphanCleanupService(
         foreach (var bucket in buckets)
         {
             var (deleted, skipped) = await CleanupBucketAsync(
-                client, bucket, knownKeysSet, cutoff, cancellationToken);
+                client, dbContext, bucket, cutoff, cancellationToken);
             totalDeleted += deleted;
             totalSkipped += skipped;
         }
@@ -102,8 +102,8 @@ internal sealed class MinioOrphanCleanupService(
 
     private async Task<(int Deleted, int Skipped)> CleanupBucketAsync(
         IMinioClient client,
+        AppDbContext dbContext,
         string bucket,
-        HashSet<string> knownKeys,
         DateTime cutoff,
         CancellationToken cancellationToken)
     {
@@ -113,12 +113,58 @@ internal sealed class MinioOrphanCleanupService(
 
         var deleted = 0;
         var skipped = 0;
+        var batch = new List<Item>(BatchSize);
 
         await foreach (var item in client.ListObjectsEnumAsync(listArgs, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (item.IsDir) continue;
-            if (knownKeys.Contains(item.Key)) continue;
+
+            batch.Add(item);
+            if (batch.Count < BatchSize) continue;
+
+            var (d, s) = await ProcessBatchAsync(
+                client, dbContext, bucket, batch, cutoff, cancellationToken);
+            deleted += d;
+            skipped += s;
+            batch.Clear();
+        }
+
+        if (batch.Count > 0)
+        {
+            var (d, s) = await ProcessBatchAsync(
+                client, dbContext, bucket, batch, cutoff, cancellationToken);
+            deleted += d;
+            skipped += s;
+        }
+
+        return (deleted, skipped);
+    }
+
+    private async Task<(int Deleted, int Skipped)> ProcessBatchAsync(
+        IMinioClient client,
+        AppDbContext dbContext,
+        string bucket,
+        List<Item> batch,
+        DateTime cutoff,
+        CancellationToken cancellationToken)
+    {
+        var keys = batch.Select(x => x.Key).ToList();
+
+        var knownInBatch = await dbContext.Set<DeceasedMedia>()
+            .AsNoTracking()
+            .Where(m => m.Bucket == bucket && keys.Contains(m.StorageKey))
+            .Select(m => m.StorageKey)
+            .ToListAsync(cancellationToken);
+
+        var knownSet = new HashSet<string>(knownInBatch, StringComparer.Ordinal);
+
+        var deleted = 0;
+        var skipped = 0;
+
+        foreach (var item in batch)
+        {
+            if (knownSet.Contains(item.Key)) continue;
 
             var lastModified = item.LastModifiedDateTime ?? DateTime.UtcNow;
             if (lastModified > cutoff)
