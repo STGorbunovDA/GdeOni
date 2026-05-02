@@ -1,3 +1,4 @@
+using CSharpFunctionalExtensions;
 using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.API.Response;
 using GdeOni.Application.Abstractions.Storage;
@@ -12,6 +13,7 @@ using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.UseCase;
+using GdeOni.Domain.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -47,7 +49,7 @@ public sealed class DeceasedMediaController : ApiControllerBase
         CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0)
-            return BadRequest();
+            return FromResult(Result.Failure<UploadMediaResponse, Error>(Errors.Media.FileRequired()));
 
         await using var stream = file.OpenReadStream();
 

@@ -195,11 +195,10 @@ public sealed class User : Entity<Guid>
         return UnitResult.Success<Error>();
     }
 
-    public UnitResult<Error> MarkLogin(DateTime? loggedInAtUtc = null)
+    public void MarkLogin(DateTime? loggedInAtUtc = null)
     {
         LastLoginAtUtc = loggedInAtUtc ?? DateTime.UtcNow;
         Touch();
-        return UnitResult.Success<Error>();
     }
 
     private void Touch()

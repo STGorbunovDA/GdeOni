@@ -46,6 +46,9 @@ public static class Errors
         {
             return Error.Forbidden(code, message);
         }
+
+        public static Error InternalServerError() =>
+            Error.Failure("server.internal", "An unexpected server error occurred.");
     }
 
     public static class PersonName

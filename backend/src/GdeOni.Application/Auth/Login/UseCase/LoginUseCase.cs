@@ -48,9 +48,7 @@ public sealed class LoginUseCase(
         if (!passwordHasher.Verify(command.Password, user.PasswordHash))
             return Errors.User.InvalidCredentials();
 
-        var loginMarkResult = user.MarkLogin();
-        if (loginMarkResult.IsFailure)
-            return loginMarkResult.Error;
+        user.MarkLogin();
 
         var accessToken = jwtProvider.GenerateAccessToken(user);
 

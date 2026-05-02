@@ -3,6 +3,7 @@ using GdeOni.API.Mappers;
 using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.API.Response;
 using GdeOni.Application.Common.Shared;
+using GdeOni.Application.DeceasedRecords.Queries.GetAll.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ClearBurialLocation.Model;
@@ -80,7 +81,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// </summary>
     [HttpGet]
     [Authorize(Roles = "SuperAdmin,Admin")]
-    [ProducesResponseType(typeof(ApiResponse<PagedResponse<DeceasedListItemDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResponse<GetAllDeceasedItemResponse>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetAll(
         [FromQuery] GetAllDeceasedRequest request,
@@ -90,7 +91,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         var query = request.ToQuery();
         var result = await getAllDeceasedUseCase.Execute(query, cancellationToken);
 
-        return FromResult(result, value => value.ToDto().ToOkResponse());
+        return FromResult(result);
     }
 
     /// <summary>

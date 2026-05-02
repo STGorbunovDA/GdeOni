@@ -49,9 +49,7 @@ public sealed class ExceptionMiddleware(
             if (context.Response.HasStarted)
                 throw;
 
-            var error = Error.Failure(
-                "server.internal",
-                "An unexpected server error occurred.");
+            var error = Errors.General.InternalServerError();
 
             var response = ApiResponse<object?>.Error(error);
 
