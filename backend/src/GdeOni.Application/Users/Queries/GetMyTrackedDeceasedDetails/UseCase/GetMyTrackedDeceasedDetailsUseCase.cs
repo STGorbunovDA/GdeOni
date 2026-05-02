@@ -38,7 +38,7 @@ public sealed class GetMyTrackedDeceasedDetailsUseCase(
         if (tracking is null || tracking.IsArchived())
             return Errors.Tracking.NotTracked();
 
-        var deceased = await deceasedRepository.GetById(query.DeceasedId, cancellationToken);
+        var deceased = await deceasedRepository.GetByIdWithMemories(query.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", query.DeceasedId);
 

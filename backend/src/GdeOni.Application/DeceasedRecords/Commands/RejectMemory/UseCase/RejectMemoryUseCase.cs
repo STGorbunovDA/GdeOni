@@ -31,7 +31,7 @@ public sealed class RejectMemoryUseCase(
         if (!currentUserService.IsAdmin())
             return Errors.DeceasedMemory.RejectMemoryForbidden();
         
-        var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
+        var deceased = await deceasedRepository.GetByIdWithMemories(command.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
 

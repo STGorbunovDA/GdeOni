@@ -22,7 +22,7 @@ public sealed class HasMemoriesUseCase(
         HasMemoriesQuery query,
         CancellationToken cancellationToken)
     {
-        var deceased = await deceasedRepository.GetById(query.DeceasedId, cancellationToken);
+        var deceased = await deceasedRepository.GetByIdWithMemories(query.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", query.DeceasedId);
 

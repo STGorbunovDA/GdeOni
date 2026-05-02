@@ -16,6 +16,14 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
 
     public async Task<Deceased?> GetById(Guid id, CancellationToken cancellationToken)
     {
+        // Без Include: для use case-ов, которым нужны только flat-поля
+        // карточки (Verify, Update, GetMediaList, GetAge и т.п.).
+        return await dbContext.DeceasedRecords
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
+    public async Task<Deceased?> GetByIdWithMemories(Guid id, CancellationToken cancellationToken)
+    {
         return await dbContext.DeceasedRecords
             .Include(x => x.Memories)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -26,6 +34,13 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
         return await dbContext.DeceasedRecords
             .Include(x => x.Media)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
+    public Task<bool> ExistsById(Guid id, CancellationToken cancellationToken)
+    {
+        return dbContext.DeceasedRecords
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == id, cancellationToken);
     }
 
     public async Task<(List<DeceasedMedia> Items, int TotalCount)> GetMediaPaged(
