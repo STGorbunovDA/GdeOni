@@ -3,6 +3,7 @@ using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Common.Security;
 using GdeOni.Infrastructure.Data;
 using GdeOni.Infrastructure.Persistence;
+using GdeOni.Infrastructure.Persistence.Cleanup;
 using GdeOni.Infrastructure.Persistence.Repositories;
 using GdeOni.Infrastructure.Security;
 using GdeOni.Infrastructure.Storage;
@@ -76,6 +77,10 @@ public static class DependencyInjection
         services.AddSingleton<IFileStorage, MinioFileStorage>();
 
         services.AddHostedService<MinioOrphanCleanupService>();
+
+        services.Configure<RefreshTokensCleanupOptions>(
+            configuration.GetSection(RefreshTokensCleanupOptions.SectionName));
+        services.AddHostedService<RefreshTokensCleanupService>();
 
         return services;
     }
