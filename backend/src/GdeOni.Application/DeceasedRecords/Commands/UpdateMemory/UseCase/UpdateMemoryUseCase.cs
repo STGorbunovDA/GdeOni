@@ -30,12 +30,22 @@ public sealed class UpdateMemoryUseCase(
 
         var currentUserId = currentUserIdResult.Value;
         var isAdmin = currentUserService.IsAdmin();
-        
+
         var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
-        
-        if (!isAdmin && deceased.CreatedByUserId != currentUserId)
+
+        var memory = deceased.Memories.FirstOrDefault(m => m.Id == command.MemoryId);
+        if (memory is null)
+            return Errors.DeceasedMemory.NotFound(command.MemoryId);
+
+        // Редактировать может: автор воспоминания, автор карточки
+        // (модерация), admin. После редактирования D7.22 вернёт
+        // запись в Pending — текст пройдёт модерацию заново.
+        var canEdit = isAdmin
+            || memory.AuthorUserId == currentUserId
+            || deceased.CreatedByUserId == currentUserId;
+        if (!canEdit)
             return Errors.Deceased.UpdateMemoryForbidden();
 
         var editTextResult = deceased.EditMemory(command.MemoryId, command.Text);

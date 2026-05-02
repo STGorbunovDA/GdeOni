@@ -126,11 +126,6 @@ public static class Errors
         public static Error MetadataRequired() =>
             Error.Validation("deceased.metadata.required", "Metadata is required");
 
-        public static Error AddMemoryForbidden() =>
-            Error.Forbidden(
-                "deceased_memory.author.forbidden",
-                "You cannot create a memory on behalf of another user.");
-        
         public static Error UpdateMemoryForbidden() =>
             Error.Forbidden(
                 "deceased_memory.author.forbidden",
