@@ -27,6 +27,11 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(User.MaxUserNameLength)
             .IsRequired();
 
+        builder.Property(x => x.UserNameNormalized)
+            .HasColumnName("user_name_normalized")
+            .HasMaxLength(User.MaxUserNameLength)
+            .IsRequired();
+
         builder.Property(x => x.FullName)
             .HasColumnName("full_name")
             .HasMaxLength(User.MaxFullNameLength);
@@ -68,7 +73,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsUnique()
             .HasDatabaseName(DbConstraints.UxUsersEmail);
 
-        builder.HasIndex(x => x.UserName)
+        builder.HasIndex(x => x.UserNameNormalized)
             .IsUnique()
             .HasDatabaseName(DbConstraints.UxUsersName);
     }

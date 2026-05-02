@@ -38,8 +38,11 @@ public sealed class UpdateUserProfileUseCase(
         if (!isAdmin && user.Id != currentUserId)
             return Errors.User.UserForbidden();
 
+        // Сравнение в нормализованной форме: "JohnDoe" → "johndoe" — это
+        // тот же логин, конфликта быть не должно.
+        var normalizedNewUserName = command.UserName.Trim().ToLowerInvariant();
         var userNameExists = await userRepository.ExistsByUserName(command.UserName, cancellationToken);
-        if (userNameExists && !string.Equals(user.UserName, command.UserName.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (userNameExists && user.UserNameNormalized != normalizedNewUserName)
             return Errors.User.UserNameAlreadyExists();
 
         var result = user.UpdateProfile(command.UserName, command.FullName);

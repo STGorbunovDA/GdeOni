@@ -12,7 +12,20 @@ public sealed class User : Entity<Guid>
     public const int MaxRole = 50;
     public const int MaxPasswordHash = 1000;
     public string Email { get; private set; }
+
+    /// <summary>
+    /// Display-форма имени пользователя — то, как ввёл сам юзер
+    /// (с регистром). Возвращается в /me, JWT, ответы /users/{id} и т.п.
+    /// </summary>
     public string UserName { get; private set; }
+
+    /// <summary>
+    /// Lowercase-форма UserName для unique-индекса и поиска. Никогда
+    /// не показывается клиенту. Поддерживает кейс «JohnDoe vs johndoe
+    /// — это один и тот же логин».
+    /// </summary>
+    public string UserNameNormalized { get; private set; }
+
     public string? FullName { get; private set; }
     public string PasswordHash { get; private set; }
     public UserRole Role { get; private set; }
@@ -35,6 +48,7 @@ public sealed class User : Entity<Guid>
     {
         Email = null!;
         UserName = null!;
+        UserNameNormalized = null!;
         PasswordHash = null!;
         Role = UserRole.Unknown;
     }
@@ -43,6 +57,7 @@ public sealed class User : Entity<Guid>
         Guid id,
         string email,
         string userName,
+        string userNameNormalized,
         string? fullName,
         string passwordHash,
         UserRole role,
@@ -50,6 +65,7 @@ public sealed class User : Entity<Guid>
     {
         Email = email;
         UserName = userName;
+        UserNameNormalized = userNameNormalized;
         FullName = fullName;
         PasswordHash = passwordHash;
         Role = role;
@@ -115,7 +131,8 @@ public sealed class User : Entity<Guid>
             new User(
                 Guid.NewGuid(),
                 emailResult.Value,
-                userNameResult.Value,
+                userNameResult.Value.Display,
+                userNameResult.Value.Normalized,
                 fullNameResult.Value,
                 passwordHash,
                 role,
@@ -132,7 +149,8 @@ public sealed class User : Entity<Guid>
         if (fullNameResult.IsFailure)
             return fullNameResult.Error;
 
-        UserName = userNameResult.Value;
+        UserName = userNameResult.Value.Display;
+        UserNameNormalized = userNameResult.Value.Normalized;
         FullName = fullNameResult.Value;
         Touch();
 
@@ -325,21 +343,25 @@ public sealed class User : Entity<Guid>
         return Result.Success<string, Error>(normalized);
     }
 
-    private static Result<string, Error> NormalizeUserName(string? userName, string normalizedEmail)
+    private static Result<(string Display, string Normalized), Error> NormalizeUserName(
+        string? userName,
+        string normalizedEmail)
     {
-        var baseValue = string.IsNullOrWhiteSpace(userName)
+        // Если юзер не передал UserName — берём prefix email'а (он уже
+        // в lowercase после NormalizeEmail). В этом случае Display и
+        // Normalized совпадают.
+        var display = string.IsNullOrWhiteSpace(userName)
             ? normalizedEmail.Split('@')[0]
             : userName.Trim();
 
-        if (string.IsNullOrWhiteSpace(baseValue))
+        if (string.IsNullOrWhiteSpace(display))
             return Errors.User.UserNameRequired();
 
-        var normalized = baseValue.ToLowerInvariant();
-
-        if (normalized.Length > MaxUserNameLength)
+        if (display.Length > MaxUserNameLength)
             return Errors.User.UserNameTooLong(MaxUserNameLength);
 
-        return Result.Success<string, Error>(normalized);
+        return Result.Success<(string, string), Error>(
+            (display, display.ToLowerInvariant()));
     }
 
     private static Result<string?, Error> NormalizeFullName(string? fullName)

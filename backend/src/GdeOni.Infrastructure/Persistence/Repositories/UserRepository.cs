@@ -54,7 +54,7 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .ToLowerInvariant();
 
         return UsersQuery().AnyAsync(
-            x => x.UserName == normalizedUserName,
+            x => x.UserNameNormalized == normalizedUserName,
             cancellationToken);
     }
     
