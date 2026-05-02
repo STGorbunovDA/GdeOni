@@ -35,7 +35,15 @@ public sealed class LoginUseCase(
     {
         var user = await userRepository.GetByEmail(command.Email, cancellationToken);
         if (user is null)
+        {
+            // Выравниваем время ответа: всё равно прогоняем BCrypt.Verify
+            // против фиксированного dummy-хеша. Verify всегда вернёт false
+            // (пароль не совпадает), но потратим то же CPU-время, что и
+            // при существующем юзере с неверным паролем — атакующий не
+            // сможет по таймингу определить, существует ли email.
+            passwordHasher.Verify(command.Password, passwordHasher.DummyHash);
             return Errors.User.InvalidCredentials();
+        }
 
         if (!passwordHasher.Verify(command.Password, user.PasswordHash))
             return Errors.User.InvalidCredentials();
