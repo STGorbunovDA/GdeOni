@@ -113,7 +113,11 @@ public sealed class Deceased : Entity<Guid>
 
         var photo = MainMedia ?? _media.FirstOrDefault(x => x.Id == MainMediaId);
         if (photo is null) return null;
-        if (photo.ModerationStatus == ModerationStatus.Rejected) return null;
+        // Только Approved попадает в публичный URL карточки. Pending —
+        // ещё не проверено модерацией, Rejected — отклонено. Защищает
+        // от обхода типа "загрузил оскорбительное фото, отметил main —
+        // оно сразу видно подписчикам".
+        if (photo.ModerationStatus != ModerationStatus.Approved) return null;
         return photo;
     }
 

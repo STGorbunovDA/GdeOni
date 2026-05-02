@@ -32,14 +32,24 @@ public sealed class GetMediaListUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        var deceasedExists = await deceasedRepository.GetById(query.DeceasedId, cancellationToken);
-        if (deceasedExists is null)
+        var deceased = await deceasedRepository.GetById(query.DeceasedId, cancellationToken);
+        if (deceased is null)
             return Errors.General.NotFound("deceased", query.DeceasedId);
+
+        // Pending/Rejected media — модерационный контекст. Их видит только
+        // автор карточки и админы. Любой другой авторизованный юзер
+        // получает только Approved независимо от того, что попросил
+        // в ?moderationStatus=…
+        var isAdmin = currentUserService.IsAdmin();
+        var isOwner = deceased.CreatedByUserId == currentUserIdResult.Value;
+        var moderationStatus = (isAdmin || isOwner)
+            ? query.ModerationStatus
+            : ModerationStatus.Approved;
 
         var (items, totalCount) = await deceasedRepository.GetMediaPaged(
             query.DeceasedId,
             query.Kind,
-            query.ModerationStatus,
+            moderationStatus,
             query.Page,
             query.PageSize,
             cancellationToken);

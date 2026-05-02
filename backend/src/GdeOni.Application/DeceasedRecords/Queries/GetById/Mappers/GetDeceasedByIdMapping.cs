@@ -1,12 +1,28 @@
 ﻿using GdeOni.Application.DeceasedRecords.Queries.GetById.Model;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Queries.GetById.Mappers;
 
 public static class GetDeceasedByIdMapping
 {
-    public static DeceasedDetailsResponse ToResponse(this Deceased deceased)
+    /// <summary>
+    /// Маппит карточку умершего в DTO.
+    /// </summary>
+    /// <param name="deceased">Доменный агрегат.</param>
+    /// <param name="canSeeAllMemories">
+    /// true — caller админ или автор карточки, видит все воспоминания
+    /// (Pending/Approved/Rejected). false — обычный пользователь, видит
+    /// только Approved.
+    /// </param>
+    public static DeceasedDetailsResponse ToResponse(
+        this Deceased deceased,
+        bool canSeeAllMemories)
     {
+        var memoriesQuery = canSeeAllMemories
+            ? deceased.Memories
+            : deceased.Memories.Where(m => m.ModerationStatus == ModerationStatus.Approved);
+
         return new DeceasedDetailsResponse
         {
             Id = deceased.Id,
@@ -47,7 +63,7 @@ public static class GetDeceasedByIdMapping
                 AdditionalInfo = deceased.Metadata.AdditionalInfo
             },
 
-            Memories = deceased.Memories
+            Memories = memoriesQuery
                 .Select(memory => new DeceasedMemoryResponse
                 {
                     Id = memory.Id,

@@ -42,9 +42,12 @@ public sealed class GetMyTrackedDeceasedDetailsUseCase(
         if (deceased is null)
             return Errors.General.NotFound("deceased", query.DeceasedId);
 
+        var canSeeAllMemories = currentUserService.IsAdmin()
+            || deceased.CreatedByUserId == currentUserIdResult.Value;
+
         var response = new MyTrackedDeceasedDetailsResponse
         {
-            Deceased = deceased.ToResponse(),
+            Deceased = deceased.ToResponse(canSeeAllMemories),
             Tracking = new MyTrackingInfoResponse
             {
                 TrackingId = tracking.Id,
