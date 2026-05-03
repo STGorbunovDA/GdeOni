@@ -22,6 +22,10 @@ public class DeceasedMetadataController : ApiControllerBase
     [HttpPut("{id:guid}/metadata")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateMetadataResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateMetadata(
         [FromRoute] Guid id,
         [FromBody] UpdateMetadataRequest request,
@@ -33,13 +37,16 @@ public class DeceasedMetadataController : ApiControllerBase
 
         return FromResult(result);
     }
-    
+
     /// <summary>
     /// Очищает метаданные карточки умершего.
     /// </summary>
     [HttpDelete("{id:guid}/metadata")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<ClearMetadataResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ClearMetadata(
         [FromRoute] Guid id,
         [FromServices] IClearMetadataUseCase clearMetadataUseCase,
