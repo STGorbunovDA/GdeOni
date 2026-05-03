@@ -179,12 +179,14 @@ public sealed class UsersController : ApiControllerBase
     /// </summary>
     [HttpPut("{id:guid}/email")]
     [Authorize]
+    [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
     [ProducesResponseType(typeof(ApiResponse<ChangeEmailResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ChangeEmail(
         [FromRoute] Guid id,
         [FromBody] ChangeEmailRequest request,
