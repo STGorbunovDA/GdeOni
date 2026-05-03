@@ -10,6 +10,7 @@ namespace GdeOni.Application.Users.Commands.ChangeRole.UseCase;
 
 public sealed class ChangeRoleUseCase(
     IUserRepository userRepository,
+    IRefreshTokenRepository refreshTokenRepository,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IChangeRoleUseCase
@@ -54,7 +55,13 @@ public sealed class ChangeRoleUseCase(
         if (result.IsFailure)
             return result.Error;
 
+        // Сначала фиксируем смену роли + новый SecurityStamp, затем
+        // форс-логаут всех сессий. ChangeRole — security-event:
+        // при разжаловании старые refresh-токены не должны выдавать
+        // новые access-токены, при повышении старые токены не должны
+        // продолжать жить с прежним claim'ом роли (D7.41).
         await userRepository.Save(cancellationToken);
+        await refreshTokenRepository.RevokeAllForUser(user.Id, cancellationToken);
 
         return Result.Success<ChangeRoleResponse, Error>(
             new ChangeRoleResponse(user.Id));
