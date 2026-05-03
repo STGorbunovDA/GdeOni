@@ -70,6 +70,10 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
     [HttpPut("{id:guid}/memories/{memoryId:guid}/approve")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<ApproveMemoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ApproveMemory(
         [FromRoute] Guid id,
         [FromRoute] Guid memoryId,
@@ -89,6 +93,10 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
     [HttpPut("{id:guid}/memories/{memoryId:guid}/reject")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<RejectMemoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> RejectMemory(
         [FromRoute] Guid id,
         [FromRoute] Guid memoryId,
