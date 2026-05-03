@@ -1,5 +1,7 @@
 using FluentValidation;
+using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Auth.Refresh.Model;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Auth.Refresh.Validation;
 
@@ -9,6 +11,6 @@ public sealed class RefreshCommandValidator : AbstractValidator<RefreshCommand>
     {
         RuleFor(x => x.RefreshToken)
             .NotEmpty()
-            .WithMessage("Refresh token is required");
+            .WithError(Errors.RefreshToken.TokenRequired());
     }
 }
