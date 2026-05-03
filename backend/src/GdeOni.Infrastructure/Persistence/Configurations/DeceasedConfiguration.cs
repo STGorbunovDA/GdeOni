@@ -88,10 +88,12 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
                 .HasColumnName("longitude")
                 .IsRequired();
 
+            location.Property(x => x.AccuracyMeters)
+                .HasColumnName("accuracy_meters");
+
             location.Property(x => x.Country)
                 .HasColumnName("country")
-                .HasMaxLength(BurialLocation.MaxCountryLength)
-                .IsRequired();
+                .HasMaxLength(BurialLocation.MaxCountryLength);
 
             location.Property(x => x.Region)
                 .HasColumnName("region")
@@ -138,21 +140,12 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
 
         builder.Navigation(x => x.Name).IsRequired();
         builder.Navigation(x => x.LifePeriod).IsRequired();
-        builder.Navigation(x => x.BurialLocation).IsRequired();
         builder.Navigation(x => x.Metadata).IsRequired();
 
         builder.HasOne<User>()
             .WithMany()
             .HasForeignKey(x => x.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasMany(x => x.Photos)
-            .WithOne()
-            .HasForeignKey("deceased_id")
-            .OnDelete(DeleteBehavior.Cascade);
-
-        builder.Navigation(x => x.Photos)
-            .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasMany(x => x.Memories)
             .WithOne()
@@ -161,6 +154,25 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
 
         builder.Navigation(x => x.Memories)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(x => x.Media)
+            .WithOne()
+            .HasForeignKey(x => x.DeceasedId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(x => x.Media)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Property(x => x.MainMediaId)
+            .HasColumnName("main_media_id");
+
+        builder.HasOne(x => x.MainMedia)
+            .WithMany()
+            .HasForeignKey(x => x.MainMediaId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasIndex(x => x.MainMediaId)
+            .HasDatabaseName("ix_deceased_main_media_id");
 
         builder.HasIndex(x => x.CreatedByUserId)
             .HasDatabaseName("ix_deceased_created_by_user_id");

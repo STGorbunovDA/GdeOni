@@ -1,13 +1,54 @@
-﻿using System.Text;
+﻿using System.Security.Claims;
+using System.Text;
 using GdeOni.API.Security;
 using GdeOni.Application.Common.Security;
+using GdeOni.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace GdeOni.API;
 
 public static class DependencyInjection
 {
+    public const string CorsPolicyName = "GdeOniCors";
+
+    private static readonly string[] DefaultDevOrigins =
+    [
+        "http://localhost:5173",
+        "http://localhost:3000"
+    ];
+
+    public static IServiceCollection AddCustomCors(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var configuredOrigins = configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>();
+
+        var origins = configuredOrigins is { Length: > 0 }
+            ? configuredOrigins
+            : DefaultDevOrigins;
+
+        services.AddCors(options =>
+        {
+            options.AddPolicy(CorsPolicyName, policy =>
+            {
+                policy
+                    .WithOrigins(origins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            });
+        });
+
+        return services;
+    }
+
     public static IServiceCollection AddSecurity(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -51,13 +92,74 @@ public static class DependencyInjection
 
                     ClockSkew = TimeSpan.Zero
                 };
+
+                options.Events = new JwtBearerEvents
+                {
+                    // После проверки подписи и срока действия — сверяем
+                    // SecurityStamp из токена с актуальным значением в БД.
+                    // При смене пароля/роли/email Domain.User инкрементирует
+                    // stamp, и все ранее выпущенные токены становятся
+                    // невалидны на следующем же запросе.
+                    OnTokenValidated = ValidateSecurityStampAsync
+                };
             });
 
         services.AddAuthorization();
         services.AddHttpContextAccessor();
+        services.AddMemoryCache();
         services.AddScoped<IJwtProvider, JwtProvider>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
         return services;
+    }
+
+    internal static string SecurityStampCacheKey(Guid userId) => $"secstamp:{userId}";
+
+    private static async Task ValidateSecurityStampAsync(TokenValidatedContext context)
+    {
+        var principal = context.Principal;
+        if (principal is null)
+        {
+            context.Fail("Token has no principal.");
+            return;
+        }
+
+        var userIdClaim = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        var stampClaim = principal.FindFirstValue(JwtClaimNames.SecurityStamp);
+
+        if (!Guid.TryParse(userIdClaim, out var userId)
+            || !Guid.TryParse(stampClaim, out var tokenStamp))
+        {
+            context.Fail("Token claims malformed.");
+            return;
+        }
+
+        // Read-through кеш с коротким TTL — без него SELECT security_stamp
+        // FROM users WHERE id=@uid идёт на КАЖДОМ аутентифицированном запросе.
+        // Trade-off задокументирован в JwtOptions.SecurityStampCacheTtlSeconds.
+        var sp = context.HttpContext.RequestServices;
+        var cache = sp.GetRequiredService<IMemoryCache>();
+        var jwtOptions = sp.GetRequiredService<IOptions<JwtOptions>>().Value;
+        var cacheKey = SecurityStampCacheKey(userId);
+
+        if (!cache.TryGetValue<Guid?>(cacheKey, out var cachedStamp))
+        {
+            var dbContext = sp.GetRequiredService<AppDbContext>();
+            cachedStamp = await dbContext.Users
+                .AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => (Guid?)u.SecurityStamp)
+                .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
+
+            cache.Set(
+                cacheKey,
+                cachedStamp,
+                TimeSpan.FromSeconds(jwtOptions.SecurityStampCacheTtlSeconds));
+        }
+
+        if (cachedStamp is null || cachedStamp.Value != tokenStamp)
+        {
+            context.Fail("Security stamp mismatch.");
+        }
     }
 }

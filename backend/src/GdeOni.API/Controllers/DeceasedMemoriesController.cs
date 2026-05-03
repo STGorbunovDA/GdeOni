@@ -23,8 +23,10 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
     /// </summary>
     [HttpPost("{id:guid}/memories")]
     [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<AddMemoryResponse>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<AddMemoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> AddMemory(
         [FromRoute] Guid id,
         [FromBody] AddMemoryRequest request,
@@ -36,13 +38,17 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
 
         return FromResult(result);
     }
-    
+
     /// <summary>
     /// Обновляет воспоминание у карточки умершего.
     /// </summary>
     [HttpPut("{id:guid}/memories/{memoryId:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateMemoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateMemory(
         [FromRoute] Guid id,
         [FromRoute] Guid memoryId,
@@ -55,13 +61,16 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
 
         return FromResult(result);
     }
-    
+
     /// <summary>
     /// Удаляет воспоминание у карточки умершего.
     /// </summary>
     [HttpDelete("{id:guid}/memories/{memoryId:guid}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RemoveMemory(
         [FromRoute] Guid id,
         [FromRoute] Guid memoryId,

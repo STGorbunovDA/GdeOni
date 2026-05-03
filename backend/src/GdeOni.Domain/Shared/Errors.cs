@@ -46,6 +46,14 @@ public static class Errors
         {
             return Error.Forbidden(code, message);
         }
+
+        public static Error InternalServerError() =>
+            Error.Failure("server.internal", "An unexpected server error occurred.");
+
+        public static Error TooManyRequests() =>
+            Error.TooManyRequests(
+                "general.too_many_requests",
+                "Too many requests. Please slow down and try again later.");
     }
 
     public static class PersonName
@@ -87,11 +95,11 @@ public static class Errors
         public static Error LongitudeInvalid() =>
             Error.Validation("burial_location.longitude.invalid", "Longitude is invalid");
 
-        public static Error CountryRequired() =>
-            Error.Validation("burial_location.country.required", "Country is required");
-        
         public static Error CountryTooLong(int maxLength) =>
             Error.Validation("burial_location.country.too_long", $"Country must be at most {maxLength} characters");
+
+        public static Error AccuracyMetersInvalid() =>
+            Error.Validation("burial_location.accuracy_meters.invalid", "Accuracy meters must be greater than or equal to zero");
 
         public static Error RegionTooLong(int maxLength) =>
             Error.Validation("burial_location.region.too_long", $"Region must be at most {maxLength} characters");
@@ -120,17 +128,12 @@ public static class Errors
         public static Error IdRequired() =>
             Error.Validation("deceased.id.required", "Deceased id is required");
 
-        public static Error BurialLocationRequired() =>
-            Error.Validation("deceased.burial_location.required", "Burial location is required");
+        public static Error BurialLocationNotSet() =>
+            Error.Conflict("deceased.burial_location.not_set", "Burial location is not set for this deceased record");
 
         public static Error MetadataRequired() =>
             Error.Validation("deceased.metadata.required", "Metadata is required");
 
-        public static Error AddMemoryForbidden() =>
-            Error.Forbidden(
-                "deceased_memory.author.forbidden",
-                "You cannot create a memory on behalf of another user.");
-        
         public static Error UpdateMemoryForbidden() =>
             Error.Forbidden(
                 "deceased_memory.author.forbidden",
@@ -145,6 +148,16 @@ public static class Errors
             Error.Forbidden(
                 "deceased.update.forbidden",
                 "You cannot update a deceased person's card on behalf of another user.");
+
+        public static Error SetBurialLocationForbidden() =>
+            Error.Forbidden(
+                "deceased.burial_location.set.forbidden",
+                "You cannot set the burial location on behalf of another user.");
+
+        public static Error ClearBurialLocationForbidden() =>
+            Error.Forbidden(
+                "deceased.burial_location.clear.forbidden",
+                "You cannot clear the burial location on behalf of another user.");
 
         public static Error AlreadyVerified() =>
             Error.Conflict("deceased.already.verified", "Deceased record is already verified");
@@ -213,73 +226,6 @@ public static class Errors
             Error.Forbidden(
                 "deceased.unverified.forbidden",
                 "You do not have permission to verify the deceased's account.");
-    }
-    
-    public static class DeceasedPhoto
-    {
-        public static Error DuplicateUrl() =>
-            Error.Conflict(
-                "deceased_photo.url.duplicate",
-                "A photo with the same URL already exists for this deceased card.");
-        
-        public static Error UrlRequired() =>
-            Error.Validation("deceased_photo.url.required", "Photo url is required");
-        
-        public static Error AddPhotoForbidden() =>
-            Error.Forbidden(
-                "deceased_photo_add.author.forbidden",
-                "You cannot added a photo on behalf of another user.");
-        
-        public static Error SetPrimaryPhotoForbidden() =>
-            Error.Forbidden(
-                "deceased_set_primary_photo.author.forbidden",
-                "You cannot set primary photo on behalf of another user.");
-        
-        public static Error UpdatePhotoForbidden() =>
-            Error.Forbidden(
-                "deceased_update_photo.author.forbidden",
-                "You cannot updated a photo on behalf of another user.");
-
-        public static Error UrlInvalid() =>
-            Error.Validation("deceased_photo.url.invalid", "Photo url invalid");
-
-        public static Error AddedByRequired() =>
-            Error.Validation("deceased_photo.added_by.required", "Added by user id is required");
-
-        public static Error ApprovePhotoForbidden() =>
-            Error.Forbidden(
-                "deceased_photo_approve.verify.forbidden",
-                "You do not have the right to verify the photo of the deceased");
-        
-        public static Error RejectPhotoForbidden() =>
-            Error.Forbidden(
-                "deceased_photo_reject.verify.forbidden",
-                "You do not have permission to reject the confirmation of the deceased's photo");
-
-        public static Error NotFound(Guid? id = null) =>
-            Error.NotFound("deceased_photo.not.found", id == null
-                ? "Photo not found"
-                : $"Photo not found for Id '{id}'");
-
-        public static Error AlreadyPrimary() =>
-            Error.Conflict("deceased_photo.already.primary", "Photo is already primary");
-
-        public static Error AlreadyApproved() =>
-            Error.Conflict("deceased_photo.already.approved", "Photo is already approved");
-
-        public static Error AlreadyRejected() =>
-            Error.Conflict("deceased_photo.already.rejected", "Photo is already rejected");
-
-        public static Error UrlTooLong(int maxLength) =>
-            Error.Validation("deceased_photo.url.too_long", $"Photo url must be at most {maxLength} characters");
-
-        public static Error DeletePhotoForbidden() =>
-            Error.Forbidden(
-                "deceased_photo.author.forbidden",
-                "You cannot delete a photo on behalf of another user.");
-        
-        public static Error DescriptionTooLong(int maxLength) =>
-            Error.Validation("deceased_photo.description.too_long", $"Photo description must be at most {maxLength} characters");
     }
     
     public static class DeceasedMetadata
@@ -375,6 +321,26 @@ public static class Errors
         public static Error UserForbidden() =>
             Error.Validation("user.forbidden", "You do not have permission to access the current user.");
 
+        public static Error ChangeSuperAdminRoleForbidden() =>
+            Error.Forbidden(
+                "user.role.change.super_admin.forbidden",
+                "Only a SuperAdmin can change the role of another SuperAdmin.");
+
+        public static Error ChangePeerAdminRoleForbidden() =>
+            Error.Forbidden(
+                "user.role.change.peer_admin.forbidden",
+                "An Admin cannot change the role of another Admin. Only a SuperAdmin can.");
+
+        public static Error DeleteSuperAdminForbidden() =>
+            Error.Forbidden(
+                "user.delete.super_admin.forbidden",
+                "SuperAdmin cannot be deleted.");
+
+        public static Error DeleteSelfForbidden() =>
+            Error.Forbidden(
+                "user.delete.self.forbidden",
+                "You cannot delete your own account.");
+
         public static Error RoleUnknownNotAllowed() =>
             Error.Validation("user.role.unknown.not_allowed", "The role cannot be Unknown");
 
@@ -412,9 +378,6 @@ public static class Errors
         public static Error PersonalNotesTooLong(int maxLength) =>
             Error.Validation("tracking.personal_notes.too_long", $"Personal notes must be at most {maxLength} characters");
 
-        public static Error AlreadyTracked() =>
-            Error.Conflict("tracking.already.exists", "Deceased is already tracked by user");
-
         public static Error NotFound(Guid? deceasedId = null) =>
             Error.NotFound("tracking.not.found", deceasedId == null
                 ? "Tracking not found"
@@ -428,6 +391,11 @@ public static class Errors
 
         public static Error AlreadyActive() =>
             Error.Conflict("tracking.already.active", "Tracking is already active");
+
+        public static Error NotTracked() =>
+            Error.Forbidden(
+                "tracking.not_tracked",
+                "Current user does not track this deceased.");
     }
 
     public static class Pagination
@@ -437,5 +405,170 @@ public static class Errors
 
         public static Error PageSizeOutOfRange(int min, int max) =>
             Error.Validation("pagination.page_size.invalid", $"PageSize must be between {min} and {max}");
+    }
+
+    public static class UniqueConstraint
+    {
+        public static Error FromName(string? constraintName) =>
+            constraintName switch
+            {
+                DbConstraints.UxUsersEmail => User.EmailAlreadyExists(),
+                DbConstraints.UxUsersName => User.UserNameAlreadyExists(),
+                DbConstraints.DeceasedSearchKey => Deceased.AlreadyExists(),
+                DbConstraints.UxDeceasedMediaStorageKey => DeceasedMedia.DuplicateStorageKey(),
+                _ => Error.Conflict(
+                    "conflict.unique_constraint",
+                    "A unique constraint was violated.")
+            };
+    }
+
+    public static class DeceasedMedia
+    {
+        public static Error NotFound(Guid mediaId) =>
+            Error.NotFound("deceased_media.not.found", $"Deceased media not found for Id '{mediaId}'");
+
+        public static Error DeceasedIdRequired() =>
+            Error.Validation("deceased_media.deceased_id.required", "DeceasedId is required");
+
+        public static Error UploadedByRequired() =>
+            Error.Validation("deceased_media.uploaded_by.required", "UploadedByUserId is required");
+
+        public static Error KindInvalid() =>
+            Error.Validation("deceased_media.kind.invalid", "Media kind is invalid");
+
+        public static Error SizeBytesInvalid() =>
+            Error.Validation("deceased_media.size_bytes.invalid", "SizeBytes must be greater than 0");
+
+        public static Error OriginalFileNameRequired() =>
+            Error.Validation("deceased_media.original_file_name.required", "Original file name is required");
+
+        public static Error OriginalFileNameTooLong(int maxLength) =>
+            Error.Validation("deceased_media.original_file_name.too_long", $"Original file name must be at most {maxLength} characters");
+
+        public static Error BucketRequired() =>
+            Error.Validation("deceased_media.bucket.required", "Bucket is required");
+
+        public static Error BucketTooLong(int maxLength) =>
+            Error.Validation("deceased_media.bucket.too_long", $"Bucket must be at most {maxLength} characters");
+
+        public static Error StorageKeyRequired() =>
+            Error.Validation("deceased_media.storage_key.required", "Storage key is required");
+
+        public static Error StorageKeyTooLong(int maxLength) =>
+            Error.Validation("deceased_media.storage_key.too_long", $"Storage key must be at most {maxLength} characters");
+
+        public static Error ContentTypeRequired() =>
+            Error.Validation("deceased_media.content_type.required", "Content type is required");
+
+        public static Error ContentTypeTooLong(int maxLength) =>
+            Error.Validation("deceased_media.content_type.too_long", $"Content type must be at most {maxLength} characters");
+
+        public static Error DescriptionTooLong(int maxLength) =>
+            Error.Validation("deceased_media.description.too_long", $"Description must be at most {maxLength} characters");
+
+        public static Error OnlyDeceasedPhotoCanBeMain() =>
+            Error.Conflict("deceased_media.main_photo.only_deceased_photo", "Only DeceasedPhoto can be main photo");
+
+        public static Error MainPhotoMustBeApproved() =>
+            Error.Conflict(
+                "deceased_media.main_photo.not_approved",
+                "Only an Approved photo can be set as main. Wait for moderation, then try again.");
+
+        public static Error AlreadyApproved() =>
+            Error.Conflict("deceased_media.already.approved", "Media is already approved");
+
+        public static Error AlreadyRejected() =>
+            Error.Conflict("deceased_media.already.rejected", "Media is already rejected");
+
+        public static Error DuplicateStorageKey() =>
+            Error.Conflict("deceased_media.storage_key.duplicate", "Media with such storage key already exists");
+
+        public static Error UploadForbidden() =>
+            Error.Forbidden(
+                "deceased_media.upload.forbidden",
+                "You don't have permission to upload media for this deceased.");
+
+        public static Error DeleteForbidden() =>
+            Error.Forbidden(
+                "deceased_media.delete.forbidden",
+                "You don't have permission to delete this media.");
+
+        public static Error SetMainPhotoForbidden() =>
+            Error.Forbidden(
+                "deceased_media.main_photo.forbidden",
+                "Only the deceased card author or admin can set the main photo.");
+
+        public static Error ModerationForbidden() =>
+            Error.Forbidden(
+                "deceased_media.moderation.forbidden",
+                "Only Admin or SuperAdmin can moderate media.");
+    }
+
+    public static class Media
+    {
+        public static Error PhotoContentTypeNotAllowed(string contentType) =>
+            Error.Validation(
+                "media.photo.content_type.not_allowed",
+                $"Content type '{contentType}' is not allowed for photos. Allowed: image/jpeg, image/png, image/webp.");
+
+        public static Error DocumentContentTypeNotAllowed(string contentType) =>
+            Error.Validation(
+                "media.document.content_type.not_allowed",
+                $"Content type '{contentType}' is not allowed for documents. Allowed: application/pdf.");
+
+        public static Error PhotoTooLarge(long maxBytes) =>
+            Error.Validation(
+                "media.photo.too_large",
+                $"Photo size exceeds {maxBytes} bytes.");
+
+        public static Error DocumentTooLarge(long maxBytes) =>
+            Error.Validation(
+                "media.document.too_large",
+                $"Document size exceeds {maxBytes} bytes.");
+
+        public static Error FileRequired() =>
+            Error.Validation("media.file.required", "File is required");
+
+        public static Error MagicBytesMismatch(string contentType) =>
+            Error.Validation(
+                "media.content.magic_bytes_mismatch",
+                $"File content does not match declared content type '{contentType}'.");
+
+        public static Error UnreadableStream() =>
+            Error.Validation(
+                "media.content.unreadable",
+                "File stream cannot be read or sought.");
+    }
+
+    public static class RefreshToken
+    {
+        public static Error TokenRequired() =>
+            Error.Validation("refresh_token.token.required", "Refresh token is required");
+
+        public static Error TokenHashRequired() =>
+            Error.Validation("refresh_token.token_hash.required", "Refresh token hash is required");
+
+        public static Error TokenExpiresInPast() =>
+            Error.Validation("refresh_token.expires_at.invalid", "Refresh token expiration must be in the future");
+
+        public static Error IpTooLong(int maxLength) =>
+            Error.Validation("refresh_token.ip.too_long", $"Created from IP must be at most {maxLength} characters");
+
+        public static Error TokenInvalid() =>
+            Error.Unauthorized("refresh_token.invalid", "Refresh token is invalid");
+
+        public static Error TokenExpired() =>
+            Error.Unauthorized("refresh_token.expired", "Refresh token has expired");
+
+        public static Error TokenRevoked() =>
+            Error.Unauthorized("refresh_token.revoked", "Refresh token has been revoked");
+
+        public static Error TokenAlreadyRevoked() =>
+            Error.Conflict("refresh_token.already_revoked", "Refresh token has already been revoked");
+
+        public static Error ReplayDetected() =>
+            Error.Unauthorized(
+                "refresh_token.replay_detected",
+                "Refresh token replay detected. All active sessions have been revoked.");
     }
 }

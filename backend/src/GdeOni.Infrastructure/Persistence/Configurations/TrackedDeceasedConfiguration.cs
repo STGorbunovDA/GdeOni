@@ -51,8 +51,8 @@ public sealed class TrackedDeceasedConfiguration : IEntityTypeConfiguration<Trac
             .HasColumnName("tracked_at_utc")
             .IsRequired();
 
-        builder.HasIndex("user_id")
-            .HasDatabaseName("ix_tracked_deceased_user_id");
+        builder.Property(x => x.UpdatedAtUtc)
+            .HasColumnName("updated_at_utc");
 
         builder.HasIndex(x => x.DeceasedId)
             .HasDatabaseName("ix_tracked_deceased_deceased_id");
@@ -62,6 +62,10 @@ public sealed class TrackedDeceasedConfiguration : IEntityTypeConfiguration<Trac
             .HasForeignKey(x => x.DeceasedId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Composite index по (user_id, deceased_id) уникальный — он же
+        // покрывает запросы по префиксу user_id (RemoveTracking,
+        // GetMyTrackedDeceasedList). Отдельный ix_tracked_deceased_user_id
+        // дублировал бы функциональность. См. D7.52.
         builder.HasIndex("user_id", nameof(TrackedDeceased.DeceasedId))
             .IsUnique()
             .HasDatabaseName("ux_tracked_deceased_user_id_deceased_id");

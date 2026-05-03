@@ -1,5 +1,6 @@
 ﻿using GdeOni.API.Extensions;
 using GdeOni.API.Models.Users;
+using GdeOni.API.RateLimiting;
 using GdeOni.API.Response;
 using GdeOni.Application.Common.Shared;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
@@ -18,8 +19,11 @@ using GdeOni.Application.Users.Queries.GetAll.Model;
 using GdeOni.Application.Users.Queries.GetAll.UseCase;
 using GdeOni.Application.Users.Queries.GetById.Model;
 using GdeOni.Application.Users.Queries.GetById.UseCase;
+using GdeOni.Application.Users.Queries.GetCurrent.Model;
+using GdeOni.Application.Users.Queries.GetCurrent.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace GdeOni.API.Controllers;
 
@@ -33,9 +37,11 @@ public sealed class UsersController : ApiControllerBase
     /// Регистрация нового пользователя.
     /// </summary>
     [HttpPost]
+    [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
     [ProducesResponseType(typeof(ApiResponse<RegisterUserResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Register(
         [FromBody] RegisterUserRequest request,
         [FromServices] IRegisterUserUseCase registerUserUseCase,
@@ -55,6 +61,23 @@ public sealed class UsersController : ApiControllerBase
     }
 
     /// <summary>
+    /// Получение профиля текущего пользователя по access token.
+    /// Идентификатор пользователя берётся только из JWT.
+    /// </summary>
+    [HttpGet("me")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<GetCurrentUserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCurrent(
+        [FromServices] IGetCurrentUserUseCase getCurrentUserUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await getCurrentUserUseCase.Execute(cancellationToken);
+        return FromResult(result);
+    }
+
+    /// <summary>
     /// Получение списка всех пользователей (с пагинацией и фильтрацией).
     /// Доступно только администраторам.
     /// </summary>
@@ -62,6 +85,8 @@ public sealed class UsersController : ApiControllerBase
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<PagedResponse<GetAllUsersResponse>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAll(
         [FromQuery] GetAllUsersRequest request,
         [FromServices] IGetAllUsersUseCase getAllUsersUseCase,
@@ -85,6 +110,7 @@ public sealed class UsersController : ApiControllerBase
     [HttpGet("{id:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<GetUserByIdResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(
@@ -105,8 +131,10 @@ public sealed class UsersController : ApiControllerBase
     [HttpPatch("{id:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateUserProfileResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateProfile(
         [FromRoute] Guid id,
@@ -126,11 +154,13 @@ public sealed class UsersController : ApiControllerBase
     /// </summary>
     [HttpPut("{id:guid}/password")]
     [Authorize]
+    [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
     [ProducesResponseType(typeof(ApiResponse<ChangePasswordResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ChangePassword(
         [FromRoute] Guid id,
         [FromBody] ChangePasswordRequest request,
@@ -149,11 +179,14 @@ public sealed class UsersController : ApiControllerBase
     /// </summary>
     [HttpPut("{id:guid}/email")]
     [Authorize]
+    [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
     [ProducesResponseType(typeof(ApiResponse<ChangeEmailResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ChangeEmail(
         [FromRoute] Guid id,
         [FromBody] ChangeEmailRequest request,
@@ -174,6 +207,8 @@ public sealed class UsersController : ApiControllerBase
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<ChangeRoleResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ChangeRole(
         [FromRoute] Guid id,
@@ -193,7 +228,9 @@ public sealed class UsersController : ApiControllerBase
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "SuperAdmin,Admin")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<DeleteUserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,

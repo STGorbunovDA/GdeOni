@@ -1,17 +1,16 @@
 ﻿using GdeOni.API.Models.DeceasedRecords;
+using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.Model;
-using GdeOni.Application.DeceasedRecords.Commands.AddPhoto.Model;
+using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.Model;
-using GdeOni.Application.DeceasedRecords.Commands.ApprovePhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ClearMetadata.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Create.Model;
+using GdeOni.Application.DeceasedRecords.Commands.RejectMediaModeration.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.Model;
-using GdeOni.Application.DeceasedRecords.Commands.RejectPhoto.Model;
-using GdeOni.Application.DeceasedRecords.Commands.SetPrimaryPhoto.Model;
+using GdeOni.Application.DeceasedRecords.Commands.SetBurialLocationFromGps.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.Model;
-using GdeOni.Application.DeceasedRecords.Commands.UpdatePhoto.Model;
 
 namespace GdeOni.API.Mappers;
 
@@ -21,7 +20,6 @@ public static class DeceasedRecordsMapping
         this CreateDeceasedRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(request.BurialLocation);
 
         return new CreateDeceasedCommand(
             FirstName: request.FirstName,
@@ -31,8 +29,7 @@ public static class DeceasedRecordsMapping
             DeathDate: request.DeathDate,
             ShortDescription: request.ShortDescription,
             Biography: request.Biography,
-            BurialLocation: request.BurialLocation.ToCommand(),
-            Photos: request.Photos?.Select(x => x.ToCommand()).ToArray(),
+            BurialLocation: request.BurialLocation?.ToCommand(),
             Memories: request.Memories?.Select(x => x.ToCommand()).ToArray(),
             Metadata: request.Metadata?.ToCommand());
     }
@@ -49,16 +46,8 @@ public static class DeceasedRecordsMapping
             CemeteryName: request.CemeteryName,
             PlotNumber: request.PlotNumber,
             GraveNumber: request.GraveNumber,
-            Accuracy: request.Accuracy);
-    }
-
-    private static CreateDeceasedPhotoCommand ToCommand(
-        this CreateDeceasedPhotoRequest request)
-    {
-        return new CreateDeceasedPhotoCommand(
-            Url: request.Url,
-            Description: request.Description,
-            IsPrimary: request.IsPrimary);
+            Accuracy: request.Accuracy,
+            AccuracyMeters: request.AccuracyMeters);
     }
 
     private static CreateDeceasedMemoryCommand ToCommand(
@@ -83,7 +72,6 @@ public static class DeceasedRecordsMapping
         Guid deceasedId)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(request.BurialLocation);
 
         return new UpdateDeceasedCommand(
             deceasedId,
@@ -94,7 +82,7 @@ public static class DeceasedRecordsMapping
             request.DeathDate,
             request.ShortDescription,
             request.Biography,
-            request.BurialLocation.ToCommand(),
+            request.BurialLocation?.ToCommand(),
             request.Metadata?.ToCommand());
     }
 
@@ -110,7 +98,8 @@ public static class DeceasedRecordsMapping
             request.CemeteryName,
             request.PlotNumber,
             request.GraveNumber,
-            request.Accuracy);
+            request.Accuracy,
+            request.AccuracyMeters);
     }
 
     private static UpdateDeceasedMetadataCommand ToCommand(
@@ -123,32 +112,59 @@ public static class DeceasedRecordsMapping
             request.IsMilitaryService,
             request.AdditionalInfo);
     }
-    
-    public static AddPhotoCommand ToCommand(
-        this AddPhotoRequest request,
+
+    public static AddDeceasedAtGraveCommand ToCommand(
+        this AddDeceasedAtGraveRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return new AddDeceasedAtGraveCommand(
+            FirstName: request.FirstName,
+            LastName: request.LastName,
+            MiddleName: request.MiddleName,
+            BirthDate: request.BirthDate,
+            DeathDate: request.DeathDate,
+            ShortDescription: request.ShortDescription,
+            Biography: request.Biography,
+            GraveLocation: request.GraveLocation?.ToCommand()!,
+            Tracking: request.Tracking?.ToCommand()!);
+    }
+
+    private static AddDeceasedAtGraveLocationCommand ToCommand(
+        this AddDeceasedAtGraveLocationRequest request)
+    {
+        return new AddDeceasedAtGraveLocationCommand(
+            Latitude: request.Latitude,
+            Longitude: request.Longitude,
+            AccuracyMeters: request.AccuracyMeters,
+            Country: request.Country,
+            City: request.City,
+            CemeteryName: request.CemeteryName,
+            PlotNumber: request.PlotNumber,
+            GraveNumber: request.GraveNumber);
+    }
+
+    private static AddDeceasedAtGraveTrackingCommand ToCommand(
+        this AddDeceasedAtGraveTrackingRequest request)
+    {
+        return new AddDeceasedAtGraveTrackingCommand(
+            RelationshipType: request.RelationshipType,
+            PersonalNotes: request.PersonalNotes,
+            NotifyOnDeathAnniversary: request.NotifyOnDeathAnniversary,
+            NotifyOnBirthAnniversary: request.NotifyOnBirthAnniversary);
+    }
+
+    public static SetBurialLocationFromGpsCommand ToCommand(
+        this SetBurialLocationFromGpsRequest request,
         Guid deceasedId)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        return new AddPhotoCommand(
+        return new SetBurialLocationFromGpsCommand(
             deceasedId,
-            request.Url,
-            request.Description,
-            request.IsPrimary);
-    }
-    
-    public static UpdatePhotoCommand ToCommand(
-        this UpdatePhotoRequest request,
-        Guid deceasedId,
-        Guid photoId)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        return new UpdatePhotoCommand(
-            deceasedId,
-            photoId,
-            request.Url,
-            request.Description);
+            request.Latitude,
+            request.Longitude,
+            request.AccuracyMeters);
     }
     
     public static AddMemoryCommand ToCommand(
@@ -192,19 +208,16 @@ public static class DeceasedRecordsMapping
     
     public static ClearMetadataCommand ToClearMetadataCommand(Guid deceasedId)
         => new(deceasedId);
-    
+
     public static RejectMemoryCommand ToRejectMemoryCommand(Guid deceasedId, Guid memoryId)
         => new(deceasedId, memoryId);
-    
-    public static SetPrimaryPhotoCommand ToCommand(Guid deceasedId, Guid photoId)
-        => new(deceasedId, photoId);
-    
+
     public static ApproveMemoryCommand ToApproveMemoryCommand(Guid deceasedId, Guid memoryId)
         => new(deceasedId, memoryId);
-    
-    public static ApprovePhotoCommand ToApprovePhotoCommand(Guid deceasedId, Guid photoId)
-        => new(deceasedId, photoId);
-    
-    public static RejectPhotoCommand ToRejectPhotoCommand(Guid deceasedId, Guid photoId)
-        => new(deceasedId, photoId);
+
+    public static ApproveMediaModerationCommand ToApproveMediaModerationCommand(Guid deceasedId, Guid mediaId)
+        => new(deceasedId, mediaId);
+
+    public static RejectMediaModerationCommand ToRejectMediaModerationCommand(Guid deceasedId, Guid mediaId)
+        => new(deceasedId, mediaId);
 }

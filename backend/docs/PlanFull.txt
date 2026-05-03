@@ -1,0 +1,3602 @@
+ПЛАН РЕАЛИЗАЦИИ GdeOni
+Сценарий: добавление умершего на могиле + хранение координат + отслеживание + маршрут
+
+=====================================================================
+A. ГЛАВНАЯ ЦЕЛЬ
+=====================================================================
+
+Реализовать полный пользовательский сценарий:
+
+1. Пользователь физически находится у могилы.
+2. Пользователь открывает приложение на смартфоне.
+3. Пользователь нажимает кнопку "Добавить умершего".
+4. Приложение запрашивает GPS-координаты телефона.
+5. Пользователь разрешает доступ к геолокации.
+6. Приложение получает:
+   - latitude;
+   - longitude;
+   - accuracyMeters.
+7. Пользователь видит точку на карте.
+8. Пользователь может подтвердить точку или вручную поправить маркер.
+9. Пользователь заполняет данные умершего:
+   - имя;
+   - фамилия;
+   - отчество;
+   - дата рождения;
+   - дата смерти;
+   - описание;
+   - биография;
+   - номер участка;
+   - номер могилы.
+10. Frontend отправляет запрос в backend.
+11. Backend создаёт карточку умершего.
+12. Backend сохраняет GPS-координаты как координаты могилы.
+13. Backend автоматически добавляет этого умершего в список отслеживаемых текущего пользователя.
+14. Пользователь может загрузить:
+   - фото умершего;
+   - фото могилы;
+   - документы.
+15. Позже пользователь открывает список отслеживаемых.
+16. Пользователь выбирает умершего.
+17. Пользователь нажимает "Построить маршрут".
+18. Приложение получает текущие координаты пользователя.
+19. Backend возвращает координаты могилы и ссылки для карт.
+20. Frontend строит маршрут или открывает внешний сервис карт.
+
+Главное правило разработки:
+
+1. Сначала полностью делаем backend.
+2. Потом покрываем backend тестами.
+3. Потом проверяем полный backend-сценарий вручную.
+4. Только после этого начинаем frontend.
+
+Почему именно так:
+
+Frontend зависит от backend API.
+Если начать frontend раньше, придётся постоянно переписывать формы, DTO, обработку ошибок и маршруты.
+Поэтому сначала нужно стабилизировать backend-контракты.
+
+=====================================================================
+B. ТЕКУЩАЯ АРХИТЕКТУРА ПРОЕКТА
+=====================================================================
+
+Проект построен на .NET 8 и Clean Architecture.
+
+Основные проекты:
+
+1. backend/src/GdeOni.Domain
+2. backend/src/GdeOni.Application
+3. backend/src/GdeOni.Infrastructure
+4. backend/src/GdeOni.API
+
+---------------------------------------------------------------------
+B1. Domain
+---------------------------------------------------------------------
+
+Domain — это ядро проекта.
+
+В Domain должны находиться:
+
+- сущности;
+- value objects;
+- enum;
+- доменные методы;
+- бизнес-инварианты;
+- правила, которые не зависят от базы данных, API или frontend.
+
+Примеры:
+
+- Deceased;
+- BurialLocation;
+- User;
+- TrackedDeceased;
+- DeceasedMedia;
+- LifePeriod;
+- PersonName.
+
+В Domain нельзя добавлять:
+
+- EF Core DbContext;
+- HTTP-зависимости;
+- controllers;
+- MinIO SDK;
+- IConfiguration;
+- внешние API-клиенты.
+
+Правило:
+
+Domain должен оставаться чистым.
+Если завтра поменяется PostgreSQL на другую базу или MinIO на S3, Domain не должен измениться.
+
+---------------------------------------------------------------------
+B2. Application
+---------------------------------------------------------------------
+
+Application — слой бизнес-сценариев.
+
+В Application должны находиться:
+
+- use cases;
+- commands;
+- queries;
+- DTO;
+- validators;
+- interfaces для инфраструктуры;
+- application services.
+
+Примеры:
+
+- AddDeceasedAtGraveUseCase;
+- GetTrackedDeceasedUseCase;
+- UploadMediaUseCase;
+- GetRouteToGraveUseCase;
+- IFileStorage;
+- IRouteLinkProvider;
+- ICurrentUserService;
+- IDeceasedRepository;
+- IUserRepository.
+
+Application знает, что нужно сделать, но не знает технических деталей.
+
+Например:
+
+Application знает, что файл нужно загрузить через IFileStorage.
+Но Application не знает, что внутри используется MinIO.
+
+Application знает, что нужно получить текущего пользователя.
+Но Application не должен напрямую читать HttpContext.
+
+---------------------------------------------------------------------
+B3. Infrastructure
+---------------------------------------------------------------------
+
+Infrastructure — слой технических реализаций.
+
+В Infrastructure должны находиться:
+
+- EF Core;
+- AppDbContext;
+- repositories;
+- database configurations;
+- migrations;
+- MinIO implementation;
+- routing link providers;
+- external service implementations.
+
+Примеры:
+
+- DeceasedRepository;
+- UserRepository;
+- MinioFileStorage;
+- MinioOptions;
+- MinioBootstrap;
+- YandexRouteLinkProvider;
+- GoogleMapsRouteLinkProvider;
+- TwoGisRouteLinkProvider.
+
+Infrastructure реализует интерфейсы из Application.
+
+Например:
+
+- IFileStorage -> MinioFileStorage;
+- IRouteLinkProvider -> YandexRouteLinkProvider;
+- IUserRepository -> UserRepository.
+
+---------------------------------------------------------------------
+B4. API
+---------------------------------------------------------------------
+
+API — внешний слой приложения.
+
+В API должны находиться:
+
+- controllers;
+- middleware;
+- swagger;
+- authentication setup;
+- authorization setup;
+- DI registration;
+- Program.cs;
+- request/response mapping, если это не часть Application.
+
+Контроллеры не должны содержать бизнес-логику.
+
+Контроллер должен:
+
+1. Принять HTTP request.
+2. Передать данные в use case.
+3. Получить result.
+4. Вернуть HTTP response.
+
+Плохо:
+
+Контроллер сам создаёт Deceased, сам проверяет права, сам пишет в DbContext.
+
+Хорошо:
+
+Контроллер вызывает AddDeceasedAtGraveUseCase.
+
+---------------------------------------------------------------------
+B5. Используемый стек
+---------------------------------------------------------------------
+
+Backend:
+
+- .NET 8;
+- ASP.NET Core Web API;
+- EF Core;
+- PostgreSQL;
+- JWT authentication;
+- BCrypt;
+- FluentValidation;
+- Serilog;
+- Seq;
+- Docker Compose;
+- MinIO;
+- Clean Architecture.
+
+Frontend в будущем:
+
+- React;
+- TypeScript;
+- Vite;
+- React Router;
+- TanStack Query;
+- Zustand;
+- Axios;
+- Mantine;
+- React Hook Form;
+- Zod;
+- Yandex Maps API.
+
+=====================================================================
+C. КЛЮЧЕВЫЕ СУЩНОСТИ
+=====================================================================
+
+---------------------------------------------------------------------
+C1. Deceased
+---------------------------------------------------------------------
+
+Deceased — карточка умершего.
+
+Она должна хранить:
+
+- Id;
+- имя;
+- фамилию;
+- отчество;
+- дату рождения;
+- дату смерти;
+- краткое описание;
+- биографию;
+- место захоронения;
+- координаты могилы;
+- автора записи;
+- статус подтверждения;
+- search key;
+- медиафайлы;
+- воспоминания.
+
+Главное изменение:
+
+BurialLocation должен стать nullable.
+
+Причина:
+
+Не всегда у пользователя есть полный адрес захоронения.
+В сценарии "пользователь стоит у могилы" у него часто есть только GPS-координаты со смартфона.
+
+Примеры допустимых состояний:
+
+1. Умерший создан с полным местом захоронения:
+   - Country;
+   - City;
+   - CemeteryName;
+   - PlotNumber;
+   - GraveNumber;
+   - Latitude;
+   - Longitude.
+
+2. Умерший создан только с GPS:
+   - Latitude;
+   - Longitude;
+   - AccuracyMeters.
+
+3. Умерший создан вообще без BurialLocation:
+   - место будет добавлено позже.
+
+Domain-правила:
+
+- Deceased должен уметь существовать без BurialLocation.
+- Если BurialLocation есть, координаты должны быть валидными.
+- SearchKey не должен падать, если BurialLocation == null.
+- Автор записи должен сохраняться через CreatedByUserId.
+- Изменение BurialLocation должно происходить через доменный метод.
+
+---------------------------------------------------------------------
+C2. BurialLocation
+---------------------------------------------------------------------
+
+BurialLocation — value object места захоронения.
+
+Должен хранить:
+
+- Latitude;
+- Longitude;
+- AccuracyMeters;
+- Country;
+- City;
+- CemeteryName;
+- PlotNumber;
+- GraveNumber.
+
+Новые правила:
+
+- Latitude обязателен, если BurialLocation создан.
+- Longitude обязателен, если BurialLocation создан.
+- Latitude должен быть от -90 до 90.
+- Longitude должен быть от -180 до 180.
+- AccuracyMeters должен быть >= 0, если передан.
+- Country больше не обязателен.
+- City больше не обязателен.
+- CemeteryName больше не обязателен.
+- PlotNumber опционален.
+- GraveNumber опционален.
+
+Нужный factory method:
+
+BurialLocation.CreateFromGps(latitude, longitude, accuracyMeters)
+
+Этот метод нужен для сценария со смартфоном.
+
+Пример:
+
+Пользователь стоит у могилы.
+Телефон возвращает:
+
+latitude = 55.7558
+longitude = 37.6173
+accuracyMeters = 8.5
+
+Backend создаёт BurialLocation без Country и City, но с координатами.
+
+---------------------------------------------------------------------
+C3. User
+---------------------------------------------------------------------
+
+User — пользователь системы.
+
+Должен хранить:
+
+- Id;
+- Email;
+- UserName;
+- FullName;
+- Role;
+- TrackedDeceased;
+- RefreshTokens.
+
+Основные задачи User:
+
+- хранить профиль пользователя;
+- хранить роль;
+- хранить список отслеживаемых умерших;
+- уметь добавить умершего в отслеживаемые;
+- уметь убрать умершего из отслеживаемых;
+- уметь обновить настройки отслеживания.
+
+В будущем User также должен хранить refresh tokens.
+
+---------------------------------------------------------------------
+C4. TrackedDeceased
+---------------------------------------------------------------------
+
+TrackedDeceased — связь пользователя с конкретным умершим.
+
+Должен хранить:
+
+- Id;
+- UserId;
+- DeceasedId;
+- RelationshipType;
+- PersonalNotes;
+- NotifyOnDeathAnniversary;
+- NotifyOnBirthAnniversary;
+- Status;
+- TrackedAtUtc.
+
+Статусы:
+
+- Active;
+- Muted;
+- Archived.
+
+Главное правило:
+
+Когда пользователь добавляет умершего на могиле через AddDeceasedAtGrave, backend должен автоматически создать TrackedDeceased для текущего пользователя.
+
+Почему:
+
+Если пользователь сам добавил умершего на могиле, логично, что эта запись сразу появляется у него в списке отслеживаемых.
+Не нужно заставлять пользователя отдельно нажимать "Отслеживать".
+
+---------------------------------------------------------------------
+C5. DeceasedMedia
+---------------------------------------------------------------------
+
+DeceasedMedia — универсальная сущность файлов.
+
+Она должна заменить старый подход, где фото хранится просто как URL.
+
+DeceasedMedia должна поддерживать:
+
+- фото умершего;
+- фото могилы;
+- документы;
+- прочие файлы.
+
+Поля:
+
+- Id;
+- DeceasedId;
+- UploadedByUserId;
+- Kind;
+- OriginalFileName;
+- Bucket;
+- StorageKey;
+- ContentType;
+- SizeBytes;
+- Description;
+- IsMainPhoto;
+- ModerationStatus;
+- CreatedAtUtc;
+- UpdatedAtUtc.
+
+MediaKind:
+
+- DeceasedPhoto;
+- GravePhoto;
+- Document;
+- Other.
+
+Правила:
+
+- DeceasedPhoto может быть главным фото.
+- GravePhoto не должно быть главным фото карточки умершего.
+- Document не может быть главным фото.
+- У одного Deceased может быть только одно главное DeceasedPhoto.
+- Документы должны быть приватными.
+- Фото могут быть публичными для чтения.
+- Binary-файл хранится в MinIO.
+- Metadata файла хранится в PostgreSQL.
+
+=====================================================================
+D. BACKEND ROADMAP
+=====================================================================
+
+Backend делаем по этапам.
+
+D1. Фундамент API.
+D2. Optional BurialLocation.
+D3. AddDeceasedAtGrave.
+D4. MeTrackedDeceased API.
+D5. MinIO + IFileStorage.
+D6. DeceasedMedia.
+D7. Media API.
+D8. Route API.
+D9. Tests.
+D10. Backend E2E check.
+
+Правило:
+
+Не переходить к frontend, пока D1-D10 не завершены.
+
+=====================================================================
+D1. ФУНДАМЕНТ API
+=====================================================================
+
+Цель:
+
+Подготовить API к работе с frontend и нормальной авторизацией.
+
+---------------------------------------------------------------------
+D1.1 CORS
+---------------------------------------------------------------------
+
+Нужно добавить CORS, чтобы frontend мог обращаться к backend.
+
+Для разработки разрешить origins:
+
+- http://localhost:5173;
+- http://localhost:3000.
+
+CORS должен быть подключён в Program.cs до:
+
+- UseAuthentication;
+- UseAuthorization.
+
+Важно:
+
+Нельзя использовать AllowAnyOrigin вместе с AllowCredentials.
+Нужно указывать конкретные origins.
+
+Готово, если:
+
+[ ] Preflight OPTIONS проходит.
+[ ] Frontend origin разрешён.
+[ ] Authorization header разрешён.
+[ ] Content-Type header разрешён.
+
+---------------------------------------------------------------------
+D1.2 GET /api/users/me
+---------------------------------------------------------------------
+
+Нужно добавить endpoint:
+
+GET /api/users/me
+
+Назначение:
+
+Frontend должен уметь получить текущего пользователя по access token.
+
+Важно:
+
+userId нельзя принимать из query, route или body.
+userId должен браться только из JWT через ICurrentUserService.
+
+Пример ответа:
+
+{
+  "id": "...",
+  "email": "...",
+  "userName": "...",
+  "fullName": "...",
+  "role": "RegularUser"
+}
+
+Готово, если:
+
+[ ] Авторизованный пользователь получает свой профиль.
+[ ] Неавторизованный пользователь получает 401.
+[ ] userId нигде не передаётся с клиента.
+
+---------------------------------------------------------------------
+D1.3 Seed первого SuperAdmin
+---------------------------------------------------------------------
+
+Нужно добавить автоматическое создание первого администратора.
+
+Файл:
+
+GdeOni.Infrastructure/Data/DbInitializer.cs
+
+Настройки:
+
+Seed:
+  SuperAdmin:
+    Email
+    Password
+    FullName
+
+Логика:
+
+1. При старте приложения проверить, есть ли SuperAdmin.
+2. Если SuperAdmin уже есть — ничего не делать.
+3. Если SuperAdmin нет — создать.
+4. Пароль сохранить только в виде BCrypt hash.
+5. Вывести лог, что SuperAdmin создан.
+
+Готово, если:
+
+[ ] При первом запуске SuperAdmin создаётся.
+[ ] При повторном запуске дубликат не создаётся.
+[ ] Пароль в БД хранится как hash.
+
+---------------------------------------------------------------------
+D1.4 Refresh tokens и logout
+---------------------------------------------------------------------
+
+Нужно добавить нормальный механизм сессии.
+
+Сущность RefreshToken:
+
+- Id;
+- UserId;
+- TokenHash;
+- ExpiresAtUtc;
+- RevokedAtUtc;
+- CreatedAtUtc;
+- CreatedFromIp.
+
+Endpoints:
+
+POST /api/auth/refresh
+POST /api/auth/logout
+
+Правила:
+
+- refresh token хранить в БД только как hash;
+- plain refresh token возвращать пользователю только один раз;
+- при refresh делать rotation;
+- старый refresh token должен отзываться;
+- новый refresh token должен создаваться;
+- logout должен отзывать текущий refresh token;
+- access token можно сделать на 15 минут;
+- refresh token можно сделать на 14 дней.
+
+Готово, если:
+
+[ ] Login возвращает access token и refresh token.
+[ ] Refresh возвращает новый access token.
+[ ] Refresh делает rotation refresh token.
+[ ] Старый refresh token после rotation не работает.
+[ ] Logout отзывает refresh token.
+[ ] После logout refresh не работает.
+
+---------------------------------------------------------------------
+!D1.5 Secrets cleanup
+---------------------------------------------------------------------
+
+В appsettings.json не должно быть настоящих секретов.
+
+Нужно убрать:
+
+- настоящий JWT secret;
+- production connection string;
+- production MinIO secret;
+- другие приватные ключи.
+
+В appsettings.json оставить placeholder:
+
+"Secret": "REPLACE_ME"
+
+Для локальной разработки использовать:
+
+- user secrets;
+- appsettings.local.json;
+- environment variables.
+
+Готово, если:
+
+[ ] В git нет настоящих secrets.
+[ ] README объясняет, как настроить secrets локально.
+[ ] Приложение не стартует с небезопасным Secret в production.
+
+---------------------------------------------------------------------
+D1.6 UniqueConstraintException -> 409
+---------------------------------------------------------------------
+
+Если возникает конфликт уникальности, API не должен возвращать 500.
+
+Примеры конфликтов:
+
+- email уже существует;
+- username уже существует;
+- search key уже существует;
+- duplicate tracking.
+
+Нужно возвращать:
+
+HTTP 409 Conflict
+
+Пример:
+
+{
+  "errorCode": "user.email.already_exists",
+  "errorMessage": "Пользователь с таким email уже существует."
+}
+
+Готово, если:
+
+[ ] Дубликат email возвращает 409.
+[ ] Дубликат username возвращает 409.
+[ ] Ошибка не уходит в ExceptionMiddleware как 500.
+[ ] Frontend получает понятный errorCode.
+
+=====================================================================
+D2. OPTIONAL BURIALLOCATION
+=====================================================================
+
+Цель:
+
+Разрешить создавать умершего без полного адреса захоронения.
+Разрешить создавать место захоронения только по GPS-координатам со смартфона.
+
+---------------------------------------------------------------------
+D2.1 Изменить Deceased
+---------------------------------------------------------------------
+
+Было:
+
+BurialLocation BurialLocation
+
+Должно стать:
+
+BurialLocation? BurialLocation
+
+Нужно проверить все места, где используется BurialLocation:
+
+- CreateDeceasedUseCase;
+- UpdateDeceasedUseCase;
+- GetDeceasedByIdUseCase;
+- Search;
+- Distance endpoint;
+- DTO mapping;
+- RebuildSearchKey.
+
+Готово, если:
+
+[ ] Deceased может существовать без BurialLocation.
+[ ] Код не падает на null BurialLocation.
+
+---------------------------------------------------------------------
+D2.2 Изменить BurialLocation
+---------------------------------------------------------------------
+
+Country сделать nullable:
+
+string? Country
+
+Добавить:
+
+double? AccuracyMeters
+
+Убрать обязательность Country.
+
+Готово, если:
+
+[ ] BurialLocation можно создать без Country.
+[ ] AccuracyMeters сохраняется.
+[ ] Невалидный AccuracyMeters отклоняется.
+
+---------------------------------------------------------------------
+D2.3 Добавить CreateFromGps
+---------------------------------------------------------------------
+
+Добавить метод:
+
+BurialLocation.CreateFromGps(
+    double latitude,
+    double longitude,
+    double? accuracyMeters
+)
+
+Метод должен проверять:
+
+- latitude от -90 до 90;
+- longitude от -180 до 180;
+- accuracyMeters >= 0, если передан.
+
+Метод должен создавать location без:
+
+- country;
+- city;
+- cemeteryName.
+
+Готово, если:
+
+[ ] GPS-only location создаётся.
+[ ] Невалидный latitude даёт ошибку.
+[ ] Невалидный longitude даёт ошибку.
+[ ] Невалидный accuracyMeters даёт ошибку.
+
+---------------------------------------------------------------------
+D2.4 Обновить EF Core mapping
+---------------------------------------------------------------------
+
+Owned columns BurialLocation должны стать nullable.
+
+Нужно сделать migration:
+
+MakeBurialLocationOptional
+
+Готово, если:
+
+[ ] Миграция создана.
+[ ] Миграция применяется.
+[ ] Колонки address/location не требуют NOT NULL там, где это больше не нужно.
+
+---------------------------------------------------------------------
+D2.5 Обновить validators
+---------------------------------------------------------------------
+
+Нужно убрать обязательность Country.
+
+Проверки должны остаться для:
+
+- latitude;
+- longitude;
+- accuracyMeters;
+- deathDate;
+- birthDate.
+
+Готово, если:
+
+[ ] Validator не требует Country.
+[ ] Validator проверяет координаты.
+[ ] Старые запросы продолжают работать.
+
+=====================================================================
+D3. ADD DECEASED AT GRAVE
+=====================================================================
+
+Цель:
+
+Сделать главный сценарий одним backend-запросом.
+
+Endpoint:
+
+POST /api/deceased-records/at-grave
+
+---------------------------------------------------------------------
+D3.1 Request
+---------------------------------------------------------------------
+
+Запрос должен принимать:
+
+- firstName;
+- lastName;
+- middleName;
+- birthDate;
+- deathDate;
+- shortDescription;
+- biography;
+- graveLocation;
+- tracking.
+
+graveLocation:
+
+- latitude;
+- longitude;
+- accuracyMeters;
+- country;
+- city;
+- cemeteryName;
+- plotNumber;
+- graveNumber.
+
+tracking:
+
+- relationshipType;
+- personalNotes;
+- notifyOnDeathAnniversary;
+- notifyOnBirthAnniversary.
+
+---------------------------------------------------------------------
+D3.2 Response
+---------------------------------------------------------------------
+
+Успешный ответ:
+
+HTTP 201 Created
+
+{
+  "deceasedId": "...",
+  "trackingId": "...",
+  "trackingStatus": "Active"
+}
+
+---------------------------------------------------------------------
+D3.3 Use case logic
+---------------------------------------------------------------------
+
+AddDeceasedAtGraveUseCase должен делать:
+
+1. Взять currentUserId из JWT.
+2. Проверить, что пользователь авторизован.
+3. Загрузить User вместе с TrackedDeceased.
+4. Создать BurialLocation через CreateFromGps.
+5. Создать Deceased.
+6. Добавить Deceased в DeceasedRepository.
+7. Вызвать user.TrackDeceased(deceased.Id, ...).
+8. Сделать один SaveChanges.
+9. Вернуть deceasedId и trackingId.
+
+---------------------------------------------------------------------
+D3.4 Atomicity
+---------------------------------------------------------------------
+
+Важно:
+
+Deceased и TrackedDeceased должны создаваться атомарно.
+
+Нельзя:
+
+1. Save Deceased.
+2. Save Tracking.
+
+Нужно:
+
+1. Add Deceased.
+2. Add Tracking.
+3. Один SaveChanges.
+
+Если tracking не создался, Deceased не должен сохраниться.
+
+Готово, если:
+
+[ ] Deceased и TrackedDeceased сохраняются вместе.
+[ ] При ошибке tracking Deceased не появляется в БД.
+[ ] При ошибке SaveChanges не остаётся половинчатых данных.
+
+---------------------------------------------------------------------
+D3.5 Validation
+---------------------------------------------------------------------
+
+Проверить:
+
+- firstName обязателен;
+- lastName обязателен;
+- deathDate обязателен;
+- deathDate не в будущем;
+- birthDate не позже deathDate;
+- latitude от -90 до 90;
+- longitude от -180 до 180;
+- accuracyMeters >= 0;
+- relationshipType валидный.
+
+Готово, если:
+
+[ ] Валидный запрос возвращает 201.
+[ ] Невалидные координаты возвращают 400.
+[ ] Неавторизованный пользователь получает 401.
+[ ] Невалидные даты возвращают 400.
+[ ] Запись появляется в tracked list.
+
+=====================================================================
+D4. ME TRACKED DECEASED API
+=====================================================================
+
+Цель:
+
+Сделать API для списка отслеживаемых текущего пользователя.
+
+Base route:
+
+/api/users/me/tracked-deceased
+
+---------------------------------------------------------------------
+D4.1 GET list
+---------------------------------------------------------------------
+
+Endpoint:
+
+GET /api/users/me/tracked-deceased
+
+Назначение:
+
+Вернуть список умерших, которых отслеживает текущий пользователь.
+
+DTO должен содержать:
+
+- trackingId;
+- deceasedId;
+- fullName;
+- birthDate;
+- deathDate;
+- hasGraveLocation;
+- graveLatitude;
+- graveLongitude;
+- mainPhotoUrl;
+- relationshipType;
+- status;
+- notifyOnDeathAnniversary;
+- notifyOnBirthAnniversary;
+- trackedAtUtc.
+
+Готово, если:
+
+[ ] Пользователь видит только свои записи.
+[ ] Чужие записи не попадают в ответ.
+[ ] Есть pagination.
+[ ] Есть основные данные для карточки на frontend.
+
+---------------------------------------------------------------------
+D4.2 GET detail
+---------------------------------------------------------------------
+
+Endpoint:
+
+GET /api/users/me/tracked-deceased/{deceasedId}
+
+Назначение:
+
+Вернуть детальную карточку отслеживаемого умершего.
+
+Если пользователь не отслеживает умершего:
+
+HTTP 403 Forbidden
+
+Готово, если:
+
+[ ] Свой tracked deceased открывается.
+[ ] Чужой deceased возвращает 403.
+[ ] Неавторизованный пользователь получает 401.
+
+---------------------------------------------------------------------
+D4.3 GET exists
+---------------------------------------------------------------------
+
+Endpoint:
+
+GET /api/users/me/tracked-deceased/{deceasedId}/exists
+
+Ответ:
+
+{
+  "tracked": true
+}
+
+или:
+
+{
+  "tracked": false
+}
+
+Назначение:
+
+Нужно для frontend-кнопки "Отслеживать".
+
+Готово, если:
+
+[ ] Возвращает true, если пользователь отслеживает.
+[ ] Возвращает false, если не отслеживает.
+
+---------------------------------------------------------------------
+D4.4 POST add tracking
+---------------------------------------------------------------------
+
+Endpoint:
+
+POST /api/users/me/tracked-deceased/{deceasedId}
+
+Назначение:
+
+Добавить существующего умершего в отслеживаемые.
+
+Важно:
+
+userId брать только из JWT.
+
+Готово, если:
+
+[ ] Можно добавить existing deceased в tracking.
+[ ] Повторное добавление не создаёт дубль.
+[ ] Ошибка duplicate возвращает понятный Conflict.
+
+---------------------------------------------------------------------
+D4.5 PATCH update tracking
+---------------------------------------------------------------------
+
+Endpoint:
+
+PATCH /api/users/me/tracked-deceased/{deceasedId}
+
+Можно менять:
+
+- relationshipType;
+- personalNotes;
+- notifyOnDeathAnniversary;
+- notifyOnBirthAnniversary;
+- status.
+
+Готово, если:
+
+[ ] Пользователь обновляет свои настройки.
+[ ] Чужие настройки обновить нельзя.
+[ ] Невалидные значения отклоняются.
+
+---------------------------------------------------------------------
+D4.6 DELETE tracking
+---------------------------------------------------------------------
+
+Endpoint:
+
+DELETE /api/users/me/tracked-deceased/{deceasedId}
+
+Назначение:
+
+Убрать умершего из отслеживаемых.
+
+Готово, если:
+
+[ ] Свой tracking удаляется или архивируется.
+[ ] Чужой tracking удалить нельзя.
+[ ] После удаления запись не видна в active list.
+
+=====================================================================
+D5. MINIO + IFILESTORAGE
+=====================================================================
+
+Цель:
+
+Подключить загрузку файлов через MinIO, но спрятать MinIO за интерфейсом.
+
+---------------------------------------------------------------------
+D5.1 Application abstraction
+---------------------------------------------------------------------
+
+В Application добавить:
+
+- IFileStorage;
+- StoredFile;
+- FileKind.
+
+IFileStorage должен поддерживать:
+
+- UploadAsync;
+- DeleteAsync;
+- GetPublicUrl;
+- GetPresignedUrlAsync.
+
+StoredFile должен хранить:
+
+- Bucket;
+- ObjectKey;
+- ContentType;
+- SizeBytes;
+- OriginalFileName.
+
+FileKind:
+
+- DeceasedPhoto;
+- GravePhoto;
+- Document;
+- Other.
+
+Готово, если:
+
+[ ] Application содержит интерфейс.
+[ ] Application не зависит от MinIO SDK.
+[ ] Use cases могут работать через IFileStorage.
+
+---------------------------------------------------------------------
+D5.2 Infrastructure implementation
+---------------------------------------------------------------------
+
+В Infrastructure добавить:
+
+- MinioFileStorage;
+- MinioOptions;
+- MinioBootstrap.
+
+MinioOptions:
+
+- Endpoint;
+- AccessKey;
+- SecretKey;
+- UseSsl;
+- PublicBaseUrl;
+- Buckets.
+
+Buckets:
+
+- deceased-photos;
+- grave-photos;
+- deceased-documents.
+
+Готово, если:
+
+[ ] MinioFileStorage реализует IFileStorage.
+[ ] MinioOptions читается из configuration.
+[ ] MinioBootstrap создаёт buckets при старте.
+
+---------------------------------------------------------------------
+D5.3 Access rules
+---------------------------------------------------------------------
+
+Правила доступа:
+
+- deceased-photos — public read;
+- grave-photos — public read;
+- deceased-documents — private;
+- документы отдавать через presigned URL.
+
+Готово, если:
+
+[ ] Фото можно открыть по public URL.
+[ ] Документы нельзя открыть напрямую.
+[ ] Документы открываются через presigned URL.
+
+---------------------------------------------------------------------
+D5.4 File validation
+---------------------------------------------------------------------
+
+Фото:
+
+- image/jpeg;
+- image/png;
+- image/webp;
+- максимум 10 MB.
+
+Документы:
+
+- application/pdf;
+- максимум 25 MB.
+
+StorageKey:
+
+Не использовать имя файла пользователя как путь.
+
+Формат:
+
+{kind}/{deceasedId}/{guid}.{extension}
+
+Готово, если:
+
+[ ] Невалидный MIME отклоняется.
+[ ] Слишком большой файл отклоняется.
+[ ] StorageKey генерируется безопасно.
+
+=====================================================================
+D6. DECEASED MEDIA
+=====================================================================
+
+Цель:
+
+Заменить старую модель фото на универсальную модель медиафайлов.
+
+---------------------------------------------------------------------
+D6.1 Domain entity
+---------------------------------------------------------------------
+
+Создать DeceasedMedia.
+
+Поля:
+
+- Id;
+- DeceasedId;
+- UploadedByUserId;
+- Kind;
+- OriginalFileName;
+- Bucket;
+- StorageKey;
+- ContentType;
+- SizeBytes;
+- Description;
+- IsMainPhoto;
+- ModerationStatus;
+- CreatedAtUtc;
+- UpdatedAtUtc.
+
+Создать enum MediaKind:
+
+- DeceasedPhoto;
+- GravePhoto;
+- Document;
+- Other.
+
+Готово, если:
+
+[ ] Entity создана.
+[ ] Enum создан.
+[ ] Domain компилируется.
+
+---------------------------------------------------------------------
+D6.2 Deceased methods
+---------------------------------------------------------------------
+
+Добавить в Deceased методы:
+
+- AddMedia;
+- RemoveMedia;
+- SetMainPhoto;
+- UpdateMediaDescription;
+- ApproveMedia;
+- RejectMedia.
+
+Правила:
+
+- main photo только для DeceasedPhoto;
+- Document не может быть main photo;
+- если одно фото стало главным, остальные сбрасываются;
+- StorageKey должен быть уникален.
+
+Готово, если:
+
+[ ] AddMedia работает.
+[ ] RemoveMedia работает.
+[ ] SetMainPhoto работает.
+[ ] Нельзя сделать Document главным фото.
+[ ] Нельзя добавить duplicate StorageKey.
+
+---------------------------------------------------------------------
+D6.3 EF mapping
+---------------------------------------------------------------------
+
+Создать таблицу:
+
+deceased_media
+
+Индексы:
+
+- deceased_id;
+- kind;
+- uploaded_by_user_id;
+- storage_key.
+
+Сделать миграцию:
+
+IntroduceDeceasedMedia
+
+Готово, если:
+
+[ ] Таблица создаётся.
+[ ] FK на Deceased работает.
+[ ] Cascade delete настроен.
+[ ] Миграция применяется.
+
+=====================================================================
+D7. MEDIA API
+=====================================================================
+
+Цель:
+
+Дать frontend возможность загружать фото умершего, фото могилы и документы.
+
+---------------------------------------------------------------------
+D7.1 Upload media
+---------------------------------------------------------------------
+
+Endpoint:
+
+POST /api/deceased-records/{id}/media
+
+Content-Type:
+
+multipart/form-data
+
+Поля:
+
+- file;
+- kind;
+- description.
+
+Порядок:
+
+1. Проверить авторизацию.
+2. Проверить права.
+3. Проверить MIME и size.
+4. Загрузить файл в MinIO.
+5. Создать DeceasedMedia.
+6. Сохранить metadata в PostgreSQL.
+
+Важно:
+
+Если файл загрузился в MinIO, но БД save упал, нужно удалить файл из MinIO.
+
+Готово, если:
+
+[ ] Фото умершего загружается.
+[ ] Фото могилы загружается.
+[ ] PDF загружается.
+[ ] Файл появляется в MinIO.
+[ ] Metadata появляется в PostgreSQL.
+[ ] При ошибке БД файл удаляется из MinIO.
+
+---------------------------------------------------------------------
+D7.2 List media
+---------------------------------------------------------------------
+
+Endpoint:
+
+GET /api/deceased-records/{id}/media
+
+Query:
+
+- kind;
+- moderationStatus;
+- page;
+- pageSize.
+
+Готово, если:
+
+[ ] Возвращается список файлов.
+[ ] Можно фильтровать по kind.
+[ ] Можно фильтровать по status.
+[ ] Есть pagination.
+
+---------------------------------------------------------------------
+D7.3 Get media
+---------------------------------------------------------------------
+
+Endpoint:
+
+GET /api/deceased-records/{id}/media/{mediaId}
+
+Возвращает:
+
+- metadata;
+- publicUrl для фото;
+- presignedUrl для документов.
+
+Готово, если:
+
+[ ] Фото возвращает public URL.
+[ ] Документ возвращает presigned URL.
+[ ] Чужие приватные документы недоступны без прав.
+
+---------------------------------------------------------------------
+D7.4 Delete media
+---------------------------------------------------------------------
+
+Endpoint:
+
+DELETE /api/deceased-records/{id}/media/{mediaId}
+
+Права:
+
+- автор файла;
+- создатель Deceased;
+- admin.
+
+Готово, если:
+
+[ ] Metadata удаляется.
+[ ] Файл удаляется из MinIO.
+[ ] Чужой файл нельзя удалить без прав.
+
+---------------------------------------------------------------------
+D7.5 Main photo
+---------------------------------------------------------------------
+
+Endpoint:
+
+PATCH /api/deceased-records/{id}/media/{mediaId}/main-photo
+
+Правила:
+
+- только DeceasedPhoto может быть main photo;
+- назначить может создатель Deceased или admin;
+- остальные DeceasedPhoto должны стать не главными.
+
+Готово, если:
+
+[ ] Main photo назначается.
+[ ] Document нельзя назначить main photo.
+[ ] Старое main photo сбрасывается.
+
+---------------------------------------------------------------------
+D7.6 Moderation
+---------------------------------------------------------------------
+
+Endpoints:
+
+PATCH /api/deceased-records/{id}/media/{mediaId}/approve
+PATCH /api/deceased-records/{id}/media/{mediaId}/reject
+
+Права:
+
+- только Admin/SuperAdmin.
+
+Готово, если:
+
+[ ] Admin может approve.
+[ ] Admin может reject.
+[ ] Обычный пользователь не может approve/reject.
+
+---------------------------------------------------------------------
+D7.7 MIME validation по magic numbers
+---------------------------------------------------------------------
+
+Сейчас FileValidator проверяет только Content-Type из multipart-заголовка.
+Это значение присылает клиент, его можно подделать.
+Можно загрузить .exe под видом image/jpeg.
+
+Нужно валидировать тип файла по первым байтам потока:
+
+- JPEG: FF D8 FF;
+- PNG: 89 50 4E 47 0D 0A 1A 0A;
+- WebP: RIFF .... WEBP;
+- PDF: 25 50 44 46.
+
+Логика:
+
+1. Прочитать первые 12 байт из request.Content.
+2. Сравнить с сигнатурой по FileKind.
+3. Если не совпадает — вернуть Errors.Media.PhotoContentTypeNotAllowed
+   или DocumentContentTypeNotAllowed.
+4. Сбросить позицию потока на 0 перед UploadAsync.
+
+Важно:
+
+- проверка по магическим байтам должна быть в Application (FileValidator),
+  а не в Infrastructure;
+- поток должен быть seekable, либо буферизуемым через MemoryStream;
+- для multipart IFormFile это уже выполняется (поток seekable).
+
+Готово, если:
+
+[ ] FileValidator принимает Stream и сверяет первые байты.
+[ ] .exe с Content-Type image/jpeg отклоняется.
+[ ] PDF с Content-Type image/png отклоняется.
+[ ] Позиция потока после проверки сброшена на 0.
+[ ] Существующие фото и PDF продолжают грузиться.
+
+---------------------------------------------------------------------
+D7.8 Presigned URL для production
+---------------------------------------------------------------------
+
+Сейчас MinioFileStorage.GetPresignedUrlAsync генерирует ссылку через
+IMinioClient, который сконфигурен на MinioOptions.Endpoint.
+В production endpoint = "minio:9000" — внутренний адрес контейнера,
+не доступный из браузера.
+
+Получится presigned URL вида http://minio:9000/... — он не сработает
+ни на каком фронтенде.
+
+Нужно либо:
+
+A. Использовать MinIO server-side переменную MINIO_SERVER_URL
+   (рекомендуется): MinIO сам подставляет публичный host в presigned URL.
+
+B. Настроить второй IMinioClient (publicClient) на PublicBaseUrl
+   и использовать его только для GetPresignedUrlAsync.
+
+C. После генерации ссылки заменить host на PublicBaseUrl.
+
+Документация по варианту A:
+
+- docker-compose: добавить env MINIO_SERVER_URL=https://files.example.com;
+- nginx: проксировать на minio:9000;
+- TLS termination на nginx.
+
+Готово, если:
+
+[ ] В production presigned URL содержит публичный домен.
+[ ] Скачивание PDF из браузера работает извне.
+[ ] В docker-compose описана переменная MINIO_SERVER_URL.
+[ ] В docs/deploy.md описан nginx config.
+[ ] В dev окружении ссылка по-прежнему ведёт на localhost:9000.
+
+---------------------------------------------------------------------
+D7.9 Сброс IsMainPhoto при reject и delete
+---------------------------------------------------------------------
+
+Сейчас DeceasedMedia.Reject() меняет только ModerationStatus.
+Если админ отклонил главное фото, оно остаётся IsMainPhoto = true.
+GetMainPhoto() продолжает его возвращать, в карточке светится
+mainPhotoUrl от rejected-файла.
+
+То же самое для DeleteMedia: если удалили main photo, у Deceased
+больше нет main photo, что ОК, но если осталось другое DeceasedPhoto,
+оно не становится автоматически новым main.
+
+Поведение:
+
+- Reject main photo -> IsMainPhoto = false. Никакое другое фото
+  не становится main автоматически (это решение пользователя).
+- Delete main photo -> главное фото пропадает. Никакое другое фото
+  не становится main автоматически.
+
+Готово, если:
+
+[ ] DeceasedMedia.Reject сбрасывает IsMainPhoto если он был true.
+[ ] Deceased.RemoveMedia корректно удаляет main photo
+    (ничего не назначает автоматически).
+[ ] GetMainPhoto не возвращает rejected-файл.
+[ ] Юнит-тест Domain покрывает оба сценария.
+
+---------------------------------------------------------------------
+D7.10 Cleanup orphan files в MinIO
+---------------------------------------------------------------------
+
+При удалении карточки Deceased EF делает Cascade на deceased_media,
+но физические файлы в MinIO остаются как сироты.
+
+Когда появится use case DeleteDeceased, нужно перед SaveChanges
+собрать все (Bucket, StorageKey) media этого Deceased и удалить их
+из MinIO best-effort после успешного Save.
+
+Дополнительно — фоновая задача-чистильщик:
+
+- раз в сутки;
+- листать MinIO bucket;
+- сверять storage_key с БД;
+- если ключа нет в deceased_media — удалять из MinIO старше 24 часов
+  (защита от race с Upload, который ещё не успел сделать SaveChanges).
+
+Готово, если:
+
+[ ] DeleteDeceasedUseCase удаляет media из MinIO перед/после SaveChanges.
+[ ] Best-effort: ошибка MinIO логируется, не блокирует удаление в БД.
+[ ] Описана периодическая job (BackgroundService) для cleanup сирот.
+[ ] Job проверяет возраст файла > 24 часов перед удалением.
+
+---------------------------------------------------------------------
+D7.11 Стриминг OpenReadAsync
+---------------------------------------------------------------------
+
+Сейчас MinioFileStorage.OpenReadAsync копирует весь объект в
+MemoryStream и возвращает его. Для 25 MB PDF и N concurrent клиентов
+это OOM-риск.
+
+Метод пока нигде не используется (D7 отдаёт URL, а не байты),
+но если когда-то понадобится проксировать файлы через API,
+надо переписать на прямой стрим из MinIO в HttpResponse.BodyWriter.
+
+Варианты:
+
+- GetObjectAsync с CallbackStream писать прямо в response;
+- либо вернуть Stream, который читает из MinIO лениво.
+
+Пока этого endpoint нет — пометить как технический долг и не
+использовать OpenReadAsync до фикса.
+
+Готово, если:
+
+[ ] OpenReadAsync не буферизует весь объект в память.
+[ ] При 25 MB файле и 10 параллельных запросах память не растёт
+    линейно от количества клиентов.
+[ ] Если стриминг отложен — метод помечен [Obsolete] с TODO.
+
+---------------------------------------------------------------------
+D7.12 Performance: фильтрованный Include для main photo
+---------------------------------------------------------------------
+
+В UserRepository.GetMyTrackedDeceasedPaged сейчас
+Include(d => d.Media) тянет ВСЕ типы медиа (фото умершего, фото могилы,
+документы) ради одной строки IsMainPhoto = true && Kind = DeceasedPhoto.
+
+На карточке с десятками документов это лишняя сетевая нагрузка
+на каждого пользователя в списке отслеживаемых.
+
+Варианты:
+
+A. EF 8 filtered include:
+
+   Include(d => d.Media.Where(m => m.IsMainPhoto && m.Kind == MediaKind.DeceasedPhoto))
+
+B. Узкая проекция в SQL: subquery на main photo по deceasedIds.
+
+C. Денормализация: добавить Deceased.MainMediaId как FK с NULL,
+   обновлять при SetMainPhoto/RemoveMedia. Без Include вообще.
+
+По сложности: A < B < C. По производительности: C > B > A.
+
+Готово, если:
+
+[ ] Запрос GetMyTrackedDeceasedPaged не тянет документы и фото могил.
+[ ] План SQL подтверждает, что в выборку идёт <= 1 строка media
+    на каждого Deceased.
+[ ] Существующие тесты не сломались.
+
+=====================================================================
+D7.13 — D7.31. ТЕХНИЧЕСКИЙ ДОЛГ ПО ИТОГАМ РЕВЬЮ
+=====================================================================
+
+Список собран по результатам сквозного аудита backend/src/.
+Пункты упорядочены по остроте (Bug > Security > Domain > Performance >
+Architecture > CodeSmell). Каждый — самостоятельный, можно делать
+по отдельности.
+
+---------------------------------------------------------------------
+D7.13 Сломанные routes Approve/Reject media в admin-контроллере
+---------------------------------------------------------------------
+
+В DeceasedRecordsAdminController.cs:101 и :122 actions Approve/Reject
+имеют маршрут [HttpPatch("{mediaId:guid}/approve")] поверх
+[Route("api/deceased-records")]. Полный путь становится
+/api/deceased-records/{mediaId}/approve — с одним route-токеном,
+а action принимает два параметра (id и mediaId).
+
+Параметр Guid id биндится из query/тела, де-факто всегда Guid.Empty.
+Use case всегда вернёт NotFound("deceased", Empty). Путь
+/api/deceased-records/{guid}/approve также конфликтует с REST-ресурсом
+карточки умершего.
+
+В DeceasedMediaController те же endpoint-ы есть с правильным
+маршрутом /api/deceased-records/{id}/media/{mediaId}/approve.
+
+Решение: удалить дубликаты Approve/Reject из
+DeceasedRecordsAdminController. ApproveMemory/RejectMemory оставить —
+у них корректные маршруты с {id:guid}/memories/{memoryId:guid}.
+
+Готово, если:
+
+[ ] DeceasedRecordsAdminController содержит только Verify, Unverified,
+    ApproveMemory, RejectMemory.
+[ ] Approve/Reject media работают только через DeceasedMediaController.
+[ ] swagger показывает один комплект endpoint-ов на Approve/Reject media.
+
+---------------------------------------------------------------------
+D7.14 Сидер SuperAdmin никогда не работает
+---------------------------------------------------------------------
+
+DbInitializer.SeedSuperAdminAsync вызывает User.Register с
+role: UserRole.SuperAdmin. User.Register (User.cs:72-77) явно
+отвергает SuperAdmin как невалидную роль:
+
+    if (!Enum.IsDefined(typeof(UserRole), role) ||
+        role == UserRole.Unknown ||
+        role == UserRole.SuperAdmin)
+        return Errors.User.RoleInvalid();
+
+В результате на каждом старте чистой БД лог "Не удалось создать
+SuperAdmin: user.role.invalid". ChangeRoleCommandValidator также
+блокирует назначение SuperAdmin → роль навсегда недостижима без
+прямого UPDATE в БД.
+
+Решение: завести в Domain отдельный фабричный метод
+User.RegisterSuperAdmin(...) или User.Register с дополнительным
+internal-флагом allowPrivilegedRoles, который имеет доступ только
+из Infrastructure.Data.
+
+Готово, если:
+
+[ ] При первом запуске на чистой БД SuperAdmin создаётся.
+[ ] Public User.Register по-прежнему отвергает SuperAdmin.
+[ ] DbInitializer использует privileged-метод.
+
+---------------------------------------------------------------------
+D7.15 UpdateDeceased теряет BurialLocation при PUT без поля
+---------------------------------------------------------------------
+
+UpdateDeceasedUseCase.cs:75 вызывает
+deceased.ChangeBurialLocation(burialLocation) безусловно. Если
+клиент шлёт частичный PUT (например, обновляет только имя), в
+command.BurialLocation попадает null → burialLocation == null →
+ChangeBurialLocation(null) стирает уже сохранённое место.
+
+Это потеря данных при типовом сценарии "поправить ФИО или биографию",
+которая ничего не должна знать про burial location.
+
+Решение: вызывать ChangeBurialLocation только под
+`if (command.BurialLocation is not null)`. Для очистки места
+завести отдельный DELETE /api/deceased-records/{id}/burial-location
+(use case ClearBurialLocation, аналогично ClearMetadata).
+
+Готово, если:
+
+[ ] PUT без поля BurialLocation не стирает сохранённое место.
+[ ] Есть отдельный endpoint для явной очистки.
+[ ] UpdateMetadata уже использует тот же подход (есть проверка is not null).
+
+---------------------------------------------------------------------
+D7.16 ChangePassword: admin-reset не работает + refresh-токены
+       не отзываются
+---------------------------------------------------------------------
+
+ChangePasswordUseCase.cs:42-49 безусловно проверяет CurrentPassword.
+Контроллер позволяет PUT /api/users/{id}/password при
+isAdmin && id != currentUserId, но admin не знает чужой пароль —
+всегда упирается в CurrentPasswordInvalid. Admin-reset фактически
+отсутствует.
+
+Дополнительно: после успешной смены пароля все активные refresh-токены
+пользователя остаются валидными — если пароль меняли из-за
+компрометации, новой парой логина и старыми refresh-токенами можно
+параллельно держать сессию.
+
+Решение:
+- Если isAdmin && user.Id != currentUserId — пропускать проверку
+  CurrentPassword (admin не должен знать чужой пароль).
+- После успешной смены пароля — отзывать все refresh-токены
+  пользователя (через IRefreshTokenRepository.RevokeAllForUser).
+
+Готово, если:
+
+[ ] Admin может сменить пароль другому пользователю без знания
+    его текущего пароля.
+[ ] Обычный пользователь по-прежнему обязан подтвердить
+    CurrentPassword.
+[ ] После смены пароля все активные refresh-токены отозваны.
+
+---------------------------------------------------------------------
+D7.17 Logout — анонимный отзыв чужого токена (DoS / IDOR)
+---------------------------------------------------------------------
+
+POST /api/auth/logout не имеет [Authorize] на action или контроллере.
+LogoutUseCase принимает refresh-токен в body и отзывает его, не
+проверяя, является ли вызывающий владельцем.
+
+Любой, узнавший чужой refresh-token (утечка из логов прокси/Sentry,
+заброшенный куки в кэше, и т.п.), может анонимно прислать его в
+/auth/logout и выкинуть жертву из системы. Это DoS-вектор.
+
+Решение:
+- Добавить [Authorize] на action.
+- В LogoutUseCase сверять existingToken.UserId с
+  currentUserService.GetCurrentUserId().Value. Если не совпадает —
+  вернуть Errors.RefreshToken.TokenInvalid() (тот же ответ, что и
+  для несуществующего токена).
+
+Готово, если:
+
+[ ] Анонимный POST /auth/logout возвращает 401.
+[ ] Авторизованный пользователь может отозвать только свои токены.
+[ ] Logout остаётся идемпотентным для своих токенов.
+
+---------------------------------------------------------------------
+D7.18 Privilege escalation: Admin может понизить SuperAdmin /
+       удалить SuperAdmin / удалить себя
+---------------------------------------------------------------------
+
+ChangeRoleUseCase.cs:38-40 — Domain.User.ChangeRole отвергает только
+SuperAdmin/Unknown как target, но не проверяет current role
+обновляемого пользователя. Любой Admin → PUT /users/{superAdminId}/role
+с body=RegularUser → последний SuperAdmin теряет права.
+
+DeleteUserUseCase.cs:30-43 — нет проверок ни на роль удаляемого,
+ни на самоудаление. Admin может удалить SuperAdmin или сам себя.
+
+В сочетании с D7.14 (сидер не работает) — восстановить SuperAdmin
+после такой операции невозможно без прямого UPDATE в БД.
+
+Решение:
+- В ChangeRoleUseCase: если user.Role == SuperAdmin — Forbidden.
+- В ChangeRoleUseCase: запретить Admin менять роли других Admin
+  (только SuperAdmin может изменить Admin).
+- В DeleteUserUseCase: запретить delete на пользователе с
+  Role == SuperAdmin.
+- В DeleteUserUseCase: запретить command.UserId == currentUserId
+  (или разрешить, но обязательно отозвать все refresh-токены).
+
+Готово, если:
+
+[ ] Admin не может изменить роль SuperAdmin.
+[ ] Admin не может изменить роль другого Admin.
+[ ] Admin не может удалить SuperAdmin.
+[ ] Admin не может удалить себя.
+
+---------------------------------------------------------------------
+D7.19 Старые JWT остаются валидными после смены роли/пароля
+---------------------------------------------------------------------
+
+JwtProvider.cs:15-40 не кладёт в токен ни jti, ни SecurityStamp/
+TokenVersion. После ChangeRole/ChangePassword/ChangeEmail старые
+JWT валидны до AccessTokenLifetimeMinutes (15 мин).
+
+Сценарии последствий:
+- Admin понизил роль скомпрометированного аккаунта → 15 минут он
+  всё ещё Admin для backend.
+- Юзер сменил пароль из-за компрометации → атакующий ещё 15 мин
+  работает со старым токеном.
+
+Решение:
+- Добавить в User поле SecurityStamp (Guid или int counter).
+- Инкрементировать его в User.ChangeRole / ChangePasswordHash /
+  ChangeEmail.
+- Класть в токен claim "stamp".
+- В JwtBearerEvents.OnTokenValidated сверять stamp из токена с
+  актуальным значением в БД (через scoped-сервис). Если не совпадает —
+  context.Fail.
+- Заодно добавить jti для будущей deny-list.
+
+Готово, если:
+
+[ ] Domain User имеет SecurityStamp.
+[ ] ChangeRole/ChangePasswordHash/ChangeEmail инкрементируют stamp.
+[ ] JWT содержит stamp claim.
+[ ] OnTokenValidated проверяет совпадение со стампом из БД.
+[ ] После ChangeRole старый JWT возвращает 401 на следующем запросе.
+
+---------------------------------------------------------------------
+D7.20 Login: timing-based user enumeration
+---------------------------------------------------------------------
+
+LoginUseCase.cs:36-41 — если user is null, BCrypt.Verify не
+вызывается. Это разница ~50-200 мс в латентности ответа. Атакующий
+может определить, существует ли email в системе, по таймингу.
+
+Решение: при user is null вызывать
+passwordHasher.Verify(command.Password, dummyHash) с заранее
+сгенерированным фиксированным хешем — выровнять время ответа.
+
+Готово, если:
+
+[ ] Login на несуществующий email и неверный пароль занимают
+    одинаковое время (медианная разница < 5%).
+[ ] Сообщение об ошибке остаётся одинаковым.
+
+---------------------------------------------------------------------
+D7.21 Модерационные утечки: Pending/Rejected контент видят все
+---------------------------------------------------------------------
+
+Три места, в которых немодерированный контент уходит к обычному
+пользователю:
+
+(а) GetDeceasedByIdMapping.cs:50-59 — DeceasedDetailsResponse содержит
+    ВСЕ воспоминания (Pending/Rejected) для любого аутентифицированного
+    юзера.
+
+(б) GetMediaListUseCase.cs:39-45 — GetMediaPaged возвращает Pending
+    и Rejected media любому. Утечка модерационного состояния
+    плюс потенциально оскорбительный контент.
+
+(в) Deceased.GetMainPhoto + GetMyTrackedDeceasedListUseCase —
+    отсеивается только Rejected. Pending main photo попадает в
+    публичный mainPhotoUrl карточки трекинга до модерации.
+    Юзер может загрузить любое фото, отметить main и оно сразу
+    видно подписчикам.
+
+Решение:
+- Use case передают isAdmin/currentUserId в маппер.
+- Не-владелец карточки и не-админ получают только Approved memories
+  и media.
+- Deceased.GetMainPhoto: возвращать null также при
+  ModerationStatus != Approved.
+
+Готово, если:
+
+[ ] GET /deceased-records/{id} для не-владельца / не-админа не
+    содержит Pending/Rejected memories.
+[ ] GET /deceased-records/{id}/media для не-владельца / не-админа
+    возвращает только Approved.
+[ ] mainPhotoUrl возвращается только если фото Approved.
+[ ] Владелец и админы видят весь контент.
+
+---------------------------------------------------------------------
+D7.22 EditText воспоминания не сбрасывает ModerationStatus
+---------------------------------------------------------------------
+
+DeceasedMemoryEntry.EditText (DeceasedMemoryEntry.cs:51-59) меняет
+только Text, не трогает ModerationStatus. Сценарий обхода модерации:
+
+1. Юзер пишет воспоминание (Pending).
+2. Admin одобряет (Approved).
+3. Юзер EditText на произвольный текст → запись остаётся Approved
+   с любым контентом.
+
+Решение: в EditText сбрасывать ModerationStatus → Pending. Также
+добавить UpdatedAtUtc + Touch() (см. D7.27).
+
+Готово, если:
+
+[ ] EditText одобренного воспоминания возвращает его в Pending.
+[ ] Текст видим только админам и автору до новой модерации.
+[ ] Юнит-тест Domain покрывает сценарий.
+
+---------------------------------------------------------------------
+D7.23 SetMainPhoto не проверяет ModerationStatus
+---------------------------------------------------------------------
+
+Deceased.SetMainPhoto (Deceased.cs:307-327) и
+DeceasedMedia.MarkAsMainPhoto (DeceasedMedia.cs:121-129) не
+смотрят на ModerationStatus. Можно назначить Pending фото главным.
+
+Это вторая дверь к D7.21(в): даже если Deceased.GetMainPhoto будет
+фильтровать по Approved, владелец карточки может ставить флаг
+на любое фото в любом статусе.
+
+Решение: в Deceased.SetMainPhoto проверять
+`media.ModerationStatus == Approved`, иначе вернуть новую ошибку
+Errors.DeceasedMedia.NotApproved.
+
+Готово, если:
+
+[ ] SetMainPhoto на Pending или Rejected возвращает 409 / Validation.
+[ ] Approve media → SetMainPhoto работает в обычном flow.
+
+---------------------------------------------------------------------
+D7.24 AddMemory ограничивает соц-фичу одним автором карточки
+---------------------------------------------------------------------
+
+AddMemoryUseCase.cs:38-39 разрешает добавлять воспоминания только
+автору карточки или admin. По описанию проекта (backend/docs/plan.txt:
+"пользователи делятся воспоминаниями") именно близкие/знакомые
+умершего пишут воспоминания — не один человек, который создал
+карточку у могилы.
+
+Также RemoveMemoryUseCase.cs:38 и UpdateMemoryUseCase.cs:38
+проверяют createdByUserId карточки или admin, игнорируя
+AuthorUserId самого воспоминания. Юзер написал коммент → не может
+его удалить, пока не админ.
+
+Решение:
+- AddMemory: снять ограничение (достаточно [Authorize]). Авторство
+  фиксируется через AuthorUserId = currentUserId.
+- RemoveMemory / UpdateMemory: разрешать
+  `memory.AuthorUserId == currentUserId
+   || deceased.CreatedByUserId == currentUserId
+   || isAdmin`.
+
+Готово, если:
+
+[ ] Любой авторизованный юзер может добавить воспоминание.
+[ ] Автор воспоминания может его править / удалять.
+[ ] Автор карточки и admin могут модерировать через delete / approve.
+
+---------------------------------------------------------------------
+D7.25 IDeceasedRepository.GetById всегда тянет Memories
+---------------------------------------------------------------------
+
+DeceasedRepository.cs:17-22 — GetById делает Include(Memories),
+хотя как минимум 9 use case'ов используют только flat-поля карточки:
+TrackDeceased, GetAgeAtDeath, GetDistance, HasMemories,
+UpdateMetadata, ClearMetadata, Verify, Unverified, GetMediaList
+(проверка существования). Для популярной карточки = сотни строк
+воспоминаний на каждый запрос.
+
+Решение:
+- Разделить GetById (без Include) и GetByIdWithMemories (явно).
+- Добавить ExistsByIdAsync(id, ct) для check-only сценариев
+  (TrackDeceased, GetMediaList).
+
+Готово, если:
+
+[ ] Use case'ы, не использующие воспоминания, вызывают GetById
+    без Include.
+[ ] Check-only сценарии используют ExistsByIdAsync.
+[ ] Use case'ы с воспоминаниями (например, GetById query)
+    вызывают GetByIdWithMemories.
+
+---------------------------------------------------------------------
+D7.26 GetPaged users + IsTrackedByMe — Include ради single-row
+---------------------------------------------------------------------
+
+UserRepository.cs:115-170 — GetPaged(GetAllUsersQuery) делает
+Include(TrackedDeceasedItems), хотя из коллекции читается только
+.Count для каждого юзера. На активном пользователе с сотнями
+подписок — десятки тысяч лишних строк за один admin-запрос.
+
+IsTrackedByMeUseCase.cs:14-30 — загружает полный User+TrackedItems
+ради single-row проверки "трекаю ли я эту карточку". Вызывается из
+UI на каждой карточке.
+
+Решение:
+- В GetPaged заменить Include + .Count на проекцию:
+  .Select(u => new GetAllUsersResponse {
+      ..., TrackingCount = u.TrackedDeceasedItems.Count() })
+  EF транслирует в SQL COUNT.
+- Завести IUserRepository.IsActivelyTracking(userId, deceasedId, ct)
+  → SELECT 1 FROM tracked_deceased WHERE user_id=… AND deceased_id=…
+    AND status<>'Archived'.
+
+Готово, если:
+
+[ ] /api/users админский endpoint не подгружает массивы tracking.
+[ ] /tracked-deceased/{id}/exists делает один EXISTS.
+
+---------------------------------------------------------------------
+D7.27 MinioOrphanCleanupService держит весь HashSet в RAM
+---------------------------------------------------------------------
+
+MinioOrphanCleanupService.cs:72-77 загружает ВСЕ StorageKey из
+deceased_media в HashSet каждые 24 часа. На реальной шкале
+(>1M медиа через 2-3 года эксплуатации) — десятки/сотни МБ строк
+в RAM плюс полный seq-scan таблицы каждые сутки. Сервис станет
+источником OOM ровно в момент, когда сервис прибавит в массе.
+
+Решение:
+- Стримить ListObjects батчами по 200-500 ключей.
+- Для каждого батча делать
+  `dbContext.Set<DeceasedMedia>()
+    .Where(m => batchKeys.Contains(m.StorageKey))
+    .Select(m => m.StorageKey)
+    .ToHashSetAsync(ct)`.
+- Удалять из батча всё, что не в этом наборе и старше threshold.
+
+Готово, если:
+
+[ ] Память приложения во время cleanup-прогона не зависит от
+    размера таблицы deceased_media.
+[ ] SQL-запросы по deceased_media используют индекс по storage_key
+    (он уже уникальный, см. UxDeceasedMediaStorageKey).
+
+---------------------------------------------------------------------
+D7.28 Нет UpdatedAtUtc / Touch() в User и TrackedDeceased
+---------------------------------------------------------------------
+
+User.UpdateProfile / ChangeEmail / ChangePasswordHash / ChangeRole /
+MarkLogin не имеют UpdatedAtUtc и не вызывают Touch (метода нет).
+
+TrackedDeceased.UpdateRelationship / ChangeNotifications /
+Activate / Mute / Archive / Reactivate — то же самое.
+
+Это неконсистентно с Deceased и DeceasedMedia, у которых
+UpdatedAtUtc и Touch() во всех мутаторах. Невозможно отследить
+"когда юзер последний раз менял пароль" / "когда юзер изменил
+настройки трекинга" — пригодилось бы для retry-логики, антифрод
+и аудита.
+
+Решение:
+- Добавить UpdatedAtUtc (DateTime?) в User и TrackedDeceased.
+- Touch() во всех мутаторах.
+- EF mapping: колонка updated_at_utc.
+- Миграция AddUpdatedAtUtcToUserAndTracking.
+
+Готово, если:
+
+[ ] User.UpdatedAtUtc обновляется при каждом изменении профиля /
+    пароля / роли / email / login.
+[ ] TrackedDeceased.UpdatedAtUtc — при каждом изменении статуса /
+    notify-флагов / personal notes.
+
+---------------------------------------------------------------------
+D7.29 UserName ToLowerInvariant теряет display-name
+---------------------------------------------------------------------
+
+User.NormalizeUserName (User.cs:280-289) форсит ToLowerInvariant.
+Юзер регистрируется как "JohnDoe", в БД и в UI хранится "johndoe" —
+display-имя теряется навсегда. Это либо неявное соглашение, либо
+смешение нормализации (для unique-индекса) с display-формой.
+
+Решение:
+- Хранить отдельно UserName (как ввёл) и UserNameNormalized
+  (lowercase, для unique-индекса и search).
+- Уникальный индекс — на UserNameNormalized.
+- В JWT и /me возвращать UserName.
+- Миграция AddUserNameNormalized.
+
+Готово, если:
+
+[ ] Юзер видит своё имя в исходной форме.
+[ ] Регистрация "JohnDoe" и "johndoe" по-прежнему конфликтует.
+[ ] Существующие пользователи без NormalizedName заполняются на
+    миграции.
+
+---------------------------------------------------------------------
+D7.30 Equality VO ломается на nullable полях
+---------------------------------------------------------------------
+
+BurialLocation.cs:171 — `yield return AccuracyMeters ?? double.NaN`.
+NaN != NaN по IEEE-754, поэтому два BurialLocation без AccuracyMeters
+никогда не равны самим себе. Нарушение reflexive-свойства Equals
+для VO.
+
+LifePeriod.cs:50-54 — DateOnly.MinValue как sentinel для null
+BirthDate. Исторический деятель с 0001-01-01 будет считаться равным
+LifePeriod без BirthDate.
+
+Решение: вместо sentinel использовать пары (HasValue, Value):
+  yield return AccuracyMeters.HasValue;
+  yield return AccuracyMeters ?? 0.0;
+
+Готово, если:
+
+[ ] Два BurialLocation без AccuracyMeters Equals даёт true.
+[ ] Юнит-тест VO покрывает оба случая.
+
+---------------------------------------------------------------------
+D7.31 Архитектурные несоответствия и мелкие code smells
+---------------------------------------------------------------------
+
+(а) GetDeceasedByIdMapping.cs живёт в Application, а должен в
+    API/Mappers (CLAUDE.md: "DTO↔команда — через extension-методы
+    в API/Mappers"). Domain → Response — задача presentation-слоя.
+
+(б) DeceasedListItemDto + DeceasedRecordsGetAllMapping — дублирование
+    GetAllDeceasedItemResponse без добавочной логики. Удалить DTO,
+    возвращать Response напрямую.
+
+(в) ExceptionMiddleware.cs:52-54 строит Error.Failure напрямую,
+    в обход класса Errors. Завести Errors.General.InternalServerError().
+
+(г) GdeOni.Application.csproj — пустые `<Folder Include="..." />`
+    маркеры. Удалить (артефакт IDE).
+
+(д) ChangePasswordCommandValidator.cs:11-17 использует default
+    FluentValidation messages вместо WithError(Errors.User.X). Клиент
+    видит ErrorCode = "NotEmptyValidator" вместо
+    "user.password.too_short". Несоответствие контракта.
+
+(е) DeceasedMediaController.cs:49-50 — `return BadRequest()` без
+    ApiResponse-обёртки. Заменить на FromResult с
+    Errors.Media.FileRequired().
+
+(ё) User.MarkLogin возвращает UnitResult<Error>, но никогда не
+    отдаёт failure. LoginUseCase зря проверяет IsFailure.
+    Сделать MarkLogin void.
+
+Готово, если:
+
+[ ] Каждый пункт исправлен (можно отдельными мини-коммитами).
+
+---------------------------------------------------------------------
+D7.32 Refresh token replay не детектится
+---------------------------------------------------------------------
+
+RefreshUseCase.cs:43-44 при предъявлении уже отозванного refresh
+токена возвращает TokenRevoked и тихо отказывает. Если токен украден
+до того, как легит-юзер успел его прокрутить, и оба позже refresh'нутся
+— атакующий получит свою пару, легит-юзер увидит TokenRevoked и
+переавторизуется. Компрометация остаётся незамеченной — ничьи токены
+не отзываются, журнал безопасности молчит.
+
+Индустриальная практика (RFC 6819, OAuth 2.0 best practices): при
+replay revoked refresh-токена считать это сигналом компрометации —
+revoke всю «семью» токенов пользователя + log warning + потенциально
+форс-логаут (через RevokeAllForUser, тогда SecurityStamp не меняется,
+но все RT уйдут в revoke; access-токены живут до expire).
+
+Решение:
+- Добавить колонку replaced_by_token_hash в refresh_tokens.
+- При rotate в RefreshUseCase записывать new.Hash в old.ReplacedByTokenHash.
+- Новый Errors.RefreshToken.ReplayDetected.
+- В RefreshUseCase: если existingToken.IsRevoked → не просто вернуть
+  TokenRevoked, а вызвать refreshTokenRepository.RevokeAllForUser(userId)
+  и log.LogWarning с user_id, ip, ua.
+
+Готово, если:
+
+[ ] Replay revoked токена приводит к revoke всех активных RT юзера.
+[ ] В Seq фиксируется warning с user_id и client IP.
+[ ] Тест-сценарий «refresh → refresh-снова-старым-токеном» возвращает 401
+    и оставляет 0 активных токенов в таблице.
+
+---------------------------------------------------------------------
+D7.33 refresh_tokens растут навсегда — нет cleanup-сервиса
+---------------------------------------------------------------------
+
+Каждый Login создаёт строку refresh_tokens. Каждый Refresh ротирует
+— старая строка остаётся в таблице с RevokedAtUtc. После
+RefreshTokenLifetimeDays (14 по умолчанию) токен expired, но никто
+его не удаляет. На активном юзере с Refresh каждый день — 30 строк/мес,
+у популярного приложения — миллионы строк за год бессмысленно.
+
+Решение:
+- HostedService по образу MinioOrphanCleanupService.
+- Раз в сутки удалять: revoked > 30 дней назад И expired > 7 дней назад.
+- Конфиг через RefreshTokensCleanupOptions: Enabled, IntervalHours,
+  RevokedRetentionDays, ExpiredRetentionDays.
+- Использовать ExecuteDeleteAsync — один SQL DELETE без подгрузки.
+
+Готово, если:
+
+[ ] HostedService удаляет старые токены по расписанию.
+[ ] Опции читаются из appsettings.json (Cleanup:RefreshTokens).
+[ ] Логирование сколько удалено за прогон.
+
+---------------------------------------------------------------------
+D7.34 JWT validation хитит БД на каждом запросе (SecurityStamp)
+---------------------------------------------------------------------
+
+DependencyInjection.cs:113-144 (ValidateSecurityStampAsync) — на КАЖДОМ
+аутентифицированном запросе делает SELECT security_stamp FROM users
+WHERE id = @uid. Это цена D7.19 (JWT invalidation): добавили stamp,
+обеспечили мгновенную инвалидацию, но теперь auth-латентность зависит
+от БД и держит лишний коннект на каждом read-only запросе.
+
+При типичных 50 RPS на API — 50 SELECT/sec на одну таблицу. Ничего
+страшного на dev, но в нагрузку это лишние queries и latency.
+
+Решение:
+- IMemoryCache c TTL 30-60 секунд: ключ `secstamp:{userId}`, value Guid.
+- В ValidateSecurityStampAsync: сначала из кеша, при miss — БД + put.
+- Trade-off: после ChangeEmail/ChangePassword/ChangeRole старые токены
+  живут ещё ≤TTL вместо мгновенной инвалидации. Это приемлемо: TTL 30 сек
+  закрывает 95% реалистичных сценариев атаки.
+- TTL вынести в JwtOptions.SecurityStampCacheTtlSeconds (по умолчанию 30).
+
+Готово, если:
+
+[ ] Кеш используется при валидации stamp.
+[ ] При смене пароля стамп инвалидируется не позже TTL (тест: SQL UPDATE,
+    запрос с старым токеном через >TTL даёт 401).
+[ ] TTL конфигурируется.
+
+---------------------------------------------------------------------
+D7.35 UploadMedia тянет всю коллекцию media ради добавления одного
+---------------------------------------------------------------------
+
+UploadMediaUseCase.cs:49 вызывает GetByIdWithMedia — Include(Media)
+по всей коллекции. Это нужно из-за проверки в Deceased.AddMedia
+(Deceased.cs:271): `_media.Any(x => x.StorageKey == storageKey)`.
+
+Но эта проверка — мёртвый защитный код:
+- StorageKey строится в MinioFileStorage.BuildObjectKey:
+  `prefix/deceasedId/Guid.NewGuid()ext` — встроенная гарантия уникальности.
+- На уровне БД работает unique index ux_deceased_media_storage_key.
+
+При карточке с сотней фото это +N строк в RAM use case'а на каждый
+upload, хотя нужен только сам Deceased.
+
+Решение:
+- Удалить проверку `_media.Any(StorageKey)` из Deceased.AddMedia
+  (либо превратить в Debug.Assert).
+- В UploadMediaUseCase использовать GetById без Include.
+- Если в будущем понадобится detect duplicate StorageKey на уровне
+  домена — ловить UniqueConstraintException на Save и возвращать
+  Errors.DeceasedMedia.DuplicateStorageKey() через UniqueConstraint.FromName
+  (фабрика уже есть, см. Errors.cs:410).
+
+Готово, если:
+
+[ ] Upload не делает Include(Media).
+[ ] Поведение при race-условии (два upload подряд) — 409 через
+    UniqueConstraintException.
+
+---------------------------------------------------------------------
+D7.36 RevokeAllForUser ToList → ForEach → SaveChanges
+---------------------------------------------------------------------
+
+RefreshTokenRepository.cs:22-31 — загружает все non-revoked токены
+пользователя в память, проходит цикл, потом Save генерит N отдельных
+UPDATE. На юзере с десятками сессий это N+1 traffic к БД.
+
+Решение:
+- ExecuteUpdateAsync (EF Core 8): один SQL UPDATE refresh_tokens SET
+  revoked_at_utc = @now WHERE user_id = @uid AND revoked_at_utc IS NULL.
+- Use case вызывает Save — там уже коммит. ExecuteUpdateAsync коммитит
+  свою операцию сразу, поэтому в Use case Save после неё избыточен.
+  Решение: либо документировать, что RevokeAllForUser — самостоятельная
+  команда, либо обернуть в transaction-scope.
+
+Готово, если:
+
+[ ] RevokeAllForUser выполняется одним UPDATE.
+[ ] Logout-сценарий не теряет атомарности.
+
+---------------------------------------------------------------------
+D7.37 GetUserById тянет TrackedDeceasedItems ради Count (хвост D7.26)
+---------------------------------------------------------------------
+
+GetUserByIdUseCase.cs:34 вызывает GetByIdWithTracking, потом строит
+Response с user.TrackedDeceasedItems.Count. Тот же паттерн, что был
+в GetAllUsers до D7.26 — Include всей коллекции ради одного COUNT.
+
+Решение:
+- Узкий метод репо `Task<(User User, int TrackingCount)?> GetByIdWithTrackingCount(...)`
+  с проекцией через Select-subquery по аналогии с GetPaged D7.26.
+- В UseCase вместо GetByIdWithTracking использовать его.
+
+Готово, если:
+
+[ ] GetById не Include'ит TrackedDeceasedItems.
+[ ] TrackingCount считается одним SELECT count() в SQL.
+
+---------------------------------------------------------------------
+D7.38 RemoteIpAddress не работает за reverse-proxy
+---------------------------------------------------------------------
+
+CurrentUserService.cs:42-43 возвращает Connection.RemoteIpAddress —
+это IP пира TCP. За nginx/Cloudflare/ALB этот адрес = адрес прокси,
+не клиента. RefreshToken.CreatedFromIp заполняется одинаково для
+всех пользователей — бесполезно для аудита и для D7.32 (replay
+detection хочет реальный client IP).
+
+Решение:
+- ForwardedHeadersMiddleware в Program.cs до UseAuthentication.
+- ForwardedHeadersOptions {
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    KnownProxies/KnownNetworks из конфига Hosting:KnownProxies.
+  }
+- Если конфиг пуст — middleware не подключается (поведение как сейчас).
+
+Готово, если:
+
+[ ] За nginx с X-Forwarded-For RemoteIpAddress = client IP.
+[ ] Если конфиг пуст и proxy нет — поведение не меняется.
+[ ] KnownProxies whitelist'ится — нельзя подделать X-Forwarded-For
+    без доверенного прокси.
+
+---------------------------------------------------------------------
+D7.39 Нет rate limiting на /auth/login и /users (register) и
+       /users/{id}/password
+---------------------------------------------------------------------
+
+Любой без авторизации может молотить /api/auth/login миллионом
+запросов. Каждый запрос делает BCrypt.Verify (10–100 ms CPU).
+Это и timing-attack vector (D7.20 закрыли через dummy-hash, но
+brute-force через perf никто не блокирует), и DoS-вектор.
+
+Решение:
+- Microsoft.AspNetCore.RateLimiting (встроенный).
+- Sliding window 10 запросов/минуту на IP для:
+  POST /api/auth/login, POST /api/auth/refresh,
+  POST /api/users (register), PUT /api/users/{id}/password.
+- На превышение — 429 Too Many Requests с ApiResponse-обёрткой и
+  Retry-After. Завести Errors.General.TooManyRequests().
+- Опции через RateLimiting:Auth:* в appsettings.
+
+Готово, если:
+
+[ ] /auth/login после 10 неуспешных попыток за минуту с одного IP
+    возвращает 429.
+[ ] Лимиты конфигурируются.
+[ ] 429 ответ — ApiResponse-обёртка с code "general.too_many_requests".
+
+---------------------------------------------------------------------
+D7.40 Verify/Unverify endpoints без [ProducesResponseType]
+---------------------------------------------------------------------
+
+DeceasedRecordsAdminController.cs:26-37 (Verify) и :43-54 (Unverified)
+не объявляют ProducesResponseType. Swagger показывает дефолтный
+"200 OK" без модели и пропускает 400/401/403/404. Это нарушение
+конвенции CLAUDE.md ("Все эндпоинты должны иметь [ProducesResponseType]
+для всех возможных HTTP-кодов").
+
+Решение:
+- Добавить полный набор для обоих:
+  [ProducesResponseType(typeof(ApiResponse<VerifyDeceasedResponse>), 200)]
+  + 400 (deceased.already.verified — Conflict, см. AlreadyVerified)
+  + 401, 403, 404.
+- Аналогично для Unverified.
+
+Готово, если:
+
+[ ] Swagger UI показывает все 5 кодов и схему 200-ответа для обоих
+    endpoint'ов.
+
+---------------------------------------------------------------------
+D7.41 ChangeEmail / ChangeRole не отзывают refresh-токены
+---------------------------------------------------------------------
+
+ChangePasswordUseCase (через D7.36) после смены пароля делает
+RevokeAllForUser — все активные refresh-токены ложатся, бывшие сессии
+обрываются. ChangeEmailUseCase и ChangeRoleUseCase этого не делают,
+хотя оба rotate'ят SecurityStamp.
+
+Сценарий компрометации:
+1. Атакующий украл access + refresh токены жертвы.
+2. Жертва восстанавливает аккаунт через смену email
+   (типичный flow «верну ссылку на новый email»).
+3. SecurityStamp ротируется → access-токены атакующего отвалятся
+   через D7.34 cache TTL (≤30s).
+4. Refresh-токены атакующего ОСТАЮТСЯ валидны → /auth/refresh
+   выдаёт новые access-токены с новой ролью/email.
+
+Аналогично для ChangeRole: при разжаловании access умирает быстро,
+но refresh даёт новый токен (с новой ролью — privilege escalation
+не возникает, но факт сохранения сессии после security-event это
+не норма).
+
+Решение:
+- В ChangeEmailUseCase и ChangeRoleUseCase после userRepository.Save
+  вызвать refreshTokenRepository.RevokeAllForUser(user.Id, ct)
+  (паттерн ровно из ChangePasswordUseCase после D7.36).
+- Документировать в комментарии: «изменение email/роли = форс-логаут
+  всех сессий».
+
+Готово, если:
+
+[ ] После ChangeEmail все RT юзера revoked.
+[ ] После ChangeRole то же.
+[ ] Logout/refresh после security-event возвращает 401, а не новую пару.
+
+---------------------------------------------------------------------
+D7.42 Logout/Refresh validators используют WithMessage без WithError
+---------------------------------------------------------------------
+
+Тот же класс ошибок, что закрыл D7.31(д) для ChangePassword. Два
+оставшихся валидатора в Application/Auth:
+
+- LogoutCommandValidator.cs:10-12 — `.NotEmpty().WithMessage("Refresh token is required")`.
+- RefreshCommandValidator.cs:10-12 — то же.
+
+Клиент получает ErrorCode = "NotEmptyValidator" вместо
+"refresh_token.token.required". Несоответствие контракта — фронт
+не сможет реагировать на конкретную причину отказа.
+
+Решение:
+- Заменить WithMessage на WithError(Errors.RefreshToken.TokenRequired()).
+  Фабрика уже есть в Errors.cs.
+
+Готово, если:
+
+[ ] Оба валидатора возвращают код "refresh_token.token.required"
+    при пустом теле.
+
+---------------------------------------------------------------------
+D7.43 Хвост D7.40: неполные ProducesResponseType ещё в трёх контроллерах
+---------------------------------------------------------------------
+
+Помимо Verify/Unverify (закрыли D7.40), нарушение CLAUDE.md остаётся
+в трёх контроллерах:
+
+(а) DeceasedMemoriesController:
+- AddMemory объявляет 201 Created, но FromResult(result) возвращает 200
+  (использует .ToOkResponse, не .ToCreatedResponse). Заявленный код не
+  соответствует фактическому. Плюс пропущены 400/404.
+- UpdateMemory: только 200, нет 400/401/403/404.
+- RemoveMemory: только 200, нет 401/403/404.
+
+(б) DeceasedMetadataController:
+- UpdateMetadata, ClearMetadata: только 200, нет 401/403/404.
+
+(в) DeceasedRecordsSupportiveController:
+- GetDistance: только 200, нет 400 (validator на lat/lon)/401/404.
+- GetAgeAtDeath, HasMemories: 200 ok, но 404-response типизирован как
+  ApiResponse<GetAgeAtDeathResponse> и ApiResponse<HasMemoriesResponse>
+  соответственно — должно быть ApiResponse<object> (это error-обёртка,
+  не успешный response). Swagger показывает обманчивую схему.
+
+Решение:
+- AddMemory: либо заменить заявленный 201 на 200, либо обернуть в
+  .ToCreatedResponse($"/api/deceased-records/{id}/memories/{memory.Id}").
+  Решение «делать настоящий 201» предпочтительнее — REST-конвенция.
+- Все три контроллера: добавить недостающие 401/403/404 + 400 где
+  есть валидаторы. Типизировать ApiResponse<object> для error-кодов.
+
+Готово, если:
+
+[ ] AddMemory возвращает 201 с Location-заголовком (или объявление
+    смещено на 200 — выбрать одно).
+[ ] Все 6 экшенов в (а)/(б)/(в) объявляют полный набор кодов и не
+    типизируют error-response как successful response.
+
+---------------------------------------------------------------------
+D7.44 AddDeceasedAtGrave грузит TrackedDeceasedItems ради добавления
+       одной записи (хвост D7.35 / D7.37)
+---------------------------------------------------------------------
+
+AddDeceasedAtGraveUseCase.cs:35 вызывает GetByIdWithTracking — Include
+всей tracking-коллекции. Use case добавляет одну запись для свежесозданного
+deceased (его Id только что сгенерирован в Deceased.Create, никакого
+существующего tracking быть не может).
+
+Линейный scan `_trackedDeceasedItems.FirstOrDefault(...)` в
+User.TrackDeceased теоретически защищает от дубликата, но для
+нового deceased это мёртвый код (та же история, что D7.35 для
+StorageKey в Media). Уникальность дублей трекинга держит unique-индекс
+ux_tracked_deceased_user_id_deceased_id.
+
+Решение:
+- В AddDeceasedAtGraveUseCase заменить GetByIdWithTracking на GetById.
+- User.TrackDeceased оставить как есть — для других use case'ов
+  (TrackDeceasedUseCase) эта проверка реальна (повторный track через
+  /me/tracked-deceased/{id}, идемпотентность).
+- На race по unique-индексу UniqueConstraintException пробрасывается
+  в ExceptionMiddleware → 409 Conflict.
+
+Готово, если:
+
+[ ] AddDeceasedAtGrave не делает Include(TrackedDeceasedItems).
+[ ] Поведение при race-условии — 409 (через unique-constraint).
+
+---------------------------------------------------------------------
+D7.45 Pending/Rejected фото публично доступны по прямому URL
+---------------------------------------------------------------------
+
+MinioBootstrap создаёт buckets DeceasedPhotos и GravePhotos с
+public-read policy (см. BuildPublicReadPolicy в MinioBootstrap.cs).
+После Upload фото получает публичный URL `<host>/<bucket>/<deceasedId>/<Guid>.<ext>`.
+До модерации (Pending) и после Reject файл всё ещё доступен по
+этому URL — protection только через рандомный Guid.
+
+Реальные риски:
+- URL утекает в preview автору / в moderation UI / в шаре ссылки.
+- После Reject фото остаётся доступным до следующего MinIO orphan
+  cleanup (≤24 часа, см. D7.27).
+- Документы (DeceasedDocuments) корректно хранятся в private bucket
+  с presigned URL (см. UploadMediaUseCase.BuildUrl) — фото нет.
+
+Решение (один из двух):
+1. **Простое:** при Reject в RejectMediaModerationUseCase сразу удалять
+   файл из MinIO (best-effort, как в Upload-rollback). Pending остаётся
+   с public URL — предполагается, что между upload и Approve проходят
+   минуты, риск приемлем.
+2. **Строгое:** держать все фото в private bucket с presigned URL до
+   Approve. После Approve — copy в public bucket. Сложнее, требует
+   двух bucket'ов на kind и переноса при модерации.
+
+Рекомендую (1) как mvp.
+
+Готово, если:
+
+[ ] Reject фото удаляет файл из MinIO в том же use case (best-effort).
+[ ] Лог warning при провале удаления — не блокируем reject.
+
+---------------------------------------------------------------------
+D7.46 Memory-операции линейно сканируют коллекцию
+---------------------------------------------------------------------
+
+UpdateMemoryUseCase, ApproveMemoryUseCase, RejectMemoryUseCase,
+RemoveMemoryUseCase — все используют GetByIdWithMemories, потом
+вызывают доменный метод (EditMemory / ApproveMemory / etc), который
+делает `_memories.FirstOrDefault(x => x.Id == memoryId)`.
+
+Для одной операции тянем всю коллекцию воспоминаний. На карточке
+с сотнями записей — лишний RAM/трафик.
+
+Сложность фикса: Memory часть aggregate root Deceased (DDD), доменные
+методы вызываются на корне. Нельзя просто загрузить один memory без
+загрузки агрегата — нарушение invariant'ов.
+
+Решение:
+- Добавить в IDeceasedRepository метод `GetByIdWithMemoryById(deceasedId, memoryId, ct) → Deceased?`
+  — Include с Filtered (`.Include(x => x.Memories.Where(m => m.Id == memoryId))`).
+  EF Core 5+ поддерживает filtered include, грузит только одну строку.
+- Use case'ы переключить на новый метод. Domain методы (EditMemory etc)
+  работают как раньше — `_memories.FirstOrDefault` находит единственный
+  загруженный элемент.
+- GetByIdWithMemories оставить для read-сценариев (GetById, GetMyTrackedDeceasedDetails),
+  где нужны все memories.
+
+Trade-off: если вызвать filtered Include и memory не найден — `_memories`
+пуст, `EditMemory` вернёт NotFound, что корректно.
+
+Готово, если:
+
+[ ] Update/Approve/Reject/RemoveMemory используют GetByIdWithMemoryById.
+[ ] EF транслирует Include с Where в SQL `LEFT JOIN deceased_memory_entries
+    ON ... AND memory_id = @memoryId`.
+
+---------------------------------------------------------------------
+D7.47 Media-операции линейно сканируют коллекцию (продолжение D7.46)
+---------------------------------------------------------------------
+
+DeleteMediaUseCase, ApproveMediaModerationUseCase,
+RejectMediaModerationUseCase, GetMediaByIdUseCase — все используют
+GetByIdWithMedia + `deceased.Media.FirstOrDefault(x => x.Id == mediaId)`.
+Тот же паттерн, что был у memory-операций до D7.46: тянем всю
+коллекцию media (на популярной карточке могут быть десятки/сотни),
+чтобы тронуть один элемент.
+
+SetMainMediaPhotoUseCase — здесь полная коллекция нужна (доменный
+SetMainPhoto итерирует по `_media` и сбрасывает `IsMainPhoto=false`
+у остальных DeceasedPhoto). Не трогать.
+
+Решение:
+- В IDeceasedRepository добавить
+  `GetByIdWithMediaById(deceasedId, mediaId, ct) → Deceased?`
+  с filtered Include (`Include(x => x.Media.Where(m => m.Id == mediaId))`).
+  По аналогии с GetByIdWithMemoryById (D7.46).
+- DeleteMedia / ApproveMediaModeration / RejectMediaModeration / GetMediaById
+  переключить на новый метод. Доменные RemoveMedia / ApproveMedia /
+  RejectMedia / UpdateMediaDescription используют `_media.FirstOrDefault`
+  и корректно работают на коллекции из 0 или 1 элемента. RejectMedia
+  обнуляет MainMediaId — это поле самого Deceased, остальные media
+  не затрагивает.
+- GetByIdWithMedia оставить для read-сценариев, где нужен весь список
+  (UploadMediaUseCase его уже не использует — D7.35).
+
+Готово, если:
+
+[ ] DeleteMedia/ApproveMediaModeration/RejectMediaModeration/GetMediaById
+    переведены на GetByIdWithMediaById.
+[ ] SetMainPhoto продолжает работать — он на GetByIdWithMedia.
+[ ] EF транслирует Include с Where в `LEFT JOIN deceased_media ON ... AND id = @mediaId`.
+
+---------------------------------------------------------------------
+D7.48 Approve/Reject memory: пустой набор [ProducesResponseType]
+---------------------------------------------------------------------
+
+DeceasedRecordsAdminController.ApproveMemory / RejectMemory объявляют
+только 200 OK. При этом действия [Authorize(Roles="SuperAdmin,Admin")]
++ домен возвращает NotFound (deceased / memory) и Conflict (memory
+не Pending) — Swagger этого не видит.
+
+Сценарий: D7.40 закрыл Verify/Unverified, но ApproveMemory/RejectMemory
+оказались добавлены позже и пропустили обновление.
+
+Что добавить:
+- 401 Unauthorized — токена нет/невалидный.
+- 403 Forbidden — роль не админ.
+- 404 NotFound — deceased / memory не найдены.
+- 409 Conflict — memory не в Pending (доменный Errors.DeceasedMemory.NotPending).
+
+Готово, если:
+
+[ ] ApproveMemory имеет 200/401/403/404/409.
+[ ] RejectMemory имеет 200/401/403/404/409.
+
+---------------------------------------------------------------------
+D7.49 UsersController: неполный [ProducesResponseType] на 6 эндпоинтах
+---------------------------------------------------------------------
+
+После аудита по итогам D7.40/D7.43:
+
+- GetAll: `[Authorize(Roles="SuperAdmin,Admin")]`, объявлены 200/400.
+  Нет 401, 403.
+- GetById: `[Authorize]`, объявлены 200/403/404. Нет 401.
+- UpdateProfile: `[Authorize]`, объявлены 200/403/400/409. Нет 401, 404.
+- ChangeEmail: `[Authorize]`, объявлены 200/400/403/404/409. Нет 401.
+- ChangeRole: `[Authorize(Roles="SuperAdmin,Admin")]`, объявлены 200/400/404.
+  Нет 401, 403.
+- Delete: `[Authorize(Roles="SuperAdmin,Admin")]`, объявлены 200 (без типа!) и 404.
+  Нет 401, 403; 200 без `typeof(ApiResponse<DeleteUserResponse>)`.
+
+Везде, где есть [Authorize], должен быть 401. Везде, где Roles или
+use case проверяет ownership/admin, должен быть 403.
+
+Готово, если:
+
+[ ] Все 6 эндпоинтов имеют полный набор HTTP-кодов.
+[ ] Delete имеет `[ProducesResponseType(typeof(ApiResponse<DeleteUserResponse>),
+    StatusCodes.Status200OK)]`.
+
+---------------------------------------------------------------------
+D7.50 DeceasedRecordsController: неполный [ProducesResponseType]
+---------------------------------------------------------------------
+
+Параллельная находка к D7.49, но в карточках умерших:
+
+- GetAll: `[Authorize(Roles="SuperAdmin,Admin")]`, объявлены 200/400.
+  Нет 401, 403.
+- GetById: `[Authorize]`, объявлены 200/404. Нет 401.
+- Update: `[Authorize]`, объявлены 200/400/404/409. Нет 401, 403
+  (use case проверяет admin || createdByUserId).
+- Delete: `[Authorize(Roles="SuperAdmin,Admin")]`, объявлены 200 (без типа!) и 404.
+  Нет 401, 403; 200 без `typeof(ApiResponse<DeleteDeceasedResponse>)`.
+
+Готово, если:
+
+[ ] Все 4 эндпоинта имеют полный набор HTTP-кодов.
+[ ] Delete имеет типизированный 200.
+
+---------------------------------------------------------------------
+D7.51 ChangeEmail без rate-limit
+---------------------------------------------------------------------
+
+UsersController.ChangeEmail — это auth-related операция (смена primary
+identity), но в отличие от ChangePassword/Register/Login/Refresh не
+помечен `[EnableRateLimiting("auth")]`.
+
+Сценарий злоупотребления: атакующий с украденным access token может
+циклом подменять email на свой и забирать аккаунт; или через брутфорс
+unique-constraint выяснять, какие email уже зарегистрированы (по 409
+vs 200 differential). Rate-limit не закрывает дыру полностью, но
+сужает окно.
+
+ChangeRole — только для SuperAdmin/Admin, низкий риск, оставить как есть.
+
+Что сделать:
+- Добавить `[EnableRateLimiting(AuthRateLimitOptions.PolicyName)]` на
+  ChangeEmail.
+- Добавить `[ProducesResponseType(typeof(ApiResponse<object>),
+  StatusCodes.Status429TooManyRequests)]` (включая в D7.49).
+
+Готово, если:
+
+[ ] ChangeEmail помечен EnableRateLimiting и имеет 429 в декларации.
+
+---------------------------------------------------------------------
+D7.52 Дубликат индекса в tracked_deceased
+---------------------------------------------------------------------
+
+[TrackedDeceasedConfiguration.cs](backend/src/GdeOni.Infrastructure/Persistence/Configurations/TrackedDeceasedConfiguration.cs)
+объявляет два индекса по одному и тому же столбцу:
+
+```
+builder.HasIndex("user_id")
+    .HasDatabaseName("ix_tracked_deceased_user_id");
+
+builder.HasIndex("user_id", nameof(TrackedDeceased.DeceasedId))
+    .IsUnique()
+    .HasDatabaseName("ux_tracked_deceased_user_id_deceased_id");
+```
+
+Composite B-tree-индекс по `(user_id, deceased_id)` корректно
+обслуживает любые запросы, фильтрующие/сортирующие по `user_id`
+(префикс composite — то же что отдельный индекс по первой колонке).
+Отдельный `ix_tracked_deceased_user_id` дублирует функциональность,
+а PostgreSQL поддерживает два индекса параллельно — лишний disk space
++ замедление INSERT/UPDATE/DELETE на этой таблице.
+
+Решение:
+- Удалить `builder.HasIndex("user_id").HasDatabaseName(...)` из
+  TrackedDeceasedConfiguration.
+- Сгенерировать миграцию AddXxx (EF выкатит DROP INDEX).
+- Применить.
+
+Готово, если:
+
+[ ] Индекс ix_tracked_deceased_user_id отсутствует в конфигурации.
+[ ] Миграция выполнена.
+[ ] Запросы по user_id (RemoveTracking, GetMyTrackedDeceasedList)
+    продолжают использовать composite-индекс через EF Plan.
+
+---------------------------------------------------------------------
+D7.53 ApproveMediaModeration / RejectMediaModeration без endpoint'ов
+---------------------------------------------------------------------
+
+ApproveMediaModerationUseCase и RejectMediaModerationUseCase
+существуют в Application:
+
+- [ApproveMediaModerationUseCase.cs](backend/src/GdeOni.Application/DeceasedRecords/Commands/ApproveMediaModeration/UseCase/ApproveMediaModerationUseCase.cs)
+- [RejectMediaModerationUseCase.cs](backend/src/GdeOni.Application/DeceasedRecords/Commands/RejectMediaModeration/UseCase/RejectMediaModerationUseCase.cs)
+
+Зарегистрированы в DI: [DependencyInjection.cs:102-103](backend/src/GdeOni.Application/DependencyInjection.cs#L102-L103).
+Доменные `Approve`/`Reject` на DeceasedMedia реализованы. Errors
+DeceasedMedia.AlreadyApproved / AlreadyRejected существуют.
+GetMediaListRequest имеет фильтр по ModerationStatus.
+
+Однако ни один контроллер не вызывает эти use cases. Получается
+полностью готовая бизнес-логика без HTTP-доступа — модератор не
+может одобрить/отклонить media через API.
+
+Параллель: ApproveMemory/RejectMemory (PUT /api/deceased-records/{id}/memories/{memoryId}/approve|reject)
+в DeceasedRecordsAdminController, реализованы в D-кластере.
+
+Решение:
+- Добавить два эндпоинта в [DeceasedRecordsAdminController.cs](backend/src/GdeOni.API/Controllers/DeceasedRecordsAdminController.cs):
+  - `PUT /api/deceased-records/{id}/media/{mediaId}/approve` →
+    ApproveMediaModerationUseCase, FromUnitResult.
+  - `PUT /api/deceased-records/{id}/media/{mediaId}/reject` →
+    RejectMediaModerationUseCase, FromUnitResult.
+- Полный набор ProducesResponseType: 204/401/403/404/409 (по
+  паттерну D7.48).
+- [Authorize(Roles = "SuperAdmin,Admin")].
+- D7.45: RejectMediaModeration уже удаляет файл из MinIO.
+
+Готово, если:
+
+[ ] Два endpoint'а доступны в API.
+[ ] Декларации полные.
+[ ] Build clean.
+
+=====================================================================
+D8. ROUTE API
+=====================================================================
+
+Цель:
+
+Дать пользователю возможность построить маршрут до могилы.
+
+Backend не строит маршрут сам.
+Backend возвращает координаты и deep links.
+
+---------------------------------------------------------------------
+D8.1 Routing abstractions
+---------------------------------------------------------------------
+
+Создать:
+
+- RoutingMode;
+- IRouteLinkProvider.
+
+RoutingMode:
+
+- Auto;
+- Pedestrian;
+- MassTransit;
+- Bicycle.
+
+IRouteLinkProvider:
+
+- ProviderKey;
+- BuildLink(fromLat, fromLon, toLat, toLon, mode).
+
+Готово, если:
+
+[ ] Интерфейс создан.
+[ ] RoutingMode создан.
+[ ] Application не зависит от конкретной карты.
+
+---------------------------------------------------------------------
+D8.2 Providers
+---------------------------------------------------------------------
+
+Создать реализации:
+
+- YandexRouteLinkProvider;
+- GoogleMapsRouteLinkProvider;
+- TwoGisRouteLinkProvider.
+
+Каждый provider должен вернуть ссылку для построения маршрута.
+
+Готово, если:
+
+[ ] Yandex link создаётся.
+[ ] Google link создаётся.
+[ ] 2GIS link создаётся.
+
+---------------------------------------------------------------------
+D8.3 Route use case
+---------------------------------------------------------------------
+
+Создать:
+
+GetRouteToGraveUseCase
+
+Логика:
+
+1. Взять currentUserId из JWT.
+2. Проверить, что пользователь отслеживает deceasedId.
+3. Загрузить Deceased.
+4. Проверить BurialLocation.
+5. Проверить Latitude/Longitude.
+6. Собрать links через IRouteLinkProvider.
+7. Вернуть response.
+
+Ошибки:
+
+Если пользователь не отслеживает умершего:
+
+HTTP 403 Forbidden
+
+Если координат могилы нет:
+
+HTTP 409 Conflict
+
+Готово, если:
+
+[ ] Трекер получает маршрут.
+[ ] Не трекер получает 403.
+[ ] Если координат нет, возвращается 409.
+
+---------------------------------------------------------------------
+D8.4 Route endpoint
+---------------------------------------------------------------------
+
+Endpoint:
+
+GET /api/users/me/tracked-deceased/{deceasedId}/route?fromLat=55.7&fromLon=37.6&mode=auto
+
+Ответ:
+
+{
+  "deceasedId": "...",
+  "graveLocation": {
+    "latitude": 55.7558,
+    "longitude": 37.6173,
+    "accuracyMeters": 8.5
+  },
+  "from": {
+    "latitude": 55.7,
+    "longitude": 37.6
+  },
+  "mode": "auto",
+  "links": [
+    {
+      "provider": "yandex",
+      "url": "..."
+    },
+    {
+      "provider": "google",
+      "url": "..."
+    },
+    {
+      "provider": "2gis",
+      "url": "..."
+    }
+  ]
+}
+
+Готово, если:
+
+[ ] Endpoint возвращает 200.
+[ ] В ответе есть координаты могилы.
+[ ] В ответе есть from coordinates.
+[ ] В ответе есть links.
+[ ] Links открываются в браузере.
+
+=====================================================================
+D9. TESTS
+=====================================================================
+
+Цель:
+
+Покрыть критичную бизнес-логику, чтобы изменения не ломали проект.
+
+---------------------------------------------------------------------
+D9.1 Test projects
+---------------------------------------------------------------------
+
+Добавить проекты:
+
+- backend/tests/GdeOni.Domain.Tests;
+- backend/tests/GdeOni.Application.Tests;
+- backend/tests/GdeOni.Infrastructure.Tests;
+- backend/tests/GdeOni.Api.IntegrationTests.
+
+Пакеты:
+
+- xUnit;
+- FluentAssertions;
+- Moq;
+- Microsoft.AspNetCore.Mvc.Testing;
+- Testcontainers.PostgreSql;
+- Testcontainers.Minio.
+
+---------------------------------------------------------------------
+D9.2 Domain tests
+---------------------------------------------------------------------
+
+Покрыть:
+
+[ ] BurialLocation.Create не принимает latitude > 90.
+[ ] BurialLocation.Create не принимает longitude > 180.
+[ ] BurialLocation.CreateFromGps создаёт location без Country.
+[ ] LifePeriod не принимает deathDate в будущем.
+[ ] LifePeriod не принимает birthDate позже deathDate.
+[ ] Deceased.Create работает без BurialLocation.
+[ ] Deceased.SetBurialLocation работает из null в значение.
+[ ] Deceased.AddMedia добавляет media.
+[ ] Deceased.SetMainPhoto работает только для DeceasedPhoto.
+[ ] User.TrackDeceased добавляет tracking.
+[ ] User.TrackDeceased не создаёт дубликат активного tracking.
+
+---------------------------------------------------------------------
+D9.3 Application tests
+---------------------------------------------------------------------
+
+Покрыть:
+
+[ ] AddDeceasedAtGraveUseCase happy path.
+[ ] AddDeceasedAtGraveUseCase создаёт Deceased и TrackedDeceased.
+[ ] AddDeceasedAtGraveUseCase без авторизации возвращает Unauthorized.
+[ ] AddDeceasedAtGraveUseCase с невалидными координатами возвращает ValidationError.
+[ ] GetTrackedDeceasedUseCase возвращает только свои записи.
+[ ] GetRouteToGraveUseCase возвращает 403, если пользователь не трекает deceased.
+[ ] GetRouteToGraveUseCase возвращает 409, если нет координат.
+[ ] UploadMediaUseCase отклоняет невалидный MIME.
+[ ] UploadMediaUseCase отклоняет слишком большой файл.
+[ ] UploadMediaUseCase удаляет файл из MinIO, если SaveChanges упал.
+[ ] DeleteMediaUseCase запрещает удалить чужой файл без прав.
+
+---------------------------------------------------------------------
+D9.4 Integration tests
+---------------------------------------------------------------------
+
+Покрыть:
+
+[ ] POST /api/auth/login возвращает access token.
+[ ] POST /api/auth/refresh обновляет access token.
+[ ] POST /api/auth/logout отзывает refresh token.
+[ ] POST /api/deceased-records/at-grave создаёт Deceased и Tracking.
+[ ] GET /api/users/me/tracked-deceased возвращает созданного умершего.
+[ ] POST /api/deceased-records/{id}/media загружает файл в MinIO.
+[ ] DELETE /api/deceased-records/{id}/media/{mediaId} удаляет файл.
+[ ] GET /route возвращает deep links.
+[ ] Чужой пользователь не видит чужие tracked deceased.
+
+Готово, если:
+
+[ ] dotnet test проходит.
+[ ] Domain tests зелёные.
+[ ] Application tests зелёные.
+[ ] Integration tests зелёные.
+[ ] Основной сценарий покрыт.
+
+=====================================================================
+D10. BACKEND E2E CHECK
+=====================================================================
+
+Цель:
+
+Ручная проверка полного backend-сценария.
+
+Шаги:
+
+1. Запустить инфраструктуру:
+
+docker compose up -d
+
+2. Запустить API:
+
+dotnet run --project backend/src/GdeOni.API
+
+3. Зарегистрировать пользователя или залогиниться.
+
+4. Получить access token.
+
+5. Вызвать:
+
+GET /api/users/me
+
+6. Добавить умершего на могиле:
+
+POST /api/deceased-records/at-grave
+
+7. Проверить список:
+
+GET /api/users/me/tracked-deceased
+
+8. Загрузить фото:
+
+POST /api/deceased-records/{id}/media
+
+9. Получить media list:
+
+GET /api/deceased-records/{id}/media
+
+10. Получить маршрут:
+
+GET /api/users/me/tracked-deceased/{deceasedId}/route?fromLat=...&fromLon=...
+
+11. Открыть ссылку Yandex, Google или 2GIS.
+
+12. Запустить тесты:
+
+dotnet test backend.sln
+
+Backend готов, если:
+
+[ ] API запускается.
+[ ] Login работает.
+[ ] /me работает.
+[ ] /at-grave работает.
+[ ] Deceased создаётся.
+[ ] TrackedDeceased создаётся.
+[ ] Media upload работает.
+[ ] Route работает.
+[ ] Tests проходят.
+
+=====================================================================
+E. FRONTEND ROADMAP
+=====================================================================
+
+Frontend начинать только после D1-D10.
+
+---------------------------------------------------------------------
+E1. Каркас приложения
+---------------------------------------------------------------------
+
+Создать frontend project.
+
+Стек:
+
+- Vite;
+- React;
+- TypeScript;
+- React Router;
+- Axios;
+- TanStack Query;
+- Zustand;
+- Mantine.
+
+Задачи:
+
+- создать проект;
+- настроить routing;
+- настроить axios client;
+- настроить base API URL;
+- настроить auth store;
+- настроить protected routes.
+
+---------------------------------------------------------------------
+E2. Auth
+---------------------------------------------------------------------
+
+Сделать:
+
+- login page;
+- register page;
+- logout;
+- refresh token;
+- хранение access token;
+- получение пользователя через GET /api/users/me;
+- redirect неавторизованных пользователей на login.
+
+---------------------------------------------------------------------
+E3. Добавление умершего на могиле
+---------------------------------------------------------------------
+
+UI flow:
+
+1. Пользователь нажимает "Добавить умершего".
+2. Frontend вызывает navigator.geolocation.getCurrentPosition.
+3. Браузер запрашивает разрешение.
+4. Если пользователь разрешил — получаем координаты.
+5. Показываем карту.
+6. Показываем маркер.
+7. Пользователь может поправить маркер.
+8. Пользователь заполняет форму.
+9. Frontend отправляет POST /api/deceased-records/at-grave.
+10. После успеха frontend переходит на карточку умершего.
+
+Важно:
+
+- на production нужен HTTPS;
+- на localhost работает без HTTPS;
+- пользователь может запретить геолокацию;
+- accuracy может быть плохой;
+- нужно дать возможность поправить точку вручную.
+
+---------------------------------------------------------------------
+E4. Список отслеживаемых
+---------------------------------------------------------------------
+
+Страница:
+
+/tracked
+
+Показывать:
+
+- фото;
+- ФИО;
+- даты жизни;
+- наличие координат;
+- relationshipType;
+- кнопку "Открыть";
+- кнопку "Маршрут".
+
+---------------------------------------------------------------------
+E5. Карточка умершего
+---------------------------------------------------------------------
+
+Страница:
+
+/tracked/:deceasedId
+
+Показывать:
+
+- ФИО;
+- даты;
+- биографию;
+- фото умершего;
+- фото могилы;
+- документы;
+- воспоминания;
+- координаты;
+- кнопку "Построить маршрут";
+- кнопку "Загрузить файл".
+
+---------------------------------------------------------------------
+E6. Загрузка файлов
+---------------------------------------------------------------------
+
+Сделать:
+
+- upload фото умершего;
+- upload фото могилы;
+- upload документа;
+- preview;
+- progress;
+- обработку ошибок MIME;
+- обработку ошибок размера;
+- установку main photo.
+
+---------------------------------------------------------------------
+E7. Маршрут
+---------------------------------------------------------------------
+
+Логика:
+
+1. Получить текущие координаты пользователя.
+2. Вызвать backend route endpoint.
+3. Показать карту.
+4. Показать кнопки:
+   - открыть в Яндекс.Картах;
+   - открыть в Google Maps;
+   - открыть в 2GIS.
+
+Если маршрут внутри кладбища неточный, показать текст:
+
+"Маршрут может быть построен до ближайшей точки или входа на кладбище. Дальше используйте координаты могилы и номер участка."
+
+---------------------------------------------------------------------
+E8. Админка
+---------------------------------------------------------------------
+
+Сделать:
+
+- список pending media;
+- approve media;
+- reject media;
+- просмотр жалоб/модерации;
+- базовую панель администратора.
+
+=====================================================================
+F. SECURITY RULES
+=====================================================================
+
+F1. userId брать только из JWT.
+
+F2. Не принимать userId из body, query или route для пользовательских операций.
+
+F3. Все пользовательские endpoints делать через /me.
+
+F4. Проверки прав делать в use case, а не только через атрибуты контроллера.
+
+F5. Координаты от смартфона хранить вместе с AccuracyMeters.
+
+F6. Не считать GPS абсолютно точным.
+
+F7. Загружаемые файлы проверять по:
+- MIME;
+- extension;
+- size;
+- magic numbers, если возможно.
+
+F8. Документы не делать public.
+
+F9. Фото можно сделать public read.
+
+F10. Refresh token хранить только как hash.
+
+F11. Plain refresh token не хранить в БД.
+
+F12. Secrets не хранить в git.
+
+F13. Бизнес-ошибки не должны возвращать 500.
+
+F14. 401 использовать для неавторизованных.
+
+F15. 403 использовать для запрета доступа.
+
+F16. 409 использовать для конфликтов.
+
+=====================================================================
+G. ПОРЯДОК PR
+=====================================================================
+
+G1. PR-001: Docs + CORS + /me
+
+Сделать:
+
+- добавить docs/grave-location-tracking-plan.txt;
+- добавить CORS;
+- добавить GET /api/users/me;
+- проверить Swagger.
+
+---------------------------------------------------------------------
+
+G2. PR-002: Seed admin + secrets cleanup
+
+Сделать:
+
+- добавить DbInitializer;
+- добавить seed SuperAdmin;
+- убрать реальные secrets из appsettings;
+- обновить README.
+
+---------------------------------------------------------------------
+
+G3. PR-003: Refresh tokens
+
+Сделать:
+
+- добавить RefreshToken;
+- добавить migration;
+- добавить refresh endpoint;
+- добавить logout endpoint;
+- добавить rotation refresh token.
+
+---------------------------------------------------------------------
+
+G4. PR-004: Optional BurialLocation
+
+Сделать:
+
+- сделать BurialLocation nullable;
+- сделать Country nullable;
+- добавить AccuracyMeters;
+- добавить CreateFromGps;
+- обновить validators;
+- сделать migration.
+
+---------------------------------------------------------------------
+
+G5. PR-005: AddDeceasedAtGrave
+
+Сделать:
+
+- добавить command;
+- добавить validator;
+- добавить use case;
+- добавить endpoint;
+- проверить атомарность.
+
+---------------------------------------------------------------------
+
+G6. PR-006: MeTrackedDeceased API
+
+Сделать:
+
+- list;
+- detail;
+- exists;
+- add;
+- patch;
+- delete.
+
+---------------------------------------------------------------------
+
+G7. PR-007: IFileStorage + MinIO
+
+Сделать:
+
+- добавить abstraction;
+- добавить MinioFileStorage;
+- добавить MinioOptions;
+- добавить MinioBootstrap;
+- проверить buckets.
+
+---------------------------------------------------------------------
+
+G8. PR-008: DeceasedMedia
+
+Сделать:
+
+- добавить entity;
+- добавить MediaKind;
+- добавить EF config;
+- добавить migration;
+- добавить domain methods.
+
+---------------------------------------------------------------------
+
+G9. PR-009: Media API
+
+Сделать:
+
+- upload;
+- list;
+- get;
+- delete;
+- main photo;
+- approve/reject.
+
+---------------------------------------------------------------------
+
+G10. PR-010: Route API
+
+Сделать:
+
+- RoutingMode;
+- IRouteLinkProvider;
+- Yandex provider;
+- Google provider;
+- 2GIS provider;
+- GetRouteToGraveUseCase;
+- endpoint.
+
+---------------------------------------------------------------------
+
+G11. PR-011: Tests
+
+Сделать:
+
+- Domain tests;
+- Application tests;
+- Infrastructure tests;
+- Integration tests;
+- Testcontainers.
+
+---------------------------------------------------------------------
+
+G12. PR-012: Frontend start
+
+Начинать только после зелёного backend.
+
+=====================================================================
+H. ЧТО НЕ ДЕЛАЕМ СЕЙЧАС
+=====================================================================
+
+H1. OCR фото памятника.
+
+Почему не сейчас:
+
+Это отдельная сложная задача:
+- распознавание текста;
+- обработка фото;
+- ошибки OCR;
+- автозаполнение формы;
+- модерация результата.
+
+---------------------------------------------------------------------
+
+H2. Push notifications.
+
+Почему не сейчас:
+
+Сначала нужно реализовать базовый сценарий.
+Push-уведомления требуют отдельной инфраструктуры.
+
+---------------------------------------------------------------------
+
+H3. Email notifications.
+
+Почему не сейчас:
+
+Понадобятся:
+- SMTP provider;
+- шаблоны писем;
+- background jobs;
+- retry logic.
+
+---------------------------------------------------------------------
+
+H4. PostGIS.
+
+Почему не сейчас:
+
+Сейчас достаточно обычных latitude/longitude.
+PostGIS можно добавить позже для:
+- radius search;
+- bbox search;
+- nearest graves.
+
+---------------------------------------------------------------------
+
+H5. CDN.
+
+Почему не сейчас:
+
+Для MVP достаточно MinIO.
+CDN понадобится позже для production-нагрузки.
+
+---------------------------------------------------------------------
+
+H6. Антивирус.
+
+Почему не сейчас:
+
+Для MVP достаточно MIME/size validation.
+Антивирус можно добавить позже через ClamAV.
+
+---------------------------------------------------------------------
+
+H7. Оптимизация изображений.
+
+Почему не сейчас:
+
+Сначала нужно загрузить и отобразить файлы.
+Оптимизацию через thumbnails/libvips можно добавить позже.
+
+---------------------------------------------------------------------
+
+H8. Mobile app.
+
+Почему не сейчас:
+
+Сначала делаем web frontend.
+Смартфон уже может отдавать GPS через browser geolocation.
+
+---------------------------------------------------------------------
+
+H9. Сложная админка.
+
+Почему не сейчас:
+
+Сначала нужна базовая модерация.
+Сложную панель можно сделать позже.
+
+---------------------------------------------------------------------
+
+H10. Импорт из внешних реестров.
+
+Почему не сейчас:
+
+Это отдельная интеграционная задача.
+
+---------------------------------------------------------------------
+
+H11. Full-text search.
+
+Почему не сейчас:
+
+Для начала достаточно текущего search key.
+PostgreSQL full-text можно добавить позже.
+
+---------------------------------------------------------------------
+
+H12. Production deploy.
+
+Почему не сейчас:
+
+Сначала нужно завершить backend и тесты.
+
+---------------------------------------------------------------------
+
+H13. httpOnly cookie refresh token.
+
+Почему не сейчас:
+
+Для MVP можно начать с simpler token flow.
+Позже перейти на httpOnly cookie для лучшей безопасности.
+
+=====================================================================
+I. ФИНАЛЬНЫЙ КРИТЕРИЙ ГОТОВНОСТИ
+=====================================================================
+
+Backend считается готовым для перехода к frontend, если:
+
+[ ] Работает регистрация.
+[ ] Работает логин.
+[ ] Работает GET /api/users/me.
+[ ] Работает refresh token.
+[ ] Работает logout.
+[ ] Работает POST /api/deceased-records/at-grave.
+[ ] Deceased создаётся.
+[ ] TrackedDeceased создаётся автоматически.
+[ ] Deceased и TrackedDeceased сохраняются атомарно.
+[ ] Работает GET /api/users/me/tracked-deceased.
+[ ] Работает detail tracked deceased.
+[ ] Работает exists tracked deceased.
+[ ] Работает добавление tracking.
+[ ] Работает удаление tracking.
+[ ] Работает обновление tracking.
+[ ] Работает загрузка фото умершего.
+[ ] Работает загрузка фото могилы.
+[ ] Работает загрузка документа.
+[ ] Файлы лежат в MinIO.
+[ ] Metadata файлов лежит в PostgreSQL.
+[ ] Фото открываются по public URL.
+[ ] Документы открываются через presigned URL.
+[ ] Работает route endpoint.
+[ ] Возвращаются ссылки Yandex, Google, 2GIS.
+[ ] Чужие пользователи не видят чужие tracked deceased.
+[ ] Чужие пользователи не могут удалить чужие файлы.
+[ ] Бизнес-ошибки возвращают понятные errorCode.
+[ ] 401/403/409 используются корректно.
+[ ] Domain tests проходят.
+[ ] Application tests проходят.
+[ ] Integration tests проходят.
+[ ] dotnet test backend.sln зелёный.
+
+После выполнения всех пунктов можно начинать frontend.

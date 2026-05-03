@@ -37,16 +37,16 @@ public sealed class GetAllUsersUseCase(
         
         var (items, totalCount) = await userRepository.GetPaged(query, cancellationToken);
 
-        var responseItems = items.Select(x => new GetAllUsersResponse
+        var responseItems = items.Select(row => new GetAllUsersResponse
         {
-            Id = x.Id,
-            FullName = x.FullName,
-            Email = x.Email,
-            UserName = x.UserName,
-            Role = x.Role.ToString(),
-            RegisteredAtUtc = x.RegisteredAtUtc,
-            LastLoginAtUtc = x.LastLoginAtUtc,
-            TrackingCount = x.TrackedDeceasedItems.Count
+            Id = row.User.Id,
+            FullName = row.User.FullName,
+            Email = row.User.Email,
+            UserName = row.User.UserName,
+            Role = row.User.Role.ToString(),
+            RegisteredAtUtc = row.User.RegisteredAtUtc,
+            LastLoginAtUtc = row.User.LastLoginAtUtc,
+            TrackingCount = row.TrackingCount
         }).ToList();
 
         var response = new PagedResponse<GetAllUsersResponse>

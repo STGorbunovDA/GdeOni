@@ -40,19 +40,26 @@ public sealed class CreateDeceasedUseCase(
                 return Errors.General.NotFound("user", currentUserId);
         }
         
-        var burialLocationResult = BurialLocation.Create(
-            command.BurialLocation.Latitude,
-            command.BurialLocation.Longitude,
-            command.BurialLocation.Country,
-            command.BurialLocation.Region,
-            command.BurialLocation.City,
-            command.BurialLocation.CemeteryName,
-            command.BurialLocation.PlotNumber,
-            command.BurialLocation.GraveNumber,
-            command.BurialLocation.Accuracy);
+        BurialLocation? burialLocation = null;
+        if (command.BurialLocation is not null)
+        {
+            var burialLocationResult = BurialLocation.Create(
+                command.BurialLocation.Latitude,
+                command.BurialLocation.Longitude,
+                command.BurialLocation.Country,
+                command.BurialLocation.Region,
+                command.BurialLocation.City,
+                command.BurialLocation.CemeteryName,
+                command.BurialLocation.PlotNumber,
+                command.BurialLocation.GraveNumber,
+                command.BurialLocation.Accuracy,
+                command.BurialLocation.AccuracyMeters);
 
-        if (burialLocationResult.IsFailure)
-            return burialLocationResult.Error;
+            if (burialLocationResult.IsFailure)
+                return burialLocationResult.Error;
+
+            burialLocation = burialLocationResult.Value;
+        }
 
         var deceasedResult = Deceased.Create(
             command.FirstName,
@@ -60,7 +67,7 @@ public sealed class CreateDeceasedUseCase(
             command.MiddleName,
             command.BirthDate,
             command.DeathDate,
-            burialLocationResult.Value,
+            burialLocation,
             currentUserId,
             command.ShortDescription,
             command.Biography);
@@ -73,21 +80,6 @@ public sealed class CreateDeceasedUseCase(
         var alreadyExists = await deceasedRepository.ExistsBySearchKey(deceased.SearchKey, cancellationToken);
         if (alreadyExists)
             return Errors.Deceased.AlreadyExists();
-
-        if (command.Photos is not null)
-        {
-            foreach (var photo in command.Photos)
-            {
-                var addPhotoResult = deceased.AddPhoto(
-                    photo.Url,
-                    currentUserId,
-                    photo.Description,
-                    photo.IsPrimary);
-
-                if (addPhotoResult.IsFailure)
-                    return addPhotoResult.Error;
-            }
-        }
 
         if (command.Memories is not null)
         {

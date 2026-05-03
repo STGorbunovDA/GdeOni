@@ -30,12 +30,24 @@ public sealed class RemoveMemoryUseCase(
 
         var currentUserId = currentUserIdResult.Value;
         var isAdmin = currentUserService.IsAdmin();
-        
-        var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
+
+        // D7.46: filtered Include — грузим только одну memory.
+        var deceased = await deceasedRepository.GetByIdWithMemoryById(
+            command.DeceasedId, command.MemoryId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
-        
-        if (!isAdmin && deceased.CreatedByUserId != currentUserId)
+
+        var memory = deceased.Memories.FirstOrDefault(m => m.Id == command.MemoryId);
+        if (memory is null)
+            return Errors.DeceasedMemory.NotFound(command.MemoryId);
+
+        // Удалять может: автор воспоминания, автор карточки (модерация),
+        // admin. Прежняя логика "только автор карточки или admin"
+        // блокировала автору правку собственного коммента.
+        var canDelete = isAdmin
+            || memory.AuthorUserId == currentUserId
+            || deceased.CreatedByUserId == currentUserId;
+        if (!canDelete)
             return Errors.Deceased.DeleteMemoryForbidden();
 
         var result = deceased.RemoveMemory(command.MemoryId);

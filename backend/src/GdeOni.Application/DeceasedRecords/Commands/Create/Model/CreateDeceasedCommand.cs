@@ -6,30 +6,25 @@ public sealed record CreateDeceasedCommand(
     string FirstName,
     string LastName,
     string? MiddleName,
-    DateTime? BirthDate,
-    DateTime DeathDate,
+    DateOnly? BirthDate,
+    DateOnly DeathDate,
     string? ShortDescription,
     string? Biography,
-    CreateDeceasedBurialLocationCommand BurialLocation,
-    IReadOnlyCollection<CreateDeceasedPhotoCommand>? Photos,
+    CreateDeceasedBurialLocationCommand? BurialLocation,
     IReadOnlyCollection<CreateDeceasedMemoryCommand>? Memories,
     CreateDeceasedMetadataCommand? Metadata);
 
 public sealed record CreateDeceasedBurialLocationCommand(
     double Latitude,
     double Longitude,
-    string Country,
+    string? Country,
     string? Region,
     string? City,
     string? CemeteryName,
     string? PlotNumber,
     string? GraveNumber,
-    LocationAccuracy Accuracy);
-
-public sealed record CreateDeceasedPhotoCommand(
-    string Url,
-    string? Description,
-    bool IsPrimary);
+    LocationAccuracy Accuracy,
+    double? AccuracyMeters);
 
 public sealed record CreateDeceasedMemoryCommand(
     string Text);

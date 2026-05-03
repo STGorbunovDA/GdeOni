@@ -8,14 +8,13 @@ public sealed class CreateDeceasedRequest
     public string LastName { get; set; } = string.Empty;
     public string? MiddleName { get; set; }
 
-    public DateTime? BirthDate { get; set; }
-    public DateTime DeathDate { get; set; }
+    public DateOnly? BirthDate { get; set; }
+    public DateOnly DeathDate { get; set; }
 
     public string? ShortDescription { get; set; }
     public string? Biography { get; set; }
 
-    public CreateDeceasedBurialLocationRequest BurialLocation { get; set; } = null!;
-    public IReadOnlyCollection<CreateDeceasedPhotoRequest>? Photos { get; set; }
+    public CreateDeceasedBurialLocationRequest? BurialLocation { get; set; }
     public IReadOnlyCollection<CreateDeceasedMemoryRequest>? Memories { get; set; }
     public CreateDeceasedMetadataRequest? Metadata { get; set; }
 }
@@ -24,8 +23,9 @@ public sealed class CreateDeceasedBurialLocationRequest
 {
     public double Latitude { get; set; }
     public double Longitude { get; set; }
+    public double? AccuracyMeters { get; set; }
 
-    public string Country { get; set; } = string.Empty;
+    public string? Country { get; set; }
     public string? Region { get; set; }
     public string? City { get; set; }
     public string? CemeteryName { get; set; }
@@ -33,13 +33,6 @@ public sealed class CreateDeceasedBurialLocationRequest
     public string? GraveNumber { get; set; }
 
     public LocationAccuracy Accuracy { get; set; } = LocationAccuracy.Exact;
-}
-
-public sealed class CreateDeceasedPhotoRequest
-{
-    public string Url { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public bool IsPrimary { get; set; }
 }
 
 public sealed class CreateDeceasedMemoryRequest

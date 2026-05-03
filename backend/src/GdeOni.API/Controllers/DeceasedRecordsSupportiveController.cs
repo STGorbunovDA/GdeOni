@@ -5,8 +5,6 @@ using GdeOni.Application.DeceasedRecords.Queries.GetDistance.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetDistance.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.Model;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.UseCase;
-using GdeOni.Application.DeceasedRecords.Queries.HasPhotos.Model;
-using GdeOni.Application.DeceasedRecords.Queries.HasPhotos.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -24,6 +22,10 @@ public sealed class DeceasedRecordsSupportiveController : ApiControllerBase
     [HttpGet("{id:guid}/distance")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<GetDistanceResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> GetDistance(
         [FromRoute] Guid id,
         [FromQuery] double latitude,
@@ -43,7 +45,8 @@ public sealed class DeceasedRecordsSupportiveController : ApiControllerBase
     [HttpGet("{id:guid}/age-at-death")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<GetAgeAtDeathResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<GetAgeAtDeathResponse>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAgeAtDeath(
         [FromRoute] Guid id,
         [FromServices] IGetAgeAtDeathUseCase getAgeAtDeathUseCase,
@@ -54,30 +57,13 @@ public sealed class DeceasedRecordsSupportiveController : ApiControllerBase
     }
 
     /// <summary>
-    /// Проверяет, есть ли у карточки фотографии.
-    /// </summary>
-    [HttpGet("{id:guid}/has-photos")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<HasPhotosResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<HasPhotosResponse>), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> HasPhotos(
-        [FromRoute] Guid id,
-        [FromServices] IHasPhotosUseCase hasPhotosUseCase,
-        CancellationToken cancellationToken)
-    {
-        var query = new HasPhotosQuery(id);
-        var result = await hasPhotosUseCase.Execute(query, cancellationToken);
-
-        return FromResult(result);
-    }
-
-    /// <summary>
     /// Проверяет, есть ли у карточки воспоминания.
     /// </summary>
     [HttpGet("{id:guid}/has-memories")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<HasMemoriesResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<HasMemoriesResponse>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> HasMemories(
         [FromRoute] Guid id,
         [FromServices] IHasMemoriesUseCase hasMemoriesUseCase,

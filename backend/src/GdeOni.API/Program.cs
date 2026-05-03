@@ -1,5 +1,7 @@
 using GdeOni.API;
 using GdeOni.API.Extensions;
+using GdeOni.API.Hosting;
+using GdeOni.API.RateLimiting;
 using GdeOni.Application;
 using GdeOni.Infrastructure;
 using Serilog;
@@ -14,12 +16,24 @@ builder.Host.UseSerilog((context, config) =>
 builder.Services.AddApplication();
 builder.Services.AddSecurity(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddCustomCors(builder.Configuration);
+builder.Services.AddCustomRateLimiting(builder.Configuration);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddCustomSwagger();
 
 var app = builder.Build();
+
+await app.Services.SeedDatabaseAsync();
+await app.Services.BootstrapStorageAsync();
+
+// Должно идти раньше остального middleware: исправляет
+// Connection.RemoteIpAddress / Scheme до того, как их прочитают
+// логи запросов, CORS, аутентификация, RefreshToken.CreatedFromIp
+// и т.п. Без конфигурации Hosting:KnownProxies / KnownNetworks —
+// no-op (см. D7.38).
+app.UseForwardedHeadersIfConfigured(builder.Configuration);
 
 app.UseSerilogRequestLogging();
 
@@ -33,8 +47,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors(GdeOni.API.DependencyInjection.CorsPolicyName);
+
 app.UseAuthentication();
 app.UseAuthorization();
+
+// После Authentication — лимит знает client IP (через ForwardedHeaders D7.38)
+// и привязан к политике auth (D7.39).
+app.UseRateLimiter();
 
 app.MapControllers();
 app.Run();

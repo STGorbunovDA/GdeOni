@@ -3,6 +3,11 @@ using GdeOni.API.Mappers;
 using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.API.Response;
 using GdeOni.Application.Common.Shared;
+using GdeOni.Application.DeceasedRecords.Queries.GetAll.Model;
+using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.Model;
+using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.ClearBurialLocation.Model;
+using GdeOni.Application.DeceasedRecords.Commands.ClearBurialLocation.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Create.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Create.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Delete.Model;
@@ -47,13 +52,39 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     }
 
     /// <summary>
+    /// Создаёт карточку умершего «у могилы» — атомарно вместе с автотрекингом
+    /// и местом захоронения по GPS-координатам. Главный сценарий мобильного клиента.
+    /// </summary>
+    [HttpPost("at-grave")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<AddDeceasedAtGraveResponse>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AddAtGrave(
+        [FromBody] AddDeceasedAtGraveRequest request,
+        [FromServices] IAddDeceasedAtGraveUseCase addDeceasedAtGraveUseCase,
+        CancellationToken cancellationToken)
+    {
+        var command = request.ToCommand();
+        var result = await addDeceasedAtGraveUseCase.Execute(command, cancellationToken);
+
+        return FromResult(
+            result,
+            value => value.ToCreatedResponse($"/api/deceased-records/{value.DeceasedId}"));
+    }
+
+    /// <summary>
     /// Возвращает список всех карточек умерших с пагинацией и фильтрацией.
     /// Доступно только администраторам.
     /// </summary>
     [HttpGet]
     [Authorize(Roles = "SuperAdmin,Admin")]
-    [ProducesResponseType(typeof(ApiResponse<PagedResponse<DeceasedListItemDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResponse<GetAllDeceasedItemResponse>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAll(
         [FromQuery] GetAllDeceasedRequest request,
         [FromServices] IGetAllDeceasedUseCase getAllDeceasedUseCase,
@@ -62,7 +93,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         var query = request.ToQuery();
         var result = await getAllDeceasedUseCase.Execute(query, cancellationToken);
 
-        return FromResult(result, value => value.ToDto().ToOkResponse());
+        return FromResult(result);
     }
 
     /// <summary>
@@ -71,6 +102,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [HttpGet("{id:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<DeceasedDetailsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(
         [FromRoute] Guid id,
@@ -90,6 +122,8 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<UpdateDeceasedResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Update(
@@ -110,7 +144,9 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "SuperAdmin,Admin")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<DeleteDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
@@ -119,6 +155,27 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     {
         var command = new DeleteDeceasedCommand(id);
         var result = await deleteDeceasedUseCase.Execute(command, cancellationToken);
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// Очищает место захоронения карточки умершего.
+    /// Доступно автору карточки и администраторам.
+    /// </summary>
+    [HttpDelete("{id:guid}/burial-location")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<ClearBurialLocationResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ClearBurialLocation(
+        [FromRoute] Guid id,
+        [FromServices] IClearBurialLocationUseCase clearBurialLocationUseCase,
+        CancellationToken cancellationToken)
+    {
+        var command = new ClearBurialLocationCommand(id);
+        var result = await clearBurialLocationUseCase.Execute(command, cancellationToken);
 
         return FromResult(result);
     }

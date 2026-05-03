@@ -11,7 +11,7 @@ public sealed class Deceased : Entity<Guid>
 
     public PersonName Name { get; private set; }
     public LifePeriod LifePeriod { get; private set; }
-    public BurialLocation BurialLocation { get; private set; }
+    public BurialLocation? BurialLocation { get; private set; }
 
     public string? ShortDescription { get; private set; }
     public string? Biography { get; private set; }
@@ -22,11 +22,14 @@ public sealed class Deceased : Entity<Guid>
     public Guid CreatedByUserId { get; }
     public bool IsVerified { get; private set; }
 
-    private readonly List<DeceasedPhoto> _photos = new();
-    public IReadOnlyCollection<DeceasedPhoto> Photos => _photos.AsReadOnly();
-
     private readonly List<DeceasedMemoryEntry> _memories = new();
     public IReadOnlyCollection<DeceasedMemoryEntry> Memories => _memories.AsReadOnly();
+
+    private readonly List<DeceasedMedia> _media = new();
+    public IReadOnlyCollection<DeceasedMedia> Media => _media.AsReadOnly();
+
+    public Guid? MainMediaId { get; private set; }
+    public DeceasedMedia? MainMedia { get; private set; }
 
     public string SearchKey { get; private set; } = null!;
     public DeceasedMetadata Metadata { get; private set; }
@@ -35,7 +38,6 @@ public sealed class Deceased : Entity<Guid>
     {
         Name = null!;
         LifePeriod = null!;
-        BurialLocation = null!;
         Metadata = DeceasedMetadata.Empty();
     }
 
@@ -43,7 +45,7 @@ public sealed class Deceased : Entity<Guid>
         Guid id,
         PersonName name,
         LifePeriod lifePeriod,
-        BurialLocation burialLocation,
+        BurialLocation? burialLocation,
         string? shortDescription,
         string? biography,
         Guid createdByUserId,
@@ -65,18 +67,15 @@ public sealed class Deceased : Entity<Guid>
         string firstName,
         string lastName,
         string? middleName,
-        DateTime? birthDate,
-        DateTime deathDate,
-        BurialLocation burialLocation,
+        DateOnly? birthDate,
+        DateOnly deathDate,
+        BurialLocation? burialLocation,
         Guid createdByUserId,
         string? shortDescription = null,
         string? biography = null)
     {
         if (createdByUserId == Guid.Empty)
             return Errors.Deceased.CreatedByRequired();
-
-        if (burialLocation is null)
-            return Errors.Deceased.BurialLocationRequired();
 
         var nameResult = PersonName.Create(firstName, lastName, middleName);
         if (nameResult.IsFailure)
@@ -108,10 +107,19 @@ public sealed class Deceased : Entity<Guid>
 
     public int? AgeAtDeath() => LifePeriod.AgeAtDeath();
 
-    public DeceasedPhoto? GetPrimaryPhoto() =>
-        _photos.FirstOrDefault(x => x.IsPrimary);
+    public DeceasedMedia? GetMainPhoto()
+    {
+        if (MainMediaId is null) return null;
 
-    public bool HasPhotos() => _photos.Count > 0;
+        var photo = MainMedia ?? _media.FirstOrDefault(x => x.Id == MainMediaId);
+        if (photo is null) return null;
+        // Только Approved попадает в публичный URL карточки. Pending —
+        // ещё не проверено модерацией, Rejected — отклонено. Защищает
+        // от обхода типа "загрузил оскорбительное фото, отметил main —
+        // оно сразу видно подписчикам".
+        if (photo.ModerationStatus != ModerationStatus.Approved) return null;
+        return photo;
+    }
 
     public bool HasMemories() => _memories.Count > 0;
 
@@ -119,8 +127,8 @@ public sealed class Deceased : Entity<Guid>
         string firstName,
         string lastName,
         string? middleName,
-        DateTime? birthDate,
-        DateTime deathDate,
+        DateOnly? birthDate,
+        DateOnly deathDate,
         string? shortDescription,
         string? biography)
     {
@@ -151,161 +159,12 @@ public sealed class Deceased : Entity<Guid>
         return UnitResult.Success<Error>();
     }
 
-    public UnitResult<Error> ChangeBurialLocation(BurialLocation burialLocation)
+    public UnitResult<Error> ChangeBurialLocation(BurialLocation? burialLocation)
     {
-        if (burialLocation is null)
-            return Errors.Deceased.BurialLocationRequired();
-
         BurialLocation = burialLocation;
         Touch();
         RebuildSearchKey();
 
-        return UnitResult.Success<Error>();
-    }
-
-    public Result<DeceasedPhoto, Error> AddPhoto(
-        string url,
-        Guid addedByUserId,
-        string? description = null,
-        bool makePrimary = false)
-    {
-        var normalizedUrlResult = DeceasedPhoto.NormalizeUrl(url);
-        if (normalizedUrlResult.IsFailure)
-            return normalizedUrlResult.Error;
-
-        var normalizedUrl = normalizedUrlResult.Value;
-
-        if (HasDuplicatePhotoUrl(normalizedUrl))
-            return Errors.DeceasedPhoto.DuplicateUrl();
-
-        var photoResult = DeceasedPhoto.Create(
-            normalizedUrl,
-            addedByUserId,
-            description,
-            makePrimary || _photos.Count == 0);
-
-        if (photoResult.IsFailure)
-            return photoResult.Error;
-
-        var photo = photoResult.Value;
-
-        if (photo.IsPrimary)
-        {
-            foreach (var item in _photos)
-                item.UnmarkPrimary();
-        }
-
-        _photos.Add(photo);
-        Touch();
-
-        return Result.Success<DeceasedPhoto, Error>(photo);
-    }
-
-    public UnitResult<Error> UpdatePhotoUrl(Guid photoId, string url)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var normalizedUrlResult = DeceasedPhoto.NormalizeUrl(url);
-        if (normalizedUrlResult.IsFailure)
-            return normalizedUrlResult.Error;
-
-        var normalizedUrl = normalizedUrlResult.Value;
-
-        if (HasDuplicatePhotoUrl(normalizedUrl, photoId))
-            return Errors.DeceasedPhoto.DuplicateUrl();
-
-        var result = photo.UpdateUrl(normalizedUrl);
-        if (result.IsFailure)
-            return result.Error;
-
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    private bool HasDuplicatePhotoUrl(string normalizedUrl, Guid? excludingPhotoId = null)
-    {
-        return _photos.Any(x =>
-            x.Id != excludingPhotoId &&
-            string.Equals(x.Url, normalizedUrl, StringComparison.OrdinalIgnoreCase));
-    }
-
-    public UnitResult<Error> SetPrimaryPhoto(Guid photoId)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        foreach (var item in _photos)
-            item.UnmarkPrimary();
-
-        var makePrimaryResult = photo.MakePrimary();
-        if (makePrimaryResult.IsFailure)
-            return makePrimaryResult.Error;
-
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> UpdatePhotoDescription(Guid photoId, string? description)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var result = photo.UpdateDescription(description);
-        if (result.IsFailure)
-            return result.Error;
-
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> ApprovePhoto(Guid photoId)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var result = photo.Approve();
-        if (result.IsFailure)
-            return result.Error;
-
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> RejectPhoto(Guid photoId)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        var result = photo.Reject();
-        if (result.IsFailure)
-            return result.Error;
-
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> RemovePhoto(Guid photoId)
-    {
-        var photo = _photos.FirstOrDefault(x => x.Id == photoId);
-        if (photo is null)
-            return Errors.DeceasedPhoto.NotFound(photoId);
-
-        _photos.Remove(photo);
-
-        if (_photos.Count > 0 && _photos.All(x => !x.IsPrimary))
-        {
-            var makePrimaryResult = _photos[0].MakePrimary();
-            if (makePrimaryResult.IsFailure)
-                return makePrimaryResult.Error;
-        }
-
-        Touch();
         return UnitResult.Success<Error>();
     }
 
@@ -399,6 +258,137 @@ public sealed class Deceased : Entity<Guid>
         return UnitResult.Success<Error>();
     }
 
+    public Result<DeceasedMedia, Error> AddMedia(
+        Guid uploadedByUserId,
+        MediaKind kind,
+        string originalFileName,
+        string bucket,
+        string storageKey,
+        string contentType,
+        long sizeBytes,
+        string? description = null)
+    {
+        // Уникальность storageKey гарантирована на двух уровнях, поэтому
+        // здесь нет защитного _media.Any(StorageKey) — иначе UploadMedia
+        // вынужден был бы Include(Media) ради линейного scan'а:
+        //   1. MinioFileStorage.BuildObjectKey строит "<prefix>/<deceasedId>/<Guid>.<ext>"
+        //      — Guid.NewGuid гарантирует уникальность;
+        //   2. unique-индекс ux_deceased_media_storage_key в БД ловит race
+        //      и пробрасывается через UniqueConstraint.FromName в DuplicateStorageKey.
+        var mediaResult = DeceasedMedia.Create(
+            Id,
+            uploadedByUserId,
+            kind,
+            originalFileName,
+            bucket,
+            storageKey,
+            contentType,
+            sizeBytes,
+            description);
+
+        if (mediaResult.IsFailure)
+            return mediaResult.Error;
+
+        _media.Add(mediaResult.Value);
+        Touch();
+
+        return Result.Success<DeceasedMedia, Error>(mediaResult.Value);
+    }
+
+    public UnitResult<Error> RemoveMedia(Guid mediaId)
+    {
+        var media = _media.FirstOrDefault(x => x.Id == mediaId);
+        if (media is null)
+            return Errors.DeceasedMedia.NotFound(mediaId);
+
+        if (MainMediaId == mediaId)
+        {
+            MainMediaId = null;
+            MainMedia = null;
+        }
+
+        _media.Remove(media);
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> SetMainPhoto(Guid mediaId)
+    {
+        var media = _media.FirstOrDefault(x => x.Id == mediaId);
+        if (media is null)
+            return Errors.DeceasedMedia.NotFound(mediaId);
+
+        if (media.Kind != MediaKind.DeceasedPhoto)
+            return Errors.DeceasedMedia.OnlyDeceasedPhotoCanBeMain();
+
+        // Только Approved фото может стать main. Защищает от сценария
+        // "загрузил Pending → пометил main → ждёт Approve и автоматически
+        // публикует main без явного решения админа". Юзер сначала
+        // дожидается модерации, потом ставит main явно.
+        if (media.ModerationStatus != ModerationStatus.Approved)
+            return Errors.DeceasedMedia.MainPhotoMustBeApproved();
+
+        foreach (var item in _media.Where(x => x.Kind == MediaKind.DeceasedPhoto && x.Id != mediaId))
+            item.UnmarkMainPhoto();
+
+        var markResult = media.MarkAsMainPhoto();
+        if (markResult.IsFailure)
+            return markResult.Error;
+
+        MainMediaId = media.Id;
+        MainMedia = media;
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> UpdateMediaDescription(Guid mediaId, string? description)
+    {
+        var media = _media.FirstOrDefault(x => x.Id == mediaId);
+        if (media is null)
+            return Errors.DeceasedMedia.NotFound(mediaId);
+
+        var result = media.UpdateDescription(description);
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> ApproveMedia(Guid mediaId)
+    {
+        var media = _media.FirstOrDefault(x => x.Id == mediaId);
+        if (media is null)
+            return Errors.DeceasedMedia.NotFound(mediaId);
+
+        var result = media.Approve();
+        if (result.IsFailure)
+            return result.Error;
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    public UnitResult<Error> RejectMedia(Guid mediaId)
+    {
+        var media = _media.FirstOrDefault(x => x.Id == mediaId);
+        if (media is null)
+            return Errors.DeceasedMedia.NotFound(mediaId);
+
+        var result = media.Reject();
+        if (result.IsFailure)
+            return result.Error;
+
+        if (MainMediaId == mediaId)
+        {
+            MainMediaId = null;
+            MainMedia = null;
+        }
+
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
     public UnitResult<Error> UpdateMetadata(DeceasedMetadata metadata)
     {
         if (metadata is null)
@@ -433,17 +423,17 @@ public sealed class Deceased : Entity<Guid>
         string firstName,
         string lastName,
         string? middleName,
-        DateTime? birthDate,
-        DateTime deathDate,
-        BurialLocation burialLocation)
+        DateOnly? birthDate,
+        DateOnly deathDate,
+        BurialLocation? burialLocation)
     {
         static string NormalizeString(string? value) =>
             string.IsNullOrWhiteSpace(value)
                 ? "-"
                 : value.Trim().ToUpperInvariant();
 
-        static string NormalizeDate(DateTime? value) =>
-            value?.Date.ToString("yyyy-MM-dd") ?? "-";
+        static string NormalizeDate(DateOnly? value) =>
+            value?.ToString("yyyy-MM-dd") ?? "-";
 
         return string.Join("|",
             NormalizeString(firstName),
@@ -451,10 +441,10 @@ public sealed class Deceased : Entity<Guid>
             NormalizeString(middleName),
             NormalizeDate(birthDate),
             NormalizeDate(deathDate),
-            NormalizeString(burialLocation.CemeteryName),
-            NormalizeString(burialLocation.City),
-            NormalizeString(burialLocation.PlotNumber),
-            NormalizeString(burialLocation.GraveNumber));
+            NormalizeString(burialLocation?.CemeteryName),
+            NormalizeString(burialLocation?.City),
+            NormalizeString(burialLocation?.PlotNumber),
+            NormalizeString(burialLocation?.GraveNumber));
     }
 
     private static Result<string?, Error> NormalizeShortDescription(string? value)

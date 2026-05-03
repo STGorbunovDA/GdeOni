@@ -31,6 +31,14 @@
       - minio_data:/data
     command: server --console-address ":9001" /data
     restart: always
+    # Production overrides — раскомментировать после настройки nginx и DNS
+    # (см. backend/docs/deploy.md). MINIO_SERVER_URL заставляет MinIO писать
+    # публичный домен в presigned URL вместо внутреннего minio:9000.
+    # environment:
+    #   MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+    #   MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    #   MINIO_SERVER_URL: https://files.gdeoni.example.com
+    #   MINIO_BROWSER_REDIRECT_URL: https://minio-console.gdeoni.example.com
 volumes:
   postgres-data:
   minio_data:

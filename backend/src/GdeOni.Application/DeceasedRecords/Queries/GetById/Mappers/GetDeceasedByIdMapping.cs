@@ -1,12 +1,28 @@
 ﻿using GdeOni.Application.DeceasedRecords.Queries.GetById.Model;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.DeceasedRecords.Queries.GetById.Mappers;
 
 public static class GetDeceasedByIdMapping
 {
-    public static DeceasedDetailsResponse ToResponse(this Deceased deceased)
+    /// <summary>
+    /// Маппит карточку умершего в DTO.
+    /// </summary>
+    /// <param name="deceased">Доменный агрегат.</param>
+    /// <param name="canSeeAllMemories">
+    /// true — caller админ или автор карточки, видит все воспоминания
+    /// (Pending/Approved/Rejected). false — обычный пользователь, видит
+    /// только Approved.
+    /// </param>
+    public static DeceasedDetailsResponse ToResponse(
+        this Deceased deceased,
+        bool canSeeAllMemories)
     {
+        var memoriesQuery = canSeeAllMemories
+            ? deceased.Memories
+            : deceased.Memories.Where(m => m.ModerationStatus == ModerationStatus.Approved);
+
         return new DeceasedDetailsResponse
         {
             Id = deceased.Id,
@@ -18,15 +34,17 @@ public static class GetDeceasedByIdMapping
             BirthDate = deceased.LifePeriod.BirthDate,
             DeathDate = deceased.LifePeriod.DeathDate,
 
-            Latitude = deceased.BurialLocation.Latitude,
-            Longitude = deceased.BurialLocation.Longitude,
-            Country = deceased.BurialLocation.Country,
-            Region = deceased.BurialLocation.Region,
-            City = deceased.BurialLocation.City,
-            CemeteryName = deceased.BurialLocation.CemeteryName,
-            PlotNumber = deceased.BurialLocation.PlotNumber,
-            GraveNumber = deceased.BurialLocation.GraveNumber,
-            Accuracy = (int)deceased.BurialLocation.Accuracy,
+            HasBurialLocation = deceased.BurialLocation is not null,
+            Latitude = deceased.BurialLocation?.Latitude,
+            Longitude = deceased.BurialLocation?.Longitude,
+            AccuracyMeters = deceased.BurialLocation?.AccuracyMeters,
+            Country = deceased.BurialLocation?.Country,
+            Region = deceased.BurialLocation?.Region,
+            City = deceased.BurialLocation?.City,
+            CemeteryName = deceased.BurialLocation?.CemeteryName,
+            PlotNumber = deceased.BurialLocation?.PlotNumber,
+            GraveNumber = deceased.BurialLocation?.GraveNumber,
+            Accuracy = deceased.BurialLocation is null ? null : (int)deceased.BurialLocation.Accuracy,
 
             ShortDescription = deceased.ShortDescription,
             Biography = deceased.Biography,
@@ -45,20 +63,7 @@ public static class GetDeceasedByIdMapping
                 AdditionalInfo = deceased.Metadata.AdditionalInfo
             },
 
-            Photos = deceased.Photos
-                .Select(photo => new DeceasedPhotoResponse
-                {
-                    Id = photo.Id,
-                    Url = photo.Url,
-                    Description = photo.Description,
-                    IsPrimary = photo.IsPrimary,
-                    CreatedAtUtc = photo.CreatedAtUtc,
-                    AddedByUserId = photo.AddedByUserId,
-                    ModerationStatus = (int)photo.ModerationStatus
-                })
-                .ToArray(),
-
-            Memories = deceased.Memories
+            Memories = memoriesQuery
                 .Select(memory => new DeceasedMemoryResponse
                 {
                     Id = memory.Id,

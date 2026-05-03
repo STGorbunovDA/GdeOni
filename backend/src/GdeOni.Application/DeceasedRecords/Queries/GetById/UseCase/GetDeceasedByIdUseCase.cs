@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Queries.GetById.Mappers;
 using GdeOni.Application.DeceasedRecords.Queries.GetById.Model;
 using GdeOni.Domain.Shared;
@@ -9,6 +10,7 @@ namespace GdeOni.Application.DeceasedRecords.Queries.GetById.UseCase;
 
 public sealed class GetDeceasedByIdUseCase(
     IDeceasedRepository deceasedRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetDeceasedByIdUseCase
 {
@@ -23,11 +25,18 @@ public sealed class GetDeceasedByIdUseCase(
         GetDeceasedByIdQuery query,
         CancellationToken cancellationToken)
     {
-        var deceased = await deceasedRepository.GetById(query.Id, cancellationToken);
-        
+        var currentUserIdResult = currentUserService.GetCurrentUserId();
+        if (currentUserIdResult.IsFailure)
+            return currentUserIdResult.Error;
+
+        var deceased = await deceasedRepository.GetByIdWithMemories(query.Id, cancellationToken);
+
         if (deceased is null)
             return Errors.General.NotFound("deceased", query.Id);
 
-        return Result.Success<DeceasedDetailsResponse, Error>(deceased.ToResponse());
+        var canSeeAllMemories = currentUserService.IsAdmin()
+            || deceased.CreatedByUserId == currentUserIdResult.Value;
+
+        return Result.Success<DeceasedDetailsResponse, Error>(deceased.ToResponse(canSeeAllMemories));
     }
 }

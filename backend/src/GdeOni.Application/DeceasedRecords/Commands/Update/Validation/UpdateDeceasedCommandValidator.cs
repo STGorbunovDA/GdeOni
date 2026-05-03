@@ -32,8 +32,12 @@ public sealed class UpdateDeceasedCommandValidator : AbstractValidator<UpdateDec
             .When(x => !string.IsNullOrWhiteSpace(x.MiddleName));
 
         RuleFor(x => x.DeathDate)
-            .NotEmpty()
+            .Must(x => x != default)
             .WithError(Errors.LifePeriod.DeathDateRequired());
+
+        RuleFor(x => x.DeathDate)
+            .Must(x => x <= DateOnly.FromDateTime(DateTime.UtcNow))
+            .WithError(Errors.LifePeriod.DeathDateInFuture());
 
         RuleFor(x => x.ShortDescription)
             .MaximumLength(Deceased.MaxShortDescriptionLength)
@@ -49,10 +53,6 @@ public sealed class UpdateDeceasedCommandValidator : AbstractValidator<UpdateDec
             .LessThanOrEqualTo(x => x.DeathDate)
             .WithError(Errors.LifePeriod.BirthDateAfterDeathDate())
             .When(x => x.BirthDate.HasValue);
-
-        RuleFor(x => x.BurialLocation)
-            .NotNull()
-            .WithError(Errors.Deceased.BurialLocationRequired());
 
         RuleFor(x => x.BurialLocation!)
             .SetValidator(new UpdateDeceasedBurialLocationCommandValidator())

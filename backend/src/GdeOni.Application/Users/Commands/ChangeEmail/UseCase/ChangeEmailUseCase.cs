@@ -9,6 +9,7 @@ namespace GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
 
 public sealed class ChangeEmailUseCase(
     IUserRepository userRepository,
+    IRefreshTokenRepository refreshTokenRepository,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IChangeEmailUseCase
@@ -46,7 +47,13 @@ public sealed class ChangeEmailUseCase(
         if (result.IsFailure)
             return result.Error;
 
+        // Сначала фиксируем смену email + новый SecurityStamp,
+        // затем форс-логаут всех сессий. Порядок и trade-off — как в
+        // ChangePasswordUseCase после D7.36 (RevokeAllForUser коммитит сразу).
+        // Изменение email = security-event: bad guy с украденным RT не должен
+        // переживать восстановление аккаунта (D7.41).
         await userRepository.Save(cancellationToken);
+        await refreshTokenRepository.RevokeAllForUser(user.Id, cancellationToken);
 
         return Result.Success<ChangeEmailResponse, Error>(
             new ChangeEmailResponse(user.Id, user.Email));

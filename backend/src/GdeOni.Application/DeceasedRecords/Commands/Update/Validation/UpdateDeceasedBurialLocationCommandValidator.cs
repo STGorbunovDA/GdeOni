@@ -20,10 +20,14 @@ public sealed class UpdateDeceasedBurialLocationCommandValidator
             .WithError(Errors.BurialLocation.LongitudeInvalid());
 
         RuleFor(x => x.Country)
-            .NotEmpty()
-            .WithError(Errors.BurialLocation.CountryRequired())
             .MaximumLength(BurialLocation.MaxCountryLength)
-            .WithError(Errors.BurialLocation.CountryTooLong(BurialLocation.MaxCountryLength));
+            .WithError(Errors.BurialLocation.CountryTooLong(BurialLocation.MaxCountryLength))
+            .When(x => !string.IsNullOrWhiteSpace(x.Country));
+
+        RuleFor(x => x.AccuracyMeters)
+            .GreaterThanOrEqualTo(0)
+            .WithError(Errors.BurialLocation.AccuracyMetersInvalid())
+            .When(x => x.AccuracyMeters.HasValue);
 
         RuleFor(x => x.Region)
             .MaximumLength(BurialLocation.MaxRegionLength)

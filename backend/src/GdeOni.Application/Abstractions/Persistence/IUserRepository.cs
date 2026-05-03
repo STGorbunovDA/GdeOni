@@ -1,4 +1,5 @@
 ﻿using GdeOni.Application.Users.Queries.GetAll.Model;
+using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.User;
 
 namespace GdeOni.Application.Abstractions.Persistence;
@@ -7,11 +8,20 @@ public interface IUserRepository
 {
     Task<User?> GetById(Guid userId, CancellationToken cancellationToken);
     Task<User?> GetByIdWithTracking(Guid userId, CancellationToken cancellationToken);
+    Task<(User User, int TrackingCount)?> GetByIdWithTrackingCount(Guid userId, CancellationToken cancellationToken);
     Task<User?> GetByEmail(string email, CancellationToken cancellationToken);
-    Task<(List<User> Items, int TotalCount)> GetPaged(GetAllUsersQuery query, CancellationToken cancellationToken);
+    Task<(List<(User User, int TrackingCount)> Items, int TotalCount)> GetPaged(
+        GetAllUsersQuery query,
+        CancellationToken cancellationToken);
     Task<bool> ExistsById(Guid userId, CancellationToken cancellationToken);
     Task<bool> ExistsByEmail(string email, CancellationToken cancellationToken);
     Task<bool> ExistsByUserName(string userName, CancellationToken cancellationToken);
+    Task<bool> IsActivelyTracking(Guid userId, Guid deceasedId, CancellationToken cancellationToken);
+    Task<(List<(TrackedDeceased Tracking, Deceased Deceased)> Items, int TotalCount)> GetMyTrackedDeceasedPaged(
+        Guid userId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken);
     void Delete(User user);
     Task Add(User user, CancellationToken cancellationToken);
     Task Save(CancellationToken cancellationToken);

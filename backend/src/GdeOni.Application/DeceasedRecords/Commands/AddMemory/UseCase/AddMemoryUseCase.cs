@@ -28,17 +28,14 @@ public sealed class AddMemoryUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        var currentUserId = currentUserIdResult.Value;
-        var isAdmin = currentUserService.IsAdmin();
-        
         var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
-        
-        if (!isAdmin && deceased.CreatedByUserId != currentUserId)
-            return Errors.Deceased.AddMemoryForbidden();
 
-        var memoryResult = deceased.AddMemory(command.Text, currentUserId);
+        // Любой авторизованный пользователь может оставить воспоминание —
+        // это соц-фича. Контент уйдёт в Pending и попадёт публично только
+        // после Approve (D7.21). Авторство фиксируется AuthorUserId.
+        var memoryResult = deceased.AddMemory(command.Text, currentUserIdResult.Value);
 
         if (memoryResult.IsFailure)
             return memoryResult.Error;

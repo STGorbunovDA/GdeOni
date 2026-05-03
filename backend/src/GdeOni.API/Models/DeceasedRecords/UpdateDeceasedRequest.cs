@@ -8,13 +8,13 @@ public sealed class UpdateDeceasedRequest
     public string LastName { get; set; } = null!;
     public string? MiddleName { get; set; }
 
-    public DateTime? BirthDate { get; set; }
-    public DateTime DeathDate { get; set; }
+    public DateOnly? BirthDate { get; set; }
+    public DateOnly DeathDate { get; set; }
 
     public string? ShortDescription { get; set; }
     public string? Biography { get; set; }
 
-    public UpdateDeceasedBurialLocationRequest BurialLocation { get; set; } = null!;
+    public UpdateDeceasedBurialLocationRequest? BurialLocation { get; set; }
     public UpdateDeceasedMetadataRequest? Metadata { get; set; }
 }
 
@@ -22,8 +22,9 @@ public sealed class UpdateDeceasedBurialLocationRequest
 {
     public double Latitude { get; set; }
     public double Longitude { get; set; }
+    public double? AccuracyMeters { get; set; }
 
-    public string Country { get; set; } = null!;
+    public string? Country { get; set; }
     public string? Region { get; set; }
     public string? City { get; set; }
     public string? CemeteryName { get; set; }

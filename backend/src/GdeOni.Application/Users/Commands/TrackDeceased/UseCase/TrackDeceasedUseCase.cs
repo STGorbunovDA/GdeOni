@@ -35,8 +35,8 @@ public sealed class TrackDeceasedUseCase(
         if (user is null)
             return Errors.General.NotFound("user", currentUserId);
 
-        var deceasedExists = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
-        if (deceasedExists is null)
+        var deceasedExists = await deceasedRepository.ExistsById(command.DeceasedId, cancellationToken);
+        if (!deceasedExists)
             return Errors.General.NotFound("deceased", command.DeceasedId);
 
         var result = user.TrackDeceased(

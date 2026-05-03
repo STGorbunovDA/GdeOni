@@ -1,4 +1,4 @@
-﻿namespace GdeOni.Application.Auth.Login.Model;
+namespace GdeOni.Application.Auth.Login.Model;
 
 public sealed record LoginResponse(
     Guid Id,
@@ -6,4 +6,7 @@ public sealed record LoginResponse(
     string UserName,
     string? FullName,
     string Role,
-    string AccessToken);
+    string AccessToken,
+    DateTime AccessTokenExpiresAtUtc,
+    string RefreshToken,
+    DateTime RefreshTokenExpiresAtUtc);

@@ -42,6 +42,9 @@ public class Error
     
     public static Error Unauthorized(string code, string message) =>
         new(code, message, ErrorType.Unauthorized);
+
+    public static Error TooManyRequests(string code, string message) =>
+        new(code, message, ErrorType.TooManyRequests);
 }
 
 public sealed record ValidationErrorDetail(
@@ -56,5 +59,6 @@ public enum ErrorType
     Failure,
     Conflict,
     Forbidden,
-    Unauthorized
+    Unauthorized,
+    TooManyRequests
 }

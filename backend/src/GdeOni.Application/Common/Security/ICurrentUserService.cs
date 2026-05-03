@@ -10,4 +10,5 @@ public interface ICurrentUserService
     bool IsInRole(params string[] roles);
     bool IsAdmin();
     Result<Guid, Error> GetCurrentUserId();
+    string? GetRemoteIpAddress();
 }
