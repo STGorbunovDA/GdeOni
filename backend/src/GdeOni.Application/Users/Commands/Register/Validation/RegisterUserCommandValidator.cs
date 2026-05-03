@@ -33,6 +33,8 @@ public sealed class RegisterUserCommandValidator : AbstractValidator<RegisterUse
             .NotEmpty()
             .WithError(Errors.User.PasswordRequired())
             .MinimumLength(PasswordPolicy.MinPasswordLength)
-            .WithError(Errors.User.PasswordTooShort(PasswordPolicy.MinPasswordLength));
+            .WithError(Errors.User.PasswordTooShort(PasswordPolicy.MinPasswordLength))
+            .MaximumLength(PasswordPolicy.MaxPasswordLength)
+            .WithError(Errors.User.PasswordTooLong(PasswordPolicy.MaxPasswordLength));
     }
 }

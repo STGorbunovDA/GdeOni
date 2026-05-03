@@ -2807,6 +2807,49 @@ GetMediaListRequest имеет фильтр по ModerationStatus.
 [ ] Декларации полные.
 [ ] Build clean.
 
+---------------------------------------------------------------------
+D7.54 Password без MaximumLength — потенциальный DoS через BCrypt
+---------------------------------------------------------------------
+
+[RegisterUserCommandValidator.cs:32-36](backend/src/GdeOni.Application/Users/Commands/Register/Validation/RegisterUserCommandValidator.cs#L32-L36)
+и [ChangePasswordCommandValidator.cs:17-21](backend/src/GdeOni.Application/Users/Commands/ChangePassword/Validation/ChangePasswordCommandValidator.cs#L17-L21):
+
+```csharp
+RuleFor(x => x.Password)
+    .NotEmpty()
+    .WithError(Errors.User.PasswordRequired())
+    .MinimumLength(PasswordPolicy.MinPasswordLength)
+    .WithError(Errors.User.PasswordTooShort(PasswordPolicy.MinPasswordLength));
+```
+
+Нет `MaximumLength`. ASP.NET Core по умолчанию принимает JSON body до
+~30MB. Атакующий может слать ChangePassword/Register с 10MB-полем
+Password. BCrypt.Net по спецификации обрежет до 72 байт, но до
+обрезки .NET аллоцирует на heap всю строку, JSON-deserializer читает
+её, плюс `Encoding.UTF8.GetBytes()` внутри BCrypt тратит CPU.
+Rate-limit auth-политики (D7.39, 10/мин) ограничивает частоту, но
+один запрос всё равно тратит CPU+RAM не за пик нагрузки.
+
+CurrentPassword в ChangePasswordUseCase передаётся в `Verify` — там
+BCrypt тоже срежет, но поверх та же тропинка с heap-аллокацией.
+
+Решение:
+- Добавить `PasswordPolicy.MaxPasswordLength = 128` (типичная политика
+  в Identity/ASP.NET Core; bcrypt всё равно режет до 72 байт, 128
+  дают запас под пасс-менеджеры с длинными паролями).
+- В RegisterUserCommandValidator: `.MaximumLength(PasswordPolicy.MaxPasswordLength)
+  .WithError(Errors.User.PasswordTooLong(PasswordPolicy.MaxPasswordLength))`.
+- То же в ChangePasswordCommandValidator (для NewPassword).
+- Добавить `Errors.User.PasswordTooLong(int maxLength)` в Errors.cs.
+- Опционально: добавить правило для CurrentPassword (без NotEmpty,
+  только MaximumLength), чтобы и оно не пропускало мегабайтные строки.
+
+Готово, если:
+
+[ ] PasswordPolicy.MaxPasswordLength = 128.
+[ ] Register/ChangePassword падают на 400 для Password длиннее 128.
+[ ] Errors.User.PasswordTooLong существует.
+
 =====================================================================
 D8. ROUTE API
 =====================================================================

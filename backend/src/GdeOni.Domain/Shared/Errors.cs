@@ -303,6 +303,9 @@ public static class Errors
         public static Error PasswordTooShort(int minLength) =>
             Error.Validation("user.password.too_short", $"Password must be at least {minLength} characters long");
 
+        public static Error PasswordTooLong(int maxLength) =>
+            Error.Validation("user.password.too_long", $"Password must be at most {maxLength} characters long");
+
         public static Error EmailAlreadyExists() =>
             Error.Conflict("user.email.already.exists", "User with this email already exists");
 
