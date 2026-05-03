@@ -25,6 +25,11 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
     /// </summary>
     [HttpPut("{id:guid}/verify")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(ApiResponse<VerifyDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Verify(
         [FromRoute] Guid id,
         [FromServices] IVerifyDeceasedUseCase verifyDeceasedUseCase,
@@ -42,6 +47,11 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
     /// </summary>
     [HttpPut("{id:guid}/unverified")]
     [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(ApiResponse<UnverifiedDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Unverified(
         [FromRoute] Guid id,
         [FromServices] IUnverifiedDeceasedUseCase unverifiedDeceasedUseCase,
