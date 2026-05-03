@@ -30,14 +30,19 @@ public sealed class GetUserByIdUseCase(
 
         var currentUserId = currentUserIdResult.Value;
         var isAdmin = currentUserService.IsAdmin();
-        
-        var user = await userRepository.GetByIdWithTracking(query.UserId, cancellationToken);
-        if (user is null)
+
+        // D7.37: вместо Include(TrackedDeceasedItems) — узкая проекция
+        // (User, COUNT subquery). Раньше тянули всю коллекцию подписок
+        // ради одного .Count в response.
+        var row = await userRepository.GetByIdWithTrackingCount(query.UserId, cancellationToken);
+        if (row is null)
             return Errors.General.NotFound("user", query.UserId);
-        
+
+        var (user, trackingCount) = row.Value;
+
         if (!isAdmin && user.Id != currentUserId)
             return Errors.User.UserForbidden();
-        
+
         return Result.Success<GetUserByIdResponse, Error>(new GetUserByIdResponse
         {
             Id = user.Id,
@@ -47,7 +52,7 @@ public sealed class GetUserByIdUseCase(
             Role = user.Role.ToString(),
             RegisteredAtUtc = user.RegisteredAtUtc,
             LastLoginAtUtc = user.LastLoginAtUtc,
-            TrackingCount = user.TrackedDeceasedItems.Count
+            TrackingCount = trackingCount
         });
     }
 }

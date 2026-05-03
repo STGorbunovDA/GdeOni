@@ -24,6 +24,22 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .Include(x => x.TrackedDeceasedItems)
             .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
     }
+
+    public async Task<(User User, int TrackingCount)?> GetByIdWithTrackingCount(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        // Без Include(TrackedDeceasedItems) — для read-only сценариев,
+        // которым нужен только COUNT (см. GetUserByIdUseCase). EF
+        // транслирует TrackedDeceasedItems.Count() в SQL COUNT-subquery.
+        var row = await UsersQuery()
+            .AsNoTracking()
+            .Where(x => x.Id == userId)
+            .Select(x => new { User = x, TrackingCount = x.TrackedDeceasedItems.Count() })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return row is null ? null : (row.User, row.TrackingCount);
+    }
     
     public Task<User?> GetByEmail(string email, CancellationToken cancellationToken)
     {
