@@ -34,10 +34,24 @@ public sealed class PersonName : ValueObject
         if (string.IsNullOrWhiteSpace(lastName))
             return Errors.PersonName.LastNameRequired();
 
+        var normalizedFirstName = firstName.Trim();
+        if (normalizedFirstName.Length > MaxFirstName)
+            return Errors.PersonName.FirstNameTooLong(MaxFirstName);
+
+        var normalizedLastName = lastName.Trim();
+        if (normalizedLastName.Length > MaxLastName)
+            return Errors.PersonName.LastNameTooLong(MaxLastName);
+
+        var normalizedMiddleName = string.IsNullOrWhiteSpace(middleName)
+            ? null
+            : middleName.Trim();
+        if (normalizedMiddleName is not null && normalizedMiddleName.Length > MaxMiddleName)
+            return Errors.PersonName.MiddleNameTooLong(MaxMiddleName);
+
         return Result.Success<PersonName, Error>(new PersonName(
-            firstName.Trim(),
-            lastName.Trim(),
-            string.IsNullOrWhiteSpace(middleName) ? null : middleName.Trim()));
+            normalizedFirstName,
+            normalizedLastName,
+            normalizedMiddleName));
     }
 
     public string FullName =>
