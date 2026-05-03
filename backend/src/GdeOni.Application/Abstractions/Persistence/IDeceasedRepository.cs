@@ -9,6 +9,7 @@ public interface IDeceasedRepository
     Task Add(Deceased deceased, CancellationToken cancellationToken);
     Task<Deceased?> GetById(Guid id, CancellationToken cancellationToken);
     Task<Deceased?> GetByIdWithMemories(Guid id, CancellationToken cancellationToken);
+    Task<Deceased?> GetByIdWithMemoryById(Guid id, Guid memoryId, CancellationToken cancellationToken);
     Task<Deceased?> GetByIdWithMedia(Guid id, CancellationToken cancellationToken);
     Task<bool> ExistsById(Guid id, CancellationToken cancellationToken);
     Task<(List<Deceased> Items, int TotalCount)> GetPaged(GetAllDeceasedQuery query, CancellationToken cancellationToken);

@@ -29,6 +29,24 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
+    public async Task<Deceased?> GetByIdWithMemoryById(
+        Guid id,
+        Guid memoryId,
+        CancellationToken cancellationToken)
+    {
+        // Filtered Include (EF Core 5+) — грузим Deceased + ОДНУ memory.
+        // Domain-методы (EditMemory/ApproveMemory/RejectMemory/RemoveMemory)
+        // используют `_memories.FirstOrDefault(x => x.Id == memoryId)`, что
+        // корректно отрабатывает на коллекции из 0 или 1 элемента: если
+        // memory не загрузился — null → NotFound; если загрузился — он
+        // единственный, изменения трекаются EF и попадают в SaveChanges
+        // одиночным UPDATE/DELETE без затрагивания остальных Memories
+        // карточки. См. D7.46.
+        return await dbContext.DeceasedRecords
+            .Include(x => x.Memories.Where(m => m.Id == memoryId))
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
     public async Task<Deceased?> GetByIdWithMedia(Guid id, CancellationToken cancellationToken)
     {
         return await dbContext.DeceasedRecords

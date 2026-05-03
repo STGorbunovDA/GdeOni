@@ -31,7 +31,9 @@ public sealed class RemoveMemoryUseCase(
         var currentUserId = currentUserIdResult.Value;
         var isAdmin = currentUserService.IsAdmin();
 
-        var deceased = await deceasedRepository.GetByIdWithMemories(command.DeceasedId, cancellationToken);
+        // D7.46: filtered Include — грузим только одну memory.
+        var deceased = await deceasedRepository.GetByIdWithMemoryById(
+            command.DeceasedId, command.MemoryId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
 

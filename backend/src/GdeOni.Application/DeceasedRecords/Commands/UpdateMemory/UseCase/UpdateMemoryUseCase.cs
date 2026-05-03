@@ -31,7 +31,11 @@ public sealed class UpdateMemoryUseCase(
         var currentUserId = currentUserIdResult.Value;
         var isAdmin = currentUserService.IsAdmin();
 
-        var deceased = await deceasedRepository.GetByIdWithMemories(command.DeceasedId, cancellationToken);
+        // D7.46: filtered Include грузит Deceased + только эту memory.
+        // Линейный scan по всей коллекции воспоминаний для одной операции
+        // больше не нужен.
+        var deceased = await deceasedRepository.GetByIdWithMemoryById(
+            command.DeceasedId, command.MemoryId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
 
