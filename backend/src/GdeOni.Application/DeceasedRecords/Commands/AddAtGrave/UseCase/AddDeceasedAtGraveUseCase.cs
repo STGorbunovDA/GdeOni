@@ -32,7 +32,14 @@ public sealed class AddDeceasedAtGraveUseCase(
 
         var currentUserId = currentUserIdResult.Value;
 
-        var user = await userRepository.GetByIdWithTracking(currentUserId, cancellationToken);
+        // GetById без Include(TrackedDeceasedItems) — D7.44. Use case
+        // создаёт свежий deceased и привязывает к нему первый tracking,
+        // существующего tracking на этот Id быть не может. Линейный
+        // scan _trackedDeceasedItems в User.TrackDeceased на пустой
+        // (не загруженной) коллекции отработает корректно: вернёт null,
+        // пойдёт в ветку Create+Add. Уникальность по реальной БД держит
+        // ux_tracked_deceased_user_id_deceased_id.
+        var user = await userRepository.GetById(currentUserId, cancellationToken);
         if (user is null)
             return Errors.General.NotFound("user", currentUserId);
 
