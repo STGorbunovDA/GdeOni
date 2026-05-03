@@ -2183,6 +2183,555 @@ D7.31 Архитектурные несоответствия и мелкие co
 
 [ ] Каждый пункт исправлен (можно отдельными мини-коммитами).
 
+---------------------------------------------------------------------
+D7.32 Refresh token replay не детектится
+---------------------------------------------------------------------
+
+RefreshUseCase.cs:43-44 при предъявлении уже отозванного refresh
+токена возвращает TokenRevoked и тихо отказывает. Если токен украден
+до того, как легит-юзер успел его прокрутить, и оба позже refresh'нутся
+— атакующий получит свою пару, легит-юзер увидит TokenRevoked и
+переавторизуется. Компрометация остаётся незамеченной — ничьи токены
+не отзываются, журнал безопасности молчит.
+
+Индустриальная практика (RFC 6819, OAuth 2.0 best practices): при
+replay revoked refresh-токена считать это сигналом компрометации —
+revoke всю «семью» токенов пользователя + log warning + потенциально
+форс-логаут (через RevokeAllForUser, тогда SecurityStamp не меняется,
+но все RT уйдут в revoke; access-токены живут до expire).
+
+Решение:
+- Добавить колонку replaced_by_token_hash в refresh_tokens.
+- При rotate в RefreshUseCase записывать new.Hash в old.ReplacedByTokenHash.
+- Новый Errors.RefreshToken.ReplayDetected.
+- В RefreshUseCase: если existingToken.IsRevoked → не просто вернуть
+  TokenRevoked, а вызвать refreshTokenRepository.RevokeAllForUser(userId)
+  и log.LogWarning с user_id, ip, ua.
+
+Готово, если:
+
+[ ] Replay revoked токена приводит к revoke всех активных RT юзера.
+[ ] В Seq фиксируется warning с user_id и client IP.
+[ ] Тест-сценарий «refresh → refresh-снова-старым-токеном» возвращает 401
+    и оставляет 0 активных токенов в таблице.
+
+---------------------------------------------------------------------
+D7.33 refresh_tokens растут навсегда — нет cleanup-сервиса
+---------------------------------------------------------------------
+
+Каждый Login создаёт строку refresh_tokens. Каждый Refresh ротирует
+— старая строка остаётся в таблице с RevokedAtUtc. После
+RefreshTokenLifetimeDays (14 по умолчанию) токен expired, но никто
+его не удаляет. На активном юзере с Refresh каждый день — 30 строк/мес,
+у популярного приложения — миллионы строк за год бессмысленно.
+
+Решение:
+- HostedService по образу MinioOrphanCleanupService.
+- Раз в сутки удалять: revoked > 30 дней назад И expired > 7 дней назад.
+- Конфиг через RefreshTokensCleanupOptions: Enabled, IntervalHours,
+  RevokedRetentionDays, ExpiredRetentionDays.
+- Использовать ExecuteDeleteAsync — один SQL DELETE без подгрузки.
+
+Готово, если:
+
+[ ] HostedService удаляет старые токены по расписанию.
+[ ] Опции читаются из appsettings.json (Cleanup:RefreshTokens).
+[ ] Логирование сколько удалено за прогон.
+
+---------------------------------------------------------------------
+D7.34 JWT validation хитит БД на каждом запросе (SecurityStamp)
+---------------------------------------------------------------------
+
+DependencyInjection.cs:113-144 (ValidateSecurityStampAsync) — на КАЖДОМ
+аутентифицированном запросе делает SELECT security_stamp FROM users
+WHERE id = @uid. Это цена D7.19 (JWT invalidation): добавили stamp,
+обеспечили мгновенную инвалидацию, но теперь auth-латентность зависит
+от БД и держит лишний коннект на каждом read-only запросе.
+
+При типичных 50 RPS на API — 50 SELECT/sec на одну таблицу. Ничего
+страшного на dev, но в нагрузку это лишние queries и latency.
+
+Решение:
+- IMemoryCache c TTL 30-60 секунд: ключ `secstamp:{userId}`, value Guid.
+- В ValidateSecurityStampAsync: сначала из кеша, при miss — БД + put.
+- Trade-off: после ChangeEmail/ChangePassword/ChangeRole старые токены
+  живут ещё ≤TTL вместо мгновенной инвалидации. Это приемлемо: TTL 30 сек
+  закрывает 95% реалистичных сценариев атаки.
+- TTL вынести в JwtOptions.SecurityStampCacheTtlSeconds (по умолчанию 30).
+
+Готово, если:
+
+[ ] Кеш используется при валидации stamp.
+[ ] При смене пароля стамп инвалидируется не позже TTL (тест: SQL UPDATE,
+    запрос с старым токеном через >TTL даёт 401).
+[ ] TTL конфигурируется.
+
+---------------------------------------------------------------------
+D7.35 UploadMedia тянет всю коллекцию media ради добавления одного
+---------------------------------------------------------------------
+
+UploadMediaUseCase.cs:49 вызывает GetByIdWithMedia — Include(Media)
+по всей коллекции. Это нужно из-за проверки в Deceased.AddMedia
+(Deceased.cs:271): `_media.Any(x => x.StorageKey == storageKey)`.
+
+Но эта проверка — мёртвый защитный код:
+- StorageKey строится в MinioFileStorage.BuildObjectKey:
+  `prefix/deceasedId/Guid.NewGuid()ext` — встроенная гарантия уникальности.
+- На уровне БД работает unique index ux_deceased_media_storage_key.
+
+При карточке с сотней фото это +N строк в RAM use case'а на каждый
+upload, хотя нужен только сам Deceased.
+
+Решение:
+- Удалить проверку `_media.Any(StorageKey)` из Deceased.AddMedia
+  (либо превратить в Debug.Assert).
+- В UploadMediaUseCase использовать GetById без Include.
+- Если в будущем понадобится detect duplicate StorageKey на уровне
+  домена — ловить UniqueConstraintException на Save и возвращать
+  Errors.DeceasedMedia.DuplicateStorageKey() через UniqueConstraint.FromName
+  (фабрика уже есть, см. Errors.cs:410).
+
+Готово, если:
+
+[ ] Upload не делает Include(Media).
+[ ] Поведение при race-условии (два upload подряд) — 409 через
+    UniqueConstraintException.
+
+---------------------------------------------------------------------
+D7.36 RevokeAllForUser ToList → ForEach → SaveChanges
+---------------------------------------------------------------------
+
+RefreshTokenRepository.cs:22-31 — загружает все non-revoked токены
+пользователя в память, проходит цикл, потом Save генерит N отдельных
+UPDATE. На юзере с десятками сессий это N+1 traffic к БД.
+
+Решение:
+- ExecuteUpdateAsync (EF Core 8): один SQL UPDATE refresh_tokens SET
+  revoked_at_utc = @now WHERE user_id = @uid AND revoked_at_utc IS NULL.
+- Use case вызывает Save — там уже коммит. ExecuteUpdateAsync коммитит
+  свою операцию сразу, поэтому в Use case Save после неё избыточен.
+  Решение: либо документировать, что RevokeAllForUser — самостоятельная
+  команда, либо обернуть в transaction-scope.
+
+Готово, если:
+
+[ ] RevokeAllForUser выполняется одним UPDATE.
+[ ] Logout-сценарий не теряет атомарности.
+
+---------------------------------------------------------------------
+D7.37 GetUserById тянет TrackedDeceasedItems ради Count (хвост D7.26)
+---------------------------------------------------------------------
+
+GetUserByIdUseCase.cs:34 вызывает GetByIdWithTracking, потом строит
+Response с user.TrackedDeceasedItems.Count. Тот же паттерн, что был
+в GetAllUsers до D7.26 — Include всей коллекции ради одного COUNT.
+
+Решение:
+- Узкий метод репо `Task<(User User, int TrackingCount)?> GetByIdWithTrackingCount(...)`
+  с проекцией через Select-subquery по аналогии с GetPaged D7.26.
+- В UseCase вместо GetByIdWithTracking использовать его.
+
+Готово, если:
+
+[ ] GetById не Include'ит TrackedDeceasedItems.
+[ ] TrackingCount считается одним SELECT count() в SQL.
+
+---------------------------------------------------------------------
+D7.38 RemoteIpAddress не работает за reverse-proxy
+---------------------------------------------------------------------
+
+CurrentUserService.cs:42-43 возвращает Connection.RemoteIpAddress —
+это IP пира TCP. За nginx/Cloudflare/ALB этот адрес = адрес прокси,
+не клиента. RefreshToken.CreatedFromIp заполняется одинаково для
+всех пользователей — бесполезно для аудита и для D7.32 (replay
+detection хочет реальный client IP).
+
+Решение:
+- ForwardedHeadersMiddleware в Program.cs до UseAuthentication.
+- ForwardedHeadersOptions {
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    KnownProxies/KnownNetworks из конфига Hosting:KnownProxies.
+  }
+- Если конфиг пуст — middleware не подключается (поведение как сейчас).
+
+Готово, если:
+
+[ ] За nginx с X-Forwarded-For RemoteIpAddress = client IP.
+[ ] Если конфиг пуст и proxy нет — поведение не меняется.
+[ ] KnownProxies whitelist'ится — нельзя подделать X-Forwarded-For
+    без доверенного прокси.
+
+---------------------------------------------------------------------
+D7.39 Нет rate limiting на /auth/login и /users (register) и
+       /users/{id}/password
+---------------------------------------------------------------------
+
+Любой без авторизации может молотить /api/auth/login миллионом
+запросов. Каждый запрос делает BCrypt.Verify (10–100 ms CPU).
+Это и timing-attack vector (D7.20 закрыли через dummy-hash, но
+brute-force через perf никто не блокирует), и DoS-вектор.
+
+Решение:
+- Microsoft.AspNetCore.RateLimiting (встроенный).
+- Sliding window 10 запросов/минуту на IP для:
+  POST /api/auth/login, POST /api/auth/refresh,
+  POST /api/users (register), PUT /api/users/{id}/password.
+- На превышение — 429 Too Many Requests с ApiResponse-обёрткой и
+  Retry-After. Завести Errors.General.TooManyRequests().
+- Опции через RateLimiting:Auth:* в appsettings.
+
+Готово, если:
+
+[ ] /auth/login после 10 неуспешных попыток за минуту с одного IP
+    возвращает 429.
+[ ] Лимиты конфигурируются.
+[ ] 429 ответ — ApiResponse-обёртка с code "general.too_many_requests".
+
+---------------------------------------------------------------------
+D7.40 Verify/Unverify endpoints без [ProducesResponseType]
+---------------------------------------------------------------------
+
+DeceasedRecordsAdminController.cs:26-37 (Verify) и :43-54 (Unverified)
+не объявляют ProducesResponseType. Swagger показывает дефолтный
+"200 OK" без модели и пропускает 400/401/403/404. Это нарушение
+конвенции CLAUDE.md ("Все эндпоинты должны иметь [ProducesResponseType]
+для всех возможных HTTP-кодов").
+
+Решение:
+- Добавить полный набор для обоих:
+  [ProducesResponseType(typeof(ApiResponse<VerifyDeceasedResponse>), 200)]
+  + 400 (deceased.already.verified — Conflict, см. AlreadyVerified)
+  + 401, 403, 404.
+- Аналогично для Unverified.
+
+Готово, если:
+
+[ ] Swagger UI показывает все 5 кодов и схему 200-ответа для обоих
+    endpoint'ов.
+
+---------------------------------------------------------------------
+D7.41 ChangeEmail / ChangeRole не отзывают refresh-токены
+---------------------------------------------------------------------
+
+ChangePasswordUseCase (через D7.36) после смены пароля делает
+RevokeAllForUser — все активные refresh-токены ложатся, бывшие сессии
+обрываются. ChangeEmailUseCase и ChangeRoleUseCase этого не делают,
+хотя оба rotate'ят SecurityStamp.
+
+Сценарий компрометации:
+1. Атакующий украл access + refresh токены жертвы.
+2. Жертва восстанавливает аккаунт через смену email
+   (типичный flow «верну ссылку на новый email»).
+3. SecurityStamp ротируется → access-токены атакующего отвалятся
+   через D7.34 cache TTL (≤30s).
+4. Refresh-токены атакующего ОСТАЮТСЯ валидны → /auth/refresh
+   выдаёт новые access-токены с новой ролью/email.
+
+Аналогично для ChangeRole: при разжаловании access умирает быстро,
+но refresh даёт новый токен (с новой ролью — privilege escalation
+не возникает, но факт сохранения сессии после security-event это
+не норма).
+
+Решение:
+- В ChangeEmailUseCase и ChangeRoleUseCase после userRepository.Save
+  вызвать refreshTokenRepository.RevokeAllForUser(user.Id, ct)
+  (паттерн ровно из ChangePasswordUseCase после D7.36).
+- Документировать в комментарии: «изменение email/роли = форс-логаут
+  всех сессий».
+
+Готово, если:
+
+[ ] После ChangeEmail все RT юзера revoked.
+[ ] После ChangeRole то же.
+[ ] Logout/refresh после security-event возвращает 401, а не новую пару.
+
+---------------------------------------------------------------------
+D7.42 Logout/Refresh validators используют WithMessage без WithError
+---------------------------------------------------------------------
+
+Тот же класс ошибок, что закрыл D7.31(д) для ChangePassword. Два
+оставшихся валидатора в Application/Auth:
+
+- LogoutCommandValidator.cs:10-12 — `.NotEmpty().WithMessage("Refresh token is required")`.
+- RefreshCommandValidator.cs:10-12 — то же.
+
+Клиент получает ErrorCode = "NotEmptyValidator" вместо
+"refresh_token.token.required". Несоответствие контракта — фронт
+не сможет реагировать на конкретную причину отказа.
+
+Решение:
+- Заменить WithMessage на WithError(Errors.RefreshToken.TokenRequired()).
+  Фабрика уже есть в Errors.cs.
+
+Готово, если:
+
+[ ] Оба валидатора возвращают код "refresh_token.token.required"
+    при пустом теле.
+
+---------------------------------------------------------------------
+D7.43 Хвост D7.40: неполные ProducesResponseType ещё в трёх контроллерах
+---------------------------------------------------------------------
+
+Помимо Verify/Unverify (закрыли D7.40), нарушение CLAUDE.md остаётся
+в трёх контроллерах:
+
+(а) DeceasedMemoriesController:
+- AddMemory объявляет 201 Created, но FromResult(result) возвращает 200
+  (использует .ToOkResponse, не .ToCreatedResponse). Заявленный код не
+  соответствует фактическому. Плюс пропущены 400/404.
+- UpdateMemory: только 200, нет 400/401/403/404.
+- RemoveMemory: только 200, нет 401/403/404.
+
+(б) DeceasedMetadataController:
+- UpdateMetadata, ClearMetadata: только 200, нет 401/403/404.
+
+(в) DeceasedRecordsSupportiveController:
+- GetDistance: только 200, нет 400 (validator на lat/lon)/401/404.
+- GetAgeAtDeath, HasMemories: 200 ok, но 404-response типизирован как
+  ApiResponse<GetAgeAtDeathResponse> и ApiResponse<HasMemoriesResponse>
+  соответственно — должно быть ApiResponse<object> (это error-обёртка,
+  не успешный response). Swagger показывает обманчивую схему.
+
+Решение:
+- AddMemory: либо заменить заявленный 201 на 200, либо обернуть в
+  .ToCreatedResponse($"/api/deceased-records/{id}/memories/{memory.Id}").
+  Решение «делать настоящий 201» предпочтительнее — REST-конвенция.
+- Все три контроллера: добавить недостающие 401/403/404 + 400 где
+  есть валидаторы. Типизировать ApiResponse<object> для error-кодов.
+
+Готово, если:
+
+[ ] AddMemory возвращает 201 с Location-заголовком (или объявление
+    смещено на 200 — выбрать одно).
+[ ] Все 6 экшенов в (а)/(б)/(в) объявляют полный набор кодов и не
+    типизируют error-response как successful response.
+
+---------------------------------------------------------------------
+D7.44 AddDeceasedAtGrave грузит TrackedDeceasedItems ради добавления
+       одной записи (хвост D7.35 / D7.37)
+---------------------------------------------------------------------
+
+AddDeceasedAtGraveUseCase.cs:35 вызывает GetByIdWithTracking — Include
+всей tracking-коллекции. Use case добавляет одну запись для свежесозданного
+deceased (его Id только что сгенерирован в Deceased.Create, никакого
+существующего tracking быть не может).
+
+Линейный scan `_trackedDeceasedItems.FirstOrDefault(...)` в
+User.TrackDeceased теоретически защищает от дубликата, но для
+нового deceased это мёртвый код (та же история, что D7.35 для
+StorageKey в Media). Уникальность дублей трекинга держит unique-индекс
+ux_tracked_deceased_user_id_deceased_id.
+
+Решение:
+- В AddDeceasedAtGraveUseCase заменить GetByIdWithTracking на GetById.
+- User.TrackDeceased оставить как есть — для других use case'ов
+  (TrackDeceasedUseCase) эта проверка реальна (повторный track через
+  /me/tracked-deceased/{id}, идемпотентность).
+- На race по unique-индексу UniqueConstraintException пробрасывается
+  в ExceptionMiddleware → 409 Conflict.
+
+Готово, если:
+
+[ ] AddDeceasedAtGrave не делает Include(TrackedDeceasedItems).
+[ ] Поведение при race-условии — 409 (через unique-constraint).
+
+---------------------------------------------------------------------
+D7.45 Pending/Rejected фото публично доступны по прямому URL
+---------------------------------------------------------------------
+
+MinioBootstrap создаёт buckets DeceasedPhotos и GravePhotos с
+public-read policy (см. BuildPublicReadPolicy в MinioBootstrap.cs).
+После Upload фото получает публичный URL `<host>/<bucket>/<deceasedId>/<Guid>.<ext>`.
+До модерации (Pending) и после Reject файл всё ещё доступен по
+этому URL — protection только через рандомный Guid.
+
+Реальные риски:
+- URL утекает в preview автору / в moderation UI / в шаре ссылки.
+- После Reject фото остаётся доступным до следующего MinIO orphan
+  cleanup (≤24 часа, см. D7.27).
+- Документы (DeceasedDocuments) корректно хранятся в private bucket
+  с presigned URL (см. UploadMediaUseCase.BuildUrl) — фото нет.
+
+Решение (один из двух):
+1. **Простое:** при Reject в RejectMediaModerationUseCase сразу удалять
+   файл из MinIO (best-effort, как в Upload-rollback). Pending остаётся
+   с public URL — предполагается, что между upload и Approve проходят
+   минуты, риск приемлем.
+2. **Строгое:** держать все фото в private bucket с presigned URL до
+   Approve. После Approve — copy в public bucket. Сложнее, требует
+   двух bucket'ов на kind и переноса при модерации.
+
+Рекомендую (1) как mvp.
+
+Готово, если:
+
+[ ] Reject фото удаляет файл из MinIO в том же use case (best-effort).
+[ ] Лог warning при провале удаления — не блокируем reject.
+
+---------------------------------------------------------------------
+D7.46 Memory-операции линейно сканируют коллекцию
+---------------------------------------------------------------------
+
+UpdateMemoryUseCase, ApproveMemoryUseCase, RejectMemoryUseCase,
+RemoveMemoryUseCase — все используют GetByIdWithMemories, потом
+вызывают доменный метод (EditMemory / ApproveMemory / etc), который
+делает `_memories.FirstOrDefault(x => x.Id == memoryId)`.
+
+Для одной операции тянем всю коллекцию воспоминаний. На карточке
+с сотнями записей — лишний RAM/трафик.
+
+Сложность фикса: Memory часть aggregate root Deceased (DDD), доменные
+методы вызываются на корне. Нельзя просто загрузить один memory без
+загрузки агрегата — нарушение invariant'ов.
+
+Решение:
+- Добавить в IDeceasedRepository метод `GetByIdWithMemoryById(deceasedId, memoryId, ct) → Deceased?`
+  — Include с Filtered (`.Include(x => x.Memories.Where(m => m.Id == memoryId))`).
+  EF Core 5+ поддерживает filtered include, грузит только одну строку.
+- Use case'ы переключить на новый метод. Domain методы (EditMemory etc)
+  работают как раньше — `_memories.FirstOrDefault` находит единственный
+  загруженный элемент.
+- GetByIdWithMemories оставить для read-сценариев (GetById, GetMyTrackedDeceasedDetails),
+  где нужны все memories.
+
+Trade-off: если вызвать filtered Include и memory не найден — `_memories`
+пуст, `EditMemory` вернёт NotFound, что корректно.
+
+Готово, если:
+
+[ ] Update/Approve/Reject/RemoveMemory используют GetByIdWithMemoryById.
+[ ] EF транслирует Include с Where в SQL `LEFT JOIN deceased_memory_entries
+    ON ... AND memory_id = @memoryId`.
+
+---------------------------------------------------------------------
+D7.47 Media-операции линейно сканируют коллекцию (продолжение D7.46)
+---------------------------------------------------------------------
+
+DeleteMediaUseCase, ApproveMediaModerationUseCase,
+RejectMediaModerationUseCase, GetMediaByIdUseCase — все используют
+GetByIdWithMedia + `deceased.Media.FirstOrDefault(x => x.Id == mediaId)`.
+Тот же паттерн, что был у memory-операций до D7.46: тянем всю
+коллекцию media (на популярной карточке могут быть десятки/сотни),
+чтобы тронуть один элемент.
+
+SetMainMediaPhotoUseCase — здесь полная коллекция нужна (доменный
+SetMainPhoto итерирует по `_media` и сбрасывает `IsMainPhoto=false`
+у остальных DeceasedPhoto). Не трогать.
+
+Решение:
+- В IDeceasedRepository добавить
+  `GetByIdWithMediaById(deceasedId, mediaId, ct) → Deceased?`
+  с filtered Include (`Include(x => x.Media.Where(m => m.Id == mediaId))`).
+  По аналогии с GetByIdWithMemoryById (D7.46).
+- DeleteMedia / ApproveMediaModeration / RejectMediaModeration / GetMediaById
+  переключить на новый метод. Доменные RemoveMedia / ApproveMedia /
+  RejectMedia / UpdateMediaDescription используют `_media.FirstOrDefault`
+  и корректно работают на коллекции из 0 или 1 элемента. RejectMedia
+  обнуляет MainMediaId — это поле самого Deceased, остальные media
+  не затрагивает.
+- GetByIdWithMedia оставить для read-сценариев, где нужен весь список
+  (UploadMediaUseCase его уже не использует — D7.35).
+
+Готово, если:
+
+[ ] DeleteMedia/ApproveMediaModeration/RejectMediaModeration/GetMediaById
+    переведены на GetByIdWithMediaById.
+[ ] SetMainPhoto продолжает работать — он на GetByIdWithMedia.
+[ ] EF транслирует Include с Where в `LEFT JOIN deceased_media ON ... AND id = @mediaId`.
+
+---------------------------------------------------------------------
+D7.48 Approve/Reject memory: пустой набор [ProducesResponseType]
+---------------------------------------------------------------------
+
+DeceasedRecordsAdminController.ApproveMemory / RejectMemory объявляют
+только 200 OK. При этом действия [Authorize(Roles="SuperAdmin,Admin")]
++ домен возвращает NotFound (deceased / memory) и Conflict (memory
+не Pending) — Swagger этого не видит.
+
+Сценарий: D7.40 закрыл Verify/Unverified, но ApproveMemory/RejectMemory
+оказались добавлены позже и пропустили обновление.
+
+Что добавить:
+- 401 Unauthorized — токена нет/невалидный.
+- 403 Forbidden — роль не админ.
+- 404 NotFound — deceased / memory не найдены.
+- 409 Conflict — memory не в Pending (доменный Errors.DeceasedMemory.NotPending).
+
+Готово, если:
+
+[ ] ApproveMemory имеет 200/401/403/404/409.
+[ ] RejectMemory имеет 200/401/403/404/409.
+
+---------------------------------------------------------------------
+D7.49 UsersController: неполный [ProducesResponseType] на 6 эндпоинтах
+---------------------------------------------------------------------
+
+После аудита по итогам D7.40/D7.43:
+
+- GetAll: `[Authorize(Roles="SuperAdmin,Admin")]`, объявлены 200/400.
+  Нет 401, 403.
+- GetById: `[Authorize]`, объявлены 200/403/404. Нет 401.
+- UpdateProfile: `[Authorize]`, объявлены 200/403/400/409. Нет 401, 404.
+- ChangeEmail: `[Authorize]`, объявлены 200/400/403/404/409. Нет 401.
+- ChangeRole: `[Authorize(Roles="SuperAdmin,Admin")]`, объявлены 200/400/404.
+  Нет 401, 403.
+- Delete: `[Authorize(Roles="SuperAdmin,Admin")]`, объявлены 200 (без типа!) и 404.
+  Нет 401, 403; 200 без `typeof(ApiResponse<DeleteUserResponse>)`.
+
+Везде, где есть [Authorize], должен быть 401. Везде, где Roles или
+use case проверяет ownership/admin, должен быть 403.
+
+Готово, если:
+
+[ ] Все 6 эндпоинтов имеют полный набор HTTP-кодов.
+[ ] Delete имеет `[ProducesResponseType(typeof(ApiResponse<DeleteUserResponse>),
+    StatusCodes.Status200OK)]`.
+
+---------------------------------------------------------------------
+D7.50 DeceasedRecordsController: неполный [ProducesResponseType]
+---------------------------------------------------------------------
+
+Параллельная находка к D7.49, но в карточках умерших:
+
+- GetAll: `[Authorize(Roles="SuperAdmin,Admin")]`, объявлены 200/400.
+  Нет 401, 403.
+- GetById: `[Authorize]`, объявлены 200/404. Нет 401.
+- Update: `[Authorize]`, объявлены 200/400/404/409. Нет 401, 403
+  (use case проверяет admin || createdByUserId).
+- Delete: `[Authorize(Roles="SuperAdmin,Admin")]`, объявлены 200 (без типа!) и 404.
+  Нет 401, 403; 200 без `typeof(ApiResponse<DeleteDeceasedResponse>)`.
+
+Готово, если:
+
+[ ] Все 4 эндпоинта имеют полный набор HTTP-кодов.
+[ ] Delete имеет типизированный 200.
+
+---------------------------------------------------------------------
+D7.51 ChangeEmail без rate-limit
+---------------------------------------------------------------------
+
+UsersController.ChangeEmail — это auth-related операция (смена primary
+identity), но в отличие от ChangePassword/Register/Login/Refresh не
+помечен `[EnableRateLimiting("auth")]`.
+
+Сценарий злоупотребления: атакующий с украденным access token может
+циклом подменять email на свой и забирать аккаунт; или через брутфорс
+unique-constraint выяснять, какие email уже зарегистрированы (по 409
+vs 200 differential). Rate-limit не закрывает дыру полностью, но
+сужает окно.
+
+ChangeRole — только для SuperAdmin/Admin, низкий риск, оставить как есть.
+
+Что сделать:
+- Добавить `[EnableRateLimiting(AuthRateLimitOptions.PolicyName)]` на
+  ChangeEmail.
+- Добавить `[ProducesResponseType(typeof(ApiResponse<object>),
+  StatusCodes.Status429TooManyRequests)]` (включая в D7.49).
+
+Готово, если:
+
+[ ] ChangeEmail помечен EnableRateLimiting и имеет 429 в декларации.
+
 =====================================================================
 D8. ROUTE API
 =====================================================================

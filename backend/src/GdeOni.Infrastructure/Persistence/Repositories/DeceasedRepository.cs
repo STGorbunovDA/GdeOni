@@ -54,6 +54,25 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
+    public async Task<Deceased?> GetByIdWithMediaById(
+        Guid id,
+        Guid mediaId,
+        CancellationToken cancellationToken)
+    {
+        // Filtered Include — Deceased + одна media. Доменные методы
+        // (RemoveMedia/ApproveMedia/RejectMedia/UpdateMediaDescription)
+        // работают через `_media.FirstOrDefault(x => x.Id == mediaId)`
+        // и корректно ходят по коллекции из 0/1 элемента. RejectMedia
+        // обнуляет MainMediaId — это поле самого Deceased, остальные
+        // media в этой выборке не нужны. Аналог D7.46 для media. См. D7.47.
+        //
+        // SetMainPhoto использует GetByIdWithMedia (полная коллекция):
+        // он итерирует по всем DeceasedPhoto и сбрасывает IsMainPhoto.
+        return await dbContext.DeceasedRecords
+            .Include(x => x.Media.Where(m => m.Id == mediaId))
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
     public Task<bool> ExistsById(Guid id, CancellationToken cancellationToken)
     {
         return dbContext.DeceasedRecords

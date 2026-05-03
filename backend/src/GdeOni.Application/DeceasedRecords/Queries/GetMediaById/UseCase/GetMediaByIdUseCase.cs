@@ -31,7 +31,9 @@ public sealed class GetMediaByIdUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        var deceased = await deceasedRepository.GetByIdWithMedia(query.DeceasedId, cancellationToken);
+        // D7.47: filtered Include — грузим только одну media.
+        var deceased = await deceasedRepository.GetByIdWithMediaById(
+            query.DeceasedId, query.MediaId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", query.DeceasedId);
 

@@ -32,7 +32,9 @@ public sealed class DeleteMediaUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        var deceased = await deceasedRepository.GetByIdWithMedia(command.DeceasedId, cancellationToken);
+        // D7.47: filtered Include — грузим только одну media.
+        var deceased = await deceasedRepository.GetByIdWithMediaById(
+            command.DeceasedId, command.MediaId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
 

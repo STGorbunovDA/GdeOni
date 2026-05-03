@@ -35,7 +35,9 @@ public sealed class RejectMediaModerationUseCase(
         if (!currentUserService.IsAdmin())
             return Errors.DeceasedMedia.ModerationForbidden();
 
-        var deceased = await deceasedRepository.GetByIdWithMedia(command.DeceasedId, cancellationToken);
+        // D7.47: filtered Include — грузим только одну media.
+        var deceased = await deceasedRepository.GetByIdWithMediaById(
+            command.DeceasedId, command.MediaId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
 
