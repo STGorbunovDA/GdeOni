@@ -62,14 +62,16 @@ public sealed class ChangePasswordUseCase(
         if (result.IsFailure)
             return result.Error;
 
-        // После смены пароля все активные сессии должны быть инвалидированы.
-        // Новый пароль = новый старт; старые refresh-токены могли быть
-        // украдены, по ним нельзя продолжать пересоздавать access-токены.
-        // Save() ниже зафиксирует и user, и токены одной транзакцией —
-        // оба репозитория делят AppDbContext через scope.
-        await refreshTokenRepository.RevokeAllForUser(user.Id, cancellationToken);
-
+        // Сначала фиксируем смену пароля (новый PasswordHash + SecurityStamp),
+        // затем отдельным statement'ом revoke всех активных refresh-токенов.
+        // Порядок важен: D7.36 переписал RevokeAllForUser на ExecuteUpdateAsync,
+        // который коммитится сразу (auto-tx). Если бы revoke шёл первым и
+        // упал бы Save, токены были бы revoke'нуты при неизменном пароле.
+        // Если упадёт RevokeAllForUser после Save — пароль обновлён, старые
+        // RT остаются активны микросекунды до retry; access-токены инвалидируются
+        // через SecurityStamp-mismatch (D7.34, TTL ≤ 30s).
         await userRepository.Save(cancellationToken);
+        await refreshTokenRepository.RevokeAllForUser(user.Id, cancellationToken);
 
         return Result.Success<ChangePasswordResponse, Error>(
             new ChangePasswordResponse(user.Id));

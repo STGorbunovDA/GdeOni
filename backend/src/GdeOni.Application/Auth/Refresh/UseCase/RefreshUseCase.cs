@@ -49,8 +49,9 @@ public sealed class RefreshUseCase(
         // логируем warning, возвращаем явный код replay_detected.
         if (existingToken.IsRevoked)
         {
+            // RevokeAllForUser коммитит сразу (ExecuteUpdateAsync, D7.36) —
+            // отдельный Save не нужен.
             await refreshTokenRepository.RevokeAllForUser(existingToken.UserId, cancellationToken);
-            await refreshTokenRepository.Save(cancellationToken);
 
             logger.LogWarning(
                 "Refresh token replay detected for user {UserId}. " +

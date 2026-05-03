@@ -21,13 +21,15 @@ public sealed class RefreshTokenRepository(AppDbContext dbContext) : IRefreshTok
 
     public async Task RevokeAllForUser(Guid userId, CancellationToken cancellationToken)
     {
-        var tokens = await dbContext.RefreshTokens
-            .Where(t => t.UserId == userId && !t.IsRevoked)
-            .ToListAsync(cancellationToken);
-
-        var now = DateTime.UtcNow;
-        foreach (var token in tokens)
-            token.Revoke(now);
+        // Один SQL UPDATE через ExecuteUpdateAsync — без подгрузки строк
+        // и без N round-trip'ов на SaveChanges. Коммитится сразу
+        // (auto-transaction), поэтому caller'у не нужен дополнительный Save.
+        var nowUtc = DateTime.UtcNow;
+        await dbContext.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedAtUtc == null)
+            .ExecuteUpdateAsync(
+                set => set.SetProperty(t => t.RevokedAtUtc, _ => nowUtc),
+                cancellationToken);
     }
 
     public async Task Save(CancellationToken cancellationToken)
