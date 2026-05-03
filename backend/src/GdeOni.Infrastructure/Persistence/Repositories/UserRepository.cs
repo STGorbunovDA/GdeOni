@@ -25,6 +25,24 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
     }
 
+    public Task<User?> GetByIdWithTrackingByDeceasedId(
+        Guid userId,
+        Guid deceasedId,
+        CancellationToken cancellationToken)
+    {
+        // Filtered Include — User + одна tracking (по DeceasedId).
+        // Доменные методы (TrackDeceased / UpdateTracking / RemoveTracking)
+        // ищут tracking через `_trackedDeceasedItems.FirstOrDefault(x =>
+        // x.DeceasedId == deceasedId)` и корректно работают на коллекции
+        // из 0/1 элемента: если найдена — мутируется, если нет — Add
+        // нового. EF трекает изменения только этой одной записи. Аналог
+        // D7.46 (memory) и D7.47 (media) для tracking. См. D7.55.
+        return dbContext.Users
+            .Include(x => x.TrackedDeceasedItems
+                .Where(t => t.DeceasedId == deceasedId))
+            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
+    }
+
     public async Task<(User User, int TrackingCount)?> GetByIdWithTrackingCount(
         Guid userId,
         CancellationToken cancellationToken)

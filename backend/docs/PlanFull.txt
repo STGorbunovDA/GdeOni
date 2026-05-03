@@ -2850,6 +2850,89 @@ BCrypt тоже срежет, но поверх та же тропинка с he
 [ ] Register/ChangePassword падают на 400 для Password длиннее 128.
 [ ] Errors.User.PasswordTooLong существует.
 
+---------------------------------------------------------------------
+D7.55 Tracking-операции линейно сканируют коллекцию (продолжение D7.46/D7.47)
+---------------------------------------------------------------------
+
+TrackDeceasedUseCase, UpdateTrackingUseCase, RemoveTrackingUseCase,
+GetMyTrackedDeceasedDetailsUseCase — все вызывают
+[IUserRepository.GetByIdWithTracking](backend/src/GdeOni.Application/Abstractions/Persistence/IUserRepository.cs#L10),
+который делает `Include(x => x.TrackedDeceasedItems)`. Доменные методы
+([User.TrackDeceased](backend/src/GdeOni.Domain/Aggregates/User/User.cs#L209),
+RemoveTracking, UpdateTracking) ищут tracking через
+`_trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId)`.
+
+Тот же паттерн, что был у memory до D7.46 и media до D7.47: тянем
+всю коллекцию подписок ради одного элемента. На активном юзере с
+сотней подписок — лишний RAM/трафик.
+
+Решение:
+- В IUserRepository добавить
+  `GetByIdWithTrackingByDeceasedId(userId, deceasedId, ct) → User?`
+  с filtered Include `x => x.TrackedDeceasedItems.Where(t => t.DeceasedId == deceasedId)`.
+- TrackDeceased / UpdateTracking / RemoveTracking — переключить на
+  новый метод. Доменные методы корректно работают на коллекции из 0/1
+  элемента: `FirstOrDefault` либо находит единственный загруженный,
+  либо null → новый Create/Add.
+- GetMyTrackedDeceasedDetailsUseCase: посмотреть, нужна ли вся
+  коллекция (там, видимо, нужна одна конкретная запись по deceasedId
+  + детали Deceased).
+- GetByIdWithTracking оставить, если есть read-сценарий с полной
+  коллекцией (GetMyTrackedDeceasedList уже использует прямой запрос
+  на TrackedDeceased в репозитории, не User.TrackedDeceasedItems).
+
+Готово, если:
+
+[ ] TrackDeceased/UpdateTracking/RemoveTracking через новый метод.
+[ ] GetMyTrackedDeceasedDetails переведён или обоснован.
+[ ] EF транслирует Include с Where в SQL `LEFT JOIN tracked_deceased
+    ON ... AND deceased_id = @deceasedId`.
+
+---------------------------------------------------------------------
+D7.56 PersonName не валидирует MaxLength в Domain
+---------------------------------------------------------------------
+
+[PersonName.cs:29-41](backend/src/GdeOni.Domain/Aggregates/DeceasedRecords/PersonName.cs#L29-L41)
+объявляет константы `MaxFirstName=200`, `MaxLastName=200`, `MaxMiddleName=200`,
+но в `PersonName.Create` проверяется только `IsNullOrWhiteSpace`.
+
+Все остальные VO/Entity в Domain валидируют MaxLength:
+- BurialLocation: ✓ (CountryTooLong, CityTooLong и т.д.).
+- DeceasedMetadata: ✓ (EpitaphTooLong и т.д.).
+- DeceasedMemoryEntry: ✓ (TextTooLong).
+- DeceasedMedia: ✓ (OriginalFileNameTooLong и т.д.).
+- User: ✓ (EmailTooLong, UserNameTooLong, FullNameTooLong).
+- LifePeriod: дат не имеет смысл лимитировать.
+
+Сейчас длину FirstName/LastName/MiddleName держит только FluentValidation
+в `CreateDeceasedCommandValidator`/`AddDeceasedAtGraveCommandValidator`/
+`UpdateDeceasedCommandValidator`. Если кто-то вызовет `PersonName.Create`
+в обход validator-конвейера (тесты, seed-сценарий, новый use case
+без валидатора) — пройдёт `FirstName` в 1MB, EF упадёт на колонке
+с `HasMaxLength(200)` уже как DbUpdateException.
+
+DDD-принцип «Always Valid Aggregate»: VO должен сам проверять свои
+инварианты, а не полагаться на внешний валидатор.
+
+Решение:
+- В PersonName.Create добавить:
+  - `firstName.Trim().Length > MaxFirstName` → `Errors.PersonName.FirstNameTooLong(MaxFirstName)`.
+  - `lastName.Trim().Length > MaxLastName` → `Errors.PersonName.LastNameTooLong(MaxLastName)`.
+  - `middleName?.Trim().Length > MaxMiddleName` (если не null/whitespace)
+    → `Errors.PersonName.MiddleNameTooLong(MaxMiddleName)`.
+- FluentValidation в DTO-валидаторах оставить (контракт «форма DTO»),
+  но домен теперь дублирует invariant как страховку (defense-in-depth).
+
+Errors уже существуют: `Errors.PersonName.FirstNameTooLong/LastNameTooLong/MiddleNameTooLong`
+([Errors.cs:67-74](backend/src/GdeOni.Domain/Shared/Errors.cs#L67-L74)).
+
+Готово, если:
+
+[ ] PersonName.Create отвергает строки длиннее лимитов с правильным Error-кодом.
+[ ] FluentValidation в Create/Update/AddAtGrave-валидаторах остаётся
+    (DTO-shape валидация).
+[ ] Build clean.
+
 =====================================================================
 D8. ROUTE API
 =====================================================================

@@ -30,7 +30,9 @@ public sealed class GetMyTrackedDeceasedDetailsUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        var user = await userRepository.GetByIdWithTracking(currentUserIdResult.Value, cancellationToken);
+        // D7.55: filtered Include — грузим только tracking по DeceasedId.
+        var user = await userRepository.GetByIdWithTrackingByDeceasedId(
+            currentUserIdResult.Value, query.DeceasedId, cancellationToken);
         if (user is null)
             return Errors.General.NotFound("user", currentUserIdResult.Value);
 
