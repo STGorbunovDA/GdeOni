@@ -46,7 +46,11 @@ public sealed class UploadMediaUseCase(
         if (magicBytesResult.IsFailure)
             return magicBytesResult.Error;
 
-        var deceased = await deceasedRepository.GetByIdWithMedia(command.DeceasedId, cancellationToken);
+        // GetById без Include(Media) — Deceased.AddMedia больше не сканирует
+        // _media по StorageKey (D7.35), уникальность держит unique-индекс +
+        // Guid в storage key. Экономит RAM/трафик на карточках с большим
+        // количеством media.
+        var deceased = await deceasedRepository.GetById(command.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
 

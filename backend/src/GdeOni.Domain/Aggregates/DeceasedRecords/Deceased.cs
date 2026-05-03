@@ -268,9 +268,13 @@ public sealed class Deceased : Entity<Guid>
         long sizeBytes,
         string? description = null)
     {
-        if (_media.Any(x => string.Equals(x.StorageKey, storageKey, StringComparison.OrdinalIgnoreCase)))
-            return Errors.DeceasedMedia.DuplicateStorageKey();
-
+        // Уникальность storageKey гарантирована на двух уровнях, поэтому
+        // здесь нет защитного _media.Any(StorageKey) — иначе UploadMedia
+        // вынужден был бы Include(Media) ради линейного scan'а:
+        //   1. MinioFileStorage.BuildObjectKey строит "<prefix>/<deceasedId>/<Guid>.<ext>"
+        //      — Guid.NewGuid гарантирует уникальность;
+        //   2. unique-индекс ux_deceased_media_storage_key в БД ловит race
+        //      и пробрасывается через UniqueConstraint.FromName в DuplicateStorageKey.
         var mediaResult = DeceasedMedia.Create(
             Id,
             uploadedByUserId,
