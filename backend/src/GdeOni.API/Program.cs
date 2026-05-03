@@ -1,5 +1,6 @@
 using GdeOni.API;
 using GdeOni.API.Extensions;
+using GdeOni.API.Hosting;
 using GdeOni.Application;
 using GdeOni.Infrastructure;
 using Serilog;
@@ -24,6 +25,13 @@ var app = builder.Build();
 
 await app.Services.SeedDatabaseAsync();
 await app.Services.BootstrapStorageAsync();
+
+// Должно идти раньше остального middleware: исправляет
+// Connection.RemoteIpAddress / Scheme до того, как их прочитают
+// логи запросов, CORS, аутентификация, RefreshToken.CreatedFromIp
+// и т.п. Без конфигурации Hosting:KnownProxies / KnownNetworks —
+// no-op (см. D7.38).
+app.UseForwardedHeadersIfConfigured(builder.Configuration);
 
 app.UseSerilogRequestLogging();
 
