@@ -49,6 +49,11 @@ public static class Errors
 
         public static Error InternalServerError() =>
             Error.Failure("server.internal", "An unexpected server error occurred.");
+
+        public static Error TooManyRequests() =>
+            Error.TooManyRequests(
+                "general.too_many_requests",
+                "Too many requests. Please slow down and try again later.");
     }
 
     public static class PersonName

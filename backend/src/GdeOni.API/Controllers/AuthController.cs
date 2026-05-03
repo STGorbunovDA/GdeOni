@@ -1,5 +1,6 @@
 using GdeOni.API.Models.Auth;
 using GdeOni.API.Models.Users;
+using GdeOni.API.RateLimiting;
 using GdeOni.API.Response;
 using GdeOni.Application.Auth.Login.Model;
 using GdeOni.Application.Auth.Login.UseCase;
@@ -9,6 +10,7 @@ using GdeOni.Application.Auth.Refresh.Model;
 using GdeOni.Application.Auth.Refresh.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace GdeOni.API.Controllers;
 
@@ -23,9 +25,11 @@ public sealed class AuthController : ApiControllerBase
     /// Возвращает access token и refresh token.
     /// </summary>
     [HttpPost("login")]
+    [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
     [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Login(
         [FromBody] LoginRequest request,
         [FromServices] ILoginUseCase loginUseCase,
@@ -41,9 +45,11 @@ public sealed class AuthController : ApiControllerBase
     /// Старый refresh token отзывается, выдаётся новая пара.
     /// </summary>
     [HttpPost("refresh")]
+    [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
     [ProducesResponseType(typeof(ApiResponse<RefreshResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Refresh(
         [FromBody] RefreshRequest request,
         [FromServices] IRefreshUseCase refreshUseCase,

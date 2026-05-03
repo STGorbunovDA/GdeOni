@@ -1,5 +1,6 @@
 ﻿using GdeOni.API.Extensions;
 using GdeOni.API.Models.Users;
+using GdeOni.API.RateLimiting;
 using GdeOni.API.Response;
 using GdeOni.Application.Common.Shared;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
@@ -22,6 +23,7 @@ using GdeOni.Application.Users.Queries.GetCurrent.Model;
 using GdeOni.Application.Users.Queries.GetCurrent.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace GdeOni.API.Controllers;
 
@@ -35,9 +37,11 @@ public sealed class UsersController : ApiControllerBase
     /// Регистрация нового пользователя.
     /// </summary>
     [HttpPost]
+    [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
     [ProducesResponseType(typeof(ApiResponse<RegisterUserResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Register(
         [FromBody] RegisterUserRequest request,
         [FromServices] IRegisterUserUseCase registerUserUseCase,
@@ -145,11 +149,13 @@ public sealed class UsersController : ApiControllerBase
     /// </summary>
     [HttpPut("{id:guid}/password")]
     [Authorize]
+    [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
     [ProducesResponseType(typeof(ApiResponse<ChangePasswordResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ChangePassword(
         [FromRoute] Guid id,
         [FromBody] ChangePasswordRequest request,

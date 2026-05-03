@@ -16,6 +16,7 @@ public static class ResponseExtensions
             ErrorType.Forbidden => StatusCodes.Status403Forbidden,
             ErrorType.Failure => StatusCodes.Status500InternalServerError,
             ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
+            ErrorType.TooManyRequests => StatusCodes.Status429TooManyRequests,
             _ => StatusCodes.Status500InternalServerError
         };
 

@@ -1,6 +1,7 @@
 using GdeOni.API;
 using GdeOni.API.Extensions;
 using GdeOni.API.Hosting;
+using GdeOni.API.RateLimiting;
 using GdeOni.Application;
 using GdeOni.Infrastructure;
 using Serilog;
@@ -16,6 +17,7 @@ builder.Services.AddApplication();
 builder.Services.AddSecurity(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddCustomCors(builder.Configuration);
+builder.Services.AddCustomRateLimiting(builder.Configuration);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -49,6 +51,10 @@ app.UseCors(GdeOni.API.DependencyInjection.CorsPolicyName);
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// После Authentication — лимит знает client IP (через ForwardedHeaders D7.38)
+// и привязан к политике auth (D7.39).
+app.UseRateLimiter();
 
 app.MapControllers();
 app.Run();
