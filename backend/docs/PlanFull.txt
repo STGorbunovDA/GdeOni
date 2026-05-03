@@ -2732,6 +2732,81 @@ ChangeRole — только для SuperAdmin/Admin, низкий риск, ос
 
 [ ] ChangeEmail помечен EnableRateLimiting и имеет 429 в декларации.
 
+---------------------------------------------------------------------
+D7.52 Дубликат индекса в tracked_deceased
+---------------------------------------------------------------------
+
+[TrackedDeceasedConfiguration.cs](backend/src/GdeOni.Infrastructure/Persistence/Configurations/TrackedDeceasedConfiguration.cs)
+объявляет два индекса по одному и тому же столбцу:
+
+```
+builder.HasIndex("user_id")
+    .HasDatabaseName("ix_tracked_deceased_user_id");
+
+builder.HasIndex("user_id", nameof(TrackedDeceased.DeceasedId))
+    .IsUnique()
+    .HasDatabaseName("ux_tracked_deceased_user_id_deceased_id");
+```
+
+Composite B-tree-индекс по `(user_id, deceased_id)` корректно
+обслуживает любые запросы, фильтрующие/сортирующие по `user_id`
+(префикс composite — то же что отдельный индекс по первой колонке).
+Отдельный `ix_tracked_deceased_user_id` дублирует функциональность,
+а PostgreSQL поддерживает два индекса параллельно — лишний disk space
++ замедление INSERT/UPDATE/DELETE на этой таблице.
+
+Решение:
+- Удалить `builder.HasIndex("user_id").HasDatabaseName(...)` из
+  TrackedDeceasedConfiguration.
+- Сгенерировать миграцию AddXxx (EF выкатит DROP INDEX).
+- Применить.
+
+Готово, если:
+
+[ ] Индекс ix_tracked_deceased_user_id отсутствует в конфигурации.
+[ ] Миграция выполнена.
+[ ] Запросы по user_id (RemoveTracking, GetMyTrackedDeceasedList)
+    продолжают использовать composite-индекс через EF Plan.
+
+---------------------------------------------------------------------
+D7.53 ApproveMediaModeration / RejectMediaModeration без endpoint'ов
+---------------------------------------------------------------------
+
+ApproveMediaModerationUseCase и RejectMediaModerationUseCase
+существуют в Application:
+
+- [ApproveMediaModerationUseCase.cs](backend/src/GdeOni.Application/DeceasedRecords/Commands/ApproveMediaModeration/UseCase/ApproveMediaModerationUseCase.cs)
+- [RejectMediaModerationUseCase.cs](backend/src/GdeOni.Application/DeceasedRecords/Commands/RejectMediaModeration/UseCase/RejectMediaModerationUseCase.cs)
+
+Зарегистрированы в DI: [DependencyInjection.cs:102-103](backend/src/GdeOni.Application/DependencyInjection.cs#L102-L103).
+Доменные `Approve`/`Reject` на DeceasedMedia реализованы. Errors
+DeceasedMedia.AlreadyApproved / AlreadyRejected существуют.
+GetMediaListRequest имеет фильтр по ModerationStatus.
+
+Однако ни один контроллер не вызывает эти use cases. Получается
+полностью готовая бизнес-логика без HTTP-доступа — модератор не
+может одобрить/отклонить media через API.
+
+Параллель: ApproveMemory/RejectMemory (PUT /api/deceased-records/{id}/memories/{memoryId}/approve|reject)
+в DeceasedRecordsAdminController, реализованы в D-кластере.
+
+Решение:
+- Добавить два эндпоинта в [DeceasedRecordsAdminController.cs](backend/src/GdeOni.API/Controllers/DeceasedRecordsAdminController.cs):
+  - `PUT /api/deceased-records/{id}/media/{mediaId}/approve` →
+    ApproveMediaModerationUseCase, FromUnitResult.
+  - `PUT /api/deceased-records/{id}/media/{mediaId}/reject` →
+    RejectMediaModerationUseCase, FromUnitResult.
+- Полный набор ProducesResponseType: 204/401/403/404/409 (по
+  паттерну D7.48).
+- [Authorize(Roles = "SuperAdmin,Admin")].
+- D7.45: RejectMediaModeration уже удаляет файл из MinIO.
+
+Готово, если:
+
+[ ] Два endpoint'а доступны в API.
+[ ] Декларации полные.
+[ ] Build clean.
+
 =====================================================================
 D8. ROUTE API
 =====================================================================
