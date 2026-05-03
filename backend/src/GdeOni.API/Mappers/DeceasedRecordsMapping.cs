@@ -1,9 +1,11 @@
 ﻿using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.Model;
+using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ClearMetadata.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Create.Model;
+using GdeOni.Application.DeceasedRecords.Commands.RejectMediaModeration.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.SetBurialLocationFromGps.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
@@ -212,4 +214,10 @@ public static class DeceasedRecordsMapping
 
     public static ApproveMemoryCommand ToApproveMemoryCommand(Guid deceasedId, Guid memoryId)
         => new(deceasedId, memoryId);
+
+    public static ApproveMediaModerationCommand ToApproveMediaModerationCommand(Guid deceasedId, Guid mediaId)
+        => new(deceasedId, mediaId);
+
+    public static RejectMediaModerationCommand ToRejectMediaModerationCommand(Guid deceasedId, Guid mediaId)
+        => new(deceasedId, mediaId);
 }

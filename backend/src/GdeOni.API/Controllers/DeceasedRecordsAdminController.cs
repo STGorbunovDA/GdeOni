@@ -1,7 +1,9 @@
 ﻿using GdeOni.API.Mappers;
 using GdeOni.API.Response;
+using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.RejectMediaModeration.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Unverified.Model;
@@ -108,5 +110,52 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
 
         return FromResult(result);
     }
-    
+
+    /// <summary>
+    /// Одобряет медиафайл — переводит в ModerationStatus.Approved.
+    /// Доступно только администраторам.
+    /// </summary>
+    [HttpPut("{id:guid}/media/{mediaId:guid}/approve")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ApproveMedia(
+        [FromRoute] Guid id,
+        [FromRoute] Guid mediaId,
+        [FromServices] IApproveMediaModerationUseCase approveMediaModerationUseCase,
+        CancellationToken cancellationToken)
+    {
+        var command = DeceasedRecordsMapping.ToApproveMediaModerationCommand(id, mediaId);
+        var result = await approveMediaModerationUseCase.Execute(command, cancellationToken);
+
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// Отклоняет медиафайл — переводит в ModerationStatus.Rejected и
+    /// удаляет файл из MinIO (best-effort, см. D7.45). Если файл был
+    /// помечен как главное фото — флаг сбрасывается.
+    /// Доступно только администраторам.
+    /// </summary>
+    [HttpPut("{id:guid}/media/{mediaId:guid}/reject")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RejectMedia(
+        [FromRoute] Guid id,
+        [FromRoute] Guid mediaId,
+        [FromServices] IRejectMediaModerationUseCase rejectMediaModerationUseCase,
+        CancellationToken cancellationToken)
+    {
+        var command = DeceasedRecordsMapping.ToRejectMediaModerationCommand(id, mediaId);
+        var result = await rejectMediaModerationUseCase.Execute(command, cancellationToken);
+
+        return FromUnitResult(result);
+    }
 }
