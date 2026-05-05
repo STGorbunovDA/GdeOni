@@ -14,6 +14,14 @@ public sealed class ChangePasswordCommandValidator : AbstractValidator<ChangePas
             .NotEmpty()
             .WithError(Errors.User.IdRequired());
 
+        // CurrentPassword nullable: админ меняет чужой пароль без него.
+        // Если значение есть — режем по верхнему лимиту до похода в
+        // BCrypt.Verify (defense-in-depth, см. D7.59 / D7.54).
+        RuleFor(x => x.CurrentPassword!)
+            .MaximumLength(PasswordPolicy.MaxPasswordLength)
+            .WithError(Errors.User.PasswordTooLong(PasswordPolicy.MaxPasswordLength))
+            .When(x => !string.IsNullOrEmpty(x.CurrentPassword));
+
         RuleFor(x => x.NewPassword)
             .NotEmpty()
             .WithError(Errors.User.PasswordRequired())
