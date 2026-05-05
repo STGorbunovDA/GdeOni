@@ -169,6 +169,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ClearBurialLocation(
         [FromRoute] Guid id,
         [FromServices] IClearBurialLocationUseCase clearBurialLocationUseCase,
