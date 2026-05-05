@@ -16,9 +16,21 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
 
     public async Task<Deceased?> GetById(Guid id, CancellationToken cancellationToken)
     {
-        // Без Include: для use case-ов, которым нужны только flat-поля
-        // карточки (Verify, Update, GetMediaList, GetAge и т.п.).
+        // Tracked-вариант для use case-ов, которые мутируют сущность
+        // (Verify, Update, UploadMedia, AddMemory, ClearMetadata и т.п.).
+        // Для read-only сценариев — GetByIdReadOnly (D7.58).
         return await dbContext.DeceasedRecords
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
+    public async Task<Deceased?> GetByIdReadOnly(Guid id, CancellationToken cancellationToken)
+    {
+        // AsNoTracking: query-use-case'ы (GetAgeAtDeath, GetMediaList,
+        // GetDistance) читают сущность и не вызывают Save. Снапшот
+        // в change-tracker'е не нужен — экономим RAM и страхуемся от
+        // случайной мутации, которая бы прилетела в SaveChanges. См. D7.58.
+        return await dbContext.DeceasedRecords
+            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 

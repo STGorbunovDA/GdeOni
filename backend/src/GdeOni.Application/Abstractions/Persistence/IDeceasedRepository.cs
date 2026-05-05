@@ -8,6 +8,7 @@ public interface IDeceasedRepository
 {
     Task Add(Deceased deceased, CancellationToken cancellationToken);
     Task<Deceased?> GetById(Guid id, CancellationToken cancellationToken);
+    Task<Deceased?> GetByIdReadOnly(Guid id, CancellationToken cancellationToken);
     Task<Deceased?> GetByIdWithMemories(Guid id, CancellationToken cancellationToken);
     Task<Deceased?> GetByIdWithMemoryById(Guid id, Guid memoryId, CancellationToken cancellationToken);
     Task<Deceased?> GetByIdWithMedia(Guid id, CancellationToken cancellationToken);
