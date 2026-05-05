@@ -22,12 +22,16 @@ public static class FileValidator
             "application/pdf"
         };
 
+    // MediaKind.Other закрыт на upload (D7.69): ValidateAny не имел
+    // ни allow-list, ни magic-bytes — позволял аутентифицированному
+    // юзеру загружать произвольные бинарники. Сам enum-value сохранён
+    // для совместимости с потенциально существующими записями в БД,
+    // но на запись путь блокирован через KindInvalid.
     public static UnitResult<Error> ValidateForKind(MediaKind kind, string contentType, long sizeBytes) =>
         kind switch
         {
             MediaKind.DeceasedPhoto or MediaKind.GravePhoto => ValidatePhoto(contentType, sizeBytes),
             MediaKind.Document => ValidateDocument(contentType, sizeBytes),
-            MediaKind.Other => ValidateAny(contentType, sizeBytes),
             _ => Errors.DeceasedMedia.KindInvalid()
         };
 
@@ -65,20 +69,6 @@ public static class FileValidator
         return UnitResult.Success<Error>();
     }
 
-    private static UnitResult<Error> ValidateAny(string contentType, long sizeBytes)
-    {
-        if (string.IsNullOrWhiteSpace(contentType))
-            return Errors.DeceasedMedia.ContentTypeRequired();
-
-        if (sizeBytes <= 0)
-            return Errors.DeceasedMedia.SizeBytesInvalid();
-
-        if (sizeBytes > MaxDocumentSizeBytes)
-            return Errors.Media.DocumentTooLarge(MaxDocumentSizeBytes);
-
-        return UnitResult.Success<Error>();
-    }
-
     private const int MagicBytesProbeLength = 12;
 
     public static async Task<UnitResult<Error>> ValidateMagicBytesAsync(
@@ -87,9 +77,6 @@ public static class FileValidator
         MediaKind kind,
         CancellationToken cancellationToken)
     {
-        if (kind == MediaKind.Other)
-            return UnitResult.Success<Error>();
-
         if (content is null || !content.CanRead || !content.CanSeek)
             return Errors.Media.UnreadableStream();
 
