@@ -67,6 +67,15 @@ public static class DependencyInjection
         if (string.IsNullOrWhiteSpace(jwtOptions.SecretKey))
             throw new InvalidOperationException("JWT secret key is not configured.");
 
+        // HMAC-SHA256 требует ключ ≥ 32 байта (256 бит). Без проверки
+        // короткий ключ либо роняет Login на первом обращении, либо
+        // (на старых версиях SymmetricSecurityKey) даёт слабую подпись.
+        // Fail-fast на старте, как уже сделано для Issuer/Audience. См. D7.65.
+        var secretKeyByteCount = Encoding.UTF8.GetByteCount(jwtOptions.SecretKey);
+        if (secretKeyByteCount < 32)
+            throw new InvalidOperationException(
+                $"JWT secret key слишком короткий: {secretKeyByteCount} байт, требуется минимум 32 (HMAC-SHA256).");
+
         services
             .AddAuthentication(options =>
             {
