@@ -47,6 +47,14 @@ public sealed class DeleteUserUseCase(
         if (user.Role == UserRole.SuperAdmin)
             return Errors.User.DeleteSuperAdminForbidden();
 
+        // Admin не может удалить другого Admin — симметрично с
+        // ChangeRoleUseCase (D7.18). Защищает от admin-vs-admin войн
+        // и тихого "выпиливания" коллег. Снять Admin может только
+        // SuperAdmin. См. D7.70.
+        var isSuperAdmin = currentUserService.IsInRole(nameof(UserRole.SuperAdmin));
+        if (user.Role == UserRole.Admin && !isSuperAdmin)
+            return Errors.User.DeletePeerAdminForbidden();
+
         userRepository.Delete(user);
         // Refresh-токены удаляемого пользователя уйдут сами по
         // OnDelete Cascade (RefreshTokenConfiguration).

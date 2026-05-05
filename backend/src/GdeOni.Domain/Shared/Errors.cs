@@ -344,6 +344,11 @@ public static class Errors
                 "user.delete.self.forbidden",
                 "You cannot delete your own account.");
 
+        public static Error DeletePeerAdminForbidden() =>
+            Error.Forbidden(
+                "user.delete.peer_admin.forbidden",
+                "An Admin cannot delete another Admin. Only a SuperAdmin can.");
+
         public static Error RoleUnknownNotAllowed() =>
             Error.Validation("user.role.unknown.not_allowed", "The role cannot be Unknown");
 
