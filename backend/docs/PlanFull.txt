@@ -3028,6 +3028,43 @@ CurrentPassword — нет. Клиент может прислать строк�
 [ ] CurrentPassword == null/"" остаётся валидным (admin-сценарий).
 [ ] Build clean.
 
+---------------------------------------------------------------------
+D7.62 Domain → Response mapping живёт в Application (хвост D7.31 а)
+---------------------------------------------------------------------
+
+[GetDeceasedByIdMapping.cs](backend/src/GdeOni.Application/DeceasedRecords/Queries/GetById/Mappers/GetDeceasedByIdMapping.cs)
+— extension-метод `Deceased.ToResponse(canSeeAllMemories)` живёт в
+Application и вызывается из use case'а. Сами Response-классы
+(`DeceasedDetailsResponse`, `DeceasedMetadataResponse`,
+`DeceasedMemoryResponse`, `MyTrackedDeceasedDetailsResponse`,
+`MyTrackingInfoResponse`) лежат в `Application/.../Model/`.
+
+CLAUDE.md: «DTO ↔ команда — через extension-методы в API/Mappers».
+Domain → Response — задача presentation-слоя по той же логике.
+Сейчас же mapping — это знание Domain-агрегата на стороне
+Application (использующее `ToResponse(...)`), и use case строит
+Response сам.
+
+Решение:
+- Перенести Response-классы в `API/Models/DeceasedRecords/` и
+  `API/Models/Users/`.
+- Перенести mapping в `API/Mappers/DeceasedRecordsResponseMapping.cs`
+  как extension от `Deceased` (+ от новых Application-DTO).
+- Use case'ы вернут узкие result-DTO в Application:
+  - `GetDeceasedByIdResult(Deceased, bool CanSeeAllMemories)`;
+  - `GetMyTrackedDeceasedDetailsResult(Deceased, TrackedDeceased, bool CanSeeAllMemories)`.
+- Контроллер мапит результат в Response через
+  `result.ToDetailsResponse().ToOkResponse()`.
+
+Готово, если:
+
+[ ] Application больше не ссылается на presentation-Response из Domain.
+[ ] Use case-интерфейсы возвращают `Result<*Result, Error>`, а не `Result<*Response, Error>`.
+[ ] DeceasedRecordsController.GetById и MeTrackedDeceasedController.GetDetails
+    мапят результат через extension в API/Mappers.
+[ ] Build clean, нет ссылок на старый namespace
+    `Application.DeceasedRecords.Queries.GetById.Mappers`.
+
 =====================================================================
 D8. ROUTE API
 =====================================================================
