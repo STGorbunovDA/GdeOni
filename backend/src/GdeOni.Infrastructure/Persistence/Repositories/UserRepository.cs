@@ -18,13 +18,6 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
     }
 
-    public Task<User?> GetByIdWithTracking(Guid userId, CancellationToken cancellationToken)
-    {
-        return dbContext.Users
-            .Include(x => x.TrackedDeceasedItems)
-            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
-    }
-
     public Task<User?> GetByIdWithTrackingByDeceasedId(
         Guid userId,
         Guid deceasedId,

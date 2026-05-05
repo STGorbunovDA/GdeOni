@@ -7,7 +7,6 @@ namespace GdeOni.Application.Abstractions.Persistence;
 public interface IUserRepository
 {
     Task<User?> GetById(Guid userId, CancellationToken cancellationToken);
-    Task<User?> GetByIdWithTracking(Guid userId, CancellationToken cancellationToken);
     Task<User?> GetByIdWithTrackingByDeceasedId(Guid userId, Guid deceasedId, CancellationToken cancellationToken);
     Task<(User User, int TrackingCount)?> GetByIdWithTrackingCount(Guid userId, CancellationToken cancellationToken);
     Task<User?> GetByEmail(string email, CancellationToken cancellationToken);
