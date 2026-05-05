@@ -16,7 +16,7 @@ builder.Host.UseSerilog((context, config) =>
 builder.Services.AddApplication();
 builder.Services.AddSecurity(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddCustomCors(builder.Configuration);
+builder.Services.AddCustomCors(builder.Configuration, builder.Environment);
 builder.Services.AddCustomRateLimiting(builder.Configuration);
 
 builder.Services.AddControllers();

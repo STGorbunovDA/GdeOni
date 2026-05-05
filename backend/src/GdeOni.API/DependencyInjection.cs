@@ -24,15 +24,32 @@ public static class DependencyInjection
 
     public static IServiceCollection AddCustomCors(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         var configuredOrigins = configuration
             .GetSection("Cors:AllowedOrigins")
             .Get<string[]>();
 
-        var origins = configuredOrigins is { Length: > 0 }
-            ? configuredOrigins
-            : DefaultDevOrigins;
+        string[] origins;
+        if (configuredOrigins is { Length: > 0 })
+        {
+            origins = configuredOrigins;
+        }
+        else if (environment.IsDevelopment())
+        {
+            // Development: молчаливый fallback на localhost — частый сценарий
+            // локальной разработки с двумя стандартными портами фронта.
+            origins = DefaultDevOrigins;
+        }
+        else
+        {
+            // Production / Staging: fail-fast вместо silent breakage
+            // прод-фронта (CORS-блок без логов). См. D7.64.
+            throw new InvalidOperationException(
+                "Cors:AllowedOrigins не сконфигурирован. " +
+                "В non-Development среде секция обязательна.");
+        }
 
         services.AddCors(options =>
         {
