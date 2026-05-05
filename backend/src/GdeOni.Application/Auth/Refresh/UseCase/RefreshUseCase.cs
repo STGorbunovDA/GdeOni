@@ -65,7 +65,7 @@ public sealed class RefreshUseCase(
         if (existingToken.IsExpired(nowUtc))
             return Errors.RefreshToken.TokenExpired();
 
-        var user = await userRepository.GetById(existingToken.UserId, cancellationToken);
+        var user = await userRepository.GetByIdReadOnly(existingToken.UserId, cancellationToken);
         if (user is null)
             return Errors.RefreshToken.TokenInvalid();
 

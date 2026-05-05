@@ -17,7 +17,7 @@ public sealed class GetCurrentUserUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        var user = await userRepository.GetById(currentUserIdResult.Value, cancellationToken);
+        var user = await userRepository.GetByIdReadOnly(currentUserIdResult.Value, cancellationToken);
         if (user is null)
             return Errors.General.NotFound("user", currentUserIdResult.Value);
 

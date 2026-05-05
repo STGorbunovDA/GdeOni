@@ -14,7 +14,21 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 
     public Task<User?> GetById(Guid userId, CancellationToken cancellationToken)
     {
+        // Tracked-вариант для use case-ов, мутирующих User
+        // (ChangeEmail / ChangePassword / ChangeRole / UpdateProfile /
+        // Delete / AddDeceasedAtGrave). Для read-only сценариев —
+        // GetByIdReadOnly (D7.67).
         return UsersQuery()
+            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
+    }
+
+    public Task<User?> GetByIdReadOnly(Guid userId, CancellationToken cancellationToken)
+    {
+        // AsNoTracking: query-use-case'ы (RefreshUseCase, GetCurrentUserUseCase)
+        // читают User и не вызывают Save — change-tracker не нужен.
+        // Аналог DeceasedRepository.GetByIdReadOnly (D7.58). См. D7.67.
+        return UsersQuery()
+            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
     }
 
