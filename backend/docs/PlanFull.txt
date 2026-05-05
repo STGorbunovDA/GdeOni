@@ -3054,6 +3054,30 @@ Update / AddAtGrave / Create уже декларируют 409 на этот ж�
 [ ] Build clean.
 
 ---------------------------------------------------------------------
+D7.61 RemoveMemory: 200 без typeof в ProducesResponseType
+---------------------------------------------------------------------
+
+[DeceasedMemoriesController.RemoveMemory](backend/src/GdeOni.API/Controllers/DeceasedMemoriesController.cs#L70)
+декларирует `[ProducesResponseType(StatusCodes.Status200OK)]` без
+`typeof(ApiResponse<RemoveMemoryResponse>)` — Swagger строит схему
+на пустом теле, хотя use case
+[IRemoveMemoryUseCase](backend/src/GdeOni.Application/DeceasedRecords/Commands/RemoveMemory/UseCase/IRemoveMemoryUseCase.cs#L9)
+возвращает `Result<RemoveMemoryResponse, Error>` и тело реально есть.
+
+UpdateMemory / AddMemory в том же контроллере декларируют typed-200
+правильно — здесь рассогласование с остальными memory-эндпоинтами.
+
+Решение:
+- Заменить `ProducesResponseType(StatusCodes.Status200OK)` на
+  `ProducesResponseType(typeof(ApiResponse<RemoveMemoryResponse>), StatusCodes.Status200OK)`.
+- using уже импортирован.
+
+Готово, если:
+
+[ ] Swagger показывает схему RemoveMemoryResponse в success-ответе DELETE.
+[ ] Build clean.
+
+---------------------------------------------------------------------
 D7.62 Domain → Response mapping живёт в Application (хвост D7.31 а)
 ---------------------------------------------------------------------
 
@@ -3091,27 +3115,129 @@ Response сам.
     `Application.DeceasedRecords.Queries.GetById.Mappers`.
 
 ---------------------------------------------------------------------
-D7.61 RemoveMemory: 200 без typeof в ProducesResponseType
+D7.63 DeceasedMemoryEntry без UpdatedAtUtc / Touch
 ---------------------------------------------------------------------
 
-[DeceasedMemoriesController.RemoveMemory](backend/src/GdeOni.API/Controllers/DeceasedMemoriesController.cs#L70)
-декларирует `[ProducesResponseType(StatusCodes.Status200OK)]` без
-`typeof(ApiResponse<RemoveMemoryResponse>)` — Swagger строит схему
-на пустом теле, хотя use case
-[IRemoveMemoryUseCase](backend/src/GdeOni.Application/DeceasedRecords/Commands/RemoveMemory/UseCase/IRemoveMemoryUseCase.cs#L9)
-возвращает `Result<RemoveMemoryResponse, Error>` и тело реально есть.
+[DeceasedMemoryEntry](backend/src/GdeOni.Domain/Aggregates/DeceasedRecords/DeceasedMemoryEntry.cs)
+не имеет `UpdatedAtUtc`. При этом сестринский [DeceasedMedia](backend/src/GdeOni.Domain/Aggregates/DeceasedRecords/DeceasedMedia.cs#L26)
+такое поле имеет (+ `Touch()` в `UpdateDescription/Approve/Reject`).
+Memory мутируется доменными методами `EditText / Approve / Reject` —
+факт мутации в БД не записан.
 
-UpdateMemory / AddMemory в том же контроллере декларируют typed-200
-правильно — здесь рассогласование с остальными memory-эндпоинтами.
+Сейчас аудит «когда последний раз модератор тронул это воспоминание» /
+«когда автор последний раз отредактировал текст» — невозможен, кроме
+поверхностного «`deceased_records.updated_at_utc`», который меняется
+от любой правки на корневом агрегате.
 
 Решение:
-- Заменить `ProducesResponseType(StatusCodes.Status200OK)` на
-  `ProducesResponseType(typeof(ApiResponse<RemoveMemoryResponse>), StatusCodes.Status200OK)`.
-- using уже импортирован.
+- В `DeceasedMemoryEntry` добавить `public DateTime? UpdatedAtUtc { get; private set; }`.
+- Завести `private void Touch() => UpdatedAtUtc = DateTime.UtcNow;`.
+- Вызывать `Touch()` из `EditText / Approve / Reject`.
+- В `DeceasedMemoryEntryConfiguration` добавить:
+  `builder.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");`
+- Миграция: ALTER TABLE deceased_memory_entries ADD COLUMN updated_at_utc.
+- В DTO `DeceasedMemoryResponse` (API/Models) добавить поле.
 
 Готово, если:
 
-[ ] Swagger показывает схему RemoveMemoryResponse в success-ответе DELETE.
+[ ] EditText/Approve/Reject пишут UpdatedAtUtc.
+[ ] Колонка появилась в БД через миграцию.
+[ ] DeceasedMemoryResponse возвращает UpdatedAtUtc.
+
+---------------------------------------------------------------------
+D7.64 CORS fallback на dev-origins в production
+---------------------------------------------------------------------
+
+[DependencyInjection.AddCustomCors](backend/src/GdeOni.API/DependencyInjection.cs#L25-L50):
+
+```csharp
+var origins = configuredOrigins is { Length: > 0 }
+    ? configuredOrigins
+    : DefaultDevOrigins;  // localhost:5173 / localhost:3000
+```
+
+Если в `appsettings.json` секция `Cors:AllowedOrigins` не заполнена —
+полиси молча получит dev-origins. В production это значит CORS
+«работает» только для `http://localhost:5173/3000`, а реальный фронт
+получит CORS-блок без логов и без явного сообщения. Стандартный
+сценарий для регрессии: задеплоили сервер, забыли заполнить Cors —
+никаких ошибок при старте, но прод-фронт не работает.
+
+Trade-off vs дев-удобство: фалбек на localhost удобен в Development.
+Решение — сделать fallback условным от `IHostEnvironment.IsDevelopment()`.
+
+Решение:
+- В `AddCustomCors` принять `IHostEnvironment` (или передавать флаг).
+- Если `Cors:AllowedOrigins` пуст и среда != Development — выбросить
+  `InvalidOperationException("Cors:AllowedOrigins не сконфигурирован")`
+  на старте (fail-fast, как уже делается для Jwt secret/issuer/audience).
+- В Development оставить fallback на DefaultDevOrigins.
+
+Готово, если:
+
+[ ] В Production без Cors:AllowedOrigins сервер не стартует.
+[ ] В Development без Cors:AllowedOrigins по-прежнему работают
+    localhost:5173 / localhost:3000.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D7.65 JwtOptions.SecretKey без проверки минимальной длины
+---------------------------------------------------------------------
+
+[DependencyInjection.AddSecurity](backend/src/GdeOni.API/DependencyInjection.cs#L67-L68)
+проверяет только `IsNullOrWhiteSpace(jwtOptions.SecretKey)`. Длина
+ключа не валидируется. HMAC-SHA256 требует ключ ≥ 32 байта (256 бит) —
+короткий ключ либо приводит к runtime-исключению из
+`SymmetricSecurityKey`, либо (в зависимости от версии) даёт слабую
+подпись. На проде с коротким Secret сервер либо упадёт на первом
+Login (поздно), либо подпишет слабым ключом.
+
+Аналогично fail-fast уже делается для пустого Issuer / Audience /
+SecretKey — здесь добавить проверку длины.
+
+Решение:
+- В `AddSecurity` добавить:
+  ```csharp
+  var keyBytes = Encoding.UTF8.GetBytes(jwtOptions.SecretKey);
+  if (keyBytes.Length < 32)
+      throw new InvalidOperationException(
+          "JWT secret key слишком короткий (требуется ≥ 32 байт для HMAC-SHA256).");
+  ```
+
+Готово, если:
+
+[ ] Ключ < 32 байт даёт `InvalidOperationException` на старте.
+[ ] Ключ ≥ 32 байт стартует как раньше.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D7.66 LoginCommandValidator.Password без MaximumLength (хвост D7.54/D7.59)
+---------------------------------------------------------------------
+
+[LoginCommandValidator](backend/src/GdeOni.Application/Auth/Login/Validation/LoginCommandValidator.cs#L21-L23)
+для `Password` декларирует только `NotEmpty()`. Аналогично D7.59
+для `ChangePassword.CurrentPassword` — клиент может прислать
+произвольно длинный пароль (до Kestrel body limit), который попадёт
+в `passwordHasher.Verify`/`DummyHash` (D7.20).
+
+D7.54 закрыл этот вектор для Register / ChangePassword.NewPassword
+(MaxPasswordLength=128). D7.59 — для CurrentPassword. Login остался
+без верхнего лимита — последний из трёх password-входов.
+
+Решение:
+- В `LoginCommandValidator.Password` добавить:
+  ```csharp
+  .MaximumLength(PasswordPolicy.MaxPasswordLength)
+  .WithError(Errors.User.PasswordTooLong(PasswordPolicy.MaxPasswordLength));
+  ```
+- MinimumLength **не добавлять**: уже зарегистрированные пользователи
+  с короткими паролями (до D7.54) должны логиниться — иначе их
+  «отрежет» правилом MinPasswordLength.
+
+Готово, если:
+
+[ ] Login с паролем > 128 символов отвергается с PasswordTooLong.
+[ ] Login короткими/обычными паролями работает как раньше.
 [ ] Build clean.
 
 =====================================================================
