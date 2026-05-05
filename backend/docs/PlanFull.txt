@@ -3240,6 +3240,130 @@ D7.54 закрыл этот вектор для Register / ChangePassword.NewPas
 [ ] Login короткими/обычными паролями работает как раньше.
 [ ] Build clean.
 
+---------------------------------------------------------------------
+D7.67 IUserRepository.GetById без AsNoTracking для query-use-case'ов
+---------------------------------------------------------------------
+
+Аналог D7.58 для User. Сейчас [IUserRepository.GetById](backend/src/GdeOni.Application/Abstractions/Persistence/IUserRepository.cs#L9)
+не имеет AsNoTracking-варианта. 2 чисто read-only use case'а получают
+tracked-сущность зря:
+
+- [RefreshUseCase.cs:68](backend/src/GdeOni.Application/Auth/Refresh/UseCase/RefreshUseCase.cs#L68)
+  читает User для GenerateAccessToken и не мутирует — change-tracker
+  не нужен.
+- [GetCurrentUserUseCase.cs:20](backend/src/GdeOni.Application/Users/Queries/GetCurrent/UseCase/GetCurrentUserUseCase.cs#L20)
+  чисто маппит в Response.
+
+Mutating use case'ы (ChangePassword / ChangeEmail / ChangeRole /
+UpdateProfile / Delete / AddDeceasedAtGrave) сохраняют существующий
+GetById — им tracking нужен под мутации.
+
+Решение:
+- В `IUserRepository` добавить
+  `Task<User?> GetByIdReadOnly(Guid userId, CancellationToken ct)` с
+  `.AsNoTracking()`.
+- Реализация в `UserRepository`.
+- Переключить RefreshUseCase и GetCurrentUserUseCase.
+
+Готово, если:
+
+[ ] GetByIdReadOnly возвращает User без change-tracker'а.
+[ ] RefreshUseCase / GetCurrentUserUseCase переключены.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D7.68 AddDeceasedAtGraveTrackingCommand.PersonalNotes без MaxLength
+---------------------------------------------------------------------
+
+[AddDeceasedAtGraveTrackingCommandValidator](backend/src/GdeOni.Application/DeceasedRecords/Commands/AddAtGrave/Validation/AddDeceasedAtGraveCommandValidator.cs#L115-L124)
+проверяет только `RelationshipType.IsInEnum`. Поле `PersonalNotes`
+из [AddDeceasedAtGraveTrackingCommand](backend/src/GdeOni.Application/DeceasedRecords/Commands/AddAtGrave/Model/AddDeceasedAtGraveCommand.cs)
+доходит до `User.TrackDeceased(...)` без MaxLength-проверки на стороне
+DTO. Domain (`TrackedDeceased.NormalizePersonalNotes`) ловит длину,
+но это последняя линия — defense-in-depth требует валидатор.
+
+`TrackDeceasedCommandValidator` и `UpdateTrackingCommandValidator`
+уже декларируют `.MaximumLength(MaxPersonalNotesLength)` —
+здесь рассогласование с сестринскими валидаторами.
+
+Решение:
+- В `AddDeceasedAtGraveTrackingCommandValidator` добавить:
+  ```csharp
+  RuleFor(x => x.PersonalNotes)
+      .MaximumLength(TrackedDeceased.MaxPersonalNotesLength)
+      .WithError(Errors.Tracking.PersonalNotesTooLong(TrackedDeceased.MaxPersonalNotesLength))
+      .When(x => !string.IsNullOrWhiteSpace(x.PersonalNotes));
+  ```
+
+Готово, если:
+
+[ ] `AddAtGrave` с `PersonalNotes > 2000` отвергается до Domain.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D7.69 MediaKind.Other пропускает content-type allow-list и magic-bytes
+---------------------------------------------------------------------
+
+[FileValidator.ValidateForKind](backend/src/GdeOni.Application/Abstractions/Storage/FileValidator.cs#L25-L32)
+для `MediaKind.Other` идёт в `ValidateAny`, который проверяет только
+не-пустой content-type и `sizeBytes`. Никакого allow-list по MIME.
+[FileValidator.ValidateMagicBytesAsync](backend/src/GdeOni.Application/Abstractions/Storage/FileValidator.cs#L84-L91)
+сразу возвращает Success для `Other` — magic-bytes не сверяются.
+
+Атакующий-аутентифицированный юзер может через
+`POST /api/deceased-records/{id}/media` с `kind=Other` загрузить
+любой бинарник (exe, sh, html со скриптом и т.п.) до 25 MB —
+файл попадёт в `DeceasedDocuments` bucket и доступен через
+presigned URL.
+
+Сейчас `MediaKind.Other` декларативно «прочее», но фронт его не
+использует (есть DeceasedPhoto / GravePhoto / Document).
+
+Решение (на выбор):
+- Простое: убрать `MediaKind.Other` из публичных enum'ов
+  (`FileKind`, `MediaKind`) и валидатора.
+- Безопасное: для `Other` оставить, но прогонять через
+  `ValidateDocument` (только PDF) или ввести явный alllow-list
+  и magic-bytes.
+
+Готово, если:
+
+[ ] `kind=Other` либо отвергается на старте, либо подвергается
+    тому же allow-list / magic-bytes, что и Document.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D7.70 DeleteUserUseCase: Admin может удалить другого Admin
+---------------------------------------------------------------------
+
+[DeleteUserUseCase.cs:47-48](backend/src/GdeOni.Application/Users/Commands/Delete/UseCase/DeleteUserUseCase.cs#L47-L48)
+защищает только `UserRole.SuperAdmin`. Admin → Admin удаление
+проходит. При этом [ChangeRoleUseCase.cs:51-52](backend/src/GdeOni.Application/Users/Commands/ChangeRole/UseCase/ChangeRoleUseCase.cs#L51-L52)
+защищён симметрично — `user.Role == Admin && !isSuperAdmin` →
+`Errors.User.ChangePeerAdminRoleForbidden()`.
+
+Это inconsistency после D7.18 (там закрыли ChangeRole, а Delete
+прошёл с одной защитой).
+
+Сценарий: Admin A зайдёт в `/api/users` (он видит список), скопирует
+id Admin B и сделает DELETE → Admin B удалён без любого согласования
+с SuperAdmin. Это privilege-escalation вектор внутри admin-команды.
+
+Решение:
+- В `DeleteUserUseCase` после получения user добавить:
+  ```csharp
+  var isSuperAdmin = currentUserService.IsInRole(nameof(UserRole.SuperAdmin));
+  if (user.Role == UserRole.Admin && !isSuperAdmin)
+      return Errors.User.DeletePeerAdminForbidden();
+  ```
+- Завести `Errors.User.DeletePeerAdminForbidden()` в `Errors.cs` (если нет).
+
+Готово, если:
+
+[ ] Admin → DELETE другого Admin → 403 с явным error code.
+[ ] SuperAdmin → DELETE Admin работает как раньше.
+[ ] Build clean.
+
 =====================================================================
 D8. ROUTE API
 =====================================================================
