@@ -3029,6 +3029,31 @@ CurrentPassword — нет. Клиент может прислать строк�
 [ ] Build clean.
 
 ---------------------------------------------------------------------
+D7.60 SetFromGps / ClearBurialLocation без 409 в ProducesResponseType
+---------------------------------------------------------------------
+
+[DeceasedBurialLocationController.SetFromGps](backend/src/GdeOni.API/Controllers/DeceasedBurialLocationController.cs#L22-L28)
+и [DeceasedRecordsController.ClearBurialLocation](backend/src/GdeOni.API/Controllers/DeceasedRecordsController.cs#L166-L171)
+вызывают `deceased.ChangeBurialLocation(...)`, который дёргает
+`RebuildSearchKey()`. На SaveChanges уникальный индекс
+`ux_deceased_search_key` может выкинуть `UniqueConstraintException`,
+которая через `Save` репозитория (catch 23505) маппится в
+`Errors.Deceased.AlreadyExists()` → 409.
+
+Update / AddAtGrave / Create уже декларируют 409 на этот же кейс —
+здесь пропуск в Swagger-документации.
+
+Решение:
+- Добавить `[ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]`
+  на оба эндпоинта.
+
+Готово, если:
+
+[ ] SetFromGps декларирует 409.
+[ ] ClearBurialLocation декларирует 409.
+[ ] Build clean.
+
+---------------------------------------------------------------------
 D7.62 Domain → Response mapping живёт в Application (хвост D7.31 а)
 ---------------------------------------------------------------------
 
@@ -3066,28 +3091,27 @@ Response сам.
     `Application.DeceasedRecords.Queries.GetById.Mappers`.
 
 ---------------------------------------------------------------------
-D7.60 SetFromGps / ClearBurialLocation без 409 в ProducesResponseType
+D7.61 RemoveMemory: 200 без typeof в ProducesResponseType
 ---------------------------------------------------------------------
 
-[DeceasedBurialLocationController.SetFromGps](backend/src/GdeOni.API/Controllers/DeceasedBurialLocationController.cs#L22-L28)
-и [DeceasedRecordsController.ClearBurialLocation](backend/src/GdeOni.API/Controllers/DeceasedRecordsController.cs#L166-L171)
-вызывают `deceased.ChangeBurialLocation(...)`, который дёргает
-`RebuildSearchKey()`. На SaveChanges уникальный индекс
-`ux_deceased_search_key` может выкинуть `UniqueConstraintException`,
-которая через `Save` репозитория (catch 23505) маппится в
-`Errors.Deceased.AlreadyExists()` → 409.
+[DeceasedMemoriesController.RemoveMemory](backend/src/GdeOni.API/Controllers/DeceasedMemoriesController.cs#L70)
+декларирует `[ProducesResponseType(StatusCodes.Status200OK)]` без
+`typeof(ApiResponse<RemoveMemoryResponse>)` — Swagger строит схему
+на пустом теле, хотя use case
+[IRemoveMemoryUseCase](backend/src/GdeOni.Application/DeceasedRecords/Commands/RemoveMemory/UseCase/IRemoveMemoryUseCase.cs#L9)
+возвращает `Result<RemoveMemoryResponse, Error>` и тело реально есть.
 
-Update / AddAtGrave / Create уже декларируют 409 на этот же кейс —
-здесь пропуск в Swagger-документации.
+UpdateMemory / AddMemory в том же контроллере декларируют typed-200
+правильно — здесь рассогласование с остальными memory-эндпоинтами.
 
 Решение:
-- Добавить `[ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]`
-  на оба эндпоинта.
+- Заменить `ProducesResponseType(StatusCodes.Status200OK)` на
+  `ProducesResponseType(typeof(ApiResponse<RemoveMemoryResponse>), StatusCodes.Status200OK)`.
+- using уже импортирован.
 
 Готово, если:
 
-[ ] SetFromGps декларирует 409.
-[ ] ClearBurialLocation декларирует 409.
+[ ] Swagger показывает схему RemoveMemoryResponse в success-ответе DELETE.
 [ ] Build clean.
 
 =====================================================================
