@@ -33,6 +33,9 @@ public sealed class DeceasedMemoryEntryConfiguration : IEntityTypeConfiguration<
             .HasColumnName("created_at_utc")
             .IsRequired();
 
+        builder.Property(x => x.UpdatedAtUtc)
+            .HasColumnName("updated_at_utc");
+
         builder.Property(x => x.ModerationStatus)
             .HasColumnName("moderation_status")
             .HasConversion<int>()

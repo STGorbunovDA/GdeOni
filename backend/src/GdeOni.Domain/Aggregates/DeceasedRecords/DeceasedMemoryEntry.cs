@@ -10,6 +10,7 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
     public string Text { get; private set; }
     public Guid? AuthorUserId { get; }
     public DateTime CreatedAtUtc { get; }
+    public DateTime? UpdatedAtUtc { get; private set; }
     public ModerationStatus ModerationStatus { get; private set; }
 
     private DeceasedMemoryEntry() : base(Guid.Empty)
@@ -61,6 +62,7 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
         // и запись остаётся Approved. Reset при каждом EditText
         // заставляет каждый текст пройти модерацию заново.
         ModerationStatus = ModerationStatus.Pending;
+        Touch();
         return UnitResult.Success<Error>();
     }
 
@@ -70,6 +72,7 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
             return Errors.DeceasedMemory.AlreadyApproved();
 
         ModerationStatus = ModerationStatus.Approved;
+        Touch();
         return UnitResult.Success<Error>();
     }
 
@@ -79,7 +82,13 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
             return Errors.DeceasedMemory.AlreadyRejected();
 
         ModerationStatus = ModerationStatus.Rejected;
+        Touch();
         return UnitResult.Success<Error>();
+    }
+
+    private void Touch()
+    {
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 
     private static Result<string, Error> NormalizeAndValidateText(string text)

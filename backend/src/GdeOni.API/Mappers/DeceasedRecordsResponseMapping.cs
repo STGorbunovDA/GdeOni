@@ -88,6 +88,7 @@ public static class DeceasedRecordsResponseMapping
                     Text = memory.Text,
                     AuthorUserId = memory.AuthorUserId,
                     CreatedAtUtc = memory.CreatedAtUtc,
+                    UpdatedAtUtc = memory.UpdatedAtUtc,
                     ModerationStatus = (int)memory.ModerationStatus
                 })
                 .ToArray()
