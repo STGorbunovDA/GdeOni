@@ -2933,6 +2933,101 @@ Errors уже существуют: `Errors.PersonName.FirstNameTooLong/LastName
     (DTO-shape валидация).
 [ ] Build clean.
 
+---------------------------------------------------------------------
+D7.57 Мёртвый IUserRepository.GetByIdWithTracking
+---------------------------------------------------------------------
+
+[IUserRepository.GetByIdWithTracking](backend/src/GdeOni.Application/Abstractions/Persistence/IUserRepository.cs#L10)
+после D7.55 (filtered Include по DeceasedId) и D7.37 (TrackingCount
+через subquery) не вызывается ни одним use case'ом — только сам
+интерфейс и реализация. Раньше его дёргали TrackDeceased / UpdateTracking
+/ RemoveTracking / GetMyTrackedDeceasedDetails (D7.55 переключил их
+на GetByIdWithTrackingByDeceasedId) и GetUserById (D7.37 — на
+GetByIdWithTrackingCount).
+
+Хранить мёртвый код опасно: новый автор увидит метод, начнёт его
+использовать в очередном use case'е и вернёт регрессию «Include тащит
+всю коллекцию подписок».
+
+Решение:
+- Удалить метод из IUserRepository.
+- Удалить реализацию из UserRepository.
+
+Готово, если:
+
+[ ] grep `GetByIdWithTracking\b` не находит вхождений в src/.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D7.58 DeceasedRepository.GetById без AsNoTracking для query-use-case'ов
+---------------------------------------------------------------------
+
+[DeceasedRepository.GetById](backend/src/GdeOni.Infrastructure/Persistence/Repositories/DeceasedRepository.cs#L17-L23)
+не использует AsNoTracking — единый метод и для команд (где tracking
+нужен под мутации), и для read-only сценариев. Сейчас 3 query-use-case'а
+получают tracked-сущность зря:
+
+- [GetAgeAtDeathUseCase.cs:25](backend/src/GdeOni.Application/DeceasedRecords/Queries/GetAgeAtDeath/UseCase/GetAgeAtDeathUseCase.cs#L25)
+- [GetMediaListUseCase.cs:35](backend/src/GdeOni.Application/DeceasedRecords/Queries/GetMediaList/UseCase/GetMediaListUseCase.cs#L35)
+- [GetDistanceUseCase.cs:26](backend/src/GdeOni.Application/DeceasedRecords/Queries/GetDistance/UseCase/GetDistanceUseCase.cs#L26)
+
+EF Core держит снапшот, тратит RAM, и без надобности проверяет
+изменения при возможном последующем SaveChanges (если такой случай
+возникнет в будущем — потенциальный source данных, которые не должны
+были сохраниться).
+
+Аналог уже сделан для User (`GetByIdWithTrackingCount` с AsNoTracking,
+D7.37).
+
+Решение:
+- В IDeceasedRepository добавить
+  `GetByIdReadOnly(id, ct) → Deceased?` с `.AsNoTracking()`.
+- 3 query-use-case'а перевести на новый метод.
+- Существующий GetById оставить — 9 command-use-case'ов (Verify,
+  Update, Upload, AddMemory, ClearMetadata и т.д.) трекают сущность
+  под мутации.
+
+Готово, если:
+
+[ ] GetByIdReadOnly возвращает Deceased без change-tracker'а.
+[ ] GetAgeAtDeath/GetMediaList/GetDistance переключены.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D7.59 ChangePassword.CurrentPassword без MaxLength
+---------------------------------------------------------------------
+
+[ChangePasswordCommandValidator.cs:17-23](backend/src/GdeOni.Application/Users/Commands/ChangePassword/Validation/ChangePasswordCommandValidator.cs#L17-L23):
+NewPassword имеет `.MaximumLength(MaxPasswordLength)` (D7.54), а
+CurrentPassword — нет. Клиент может прислать строку любой длины
+(в пределах Kestrel body limit ~30MB) и она дойдёт до
+`passwordHasher.Verify(command.CurrentPassword, user.PasswordHash)`.
+
+Глобально DoS-вектор уже закрыт:
+- Kestrel default request body ~30MB.
+- BCrypt.Verify усекает на 72 байта (см. D7.54).
+
+Но локально валидатор должен отвергать слишком длинные строки до
+прохода в use case — defense-in-depth. CurrentPassword nullable
+(админ меняет чужой пароль без CurrentPassword): проверка должна
+сработать только при не-пустом значении.
+
+Решение:
+- Добавить в ChangePasswordCommandValidator:
+  ```
+  RuleFor(x => x.CurrentPassword!)
+      .MaximumLength(PasswordPolicy.MaxPasswordLength)
+      .WithError(Errors.User.PasswordTooLong(PasswordPolicy.MaxPasswordLength))
+      .When(x => !string.IsNullOrEmpty(x.CurrentPassword));
+  ```
+- Errors.User.PasswordTooLong уже существует (D7.54).
+
+Готово, если:
+
+[ ] CurrentPassword > 128 символов отвергается с PasswordTooLong.
+[ ] CurrentPassword == null/"" остаётся валидным (admin-сценарий).
+[ ] Build clean.
+
 =====================================================================
 D8. ROUTE API
 =====================================================================
