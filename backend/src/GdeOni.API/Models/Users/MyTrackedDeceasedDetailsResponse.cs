@@ -1,6 +1,6 @@
-using GdeOni.Application.DeceasedRecords.Queries.GetById.Model;
+using GdeOni.API.Models.DeceasedRecords;
 
-namespace GdeOni.Application.Users.Queries.GetMyTrackedDeceasedDetails.Model;
+namespace GdeOni.API.Models.Users;
 
 public sealed class MyTrackedDeceasedDetailsResponse
 {

@@ -6,7 +6,7 @@ namespace GdeOni.Application.Users.Queries.GetMyTrackedDeceasedDetails.UseCase;
 
 public interface IGetMyTrackedDeceasedDetailsUseCase
 {
-    Task<Result<MyTrackedDeceasedDetailsResponse, Error>> Execute(
+    Task<Result<GetMyTrackedDeceasedDetailsResult, Error>> Execute(
         GetMyTrackedDeceasedDetailsQuery query,
         CancellationToken cancellationToken);
 }

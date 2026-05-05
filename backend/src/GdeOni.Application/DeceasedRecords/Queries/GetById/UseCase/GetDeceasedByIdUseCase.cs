@@ -1,8 +1,7 @@
-﻿using CSharpFunctionalExtensions;
+using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
-using GdeOni.Application.DeceasedRecords.Queries.GetById.Mappers;
 using GdeOni.Application.DeceasedRecords.Queries.GetById.Model;
 using GdeOni.Domain.Shared;
 
@@ -14,14 +13,14 @@ public sealed class GetDeceasedByIdUseCase(
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetDeceasedByIdUseCase
 {
-    public Task<Result<DeceasedDetailsResponse, Error>> Execute(
+    public Task<Result<GetDeceasedByIdResult, Error>> Execute(
         GetDeceasedByIdQuery query,
         CancellationToken cancellationToken)
     {
         return validatedUseCaseExecutor.Execute(query, Handle, cancellationToken);
     }
 
-    private async Task<Result<DeceasedDetailsResponse, Error>> Handle(
+    private async Task<Result<GetDeceasedByIdResult, Error>> Handle(
         GetDeceasedByIdQuery query,
         CancellationToken cancellationToken)
     {
@@ -37,6 +36,7 @@ public sealed class GetDeceasedByIdUseCase(
         var canSeeAllMemories = currentUserService.IsAdmin()
             || deceased.CreatedByUserId == currentUserIdResult.Value;
 
-        return Result.Success<DeceasedDetailsResponse, Error>(deceased.ToResponse(canSeeAllMemories));
+        return Result.Success<GetDeceasedByIdResult, Error>(
+            new GetDeceasedByIdResult(deceased, canSeeAllMemories));
     }
 }

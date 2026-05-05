@@ -2,7 +2,6 @@ using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
-using GdeOni.Application.DeceasedRecords.Queries.GetById.Mappers;
 using GdeOni.Application.Users.Queries.GetMyTrackedDeceasedDetails.Model;
 using GdeOni.Domain.Shared;
 
@@ -15,14 +14,14 @@ public sealed class GetMyTrackedDeceasedDetailsUseCase(
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetMyTrackedDeceasedDetailsUseCase
 {
-    public Task<Result<MyTrackedDeceasedDetailsResponse, Error>> Execute(
+    public Task<Result<GetMyTrackedDeceasedDetailsResult, Error>> Execute(
         GetMyTrackedDeceasedDetailsQuery query,
         CancellationToken cancellationToken)
     {
         return validatedUseCaseExecutor.Execute(query, Handle, cancellationToken);
     }
 
-    private async Task<Result<MyTrackedDeceasedDetailsResponse, Error>> Handle(
+    private async Task<Result<GetMyTrackedDeceasedDetailsResult, Error>> Handle(
         GetMyTrackedDeceasedDetailsQuery query,
         CancellationToken cancellationToken)
     {
@@ -47,21 +46,7 @@ public sealed class GetMyTrackedDeceasedDetailsUseCase(
         var canSeeAllMemories = currentUserService.IsAdmin()
             || deceased.CreatedByUserId == currentUserIdResult.Value;
 
-        var response = new MyTrackedDeceasedDetailsResponse
-        {
-            Deceased = deceased.ToResponse(canSeeAllMemories),
-            Tracking = new MyTrackingInfoResponse
-            {
-                TrackingId = tracking.Id,
-                RelationshipType = tracking.RelationshipType.ToString(),
-                PersonalNotes = tracking.PersonalNotes,
-                NotifyOnDeathAnniversary = tracking.NotifyOnDeathAnniversary,
-                NotifyOnBirthAnniversary = tracking.NotifyOnBirthAnniversary,
-                Status = tracking.Status.ToString(),
-                TrackedAtUtc = tracking.TrackedAtUtc
-            }
-        };
-
-        return Result.Success<MyTrackedDeceasedDetailsResponse, Error>(response);
+        return Result.Success<GetMyTrackedDeceasedDetailsResult, Error>(
+            new GetMyTrackedDeceasedDetailsResult(deceased, tracking, canSeeAllMemories));
     }
 }

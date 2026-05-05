@@ -1,3 +1,5 @@
+using GdeOni.API.Extensions;
+using GdeOni.API.Mappers;
 using GdeOni.API.Models.Users;
 using GdeOni.API.Response;
 using GdeOni.Application.Common.Shared;
@@ -58,7 +60,7 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
     {
         var query = new GetMyTrackedDeceasedDetailsQuery(deceasedId);
         var result = await useCase.Execute(query, cancellationToken);
-        return FromResult(result);
+        return FromResult(result, r => r.ToDetailsResponse().ToOkResponse());
     }
 
     /// <summary>

@@ -112,7 +112,7 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         var query = new GetDeceasedByIdQuery(id);
         var result = await getDeceasedByIdUseCase.Execute(query, cancellationToken);
 
-        return FromResult(result);
+        return FromResult(result, r => r.ToDetailsResponse().ToOkResponse());
     }
 
     /// <summary>
