@@ -28,7 +28,8 @@ public sealed class GetDeceasedByIdUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        var deceased = await deceasedRepository.GetByIdWithMemories(query.Id, cancellationToken);
+        // D8.10: query-use-case → AsNoTracking-вариант.
+        var deceased = await deceasedRepository.GetByIdWithMemoriesReadOnly(query.Id, cancellationToken);
 
         if (deceased is null)
             return Errors.General.NotFound("deceased", query.Id);

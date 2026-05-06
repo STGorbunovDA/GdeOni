@@ -41,6 +41,18 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
+    public async Task<Deceased?> GetByIdWithMemoriesReadOnly(Guid id, CancellationToken cancellationToken)
+    {
+        // AsNoTracking-вариант для query-use-case'ов (GetDeceasedById,
+        // GetMyTrackedDeceasedDetails) — карточка + memories грузятся,
+        // никто не вызывает Save. Аналог D7.67 для include'а memories.
+        // См. D8.10.
+        return await dbContext.DeceasedRecords
+            .AsNoTracking()
+            .Include(x => x.Memories)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
     public async Task<Deceased?> GetByIdWithMemoryById(
         Guid id,
         Guid memoryId,
