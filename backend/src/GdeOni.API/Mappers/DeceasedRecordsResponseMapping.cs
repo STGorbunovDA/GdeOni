@@ -81,7 +81,12 @@ public static class DeceasedRecordsResponseMapping
                 AdditionalInfo = deceased.Metadata.AdditionalInfo
             },
 
+            // D8.11: фиксируем порядок по CreatedAtUtc — без OrderBy
+            // EF не гарантирует стабильный ordering между запросами.
+            // D8.12: ModerationStatus отдаём строкой, как Tracking.Status
+            // и Media.ModerationStatus, а не магическим int.
             Memories = memoriesQuery
+                .OrderBy(memory => memory.CreatedAtUtc)
                 .Select(memory => new DeceasedMemoryResponse
                 {
                     Id = memory.Id,
@@ -89,7 +94,7 @@ public static class DeceasedRecordsResponseMapping
                     AuthorUserId = memory.AuthorUserId,
                     CreatedAtUtc = memory.CreatedAtUtc,
                     UpdatedAtUtc = memory.UpdatedAtUtc,
-                    ModerationStatus = (int)memory.ModerationStatus
+                    ModerationStatus = memory.ModerationStatus.ToString()
                 })
                 .ToArray()
         };
