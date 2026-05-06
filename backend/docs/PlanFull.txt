@@ -3567,6 +3567,255 @@ HasMemories, GetDistance, GetAgeAtDeath, GetMediaList) делают
     IsTrackedByMeResponse.
 [ ] Build clean.
 
+Кластер D8.7-D8.13 закрыт (404cc18, 5f6b3ce, e342911, 1599cd9, b7255ad, da52550).
+
+---------------------------------------------------------------------
+D8.7 Кластер use case'ов идёт через executor без validator'а (хвост D8.6)
+---------------------------------------------------------------------
+
+`ValidatedUseCaseExecutor` молча проходит, если `IValidator<TRequest>`
+не зарегистрирован: `if (validator is not null) { ... }`. Это означает,
+что любой use case, идущий через executor без папки `Validation/`,
+не валидирует свой input. D8.6 закрыл одну такую дыру (IsTrackedByMe).
+Грепом по `validatedUseCaseExecutor.Execute` найдены ещё 6 use case'ов
+с тем же дефектом:
+
+- [GetMyTrackedDeceasedDetailsUseCase](backend/src/GdeOni.Application/Users/Queries/GetMyTrackedDeceasedDetails/UseCase/GetMyTrackedDeceasedDetailsUseCase.cs)
+  — DeceasedId, нет валидатора;
+- [GetMediaByIdUseCase](backend/src/GdeOni.Application/DeceasedRecords/Queries/GetMediaById/UseCase/GetMediaByIdUseCase.cs)
+  — DeceasedId / MediaId, нет валидатора;
+- [DeleteMediaUseCase](backend/src/GdeOni.Application/DeceasedRecords/Commands/DeleteMedia/UseCase/DeleteMediaUseCase.cs)
+  — DeceasedId / MediaId, нет валидатора;
+- [SetMainMediaPhotoUseCase](backend/src/GdeOni.Application/DeceasedRecords/Commands/SetMainMediaPhoto/UseCase/SetMainMediaPhotoUseCase.cs)
+  — DeceasedId / MediaId, нет валидатора;
+- [ApproveMediaModerationUseCase](backend/src/GdeOni.Application/DeceasedRecords/Commands/ApproveMediaModeration/UseCase/ApproveMediaModerationUseCase.cs)
+  — DeceasedId / MediaId, нет валидатора;
+- [RejectMediaModerationUseCase](backend/src/GdeOni.Application/DeceasedRecords/Commands/RejectMediaModeration/UseCase/RejectMediaModerationUseCase.cs)
+  — DeceasedId / MediaId, нет валидатора.
+
+Сейчас при `Guid.Empty` для DeceasedId / MediaId use case'ы доходят
+до Handle и в лучшем случае возвращают `not found` 404 — рассогласовано
+с остальным проектом, который для всех ID-параметров возвращает 400 /
+`{entity}.id.required`. И, что важнее, обходит явный фильтр на форме
+DTO — клиент может прислать произвольный мусор, а ошибка приходит
+не из validation layer, а из persistence.
+
+Решение:
+- Создать папку `Validation/` для каждого из 6 use case'ов
+  с `*Validator : AbstractValidator<*Command|*Query>`;
+- DeceasedId NotEmpty → `Errors.Deceased.IdRequired()`;
+- MediaId NotEmpty → `Errors.DeceasedMedia.IdRequired()` (ввести
+  фабрику в рамках D8.9, либо временно
+  `Errors.General.ValueIsRequired("media_id")`).
+
+Готово, если:
+
+[ ] Запросы с Guid.Empty в DeceasedId или MediaId возвращают 400 /
+    соответствующий validation-error code на всех 6 эндпоинтах.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D8.8 Хвост ProducesResponseType: 400 не объявлен после новых валидаторов
+---------------------------------------------------------------------
+
+D7.40 / D7.43 / D7.49 / D7.50 закрыли неполные `[ProducesResponseType]`
+для большинства эндпоинтов. После D8.6 (IsTrackedByMe валидатор) и
+будущего D8.7 (6 новых валидаторов) появится 400 / Validation-ответ,
+но соответствующие `[ProducesResponseType(400)]` на контроллерах
+не добавлены. Также найдены контроллеры, у которых ID-параметр уже
+сейчас валидируется существующим NotEmpty-валидатором, а 400
+не задекларирован.
+
+Эндпоинты, на которых отсутствует `[ProducesResponseType(400)]`:
+
+- [MeTrackedDeceasedController.Exists](backend/src/GdeOni.API/Controllers/MeTrackedDeceasedController.cs#L74)
+  — после D8.6 валидатор отдаёт 400.
+- [MeTrackedDeceasedController.GetDetails](backend/src/GdeOni.API/Controllers/MeTrackedDeceasedController.cs#L55)
+  — после D8.7 валидатор отдаёт 400.
+- [MeTrackedDeceasedController.Untrack](backend/src/GdeOni.API/Controllers/MeTrackedDeceasedController.cs#L143)
+  — `RemoveTrackingCommandValidator` уже есть.
+- [DeceasedMediaController.GetById / Delete / SetMainPhoto](backend/src/GdeOni.API/Controllers/DeceasedMediaController.cs)
+  — после D8.7 валидаторы отдают 400.
+- [DeceasedRecordsAdminController.ApproveMedia / RejectMedia](backend/src/GdeOni.API/Controllers/DeceasedRecordsAdminController.cs#L118)
+  — после D8.7 валидаторы отдают 400.
+- [DeceasedRecordsAdminController.Verify / Unverified / ApproveMemory / RejectMemory](backend/src/GdeOni.API/Controllers/DeceasedRecordsAdminController.cs)
+  — соответствующие валидаторы уже есть, 400 не объявлен.
+- [UsersController.GetById / Delete](backend/src/GdeOni.API/Controllers/UsersController.cs)
+  — `GetUserByIdQueryValidator` / `DeleteUserCommandValidator` уже есть.
+- [DeceasedRecordsController.GetById / Delete](backend/src/GdeOni.API/Controllers/DeceasedRecordsController.cs)
+  — `GetDeceasedByIdQueryValidator` / `DeleteDeceasedCommandValidator`
+  уже есть.
+- [DeceasedMetadataController.ClearMetadata](backend/src/GdeOni.API/Controllers/DeceasedMetadataController.cs#L44)
+  — `ClearMetadataCommandValidator` уже есть.
+- [DeceasedRecordsSupportiveController.GetAgeAtDeath / HasMemories](backend/src/GdeOni.API/Controllers/DeceasedRecordsSupportiveController.cs)
+  — соответствующие валидаторы уже есть.
+
+Решение: добавить
+`[ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]`
+на каждый перечисленный эндпоинт. Делать одной волной с D8.7, чтобы
+Swagger-контракт сразу совпал с фактическим поведением.
+
+Готово, если:
+
+[ ] Все перечисленные эндпоинты декларируют 400 в ProducesResponseType.
+[ ] Swagger показывает 400 для всех эндпоинтов с валидируемыми
+    параметрами.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D8.9 Нет Errors.DeceasedMedia.IdRequired() фабрики
+---------------------------------------------------------------------
+
+[Errors.cs](backend/src/GdeOni.Domain/Shared/Errors.cs) содержит
+`Errors.Deceased.IdRequired()`, `Errors.User.IdRequired()`,
+`Errors.Tracking.DeceasedIdRequired()`, но нет аналогичной фабрики
+для `MediaId`. В результате
+[UpdateMediaDescriptionCommandValidator](backend/src/GdeOni.Application/DeceasedRecords/Commands/UpdateMediaDescription/Validation/UpdateMediaDescriptionCommandValidator.cs#L20)
+вынужден использовать generic `Errors.General.ValueIsRequired("media_id")`
+с error-кодом `media_id.is.required`, который ломает соглашение
+`{entity}.{field}.{rule}` (везде в проекте — `deceased_media.*` для
+этой сущности).
+
+Будет проявляться сильнее после D8.7 — 5 из 6 новых валидаторов
+будут проверять MediaId NotEmpty, и каждый либо склонирует костыль
+с `ValueIsRequired("media_id")`, либо введёт расхождение в коды.
+
+Решение:
+- Добавить в `Errors.DeceasedMedia`:
+  ```csharp
+  public static Error IdRequired() =>
+      Error.Validation("deceased_media.id.required", "Media id is required");
+  ```
+- Перевести `UpdateMediaDescriptionCommandValidator.MediaId` и все
+  валидаторы из D8.7 на новую фабрику.
+
+Готово, если:
+
+[ ] grep `media_id.is.required` по `src/` ничего не находит.
+[ ] grep `Errors.DeceasedMedia.IdRequired` находит вызовы из всех
+    валидаторов с MediaId NotEmpty.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D8.10 GetByIdWithMemories без AsNoTracking-варианта (хвост D7.67)
+---------------------------------------------------------------------
+
+D7.58 / D7.67 ввели `GetByIdReadOnly` для query-use-case'ов на
+`Deceased` и `User`. Но `IDeceasedRepository.GetByIdWithMemories` —
+такой же tracked-вариант, который используется в read-only
+сценариях:
+
+- [GetDeceasedByIdUseCase](backend/src/GdeOni.Application/DeceasedRecords/Queries/GetById/UseCase/GetDeceasedByIdUseCase.cs#L31)
+  — query, без Save → snapshot в change-tracker'е лишний;
+- [GetMyTrackedDeceasedDetailsUseCase](backend/src/GdeOni.Application/Users/Queries/GetMyTrackedDeceasedDetails/UseCase/GetMyTrackedDeceasedDetailsUseCase.cs#L42)
+  — query, без Save → то же.
+
+Оба грузят `Deceased` + всю коллекцию `_memories`. Каждая memory —
+6+ полей; на горячих карточках с десятками воспоминаний цена ощутима.
+
+Решение (D7.67-pattern):
+- В `IDeceasedRepository` добавить
+  `GetByIdWithMemoriesReadOnly(id, ct)` с `.AsNoTracking()`;
+- Перевести `GetDeceasedByIdUseCase` и
+  `GetMyTrackedDeceasedDetailsUseCase` на read-only-вариант;
+- Старый tracked `GetByIdWithMemories` оставить только для
+  случаев, где он нужен (если такие есть — иначе удалить).
+
+Готово, если:
+
+[ ] grep `GetByIdWithMemories\(` по use case'ам показывает либо
+    мутирующие use case'ы, либо ничего.
+[ ] Все query-use-case'ы используют read-only-вариант.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D8.11 DeceasedDetailsResponse.Memories без OrderBy — недетерминированный порядок
+---------------------------------------------------------------------
+
+[DeceasedRecordsResponseMapping.ToDetailsResponse](backend/src/GdeOni.API/Mappers/DeceasedRecordsResponseMapping.cs#L84)
+проецирует `deceased.Memories` в response без явной сортировки.
+Порядок зависит от того, как EF загрузил коллекцию: при `Include`
+без `OrderBy` PostgreSQL может возвращать строки в любом порядке
+(в практике — по физическому heap-storage / page-id, что меняется
+после VACUUM / UPDATE).
+
+Симптом для клиента: повторные `GET /api/deceased-records/{id}`
+могут возвращать воспоминания в разном порядке между запросами.
+
+Решение:
+- В `DeceasedRecordsResponseMapping` сортировать
+  `memoriesQuery.OrderBy(m => m.CreatedAtUtc)` перед `Select`;
+- Альтернативно — добавить sort на уровне репозитория
+  (`Include(d => d.Memories.OrderBy(m => m.CreatedAtUtc))`),
+  но в EF8 это требует extra setup'а; для presentation-stability
+  достаточно sort'а в маппере.
+
+Готово, если:
+
+[ ] Два подряд GET'а на одну карточку возвращают memories в одном
+    порядке (по CreatedAtUtc ASC).
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D8.12 DeceasedMemoryResponse.ModerationStatus отдаётся как int
+---------------------------------------------------------------------
+
+[DeceasedRecordsResponseMapping.ToDetailsResponse](backend/src/GdeOni.API/Mappers/DeceasedRecordsResponseMapping.cs#L92)
+сериализует `memory.ModerationStatus` в response через `(int)`-cast:
+
+```csharp
+ModerationStatus = (int)memory.ModerationStatus
+```
+
+В то же время в этом же проекте:
+- `Tracking.Status` отдаётся `Tracking.Status.ToString()`;
+- `MediaDetailsResponse.ModerationStatus` отдаётся `media.ModerationStatus.ToString()`;
+- `MediaListItemResponse.ModerationStatus` — то же.
+
+Контракт расходится: для одной и той же `ModerationStatus` enum
+клиент в одном эндпоинте получает `0` / `1` / `2`, в другом —
+`"Pending"` / `"Approved"` / `"Rejected"`. Магические числа на
+клиенте → frontend ломается при добавлении нового value enum'а.
+
+Решение:
+- Поменять `(int)memory.ModerationStatus` →
+  `memory.ModerationStatus.ToString()`;
+- В `DeceasedMemoryResponse.ModerationStatus` тип сменить с `int`
+  на `string`.
+
+Готово, если:
+
+[ ] grep `(int)memory.ModerationStatus|(int)x.ModerationStatus`
+    по `src/` ничего не находит;
+[ ] `DeceasedMemoryResponse.ModerationStatus` имеет тип `string`;
+[ ] Manual проверка: GET карточки с memory отдаёт строковый статус.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D8.13 UserRepository.ExistsBy* без AsNoTracking
+---------------------------------------------------------------------
+
+[UserRepository.ExistsByEmail / ExistsByUserName / ExistsById](backend/src/GdeOni.Infrastructure/Persistence/Repositories/UserRepository.cs#L77)
+используют `AnyAsync` без `.AsNoTracking()`. Эти методы вызываются
+из read-only-сценариев (Register / ChangeEmail / UpdateProfile /
+DeleteUser). `AnyAsync` сам по себе не материализует сущность
+(EXISTS-subquery в SQL), но на default-tracking-режиме EF
+аллоцирует change-tracker entries даже под промежуточные операции.
+
+Аналог DeceasedRepository.ExistsById, который уже сделан с
+`AsNoTracking()`. Для согласованности и микро-perf'а — выровнять.
+
+Решение:
+- В трёх методах `ExistsBy*` поставить `.AsNoTracking()` перед
+  `AnyAsync` (или перед `Where`).
+
+Готово, если:
+
+[ ] grep `AnyAsync` по UserRepository не находит вызовов без
+    AsNoTracking (за исключением `IsActivelyTracking`, где
+    AsNoTracking уже стоит).
+[ ] Build clean.
+
 =====================================================================
 D9. TESTS
 =====================================================================
