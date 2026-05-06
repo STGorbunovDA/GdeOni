@@ -3920,11 +3920,32 @@ auth-flow. Оставшаяся бизнес-логика — без unit-тес
 Цель D9.5: довести покрытие до уровня "каждый доменный метод и use
 case имеет хотя бы один happy-path и один негативный кейс".
 
-D9.5.1-D9.5.4 закрыты (c7fe3b4, dc1fc37, a36110d, f8c0396).
-167 unit-тестов зелёные (113 Domain + 46 Application + 8 Infrastructure)
-+ ~9 интеграционных тестов под Docker. Оставшиеся пункты ниже
-(репозитории через Testcontainers, MinIO upload-flow, ExceptionMiddleware,
-CORS) — будущая работа когда поднят Docker.
+D9.5.1-D9.5.4 закрыты полностью (c7fe3b4, dc1fc37, a36110d, f8c0396 +
+добор: D9.5.3/D9.5.4 + полное покрытие D9.5.2 unit-тестами на каждый
+use case из Application/DependencyInjection.cs). 323 теста зелёные:
+— Domain.Tests: 113
+— Application.Tests: 115 (Auth Login/Logout/Refresh; Users
+  Register/UpdateProfile/ChangeEmail/ChangePassword/ChangeRole/Delete
+  + Tracking Update/Remove + Track/IsTracked; Deceased
+  Create/Update/SetBurialFromGps/Delete/Verify/Unverified/AddMemory/
+  RejectMemory/Memory/Metadata/Media Upload/List/ById/SetMainPhoto/
+  Approve/Reject; Queries GetAll/GetById/GetDistance/GetAge/HasMemories
+  + Users Queries; GetRouteToGrave)
+— Infrastructure.Tests: 31 (DeceasedRepository / UserRepository /
+  RefreshTokenRepository / RefreshTokensCleanupService / EF configurations
+  через Testcontainers PostgreSQL; PasswordHasher + RefreshTokenFactory)
+— Api.IntegrationTests: 64 (Auth happy/edge + rate-limit, Users,
+  TrackedDeceased + route 409 без burial, Media upload/get/patch/main-photo
+  через Testcontainers MinIO, Admin verify/approve memory+media,
+  JWT/Security, BurialLocation/Metadata + DELETE 409 idempotent,
+  ExceptionMiddleware, CORS, JwtProvider claims/expiration/cache)
+
+Production-changes из этого этапа:
+— Errors.User.UserForbidden: Error.Validation → Error.Forbidden
+  (контракт: forbid должен возвращать 403, а не 400);
+— ClearBurialLocationUseCase: проверка BurialLocation is null →
+  Errors.Deceased.BurialLocationAlreadyNull (Conflict 409). Раньше
+  DELETE /burial-location был идемпотентным 200 даже на null.
 
 ---------------------------------------------------------------------
 D9.5.1 Domain (новые тесты)
@@ -4395,15 +4416,28 @@ dotnet test backend.sln
 
 Backend готов, если:
 
-[ ] API запускается.
-[ ] Login работает.
-[ ] /me работает.
-[ ] /at-grave работает.
-[ ] Deceased создаётся.
-[ ] TrackedDeceased создаётся.
-[ ] Media upload работает.
-[ ] Route работает.
-[ ] Tests проходят.
+[x] API запускается.
+[x] Login работает.
+[x] /me работает.
+[x] /at-grave работает.
+[x] Deceased создаётся.
+[x] TrackedDeceased создаётся.
+[x] Media upload работает.
+[x] Route работает.
+[x] Tests проходят.
+
+D10 закрыт 2026-05-06.
+E2E прогон выполнен вручную через curl + PowerShell против запущенного API
+(http://localhost:5161, postgres:5434, MinIO:9000, Seq:5341):
+  • POST /api/users          → 201 (id e2882dba-…)
+  • POST /api/auth/login     → access+refresh tokens
+  • GET  /api/users/me       → RegularUser
+  • POST /api/deceased-records/at-grave → deceasedId 107dffb3-…, trackingId 7730d7c4-…
+  • GET  /api/users/me/tracked-deceased → 1 запись, hasGraveLocation=true
+  • POST /api/deceased-records/{id}/media (multipart, kind=1) → mediaId ad2298e8-…
+  • GET  /api/deceased-records/{id}/media → 1 элемент, moderationStatus=Pending
+  • GET  /api/users/me/tracked-deceased/{id}/route?mode=Auto → 3 ссылки (yandex/google/2gis)
+dotnet test backend.sln зелёный: 113 + 115 + 31 + 64 = 323 теста, 0 failed.
 
 =====================================================================
 E. FRONTEND ROADMAP

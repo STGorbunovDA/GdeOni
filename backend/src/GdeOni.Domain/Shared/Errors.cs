@@ -159,6 +159,11 @@ public static class Errors
                 "deceased.burial_location.clear.forbidden",
                 "You cannot clear the burial location on behalf of another user.");
 
+        public static Error BurialLocationAlreadyNull() =>
+            Error.Conflict(
+                "deceased.burial_location.already_null",
+                "Burial location is already null and cannot be cleared again.");
+
         public static Error AlreadyVerified() =>
             Error.Conflict("deceased.already.verified", "Deceased record is already verified");
 
@@ -322,7 +327,7 @@ public static class Errors
             Error.Validation("user.role.invalid", "User role is invalid");
         
         public static Error UserForbidden() =>
-            Error.Validation("user.forbidden", "You do not have permission to access the current user.");
+            Error.Forbidden("user.forbidden", "You do not have permission to access the current user.");
 
         public static Error ChangeSuperAdminRoleForbidden() =>
             Error.Forbidden(

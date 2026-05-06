@@ -30,4 +30,8 @@
     <ProjectReference Include="..\..\src\GdeOni.API\GdeOni.API.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

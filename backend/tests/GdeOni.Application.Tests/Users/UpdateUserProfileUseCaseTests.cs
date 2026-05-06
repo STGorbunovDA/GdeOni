@@ -1,0 +1,130 @@
+using CSharpFunctionalExtensions;
+using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Common.Security;
+using GdeOni.Application.Tests.TestSupport;
+using GdeOni.Application.Users.Commands.UpdateProfile.Model;
+using GdeOni.Application.Users.Commands.UpdateProfile.UseCase;
+using GdeOni.Application.Users.Commands.UpdateProfile.Validation;
+using GdeOni.Domain.Aggregates.User;
+using GdeOni.Domain.Shared;
+
+namespace GdeOni.Application.Tests.Users;
+
+/// <summary>
+/// Тесты <see cref="UpdateUserProfileUseCase"/>: self/admin → success,
+/// outsider → UserForbidden, дубль userName → UserNameAlreadyExists.
+/// </summary>
+public sealed class UpdateUserProfileUseCaseTests
+{
+    /// <summary>
+    /// Self обновляет свой профиль → success + Save вызван.
+    /// </summary>
+    [Fact]
+    public async Task Execute_Self_Succeeds()
+    {
+        var user = User.Register("alice@example.com", "hash").Value;
+
+        var (userRepo, currentUser, useCase) = BuildHarness();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(user.Id));
+        currentUser.Setup(x => x.IsAdmin()).Returns(false);
+        userRepo.Setup(x => x.GetById(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        userRepo.Setup(x => x.ExistsByUserName(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await useCase.Execute(
+            new UpdateUserProfileCommand(user.Id, "alice2", "Иван Иванов"),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        userRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>
+    /// Admin может обновить чужой профиль → success.
+    /// </summary>
+    [Fact]
+    public async Task Execute_Admin_OnAnotherUser_Succeeds()
+    {
+        var target = User.Register("bob@example.com", "hash").Value;
+
+        var (userRepo, currentUser, useCase) = BuildHarness();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
+        currentUser.Setup(x => x.IsAdmin()).Returns(true);
+        userRepo.Setup(x => x.GetById(target.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(target);
+        userRepo.Setup(x => x.ExistsByUserName(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await useCase.Execute(
+            new UpdateUserProfileCommand(target.Id, "newName", null),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Outsider (не self, не admin) → UserForbidden.
+    /// </summary>
+    [Fact]
+    public async Task Execute_Outsider_ReturnsUserForbidden()
+    {
+        var target = User.Register("bob@example.com", "hash").Value;
+
+        var (userRepo, currentUser, useCase) = BuildHarness();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
+        currentUser.Setup(x => x.IsAdmin()).Returns(false);
+        userRepo.Setup(x => x.GetById(target.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(target);
+
+        var result = await useCase.Execute(
+            new UpdateUserProfileCommand(target.Id, "hacked", null),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("user.forbidden");
+    }
+
+    /// <summary>
+    /// userName уже занят другим юзером (нормализованный != нынешнего) →
+    /// UserNameAlreadyExists.
+    /// </summary>
+    [Fact]
+    public async Task Execute_UserNameAlreadyTakenByAnother_ReturnsConflict()
+    {
+        var user = User.Register("alice@example.com", "hash", userName: "alice").Value;
+
+        var (userRepo, currentUser, useCase) = BuildHarness();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(user.Id));
+        currentUser.Setup(x => x.IsAdmin()).Returns(false);
+        userRepo.Setup(x => x.GetById(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        userRepo.Setup(x => x.ExistsByUserName("bob", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await useCase.Execute(
+            new UpdateUserProfileCommand(user.Id, "bob", null),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("user.user_name.already.exists");
+    }
+
+    private static (
+        Mock<IUserRepository> UserRepo,
+        Mock<ICurrentUserService> CurrentUser,
+        UpdateUserProfileUseCase UseCase) BuildHarness()
+    {
+        var userRepo = new Mock<IUserRepository>();
+        var currentUser = new Mock<ICurrentUserService>();
+        var useCase = new UpdateUserProfileUseCase(
+            userRepo.Object,
+            currentUser.Object,
+            TestExecutor.With<UpdateUserProfileCommand, UpdateUserProfileCommandValidator>());
+        return (userRepo, currentUser, useCase);
+    }
+}

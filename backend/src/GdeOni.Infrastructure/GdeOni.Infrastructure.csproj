@@ -33,4 +33,8 @@
       <Folder Include="Migrations\" />
     </ItemGroup>
 
+    <ItemGroup>
+      <InternalsVisibleTo Include="GdeOni.Infrastructure.Tests" />
+    </ItemGroup>
+
 </Project>
