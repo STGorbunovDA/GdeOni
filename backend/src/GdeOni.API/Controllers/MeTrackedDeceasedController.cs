@@ -1,8 +1,11 @@
 using GdeOni.API.Extensions;
 using GdeOni.API.Mappers;
+using GdeOni.API.Models.Routing;
 using GdeOni.API.Models.Users;
 using GdeOni.API.Response;
 using GdeOni.Application.Common.Shared;
+using GdeOni.Application.Routing.Queries.GetRouteToGrave.Model;
+using GdeOni.Application.Routing.Queries.GetRouteToGrave.UseCase;
 using GdeOni.Application.Users.Commands.RemoveTracking.Model;
 using GdeOni.Application.Users.Commands.RemoveTracking.UseCase;
 using GdeOni.Application.Users.Commands.TrackDeceased.Model;
@@ -15,6 +18,7 @@ using GdeOni.Application.Users.Queries.GetMyTrackedDeceasedList.Model;
 using GdeOni.Application.Users.Queries.GetMyTrackedDeceasedList.UseCase;
 using GdeOni.Application.Users.Queries.IsTrackedByMe.Model;
 using GdeOni.Application.Users.Queries.IsTrackedByMe.UseCase;
+using GdeOni.Domain.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -148,5 +152,31 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
         var command = new RemoveTrackingCommand(deceasedId);
         var result = await useCase.Execute(command, cancellationToken);
         return FromResult(result);
+    }
+
+    /// <summary>
+    /// Возвращает координаты могилы и deep-link'и (Yandex / Google / 2GIS)
+    /// для построения маршрута от переданных координат пользователя.
+    /// Доступно только tracker'у этой карточки. Если у умершего нет
+    /// координат места захоронения — 409.
+    /// </summary>
+    [HttpGet("{deceasedId:guid}/route")]
+    [ProducesResponseType(typeof(ApiResponse<RouteResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> GetRoute(
+        [FromRoute] Guid deceasedId,
+        [FromQuery] double fromLat,
+        [FromQuery] double fromLon,
+        [FromQuery] RoutingMode mode,
+        [FromServices] IGetRouteToGraveUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetRouteToGraveQuery(deceasedId, fromLat, fromLon, mode);
+        var result = await useCase.Execute(query, cancellationToken);
+        return FromResult(result, r => r.ToRouteResponse().ToOkResponse());
     }
 }
