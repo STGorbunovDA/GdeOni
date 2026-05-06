@@ -45,6 +45,7 @@ public sealed class DeceasedRecordsSupportiveController : ApiControllerBase
     [HttpGet("{id:guid}/age-at-death")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<GetAgeAtDeathResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAgeAtDeath(
@@ -62,6 +63,7 @@ public sealed class DeceasedRecordsSupportiveController : ApiControllerBase
     [HttpGet("{id:guid}/has-memories")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<HasMemoriesResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> HasMemories(

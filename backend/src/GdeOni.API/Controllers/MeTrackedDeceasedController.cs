@@ -54,6 +54,7 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
     /// </summary>
     [HttpGet("{deceasedId:guid}")]
     [ProducesResponseType(typeof(ApiResponse<MyTrackedDeceasedDetailsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -73,6 +74,7 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
     /// </summary>
     [HttpGet("{deceasedId:guid}/exists")]
     [ProducesResponseType(typeof(ApiResponse<IsTrackedByMeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Exists(
         [FromRoute] Guid deceasedId,
@@ -142,6 +144,7 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
     /// </summary>
     [HttpDelete("{deceasedId:guid}")]
     [ProducesResponseType(typeof(ApiResponse<RemoveTrackingResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Untrack(
