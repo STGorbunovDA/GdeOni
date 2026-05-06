@@ -33,6 +33,19 @@ namespace GdeOni.Api.IntegrationTests.Infrastructure;
 /// </summary>
 public sealed class GdeOniWebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    static GdeOniWebAppFactory()
+    {
+        // Env-vars устанавливаются ДО создания WebApplicationBuilder
+        // в Program.cs, поэтому Configuration snapshot в AddCustomRateLimiting
+        // (читается синхронно в момент builder.Services.AddCustomRateLimiting)
+        // увидит именно эти значения. AddInMemoryCollection через
+        // ConfigureAppConfiguration работает только для отложенного чтения
+        // через IOptions — для snapshot-pattern нужны env-vars.
+        // Двойное подчёркивание — convention .NET для nested keys.
+        Environment.SetEnvironmentVariable("RateLimiting__Auth__PermitLimit", "100000");
+        Environment.SetEnvironmentVariable("RateLimiting__Auth__WindowMinutes", "60");
+    }
+
     // Тот же образ, что и в backend/docker-compose.yml — чтобы локальная
     // разработка и тесты бились в одну и ту же версию Postgres.
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
@@ -101,6 +114,14 @@ public sealed class GdeOniWebAppFactory : WebApplicationFactory<Program>, IAsync
                 // Cors: одно фейковое origin, чтобы AddCustomCors прошёл
                 // ветку "configured origins" без development-fallback'а.
                 ["Cors:AllowedOrigins:0"] = "http://localhost:5173",
+
+                // Rate-limit: дефолтные 10 req/min на IP убивают коллекцию
+                // тестов (все запросы из TestServer считаются с одного IP).
+                // Поднимаем до 1000, чтобы реальная rate-limit-логика
+                // тестировалась только в targeted-тесте, а не как
+                // случайный flake в любом другом.
+                ["RateLimiting:Auth:PermitLimit"] = "100000",
+                ["RateLimiting:Auth:WindowMinutes"] = "60",
 
                 // Seed:SuperAdmin не задаём — DbInitializer пропустит
                 // создание (см. SeedSuperAdminAsync, branch с LogWarning).
