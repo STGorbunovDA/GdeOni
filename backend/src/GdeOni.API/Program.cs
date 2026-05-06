@@ -58,3 +58,7 @@ app.UseRateLimiter();
 
 app.MapControllers();
 app.Run();
+
+// Сделано видимым для WebApplicationFactory<Program> в integration-тестах
+// (.NET 6+ top-level Program генерируется как internal partial). См. D9.4.
+public partial class Program;
