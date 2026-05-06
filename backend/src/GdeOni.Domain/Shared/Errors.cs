@@ -406,6 +406,12 @@ public static class Errors
                 "Current user does not track this deceased.");
     }
 
+    public static class Routing
+    {
+        public static Error RoutingModeInvalid() =>
+            Error.Validation("routing.mode.invalid", "Routing mode is invalid.");
+    }
+
     public static class Pagination
     {
         public static Error PageMustBeGreaterThanZero() =>

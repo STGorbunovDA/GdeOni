@@ -30,6 +30,7 @@ using GdeOni.Application.DeceasedRecords.Queries.GetDistance.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.UseCase;
+using GdeOni.Application.Routing.Queries.GetRouteToGrave.UseCase;
 using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
 using GdeOni.Application.Users.Commands.ChangePassword.UseCase;
 using GdeOni.Application.Users.Commands.ChangeRole.UseCase;
@@ -107,6 +108,9 @@ public static class DependencyInjection
         services.AddScoped<IVerifyDeceasedUseCase, VerifyDeceasedUseCase>();
         services.AddScoped<IUnverifiedDeceasedUseCase, UnverifiedDeceasedUseCase>();
         services.AddScoped<IRemoveTrackingUseCase, RemoveTrackingUseCase>();
+
+        services.AddScoped<IGetRouteToGraveUseCase, GetRouteToGraveUseCase>();
+
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;
     }
