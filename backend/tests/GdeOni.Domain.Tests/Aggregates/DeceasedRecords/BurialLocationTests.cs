@@ -118,4 +118,104 @@ public sealed class BurialLocationTests
         b.Should().Be(a);
         a.GetHashCode().Should().Be(b.GetHashCode());
     }
+
+    /// <summary>
+    /// DistanceTo использует Haversine-формулу (геодезическое
+    /// расстояние по сфере). Проверяем на эталонных координатах:
+    /// Москва (55.7558, 37.6173) ↔ Санкт-Петербург (59.9343, 30.3351)
+    /// ≈ 635 км (по разным источникам — 632-639 км). Ставим допуск 5 км
+    /// — больше эпсилона на радиус Земли (6371 vs 6378), но меньше
+    /// расхождения "что-то сломали".
+    /// </summary>
+    [Fact]
+    public void DistanceTo_MoscowToSaintPetersburg_ReturnsApprox635Km()
+    {
+        var moscow = BurialLocation.Create(55.7558, 37.6173).Value;
+
+        // Coordinate СПб → передаём в DistanceTo как (lat, lon).
+        var distance = moscow.DistanceTo(59.9343, 30.3351);
+
+        distance.Should().BeApproximately(635.0, precision: 5.0);
+    }
+
+    /// <summary>
+    /// DistanceTo от точки до самой себя = 0. Защита от ошибок в
+    /// формуле, которая могла бы вернуть NaN на нулевом дельта-vector'е.
+    /// </summary>
+    [Fact]
+    public void DistanceTo_SamePoint_ReturnsZero()
+    {
+        var location = BurialLocation.Create(55.0, 37.0).Value;
+        location.DistanceTo(55.0, 37.0).Should().BeApproximately(0.0, precision: 0.001);
+    }
+
+    /// <summary>
+    /// MaxLength-проверки на текстовых полях. Каждый отдельный код
+    /// ошибки покрываем — клиент будет показывать конкретное
+    /// сообщение про конкретное поле в UI.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(BurialLocation.Country), "burial_location.country.too_long")]
+    [InlineData(nameof(BurialLocation.Region), "burial_location.region.too_long")]
+    [InlineData(nameof(BurialLocation.City), "burial_location.city.too_long")]
+    [InlineData(nameof(BurialLocation.CemeteryName), "burial_location.cemetery_name.too_long")]
+    [InlineData(nameof(BurialLocation.PlotNumber), "burial_location.plot_number.too_long")]
+    [InlineData(nameof(BurialLocation.GraveNumber), "burial_location.grave_number.too_long")]
+    public void Create_TextFieldExceedsMaxLength_ReturnsCorrectTooLongError(string field, string expectedCode)
+    {
+        // Arrange: создаём строку чуть длиннее максимума для проверяемого поля.
+        var maxLengths = new Dictionary<string, int>
+        {
+            [nameof(BurialLocation.Country)] = BurialLocation.MaxCountryLength,
+            [nameof(BurialLocation.Region)] = BurialLocation.MaxRegionLength,
+            [nameof(BurialLocation.City)] = BurialLocation.MaxCityLength,
+            [nameof(BurialLocation.CemeteryName)] = BurialLocation.MaxCemeteryNameLength,
+            [nameof(BurialLocation.PlotNumber)] = BurialLocation.MaxPlotNumberLength,
+            [nameof(BurialLocation.GraveNumber)] = BurialLocation.MaxGraveNumberLength
+        };
+        var tooLong = new string('a', maxLengths[field] + 1);
+
+        // Act: подставляем длинное значение в нужное поле.
+        var result = BurialLocation.Create(
+            latitude: 55.0,
+            longitude: 37.0,
+            country: field == nameof(BurialLocation.Country) ? tooLong : null,
+            region: field == nameof(BurialLocation.Region) ? tooLong : null,
+            city: field == nameof(BurialLocation.City) ? tooLong : null,
+            cemeteryName: field == nameof(BurialLocation.CemeteryName) ? tooLong : null,
+            plotNumber: field == nameof(BurialLocation.PlotNumber) ? tooLong : null,
+            graveNumber: field == nameof(BurialLocation.GraveNumber) ? tooLong : null);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be(expectedCode);
+    }
+
+    /// <summary>
+    /// FullAddress собирает строку через ", " только из заполненных
+    /// полей. Если только Country и City — между ними нет пустого
+    /// "" из Region. Защита от UI-багов "Россия, , Москва".
+    /// </summary>
+    [Fact]
+    public void FullAddress_OnlyCountryAndCity_BuildsTwoPartString()
+    {
+        var location = BurialLocation.Create(
+            latitude: 55.0,
+            longitude: 37.0,
+            country: "Россия",
+            city: "Москва").Value;
+
+        location.FullAddress.Should().Be("Россия, Москва");
+    }
+
+    /// <summary>
+    /// FullAddress без всех текстовых полей — пустая строка
+    /// (Trim'ed Join over empty enumerable).
+    /// </summary>
+    [Fact]
+    public void FullAddress_NoTextFields_ReturnsEmptyString()
+    {
+        var location = BurialLocation.Create(latitude: 55.0, longitude: 37.0).Value;
+        location.FullAddress.Should().Be(string.Empty);
+    }
 }

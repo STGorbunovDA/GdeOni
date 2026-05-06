@@ -85,4 +85,52 @@ public sealed class LifePeriodTests
         result.IsSuccess.Should().BeTrue();
         result.Value.AgeAtDeath().Should().BeNull();
     }
+
+    /// <summary>
+    /// HasBirthDate отражает наличие BirthDate — простая обёртка
+    /// над nullable, но тестируем явно, чтобы случайный рефакторинг
+    /// (например, на Nullable struct) не сломал семантику.
+    /// </summary>
+    [Fact]
+    public void HasBirthDate_WithBirthDate_ReturnsTrue()
+    {
+        var period = LifePeriod.Create(new DateOnly(1950, 6, 15), new DateOnly(2010, 1, 1)).Value;
+        period.HasBirthDate().Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasBirthDate_WithoutBirthDate_ReturnsFalse()
+    {
+        var period = LifePeriod.Create(birthDate: null, deathDate: new DateOnly(2010, 1, 1)).Value;
+        period.HasBirthDate().Should().BeFalse();
+    }
+
+    /// <summary>
+    /// DeathDate == default (DateOnly.MinValue) — это не указанная
+    /// дата (forgot to fill). Domain отвергает с DeathDateRequired,
+    /// иначе мы бы каталогизировали "умер 0001-01-01" — мусор.
+    /// </summary>
+    [Fact]
+    public void Create_DefaultDeathDate_ReturnsDeathDateRequired()
+    {
+        var result = LifePeriod.Create(birthDate: null, deathDate: default);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("life_period.death_date.required");
+    }
+
+    /// <summary>
+    /// Equality: два LifePeriod без BirthDate равны (тест-страховка
+    /// на тот же баг с Nullable, что в BurialLocation.AccuracyMeters —
+    /// см. комментарий в LifePeriod.GetEqualityComponents).
+    /// </summary>
+    [Fact]
+    public void Equality_TwoPeriodsWithoutBirthDate_AreEqual()
+    {
+        var a = LifePeriod.Create(birthDate: null, deathDate: new DateOnly(2010, 1, 1)).Value;
+        var b = LifePeriod.Create(birthDate: null, deathDate: new DateOnly(2010, 1, 1)).Value;
+
+        a.Should().Be(b);
+        a.GetHashCode().Should().Be(b.GetHashCode());
+    }
 }
