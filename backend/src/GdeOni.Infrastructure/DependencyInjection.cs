@@ -1,10 +1,12 @@
 ﻿using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Routing;
 using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Common.Security;
 using GdeOni.Infrastructure.Data;
 using GdeOni.Infrastructure.Persistence;
 using GdeOni.Infrastructure.Persistence.Cleanup;
 using GdeOni.Infrastructure.Persistence.Repositories;
+using GdeOni.Infrastructure.Routing;
 using GdeOni.Infrastructure.Security;
 using GdeOni.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -75,6 +77,12 @@ public static class DependencyInjection
         });
 
         services.AddSingleton<IFileStorage, MinioFileStorage>();
+
+        // D8.2: deep-link провайдеры карт. Singleton — без состояния,
+        // только форматируют URL без сетевых вызовов.
+        services.AddSingleton<IRouteLinkProvider, YandexRouteLinkProvider>();
+        services.AddSingleton<IRouteLinkProvider, GoogleMapsRouteLinkProvider>();
+        services.AddSingleton<IRouteLinkProvider, TwoGisRouteLinkProvider>();
 
         services.AddHostedService<MinioOrphanCleanupService>();
 
