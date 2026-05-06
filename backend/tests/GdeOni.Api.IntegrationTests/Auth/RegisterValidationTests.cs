@@ -112,12 +112,16 @@ public sealed class RegisterValidationTests
 
     /// <summary>
     /// DTO для разбора ApiResponse&lt;object&gt; в случае ошибки.
-    /// Валидация-ошибка возвращает code = "validation.failed" и
-    /// конкретные коды в Errors[].
+    /// `Result` — типизирован как `object?`, потому что в API
+    /// `ApiResponse&lt;T&gt;.Result` имеет тип T (payload, не bool!).
+    /// Для error-кейса payload = null, и попытка парсить его как
+    /// bool рушит System.Text.Json.
+    /// Валидация-ошибка возвращает ErrorCode = "validation.failed"
+    /// и конкретные коды в Errors[].
     /// </summary>
     private sealed class ApiErrorResponse
     {
-        public bool Result { get; set; }
+        public object? Result { get; set; }
         public string? ErrorCode { get; set; }
         public string? ErrorMessage { get; set; }
         public List<ValidationErrorDetail> Errors { get; set; } = new();
