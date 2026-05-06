@@ -3908,6 +3908,433 @@ D9.4 Integration tests
 [ ] Integration tests зелёные.
 [ ] Основной сценарий покрыт.
 
+---------------------------------------------------------------------
+D9.5 Дополнительные тесты (после полного аудита покрытия)
+---------------------------------------------------------------------
+
+После закрытия D9.1-D9.4 проведён сквозной аудит проекта и найдены
+большие пробелы покрытия: D9.2 покрыл 4 типа в Domain (BurialLocation,
+LifePeriod, Deceased core, User базовый), D9.3 — 3 use case'а, D9.4 —
+auth-flow. Оставшаяся бизнес-логика — без unit-тестов.
+
+Цель D9.5: довести покрытие до уровня "каждый доменный метод и use
+case имеет хотя бы один happy-path и один негативный кейс".
+
+---------------------------------------------------------------------
+D9.5.1 Domain (новые тесты)
+---------------------------------------------------------------------
+
+PersonNameTests:
+
+[ ] FirstName / LastName required → ошибка `person_name.first_name.required`
+    / `person_name.last_name.required`.
+[ ] FirstName / LastName / MiddleName длиннее MaxLength → TooLong-ошибки.
+[ ] PersonName.FullName собирает строку "LastName FirstName MiddleName"
+    (порядок и отсутствие MiddleName).
+[ ] Equality: одинаковые имена дают равные VO; whitespace в MiddleName
+    нормализуется до null и не ломает equality.
+
+LifePeriodTests (дополнения):
+
+[ ] Equality двух LifePeriod без BirthDate (HasValue=false rule).
+[ ] DeathDate == default → DeathDateRequired.
+[ ] HasBirthDate true / false.
+
+BurialLocationTests (дополнения):
+
+[ ] DistanceTo: расстояние Москва ↔ Санкт-Петербург ≈ 635 км
+    (Haversine-формула, проверка на конкретных координатах).
+[ ] Country / Region / City / CemeteryName / PlotNumber / GraveNumber
+    превышают MaxLength → TooLong-ошибки.
+[ ] FullAddress собирается только из заполненных полей (без лишних
+    запятых и пустот).
+
+DeceasedTests (дополнения):
+
+[ ] UpdateMainInfo меняет имя/период/описание + Touch + RebuildSearchKey.
+[ ] AddMemory добавляет запись в _memories со статусом Pending.
+[ ] EditMemory меняет текст + сбрасывает статус в Pending (anti-bypass).
+[ ] ApproveMemory / RejectMemory меняют статус, повторный Approve →
+    AlreadyApproved.
+[ ] RemoveMemory удаляет запись; на несуществующей → NotFound.
+[ ] Verify / Unverify меняют IsVerified; повторный Verify →
+    AlreadyVerified, Unverify на не-verified → NotVerified.
+[ ] RemoveMedia с MainMediaId == removed → MainMediaId/MainMedia
+    обнуляются.
+[ ] SetMainPhoto на новое фото снимает IsMainPhoto со старого
+    (через UnmarkMainPhoto).
+[ ] RejectMedia: если media было main — IsMainPhoto и MainMediaId
+    обнуляются.
+[ ] ApproveMedia / RejectMedia на уже Approved/Rejected media →
+    AlreadyApproved / AlreadyRejected.
+[ ] UpdateMediaDescription меняет Description у media + Touch
+    у aggregate.
+[ ] UpdateMetadata / ClearMetadata: Empty / Empty.IsEmpty == true.
+[ ] GetMainPhoto возвращает фото только если оно Approved.
+[ ] SearchKey детерминирован: одинаковые имена в разном регистре
+    дают одинаковый SearchKey (ToUpperInvariant).
+
+DeceasedMemoryEntryTests:
+
+[ ] Create с пустым text → TextRequired.
+[ ] Create с text > MaxTextLength → TextTooLong.
+[ ] AuthorUserId == Guid.Empty → User.IdRequired.
+[ ] EditText сбрасывает ModerationStatus в Pending (anti-bypass).
+[ ] Approve / Reject повторно → AlreadyApproved / AlreadyRejected.
+
+DeceasedMediaTests:
+
+[ ] Create с DeceasedId == Empty → DeceasedIdRequired.
+[ ] Create с UploadedByUserId == Empty → UploadedByRequired.
+[ ] Create с sizeBytes <= 0 → SizeBytesInvalid.
+[ ] Create с пустым OriginalFileName / Bucket / StorageKey / ContentType
+    → соответствующие Required-ошибки.
+[ ] MarkAsMainPhoto на Kind != DeceasedPhoto → OnlyDeceasedPhotoCanBeMain.
+[ ] UpdateDescription с длинным текстом → DescriptionTooLong.
+[ ] Reject обнуляет IsMainPhoto если оно было true.
+
+TrackedDeceasedTests:
+
+[ ] Create с DeceasedId == Empty → DeceasedIdRequired.
+[ ] Create с RelationshipType вне enum → RelationshipTypeInvalid.
+[ ] Activate / Mute / Archive: повторный вызов на том же статусе
+    → AlreadyActive / AlreadyMuted / AlreadyArchived.
+[ ] Reactivate сбрасывает статус в Active независимо от прошлого.
+[ ] PersonalNotes длиннее MaxPersonalNotesLength → TooLong.
+[ ] IsActive / IsMuted / IsArchived корректно отражают Status.
+
+UserTests (дополнения):
+
+[ ] UpdateProfile / ChangeEmail / ChangeRole каждый ротирует
+    SecurityStamp (для инвалидации старых JWT).
+[ ] ChangeEmail с невалидным email → EmailInvalid.
+[ ] ChangeRole = Unknown / SuperAdmin → RoleInvalid.
+[ ] ChangeTrackingStatus переводит между Active/Muted/Archived
+    через единый switch.
+[ ] RemoveTracking на чужом deceasedId → NotFound.
+[ ] GetTracking возвращает null для несуществующего, instance
+    для существующего.
+[ ] Register без UserName использует prefix email'а.
+[ ] MarkLogin обновляет LastLoginAtUtc.
+
+---------------------------------------------------------------------
+D9.5.2 Application (новые тесты use case'ов)
+---------------------------------------------------------------------
+
+Auth/:
+
+[ ] LoginUseCase happy: возвращает access/refresh, обновляет
+    LastLoginAtUtc, кладёт SecurityStamp в кеш.
+[ ] LoginUseCase wrong email → InvalidCredentials.
+[ ] LoginUseCase wrong password → InvalidCredentials (не EmailNotFound,
+    чтобы не палить существование email'а).
+[ ] LoginUseCase password > MaxPasswordLength → PasswordTooLong (D7.66
+    защита от BCrypt-DoS).
+[ ] RefreshUseCase happy: ротирует пару, ставит revoked у старого.
+[ ] RefreshUseCase replay (старый уже revoked) → ReplayDetected +
+    revoke всех активных RT (D7.32).
+[ ] RefreshUseCase expired token → TokenExpired.
+[ ] RefreshUseCase unknown token → TokenInvalid.
+[ ] LogoutUseCase идемпотентен для несуществующего / уже revoked /
+    чужого токена (D7.40 безопасность).
+
+Users/Commands/:
+
+[ ] RegisterUserUseCase happy: создаёт user, хеширует пароль через
+    PasswordHasher.Hash.
+[ ] RegisterUserUseCase email уже существует → EmailAlreadyExists
+    (через UniqueConstraintException 23505).
+[ ] RegisterUserUseCase userName уже существует → UserNameAlreadyExists.
+[ ] UpdateUserProfileUseCase happy для self.
+[ ] UpdateUserProfileUseCase admin может править чужого.
+[ ] UpdateUserProfileUseCase outsider → UserForbidden.
+[ ] ChangePasswordUseCase self с правильным CurrentPassword → success
+    + RevokeAllForUser вызван.
+[ ] ChangePasswordUseCase self с неправильным CurrentPassword →
+    CurrentPasswordInvalid.
+[ ] ChangePasswordUseCase admin сбрасывает чужой пароль без проверки
+    CurrentPassword.
+[ ] ChangePasswordUseCase admin меняет свой пароль — CurrentPassword
+    всё равно требуется.
+[ ] ChangeEmailUseCase happy + RevokeAllForUser (хвост D7.41).
+[ ] ChangeEmailUseCase email уже занят → EmailAlreadyExists.
+[ ] ChangeRoleUseCase admin → admin запрещён (D7.41-style).
+[ ] ChangeRoleUseCase admin → SuperAdmin запрещён через RoleInvalid.
+[ ] ChangeRoleUseCase admin отзывает чужие RT.
+[ ] DeleteUserUseCase self → DeleteSelfForbidden.
+[ ] DeleteUserUseCase SuperAdmin → DeleteSuperAdminForbidden.
+[ ] DeleteUserUseCase admin → admin (без SuperAdmin прав) →
+    DeletePeerAdminForbidden (D7.70).
+
+Users/Commands/Tracking:
+
+[ ] TrackDeceasedUseCase happy: deceasedId существует → tracking создан.
+[ ] TrackDeceasedUseCase deceasedId не существует → NotFound.
+[ ] UpdateTrackingUseCase NotFound для нечужого user'а / отсутствующего
+    tracking.
+[ ] UpdateTrackingUseCase happy: меняет relationship и notifications.
+[ ] RemoveTrackingUseCase happy: tracking удалён.
+[ ] RemoveTrackingUseCase NotFound для несуществующего tracking.
+
+DeceasedRecords/Commands/:
+
+[ ] CreateDeceasedUseCase happy.
+[ ] CreateDeceasedUseCase дубликат SearchKey → AlreadyExists
+    (через UniqueConstraintException).
+[ ] AddDeceasedAtGraveUseCase happy: создаёт Deceased + Tracking
+    одной транзакцией.
+[ ] AddDeceasedAtGraveUseCase дубликат → AlreadyExists.
+[ ] AddDeceasedAtGraveUseCase Unauthorized.
+[ ] AddDeceasedAtGraveUseCase невалидные lat/lon → ValidationError.
+[ ] UpdateDeceasedUseCase author → success.
+[ ] UpdateDeceasedUseCase admin → success.
+[ ] UpdateDeceasedUseCase outsider → UpdateForbidden.
+[ ] SetBurialLocationFromGpsUseCase author → success.
+[ ] SetBurialLocationFromGpsUseCase outsider → SetBurialLocationForbidden.
+[ ] ClearBurialLocationUseCase author → success.
+[ ] ClearBurialLocationUseCase BurialLocation == null →
+    BurialLocationNotSet (409).
+[ ] DeleteDeceasedUseCase admin only.
+[ ] VerifyDeceasedUseCase admin → success.
+[ ] VerifyDeceasedUseCase повторно → AlreadyVerified (409).
+[ ] UnverifiedDeceasedUseCase admin → success, на не-verified → NotVerified.
+
+DeceasedRecords/Memory:
+
+[ ] AddMemoryUseCase happy: создаёт memory, AuthorUserId = current user.
+[ ] UpdateMemoryUseCase author → success, outsider → UpdateMemoryForbidden.
+[ ] RemoveMemoryUseCase author/admin → success, outsider → DeleteMemoryForbidden.
+[ ] ApproveMemoryUseCase admin → success, повторно → AlreadyApproved.
+[ ] RejectMemoryUseCase admin → success, повторно → AlreadyRejected.
+[ ] ApproveMemoryUseCase non-admin → ApproveMemoryForbidden.
+
+DeceasedRecords/Metadata:
+
+[ ] UpdateMetadataUseCase author/admin → success, outsider →
+    UpdateDeceasedMetadataForbidden.
+[ ] ClearMetadataUseCase author/admin → success.
+
+DeceasedRecords/Media:
+
+[ ] UploadMediaUseCase happy: файл попадает в MinIO + metadata в БД.
+[ ] UploadMediaUseCase невалидный MIME → PhotoContentTypeNotAllowed /
+    DocumentContentTypeNotAllowed.
+[ ] UploadMediaUseCase too large (>10 MB photo / >25 MB document) →
+    PhotoTooLarge / DocumentTooLarge.
+[ ] UploadMediaUseCase magic bytes mismatch (объявил image/jpeg,
+    отдал PNG-сигнатуру) → MagicBytesMismatch.
+[ ] UploadMediaUseCase MinIO upload OK + Save упал → DeleteAsync
+    вызывается (best-effort rollback).
+[ ] GetMediaListUseCase: пользователь видит только Approved (плюс свои
+    Pending/Rejected); admin видит всё.
+[ ] GetMediaByIdUseCase: для Document отдаёт presigned URL (TTL 1 час).
+[ ] GetMediaByIdUseCase: для Photo отдаёт public URL.
+[ ] SetMainMediaPhotoUseCase outsider → SetMainPhotoForbidden.
+[ ] ApproveMediaModerationUseCase non-admin → ModerationForbidden.
+[ ] RejectMediaModerationUseCase admin: rejects + удаляет файл из
+    MinIO + (если был main) обнуляет MainMediaId.
+[ ] UpdateMediaDescriptionUseCase: file author → success, card author
+    → success, admin → success, outsider → UpdateDescriptionForbidden.
+
+DeceasedRecords/Queries:
+
+[ ] GetAllDeceasedUseCase admin → success, non-admin →
+    InsufficientPermissionsToViewAllDeceased.
+[ ] GetDeceasedByIdUseCase: admin видит все memories, автор видит свои
+    memories, outsider видит только Approved.
+[ ] GetDistanceUseCase happy: Haversine от user-coord до могилы.
+[ ] GetDistanceUseCase BurialLocation == null → BurialLocationNotSet.
+[ ] GetAgeAtDeathUseCase happy / без BirthDate → AgeAtDeath = null.
+[ ] HasMemoriesUseCase true / false.
+
+Users/Queries:
+
+[ ] GetAllUsersUseCase admin → success + filter (Search / Role /
+    RegisteredAtUtc / LastLoginAtUtc) работает.
+[ ] GetAllUsersUseCase non-admin → InsufficientPermissionsToViewAllUsers.
+[ ] GetUserByIdUseCase возвращает TrackingCount.
+[ ] GetCurrentUserUseCase: 401 без auth, 200 с auth.
+[ ] GetMyTrackedDeceasedListUseCase возвращает только свои tracking
+    (Active/Muted; Archived исключены).
+[ ] GetMyTrackedDeceasedDetailsUseCase happy + outsider tracking
+    → NotTracked (403).
+
+Routing:
+
+[ ] GetRouteToGraveUseCase: validator отвергает невалидные lat/lon
+    (хвост D8.7 — у use case'а есть validator, но happy-path тестов
+    с проверкой каждого provider'а в реальной DI-цепочке нет).
+
+---------------------------------------------------------------------
+D9.5.3 Infrastructure (новые тесты на репозитории)
+---------------------------------------------------------------------
+
+Эти тесты требуют Testcontainers PostgreSQL — поэтому отдельный
+проект GdeOni.Infrastructure.Tests с DI как в Api.IntegrationTests.
+
+DeceasedRepository:
+
+[ ] GetPaged Search фильтр работает по FirstName / LastName / MiddleName
+    (ILike, case-insensitive).
+[ ] GetPaged Country / City фильтры по BurialLocation.
+[ ] GetPaged IsVerified фильтр.
+[ ] GetPaged CreatedFrom/CreatedTo диапазон.
+[ ] GetByIdWithMemories загружает _memories.
+[ ] GetByIdWithMemoryById грузит ровно одну memory (filtered Include).
+[ ] GetByIdWithMediaById грузит ровно одну media.
+[ ] ExistsBySearchKey true / false.
+[ ] Save: попытка вставить дубль SearchKey → UniqueConstraintException
+    (через ux_deceased_search_key, 23505).
+
+UserRepository:
+
+[ ] GetByEmail возвращает user в lowercase-нормализованном виде.
+[ ] ExistsByEmail / ExistsByUserName case-insensitive (по
+    UserNameNormalized).
+[ ] IsActivelyTracking true для Active / Muted, false для Archived.
+[ ] GetByIdWithTrackingCount возвращает (User, TrackingCount).
+[ ] GetByIdWithTrackingByDeceasedId грузит только одно tracking.
+[ ] GetMyTrackedDeceasedPaged JOIN'ит deceased + tracking
+    с MainMedia через Include.
+[ ] Save: дубль email → EmailAlreadyExists (UniqueConstraintException).
+
+RefreshTokenRepository:
+
+[ ] Add + GetByTokenHash round-trip.
+[ ] RevokeAllForUser ставит RevokedAtUtc на все активные.
+[ ] CleanupExpiredAndRevoked удаляет старые > retention.
+
+PasswordHasher:
+
+[ ] Hash + Verify round-trip для одинакового пароля.
+[ ] Verify с неправильным паролем → false.
+[ ] Hash для одного пароля даёт разные результаты (соль — рандомная).
+
+JwtProvider:
+
+[ ] GenerateAccessToken кладёт NameIdentifier / Email / Name / Role /
+    SecurityStamp / Jti в claims.
+[ ] GenerateAccessToken Expiration соответствует AccessTokenLifetimeMinutes.
+[ ] После GenerateAccessToken SecurityStamp лежит в IMemoryCache.
+
+MinioFileStorage:
+
+[ ] Upload + GetPublicUrl + Delete round-trip.
+[ ] GetPresignedUrlAsync возвращает URL с TTL.
+[ ] DeleteAsync на несуществующий файл — не падает.
+
+EF Configurations:
+
+[ ] AppDbContext snake_case naming работает (Email → email column).
+[ ] DeceasedConfiguration: SearchKey unique index работает.
+[ ] BurialLocation owned-type маппится в плоские колонки burial_*.
+[ ] DeceasedMetadata owned-type — то же.
+
+---------------------------------------------------------------------
+D9.5.4 Api.IntegrationTests (новые сценарии)
+---------------------------------------------------------------------
+
+Auth:
+
+[ ] POST /api/users — слабый пароль (<MinPasswordLength) → 400 +
+    user.password.too_short.
+[ ] POST /api/users — невалидный email → 400 + user.email.invalid.
+[ ] POST /api/users — длинный пароль → 400 + user.password.too_long.
+[ ] POST /api/users — повторный email → 409 + user.email.already.exists.
+[ ] POST /api/auth/login — неверный пароль → 401 + user.invalid.credentials.
+[ ] POST /api/auth/login — несуществующий email → 401 + те же credentials
+    (без раскрытия существования).
+[ ] POST /api/auth/refresh — повтор старого refresh → 401 + replay-detected,
+    все RT отозваны.
+[ ] POST /api/auth/logout — несуществующий refresh → 204 (идемпотентность).
+[ ] POST /api/auth/logout — без auth → 401.
+[ ] Rate-limiting на /api/auth/login: > N попыток подряд → 429.
+
+Users:
+
+[ ] GET /api/users без admin → 403.
+[ ] GET /api/users с admin → 200.
+[ ] PATCH /api/users/{id} self → 200.
+[ ] PATCH /api/users/{id} чужого без admin → 403.
+[ ] PUT /api/users/{id}/email — старые RT отзываются.
+[ ] DELETE /api/users/{id} self → 403.
+
+Tracked Deceased:
+
+[ ] POST /api/deceased-records/at-grave создаёт Deceased + Tracking.
+[ ] GET /api/users/me/tracked-deceased возвращает созданного умершего.
+[ ] GET /api/users/me/tracked-deceased/{id} 403 если другой
+    пользователь — НЕ автор tracking.
+[ ] DELETE /api/users/me/tracked-deceased/{id} убирает tracking.
+[ ] PATCH /api/users/me/tracked-deceased/{id} обновляет настройки.
+[ ] GET /api/users/me/tracked-deceased/{id}/route happy: возвращает
+    yandex / google / 2gis ссылки.
+[ ] GET /api/users/me/tracked-deceased/{id}/route 403 если не трекает.
+[ ] GET /api/users/me/tracked-deceased/{id}/route 409 если нет
+    BurialLocation.
+
+Media:
+
+[ ] POST /api/deceased-records/{id}/media загружает фото — попадает
+    в MinIO + metadata в БД.
+[ ] POST /api/deceased-records/{id}/media файл с неправильным MIME → 400.
+[ ] POST /api/deceased-records/{id}/media слишком большой файл → 400.
+[ ] GET /api/deceased-records/{id}/media возвращает список с
+    пагинацией.
+[ ] GET /api/deceased-records/{id}/media/{mediaId} возвращает URL
+    (public для photo, presigned для документа).
+[ ] DELETE /api/deceased-records/{id}/media/{mediaId} удаляет
+    metadata + файл из MinIO; outsider → 403.
+[ ] PATCH /api/deceased-records/{id}/media/{mediaId}/description
+    автор/админ → 200, outsider → 403.
+[ ] PATCH /api/deceased-records/{id}/media/{mediaId}/main-photo
+    Pending фото → 409, GravePhoto → 409, Approved DeceasedPhoto → 204.
+
+Admin:
+
+[ ] PUT /api/deceased-records/{id}/verify admin → 200.
+[ ] PUT /api/deceased-records/{id}/verify уже verified → 409.
+[ ] PUT /api/deceased-records/{id}/verify non-admin → 403.
+[ ] PUT /api/deceased-records/{id}/media/{mediaId}/approve admin → 204.
+[ ] PUT /api/deceased-records/{id}/media/{mediaId}/reject admin → 204
+    + файл удалён из MinIO.
+[ ] PUT /api/deceased-records/{id}/memories/{memoryId}/approve.
+[ ] PUT /api/deceased-records/{id}/memories/{memoryId}/reject.
+
+JWT / Security:
+
+[ ] Запрос без Authorization header → 401.
+[ ] Запрос с истёкшим JWT → 401.
+[ ] Запрос с подделанной подписью → 401.
+[ ] После ChangePassword старый access token → 401 (SecurityStamp
+    rotated, см. D7.34).
+[ ] Запрос с недостаточной ролью на admin endpoint → 403.
+
+Burial Location / Metadata:
+
+[ ] PUT /api/deceased-records/{id}/burial-location/from-gps
+    автор/админ → 200, outsider → 403.
+[ ] DELETE /api/deceased-records/{id}/burial-location 409 если уже null.
+[ ] PUT /api/deceased-records/{id}/metadata автор/админ → 200,
+    outsider → 403.
+[ ] DELETE /api/deceased-records/{id}/metadata автор/админ → 200.
+
+Misc:
+
+[ ] ExceptionMiddleware: необработанное исключение → 500 + обезличенное
+    сообщение (не stacktrace).
+[ ] CORS: запрос с не-allowed origin → отказ.
+
+Готово, если:
+
+[ ] Все unit-тесты в проектах Domain.Tests и Application.Tests
+    зелёные после массового добавления.
+[ ] Infrastructure.Tests прогоняются локально под Docker.
+[ ] Api.IntegrationTests добавляют ≥ 30 новых сценариев.
+[ ] dotnet test backend.sln зелёный (или skipped, если Docker нет).
+[ ] Ручной spot-check: каждый use case в Application/DependencyInjection.cs
+    имеет ≥ 1 тест.
+
 =====================================================================
 D10. BACKEND E2E CHECK
 =====================================================================
