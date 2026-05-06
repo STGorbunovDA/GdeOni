@@ -441,6 +441,9 @@ public static class Errors
         public static Error NotFound(Guid mediaId) =>
             Error.NotFound("deceased_media.not.found", $"Deceased media not found for Id '{mediaId}'");
 
+        public static Error IdRequired() =>
+            Error.Validation("deceased_media.id.required", "Media id is required");
+
         public static Error DeceasedIdRequired() =>
             Error.Validation("deceased_media.deceased_id.required", "DeceasedId is required");
 

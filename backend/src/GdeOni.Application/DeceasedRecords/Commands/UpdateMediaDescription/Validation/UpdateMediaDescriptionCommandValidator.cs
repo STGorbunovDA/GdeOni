@@ -17,7 +17,7 @@ public sealed class UpdateMediaDescriptionCommandValidator
 
         RuleFor(x => x.MediaId)
             .NotEmpty()
-            .WithError(Errors.General.ValueIsRequired("media_id"));
+            .WithError(Errors.DeceasedMedia.IdRequired());
 
         // Description nullable — null/whitespace = очистить описание.
         // При непустом значении — лимит совпадает с DeceasedMedia.MaxDescriptionLength.
