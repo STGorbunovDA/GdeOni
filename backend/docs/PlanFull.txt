@@ -3500,6 +3500,73 @@ GET /api/users/me/tracked-deceased/{deceasedId}/route?fromLat=55.7&fromLon=37.6&
 [ ] В ответе есть links.
 [ ] Links открываются в браузере.
 
+---------------------------------------------------------------------
+D8.5 Мёртвый код: Deceased.UpdateMediaDescription / DeceasedMedia.UpdateDescription
+---------------------------------------------------------------------
+
+[Deceased.UpdateMediaDescription](backend/src/GdeOni.Domain/Aggregates/DeceasedRecords/Deceased.cs#L344)
+и [DeceasedMedia.UpdateDescription](backend/src/GdeOni.Domain/Aggregates/DeceasedRecords/DeceasedMedia.cs#L140)
+объявлены, но ни один use case или endpoint их не вызывает. `grep
+\.UpdateMediaDescription\(` по `src/` не находит ни одного call-site,
+у `UpdateDescription` единственный call — внутренний (из самого
+Deceased.UpdateMediaDescription).
+
+Аналог D7.57 (мёртвый GetByIdWithTracking): хранить мёртвый код
+опасно — новый автор увидит метод и начнёт использовать в use case'е,
+который не имеет validator'а / endpoint'а.
+
+Решение (на выбор):
+- **Простое**: удалить оба метода + связанные `Errors.DeceasedMedia.*`,
+  если они нигде больше не нужны.
+- **Полное**: создать `UpdateMediaDescription` use case с validator'ом
+  (DeceasedId / MediaId / Description MaxLength), endpoint'ом
+  `PATCH /api/deceased-records/{id}/media/{mediaId}/description`,
+  правами автора файла / автора карточки / админа.
+
+Выбор зависит от продуктового намерения. Если фича не запланирована —
+delete; если запланирована, но забыли довести — реализовать use case.
+
+Готово, если:
+
+[ ] grep `UpdateMediaDescription\|UpdateDescription` по `src/` либо
+    показывает использование из use case'а, либо не находит метод
+    вовсе.
+[ ] Build clean.
+
+---------------------------------------------------------------------
+D8.6 IsTrackedByMeUseCase без validator'а и validatedUseCaseExecutor
+---------------------------------------------------------------------
+
+[IsTrackedByMeUseCase](backend/src/GdeOni.Application/Users/Queries/IsTrackedByMe/UseCase/IsTrackedByMeUseCase.cs)
+— единственный use case, который не идёт через
+`IValidatedUseCaseExecutor.Execute(query, Handle, ct)` и не имеет
+папки `Validation/` с `IsTrackedByMeQueryValidator`. Все остальные
+use case'ы (включая такие же query — GetMyTrackedDeceasedList,
+HasMemories, GetDistance, GetAgeAtDeath, GetMediaList) делают
+обратное.
+
+Сейчас если клиент пришлёт `deceasedId = Guid.Empty`, use case
+молча вернёт `IsTrackedByMeResponse(false)` — клиент ожидал бы
+400 BadRequest с `Errors.Deceased.IdRequired`. Поведение
+небезопасно, но рассогласовано с остальным проектом.
+
+Решение:
+- Создать `IsTrackedByMeQueryValidator`:
+  ```csharp
+  RuleFor(x => x.DeceasedId)
+      .NotEmpty()
+      .WithError(Errors.Deceased.IdRequired());
+  ```
+- Внедрить `IValidatedUseCaseExecutor` в use case и обернуть `Handle`.
+
+Готово, если:
+
+[ ] Запрос `GET /api/users/me/tracked-deceased/{Guid.Empty}/exists`
+    отвергается с 400 / `deceased.id.required`.
+[ ] Существующий валидный путь по-прежнему возвращает
+    IsTrackedByMeResponse.
+[ ] Build clean.
+
 =====================================================================
 D9. TESTS
 =====================================================================
