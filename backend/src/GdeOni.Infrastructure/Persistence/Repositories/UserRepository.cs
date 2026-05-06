@@ -76,16 +76,22 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 
     public Task<bool> ExistsById(Guid userId, CancellationToken cancellationToken)
     {
-        return UsersQuery().AnyAsync(x => x.Id == userId, cancellationToken);
+        // D8.13: AsNoTracking — EXISTS-only, материализация и change-tracker
+        // не нужны. Согласовано с DeceasedRepository.ExistsById.
+        return UsersQuery()
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == userId, cancellationToken);
     }
 
     public Task<bool> ExistsByEmail(string email, CancellationToken cancellationToken)
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
 
-        return UsersQuery().AnyAsync(
-            x => x.Email == normalizedEmail,
-            cancellationToken);
+        return UsersQuery()
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.Email == normalizedEmail,
+                cancellationToken);
     }
 
     public Task<bool> ExistsByUserName(string userName, CancellationToken cancellationToken)
@@ -94,9 +100,11 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .Trim()
             .ToLowerInvariant();
 
-        return UsersQuery().AnyAsync(
-            x => x.UserNameNormalized == normalizedUserName,
-            cancellationToken);
+        return UsersQuery()
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.UserNameNormalized == normalizedUserName,
+                cancellationToken);
     }
     
     public void Delete(User user)
