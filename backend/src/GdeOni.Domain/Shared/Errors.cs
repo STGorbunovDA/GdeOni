@@ -507,6 +507,11 @@ public static class Errors
                 "deceased_media.delete.forbidden",
                 "You don't have permission to delete this media.");
 
+        public static Error UpdateDescriptionForbidden() =>
+            Error.Forbidden(
+                "deceased_media.update_description.forbidden",
+                "You don't have permission to update description for this media.");
+
         public static Error SetMainPhotoForbidden() =>
             Error.Forbidden(
                 "deceased_media.main_photo.forbidden",

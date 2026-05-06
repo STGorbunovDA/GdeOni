@@ -9,6 +9,7 @@ using GdeOni.Application.DeceasedRecords.Commands.RejectMediaModeration.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.SetBurialLocationFromGps.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMediaDescription.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.Model;
 
@@ -208,6 +209,16 @@ public static class DeceasedRecordsMapping
     
     public static ClearMetadataCommand ToClearMetadataCommand(Guid deceasedId)
         => new(deceasedId);
+
+    public static UpdateMediaDescriptionCommand ToCommand(
+        this UpdateMediaDescriptionRequest request,
+        Guid deceasedId,
+        Guid mediaId)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return new UpdateMediaDescriptionCommand(deceasedId, mediaId, request.Description);
+    }
 
     public static RejectMemoryCommand ToRejectMemoryCommand(Guid deceasedId, Guid memoryId)
         => new(deceasedId, memoryId);

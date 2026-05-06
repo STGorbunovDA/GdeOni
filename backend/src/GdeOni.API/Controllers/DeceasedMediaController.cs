@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using GdeOni.API.Mappers;
 using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.API.Response;
 using GdeOni.Application.Abstractions.Storage;
@@ -7,6 +8,8 @@ using GdeOni.Application.DeceasedRecords.Commands.DeleteMedia.Model;
 using GdeOni.Application.DeceasedRecords.Commands.DeleteMedia.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.SetMainMediaPhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.SetMainMediaPhoto.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMediaDescription.Model;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMediaDescription.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.UploadMedia.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UploadMedia.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.Model;
@@ -130,6 +133,28 @@ public sealed class DeceasedMediaController : ApiControllerBase
         var command = new DeleteMediaCommand(id, mediaId);
         var result = await useCase.Execute(command, cancellationToken);
         return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// Обновляет описание медиафайла. Доступно автору файла, автору
+    /// карточки умершего и админам. Пустое тело очищает описание.
+    /// </summary>
+    [HttpPatch("{mediaId:guid}/description")]
+    [ProducesResponseType(typeof(ApiResponse<UpdateMediaDescriptionResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateDescription(
+        [FromRoute] Guid id,
+        [FromRoute] Guid mediaId,
+        [FromBody] UpdateMediaDescriptionRequest request,
+        [FromServices] IUpdateMediaDescriptionUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var command = request.ToCommand(id, mediaId);
+        var result = await useCase.Execute(command, cancellationToken);
+        return FromResult(result);
     }
 
     /// <summary>

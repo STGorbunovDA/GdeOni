@@ -19,6 +19,7 @@ using GdeOni.Application.DeceasedRecords.Commands.SetBurialLocationFromGps.UseCa
 using GdeOni.Application.DeceasedRecords.Commands.SetMainMediaPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Unverified.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Update.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMediaDescription.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.UploadMedia.UseCase;
@@ -100,6 +101,7 @@ public static class DependencyInjection
         services.AddScoped<IGetMediaByIdUseCase, GetMediaByIdUseCase>();
         services.AddScoped<IDeleteMediaUseCase, DeleteMediaUseCase>();
         services.AddScoped<ISetMainMediaPhotoUseCase, SetMainMediaPhotoUseCase>();
+        services.AddScoped<IUpdateMediaDescriptionUseCase, UpdateMediaDescriptionUseCase>();
         services.AddScoped<IApproveMediaModerationUseCase, ApproveMediaModerationUseCase>();
         services.AddScoped<IRejectMediaModerationUseCase, RejectMediaModerationUseCase>();
         
