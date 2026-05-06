@@ -36,12 +36,30 @@ public sealed class GdeOniWebAppFactory : WebApplicationFactory<Program>, IAsync
     static GdeOniWebAppFactory()
     {
         // Env-vars устанавливаются ДО создания WebApplicationBuilder
-        // в Program.cs, поэтому Configuration snapshot в AddCustomRateLimiting
-        // (читается синхронно в момент builder.Services.AddCustomRateLimiting)
+        // в Program.cs, поэтому Configuration snapshot, читаемый
+        // синхронно в builder.Services.AddXxx(builder.Configuration),
         // увидит именно эти значения. AddInMemoryCollection через
-        // ConfigureAppConfiguration работает только для отложенного чтения
-        // через IOptions — для snapshot-pattern нужны env-vars.
-        // Двойное подчёркивание — convention .NET для nested keys.
+        // ConfigureAppConfiguration работает только для отложенного
+        // чтения через IOptions — для snapshot-pattern (используется
+        // в AddSecurity для IssuerSigningKey и в AddCustomRateLimiting
+        // для PermitLimit) нужны env-vars.
+        //
+        // Двойное подчёркивание — convention .NET для nested keys
+        // (Jwt:Issuer → Jwt__Issuer).
+        //
+        // КРИТИЧНО для JWT: AddSecurity фиксирует
+        // TokenValidationParameters.IssuerSigningKey ОДИН РАЗ при
+        // старте через snapshot SecretKey. Если на этот момент
+        // override ещё не применён — JwtBearerHandler валидирует
+        // токены старым ключом, а JwtProvider (через IOptions lazy)
+        // подписывает новым → "signature key was not found".
+        Environment.SetEnvironmentVariable("Jwt__Issuer", "GdeOni.Tests");
+        Environment.SetEnvironmentVariable("Jwt__Audience", "GdeOni.Tests.Client");
+        Environment.SetEnvironmentVariable("Jwt__SecretKey", "test-secret-key-with-at-least-32-bytes!!");
+        Environment.SetEnvironmentVariable("Jwt__AccessTokenLifetimeMinutes", "30");
+        Environment.SetEnvironmentVariable("Jwt__RefreshTokenLifetimeDays", "7");
+        Environment.SetEnvironmentVariable("Jwt__SecurityStampCacheTtlSeconds", "30");
+
         Environment.SetEnvironmentVariable("RateLimiting__Auth__PermitLimit", "100000");
         Environment.SetEnvironmentVariable("RateLimiting__Auth__WindowMinutes", "60");
     }

@@ -36,7 +36,15 @@ public sealed class AuthFlowTests
     public AuthFlowTests(GdeOniWebAppFactory factory)
     {
         _factory = factory;
-        _client = factory.CreateClient();
+        // AllowAutoRedirect = false: иначе UseHttpsRedirection middleware
+        // отдаёт 307 на HTTPS и HttpClient автоматически следует за
+        // редиректом — но на cross-scheme переходе (http → https)
+        // он по дефолту удаляет Authorization header (см. RFC 7235).
+        // В TestServer мы хотим бить именно по http://localhost.
+        _client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
     }
 
     /// <summary>
