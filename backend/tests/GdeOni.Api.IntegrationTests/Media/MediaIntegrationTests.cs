@@ -28,7 +28,7 @@ public sealed class MediaIntegrationTests
     /// metadata в БД, файл в MinIO.
     /// </summary>
     [Fact]
-    public async Task Upload_ValidPhoto_Returns200AndMetadata()
+    public async Task Upload_ValidPhoto_Returns201AndMetadata()
     {
         var user = await _factory.RegisterAndLoginAsync();
         var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
@@ -38,11 +38,11 @@ public sealed class MediaIntegrationTests
             $"/api/deceased-records/{deceasedId}/media",
             content);
 
-        if (response.StatusCode != HttpStatusCode.OK)
+        if (response.StatusCode != HttpStatusCode.Created)
         {
             var errorBody = await response.Content.ReadAsStringAsync();
             throw new Xunit.Sdk.XunitException(
-                $"Expected 200, got {(int)response.StatusCode}. Body: {errorBody}");
+                $"Expected 201, got {(int)response.StatusCode}. Body: {errorBody}");
         }
     }
 

@@ -92,7 +92,7 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
     /// переводит его в Active и обновляет настройки.
     /// </summary>
     [HttpPost("{deceasedId:guid}")]
-    [ProducesResponseType(typeof(ApiResponse<TrackDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<TrackDeceasedResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -110,7 +110,9 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
             request.NotifyOnBirthAnniversary);
 
         var result = await useCase.Execute(command, cancellationToken);
-        return FromResult(result);
+        return FromResult(
+            result,
+            r => r.ToCreatedResponse($"/api/users/me/tracked-deceased/{deceasedId}"));
     }
 
     /// <summary>

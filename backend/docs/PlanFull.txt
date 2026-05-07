@@ -4560,7 +4560,7 @@ D11.2. Коды ошибок: коллизии и нарушение конве�
 D11.3. API-конвенции: коды ответа и mappers (Medium)
 ---------------------------------------------------------------------
 
-[ ] D11.3.1 [Medium] POST на создание возвращают 200 вместо 201:
+[x] D11.3.1 [Medium] POST на создание возвращают 200 вместо 201:
     • DeceasedMediaController.Upload (Upload, controllers/...:38-40);
     • DeceasedMemoriesController.AddMemory (...:24-26);
     • MeTrackedDeceasedController.Track (...:94-99) — идемпотентен,
@@ -4587,7 +4587,7 @@ D11.3. API-конвенции: коды ответа и mappers (Medium)
     [tests] контроллерные тесты не должны сломаться (мапперы — чистая
     рефакторинг-операция).
 
-[ ] D11.3.3 [Medium] DeceasedMetadataController объявлен как
+[x] D11.3.3 [Medium] DeceasedMetadataController объявлен как
     public class (без sealed). Все остальные контроллеры — sealed.
     Файл: API/Controllers/DeceasedMetadataController.cs:17.
 

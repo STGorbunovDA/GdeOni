@@ -1,4 +1,5 @@
-﻿using GdeOni.API.Mappers;
+﻿using GdeOni.API.Extensions;
+using GdeOni.API.Mappers;
 using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.API.Response;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.Model;
@@ -23,7 +24,7 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
     /// </summary>
     [HttpPost("{id:guid}/memories")]
     [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<AddMemoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<AddMemoryResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -36,7 +37,9 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
         var command = request.ToCommand(id);
         var result = await addMemoryUseCase.Execute(command, cancellationToken);
 
-        return FromResult(result);
+        return FromResult(
+            result,
+            r => r.ToCreatedResponse($"/api/deceased-records/{id}/memories/{r.MemoryId}"));
     }
 
     /// <summary>

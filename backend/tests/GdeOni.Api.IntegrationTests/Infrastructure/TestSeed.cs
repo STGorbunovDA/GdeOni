@@ -115,7 +115,8 @@ internal static class TestSeed
             $"/api/deceased-records/{deceasedId}/media",
             multipart);
 
-        if (response.StatusCode != HttpStatusCode.OK)
+        // После D11.3.1 Upload возвращает 201 + Location.
+        if (response.StatusCode != HttpStatusCode.Created)
         {
             var body = await response.Content.ReadAsStringAsync();
             throw new Xunit.Sdk.XunitException(

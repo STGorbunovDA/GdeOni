@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using GdeOni.API.Extensions;
 using GdeOni.API.Mappers;
 using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.API.Response;
@@ -37,7 +38,7 @@ public sealed class DeceasedMediaController : ApiControllerBase
     /// </summary>
     [HttpPost]
     [RequestSizeLimit(50L * 1024 * 1024)]
-    [ProducesResponseType(typeof(ApiResponse<UploadMediaResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<UploadMediaResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
@@ -68,7 +69,9 @@ public sealed class DeceasedMediaController : ApiControllerBase
         };
 
         var result = await useCase.Execute(command, cancellationToken);
-        return FromResult(result);
+        return FromResult(
+            result,
+            r => r.ToCreatedResponse($"/api/deceased-records/{id}/media/{r.MediaId}"));
     }
 
     /// <summary>
