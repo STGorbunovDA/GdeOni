@@ -33,15 +33,16 @@ public sealed class UploadMediaUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        var domainKind = MapKind(command.Kind);
-        var validationResult = FileValidator.ValidateForKind(domainKind, command.ContentType, command.SizeBytes);
+        // После D11.3.4 FileKind удалён — UploadMediaCommand.Kind
+        // напрямую MediaKind, MapKind не нужен.
+        var validationResult = FileValidator.ValidateForKind(command.Kind, command.ContentType, command.SizeBytes);
         if (validationResult.IsFailure)
             return validationResult.Error;
 
         var magicBytesResult = await FileValidator.ValidateMagicBytesAsync(
             command.Content,
             command.ContentType,
-            domainKind,
+            command.Kind,
             cancellationToken);
         if (magicBytesResult.IsFailure)
             return magicBytesResult.Error;
@@ -73,7 +74,7 @@ public sealed class UploadMediaUseCase(
 
         var addResult = deceased.AddMedia(
             currentUserId,
-            domainKind,
+            command.Kind,
             stored.OriginalFileName,
             stored.Bucket,
             stored.ObjectKey,
@@ -145,12 +146,4 @@ public sealed class UploadMediaUseCase(
         }
     }
 
-    private static MediaKind MapKind(FileKind kind) => kind switch
-    {
-        FileKind.DeceasedPhoto => MediaKind.DeceasedPhoto,
-        FileKind.GravePhoto => MediaKind.GravePhoto,
-        FileKind.Document => MediaKind.Document,
-        FileKind.Other => MediaKind.Other,
-        _ => MediaKind.Other
-    };
 }

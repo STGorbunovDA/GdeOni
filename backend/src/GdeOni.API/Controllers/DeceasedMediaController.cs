@@ -48,7 +48,7 @@ public sealed class DeceasedMediaController : ApiControllerBase
     public async Task<IActionResult> Upload(
         [FromRoute] Guid id,
         [FromForm] IFormFile file,
-        [FromForm] FileKind kind,
+        [FromForm] MediaKind kind,
         [FromForm] string? description,
         [FromServices] IUploadMediaUseCase useCase,
         CancellationToken cancellationToken)

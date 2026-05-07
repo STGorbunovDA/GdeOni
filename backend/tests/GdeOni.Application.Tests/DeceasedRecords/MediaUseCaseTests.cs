@@ -56,7 +56,7 @@ public sealed class MediaUseCaseTests
         var result = await useCase.Execute(new UploadMediaCommand
         {
             DeceasedId = Guid.NewGuid(),
-            Kind = FileKind.DeceasedPhoto,
+            Kind = MediaKind.DeceasedPhoto,
             OriginalFileName = "file.txt",
             ContentType = "text/plain",
             SizeBytes = 100,
@@ -88,7 +88,7 @@ public sealed class MediaUseCaseTests
         var result = await useCase.Execute(new UploadMediaCommand
         {
             DeceasedId = Guid.NewGuid(),
-            Kind = FileKind.DeceasedPhoto,
+            Kind = MediaKind.DeceasedPhoto,
             OriginalFileName = "big.jpg",
             ContentType = "image/jpeg",
             SizeBytes = FileValidator.MaxPhotoSizeBytes + 1,
@@ -124,7 +124,7 @@ public sealed class MediaUseCaseTests
         var result = await useCase.Execute(new UploadMediaCommand
         {
             DeceasedId = Guid.NewGuid(),
-            Kind = FileKind.DeceasedPhoto,
+            Kind = MediaKind.DeceasedPhoto,
             OriginalFileName = "fake.jpg",
             ContentType = "image/jpeg",
             SizeBytes = content.Length,
@@ -166,7 +166,7 @@ public sealed class MediaUseCaseTests
         var act = () => useCase.Execute(new UploadMediaCommand
         {
             DeceasedId = deceased.Id,
-            Kind = FileKind.DeceasedPhoto,
+            Kind = MediaKind.DeceasedPhoto,
             OriginalFileName = "photo.jpg",
             ContentType = "image/jpeg",
             SizeBytes = 16,

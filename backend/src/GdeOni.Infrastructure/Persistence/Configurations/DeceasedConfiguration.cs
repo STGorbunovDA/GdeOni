@@ -141,6 +141,11 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
         builder.Navigation(x => x.Name).IsRequired();
         builder.Navigation(x => x.LifePeriod).IsRequired();
         builder.Navigation(x => x.Metadata).IsRequired();
+        // BurialLocation опционален с миграции MakeBurialLocationOptional;
+        // Latitude/Longitude/Accuracy внутри owned-типа .IsRequired(),
+        // явный IsRequired(false) на навигации убирает двусмысленность EF
+        // при чтении строк, где все три колонки NULL (см. D11.5.4).
+        builder.Navigation(x => x.BurialLocation).IsRequired(false);
 
         builder.HasOne<User>()
             .WithMany()

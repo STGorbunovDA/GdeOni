@@ -30,20 +30,26 @@ public static class DependencyInjection
             throw new InvalidOperationException(
                 "Connection string 'DefaultConnection' не найдена.");
 
-        services.AddDbContextPool<AppDbContext>(options =>
-        {
-            options.UseNpgsql(connectionString);
-            options.UseSnakeCaseNamingConvention();
-
-            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+        services.AddDbContextPool<AppDbContext>(
+            optionsAction: options =>
             {
-                options.EnableSensitiveDataLogging();
-                options.LogTo(
-                    Console.WriteLine,
-                    new[] { DbLoggerCategory.Database.Command.Name },
-                    LogLevel.Information);
-            }
-        });
+                options.UseNpgsql(connectionString);
+                options.UseSnakeCaseNamingConvention();
+
+                if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+                {
+                    options.EnableSensitiveDataLogging();
+                    options.LogTo(
+                        Console.WriteLine,
+                        new[] { DbLoggerCategory.Database.Command.Name },
+                        LogLevel.Information);
+                }
+            },
+            // Явный poolSize вместо EF-дефолта 1024 (D11.7.5). 128 хватит
+            // для сценария "один кэш-инстанс на одновременный запрос";
+            // если выше — можно поднять через перегрузку без изменения
+            // кода вызывающих repos.
+            poolSize: 128);
 
         services.AddScoped<IDeceasedRepository, DeceasedRepository>();
         services.AddScoped<IUserRepository, UserRepository>();

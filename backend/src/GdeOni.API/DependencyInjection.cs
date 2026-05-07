@@ -93,6 +93,19 @@ public static class DependencyInjection
             throw new InvalidOperationException(
                 $"JWT secret key слишком короткий: {secretKeyByteCount} байт, требуется минимум 32 (HMAC-SHA256).");
 
+        // Дополнительный entropy-чек (D11.7.3): UTF-8 длина не отражает
+        // реальный объём энтропии — секрет "aaaaaaaaaa...aa" формально
+        // даст 32 байта. Мы требуем минимум 16 уникальных символов,
+        // что грубо отсеивает явный мусор. Полноценную энтропию (Shannon)
+        // на старте мерять — overkill; правильный путь — генерировать
+        // секрет через `openssl rand -base64 32`, и это документируется
+        // в README/deploy.md. Код ниже — последний рубеж.
+        var distinctChars = jwtOptions.SecretKey.Distinct().Count();
+        if (distinctChars < 16)
+            throw new InvalidOperationException(
+                $"JWT secret key выглядит низкоэнтропийным: только {distinctChars} уникальных символов. " +
+                "Сгенерируй ключ через `openssl rand -base64 32` или эквивалент.");
+
         services
             .AddAuthentication(options =>
             {

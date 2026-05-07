@@ -108,7 +108,7 @@ internal static class TestSeed
     public static async Task<Guid> UploadPhotoAsync(
         HttpClient client,
         Guid deceasedId,
-        FileKind kind = FileKind.DeceasedPhoto)
+        MediaKind kind = MediaKind.DeceasedPhoto)
     {
         using var multipart = BuildPhotoUpload(BuildJpegBytes(), "photo.jpg", kind);
         var response = await client.PostAsync(
@@ -131,7 +131,7 @@ internal static class TestSeed
     public static MultipartFormDataContent BuildPhotoUpload(
         byte[] bytes,
         string fileName,
-        FileKind kind = FileKind.DeceasedPhoto)
+        MediaKind kind = MediaKind.DeceasedPhoto)
     {
         var multipart = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(bytes);

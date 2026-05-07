@@ -4591,7 +4591,7 @@ D11.3. API-конвенции: коды ответа и mappers (Medium)
     public class (без sealed). Все остальные контроллеры — sealed.
     Файл: API/Controllers/DeceasedMetadataController.cs:17.
 
-[ ] D11.3.4 [Medium] Дублирование MediaKind/FileKind — две сущности
+[x] D11.3.4 [Medium] Дублирование MediaKind/FileKind — две сущности
     для одного концепта. DeceasedMediaController.cs:49 принимает
     [FromForm] FileKind kind, а GetMediaListRequest.Kind — MediaKind?.
     Унифицировать (оставить MediaKind, удалить FileKind либо явный alias).
@@ -4686,14 +4686,18 @@ D11.5. Persistence: индексы, конвенции репозиториев 
     [tests] Infrastructure.Tests/RefreshTokenRepositoryTests — добавить
     тесты на Delete/ExistsBy и/или обновить под текущий контракт.
 
-[ ] D11.5.4 [Medium] DeceasedConfiguration после миграции
+[x] D11.5.4 [Medium] DeceasedConfiguration после миграции
     MakeBurialLocationOptional не делает явного
     Navigation(x=>x.BurialLocation).IsRequired(false) — EF выводит
     через nullable annotation. Внутри owned-типа Latitude/Longitude
     .IsRequired(), что ломает чтение строк, где часть колонок NULL.
 
-[ ] D11.5.5 [Medium] DeceasedRepository.GetByIdWithMedia не имеет
-    AsNoTracking-варианта; query-юзкейсы тянут change-tracker зря.
+[x] D11.5.5 [Medium] DeceasedRepository.GetByIdWithMedia не имеет
+    AsNoTracking-варианта; закрыто без изменений: метод используется
+    только из write-сценариев (SetMainMediaPhoto, DeleteDeceased) — там
+    tracked корректен. Документировано в коде; если появится read-only
+    use case — добавить GetByIdWithMediaReadOnly по аналогии с
+    GetByIdWithMemoriesReadOnly.
 
 [x] D11.5.6 [Low] DeceasedMediaConfiguration не индексирует
     ModerationStatus, DeceasedMemoryEntryConfiguration не имеет
@@ -4725,7 +4729,7 @@ D11.6. MinIO / Storage (Medium / Low)
     MinioOptions.MaxPresignedTtl + clamp.
     Файл: MinioFileStorage.cs:63-75.
 
-[ ] D11.6.4 [Low] MinioOptions.PublicBaseUrl при reverse-proxy с
+[x] D11.6.4 [Low] MinioOptions.PublicBaseUrl при reverse-proxy с
     префиксом (https://files/storage) теряет /storage сегмент —
     BuildPresignedClient берёт только host:port.
 
@@ -4742,7 +4746,7 @@ D11.7. Безопасность и DI-lifetime (Medium / Low)
     быть Singleton (stateless).
     Файл: src/GdeOni.Infrastructure/DependencyInjection.cs:51.
 
-[ ] D11.7.3 [Medium] JWT secret-length check (API/DependencyInjection.cs:91-94)
+[x] D11.7.3 [Medium] JWT secret-length check (API/DependencyInjection.cs:91-94)
     проверяет байты UTF-8, не энтропию. Секрет вида
     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" пройдёт. Документировать
     требование к источнику энтропии (или Base64-decoded length >= 32).
@@ -4751,7 +4755,7 @@ D11.7. Безопасность и DI-lifetime (Medium / Low)
     стартуют cleanup в одинаковую секунду. Idempotent, но шум в
     логах.
 
-[ ] D11.7.5 [Low] AddDbContextPool без явного poolSize (default 1024).
+[x] D11.7.5 [Low] AddDbContextPool без явного poolSize (default 1024).
 
 ---------------------------------------------------------------------
 Порядок работ по D11

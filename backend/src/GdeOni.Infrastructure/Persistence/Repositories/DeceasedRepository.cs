@@ -73,6 +73,13 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
 
     public async Task<Deceased?> GetByIdWithMedia(Guid id, CancellationToken cancellationToken)
     {
+        // Tracked by design (D11.5.5): метод используется только из
+        // мутирующих use case'ов — SetMainMediaPhoto перебирает всю
+        // коллекцию Media и пересбрасывает IsMainPhoto, DeleteDeceased
+        // полагается на загруженную коллекцию для каскадного удаления
+        // вложенных записей. Read-only сценариев на полный набор Media
+        // нет; если появятся — добавь GetByIdWithMediaReadOnly с
+        // AsNoTracking по аналогии с GetByIdWithMemoriesReadOnly.
         return await dbContext.DeceasedRecords
             .Include(x => x.Media)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);

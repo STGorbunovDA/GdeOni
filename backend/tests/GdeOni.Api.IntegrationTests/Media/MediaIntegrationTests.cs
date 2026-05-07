@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using GdeOni.Api.IntegrationTests.Infrastructure;
 using GdeOni.Application.Abstractions.Storage;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.Api.IntegrationTests.Media;
 
@@ -60,7 +61,7 @@ public sealed class MediaIntegrationTests
         var fileContent = new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes("hello"));
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
         multipart.Add(fileContent, "file", "file.txt");
-        multipart.Add(new StringContent(((int)FileKind.DeceasedPhoto).ToString()), "kind");
+        multipart.Add(new StringContent(((int)MediaKind.DeceasedPhoto).ToString()), "kind");
 
         var response = await user.Client.PostAsync(
             $"/api/deceased-records/{deceasedId}/media",
@@ -198,7 +199,7 @@ public sealed class MediaIntegrationTests
         pendingResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
         // GravePhoto kind: главное фото может быть только DeceasedPhoto.
-        var gravePhotoId = await TestSeed.UploadPhotoAsync(user.Client, deceasedId, FileKind.GravePhoto);
+        var gravePhotoId = await TestSeed.UploadPhotoAsync(user.Client, deceasedId, MediaKind.GravePhoto);
         var graveResp = await user.Client.PatchAsync(
             $"/api/deceased-records/{deceasedId}/media/{gravePhotoId}/main-photo",
             content: null);

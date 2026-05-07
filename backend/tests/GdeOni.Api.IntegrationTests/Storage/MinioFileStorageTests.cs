@@ -1,5 +1,6 @@
 using GdeOni.Api.IntegrationTests.Infrastructure;
 using GdeOni.Application.Abstractions.Storage;
+using GdeOni.Domain.Shared;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace GdeOni.Api.IntegrationTests.Storage;
@@ -31,7 +32,7 @@ public sealed class MinioFileStorageTests
         await using var content = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
         var request = new UploadFileRequest
         {
-            Kind = FileKind.DeceasedPhoto,
+            Kind = MediaKind.DeceasedPhoto,
             DeceasedId = Guid.NewGuid(),
             OriginalFileName = "photo.jpg",
             ContentType = "image/jpeg",
