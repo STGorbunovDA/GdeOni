@@ -315,10 +315,7 @@ public sealed class Deceased : Entity<Guid>
             return Errors.DeceasedMedia.NotFound(mediaId);
 
         if (MainMediaId == mediaId)
-        {
-            MainMediaId = null;
-            MainMedia = null;
-        }
+            ClearMainMedia();
 
         _media.Remove(media);
         Touch();
@@ -348,8 +345,7 @@ public sealed class Deceased : Entity<Guid>
         if (markResult.IsFailure)
             return markResult.Error;
 
-        MainMediaId = media.Id;
-        MainMedia = media;
+        SetMainMedia(media);
         Touch();
         return UnitResult.Success<Error>();
     }
@@ -393,13 +389,25 @@ public sealed class Deceased : Entity<Guid>
             return result.Error;
 
         if (MainMediaId == mediaId)
-        {
-            MainMediaId = null;
-            MainMedia = null;
-        }
+            ClearMainMedia();
 
         Touch();
         return UnitResult.Success<Error>();
+    }
+
+    // Единственная точка изменения связки MainMediaId/MainMedia
+    // (D11.4.6): два поля синхронизируются вместе, риск дрейфа исключён
+    // независимо от того, какой use case вызывает мутацию.
+    private void SetMainMedia(DeceasedMedia media)
+    {
+        MainMediaId = media.Id;
+        MainMedia = media;
+    }
+
+    private void ClearMainMedia()
+    {
+        MainMediaId = null;
+        MainMedia = null;
     }
 
     public UnitResult<Error> UpdateMetadata(DeceasedMetadata metadata)

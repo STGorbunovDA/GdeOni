@@ -4664,7 +4664,7 @@ D11.4. Доменные мутации и инварианты (Medium)
     Не критично, но единообразно с уже добавленным
     BurialLocationAlreadyNull.
 
-[ ] D11.4.6 [Medium] Deceased.MainMediaId / MainMedia ведутся
+[x] D11.4.6 [Medium] Deceased.MainMediaId / MainMedia ведутся
     вручную в SetMainPhoto, RemoveMedia, RejectMedia — риск дрейфа.
     Сделать MainMedia computed (поиск по _media.IsMainPhoto), либо
     вынести в одну приватную SetMainBy(id?).
