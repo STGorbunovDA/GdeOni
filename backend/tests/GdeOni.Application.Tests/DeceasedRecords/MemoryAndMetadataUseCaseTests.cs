@@ -85,7 +85,7 @@ public sealed class MemoryAndMetadataUseCaseTests
             CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be("deceased_memory.author.forbidden");
+        result.Error.Code.Should().Be("deceased_memory.update.forbidden");
         deceasedRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -109,7 +109,7 @@ public sealed class MemoryAndMetadataUseCaseTests
             CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be("deceased_memory_reject.verify.forbidden");
+        result.Error.Code.Should().Be("deceased_memory.reject.forbidden");
     }
 
     /// <summary>
@@ -250,7 +250,7 @@ public sealed class MemoryAndMetadataUseCaseTests
             CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be("deceased_metadata.author.forbidden");
+        result.Error.Code.Should().Be("deceased_metadata.delete.forbidden");
     }
 
     private static Deceased MakeDeceased() =>

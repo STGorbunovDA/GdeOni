@@ -50,7 +50,8 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
             .IsUnique()
             .HasDatabaseName(DbConstraints.UxRefreshTokensTokenHash);
 
-        builder.HasIndex(x => x.UserId);
+        builder.HasIndex(x => x.UserId)
+            .HasDatabaseName("ix_refresh_tokens_user_id");
 
         builder.HasOne<User>()
             .WithMany()

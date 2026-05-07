@@ -43,7 +43,7 @@ public sealed class ApproveMemoryUseCaseTests
             CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be("deceased_memory_approve.verify.forbidden");
+        result.Error.Code.Should().Be("deceased_memory.approve.forbidden");
         deceasedRepo.Verify(
             x => x.GetByIdWithMemoryById(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never);

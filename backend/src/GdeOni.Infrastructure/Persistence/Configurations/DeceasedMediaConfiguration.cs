@@ -88,6 +88,11 @@ public sealed class DeceasedMediaConfiguration : IEntityTypeConfiguration<Deceas
             .IsUnique()
             .HasDatabaseName(DbConstraints.UxDeceasedMediaStorageKey);
 
+        // Админ-выборка Pending по всему сайту фильтрует только по
+        // ModerationStatus — без индекса sequential scan (см. D11.5.6).
+        builder.HasIndex(x => x.ModerationStatus)
+            .HasDatabaseName("ix_deceased_media_moderation_status");
+
         builder.HasOne<User>()
             .WithMany()
             .HasForeignKey(x => x.UploadedByUserId)

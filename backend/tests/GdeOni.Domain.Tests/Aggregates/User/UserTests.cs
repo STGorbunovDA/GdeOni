@@ -161,20 +161,20 @@ public sealed class UserTests
     }
 
     /// <summary>
-    /// UpdateProfile НЕ обязан ротировать SecurityStamp — UserName
-    /// и FullName не критичны для security. Проверяем явно, чтобы
-    /// случайный рефакторинг не добавил ротацию (это привело бы
-    /// к лишним переавторизациям при банальном rename).
+    /// UpdateProfile меняет UserName, который попадает в JWT-claim
+    /// ClaimTypes.Name (см. JwtProvider). После rename ранее выпущенные
+    /// access-токены содержат старое имя; чтобы клиент перепросил токен
+    /// и получил актуальный, ротируем SecurityStamp (D11.4.2).
     /// </summary>
     [Fact]
-    public void UpdateProfile_NewName_DoesNotRotateSecurityStamp()
+    public void UpdateProfile_NewName_RotatesSecurityStamp()
     {
         var user = CreateSampleUser();
         var initialStamp = user.SecurityStamp;
 
         user.UpdateProfile(userName: "new-name", fullName: "Иван Иванов");
 
-        user.SecurityStamp.Should().Be(initialStamp);
+        user.SecurityStamp.Should().NotBe(initialStamp);
     }
 
     /// <summary>

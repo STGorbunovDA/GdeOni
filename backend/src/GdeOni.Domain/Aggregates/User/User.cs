@@ -152,6 +152,11 @@ public sealed class User : Entity<Guid>
         UserName = userNameResult.Value.Display;
         UserNameNormalized = userNameResult.Value.Normalized;
         FullName = fullNameResult.Value;
+        // UserName уходит в JWT-claim ClaimTypes.Name (см. JwtProvider:27),
+        // поэтому смена имени должна инвалидировать ранее выпущенные
+        // access-токены — ротируем SecurityStamp как при ChangeEmail.
+        // (D11.4.2)
+        SecurityStamp = Guid.NewGuid();
         Touch();
 
         return UnitResult.Success<Error>();
@@ -227,6 +232,7 @@ public sealed class User : Entity<Guid>
             if (reactivateResult.IsFailure)
                 return reactivateResult.Error;
 
+            Touch();
             return Result.Success<TrackedDeceased, Error>(existingTracking);
         }
 
@@ -241,6 +247,7 @@ public sealed class User : Entity<Guid>
             return trackedResult.Error;
 
         _trackedDeceasedItems.Add(trackedResult.Value);
+        Touch();
         return Result.Success<TrackedDeceased, Error>(trackedResult.Value);
     }
 
@@ -258,13 +265,18 @@ public sealed class User : Entity<Guid>
 
     public UnitResult<Error> ChangeTrackingStatus(Guid deceasedId, TrackStatus status)
     {
-        return status switch
+        var result = status switch
         {
             TrackStatus.Active => ActivateTracking(deceasedId),
             TrackStatus.Muted => MuteTracking(deceasedId),
             TrackStatus.Archived => StopTracking(deceasedId),
             _ => Errors.Tracking.TrackStatusTypeInvalid()
         };
+
+        if (result.IsSuccess)
+            Touch();
+
+        return result;
     }
 
     public UnitResult<Error> UpdateTracking(
@@ -282,9 +294,15 @@ public sealed class User : Entity<Guid>
         if (relationResult.IsFailure)
             return relationResult.Error;
 
-        return tracked.ChangeNotifications(
+        var notificationsResult = tracked.ChangeNotifications(
             notifyOnDeathAnniversary,
             notifyOnBirthAnniversary);
+
+        if (notificationsResult.IsFailure)
+            return notificationsResult;
+
+        Touch();
+        return UnitResult.Success<Error>();
     }
 
     public UnitResult<Error> RemoveTracking(Guid deceasedId)
@@ -294,6 +312,7 @@ public sealed class User : Entity<Guid>
             return Errors.Tracking.NotFound(deceasedId);
 
         _trackedDeceasedItems.Remove(tracked);
+        Touch();
         return UnitResult.Success<Error>();
     }
 

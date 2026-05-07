@@ -121,7 +121,14 @@ public sealed class Deceased : Entity<Guid>
         return photo;
     }
 
-    public bool HasMemories() => _memories.Count > 0;
+    /// <summary>
+    /// Видимы ли клиенту воспоминания. Возвращает true, только если есть
+    /// хотя бы одно Approved-воспоминание; Pending и Rejected не считаются
+    /// (см. D11.4.7) — иначе подписчик видел бы "есть воспоминания",
+    /// открывал карточку и обнаруживал пустоту.
+    /// </summary>
+    public bool HasMemories() =>
+        _memories.Any(x => x.ModerationStatus == ModerationStatus.Approved);
 
     public UnitResult<Error> UpdateMainInfo(
         string firstName,
@@ -161,6 +168,12 @@ public sealed class Deceased : Entity<Guid>
 
     public UnitResult<Error> ChangeBurialLocation(BurialLocation? burialLocation)
     {
+        // No-op guard: если новое значение совпадает со старым, не двигаем
+        // UpdatedAtUtc и не пересобираем SearchKey — иначе любая повторная
+        // запись из клиента дёргает БД зря (см. D11.4.5).
+        if (Equals(BurialLocation, burialLocation))
+            return UnitResult.Success<Error>();
+
         BurialLocation = burialLocation;
         Touch();
         RebuildSearchKey();

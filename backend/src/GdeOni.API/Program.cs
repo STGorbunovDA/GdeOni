@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using GdeOni.API;
 using GdeOni.API.Extensions;
 using GdeOni.API.Hosting;
@@ -19,7 +20,16 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddCustomCors(builder.Configuration, builder.Environment);
 builder.Services.AddCustomRateLimiting(builder.Configuration);
 
-builder.Services.AddControllers();
+builder.Services
+    .AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Сериализовать enum'ы строками (RelationshipType, MediaKind,
+        // ModerationStatus, UserRole, TrackStatus, LocationAccuracy,
+        // RoutingMode). До D11.1.1 enum уходили целыми числами,
+        // что заставляло клиентов помнить ordinals.
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddCustomSwagger();
 

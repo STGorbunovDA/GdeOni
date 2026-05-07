@@ -107,7 +107,7 @@ public sealed class MemoryUseCaseTests
             currentUserId: OutsiderId,
             isAdmin: false,
             shouldSucceed: false,
-            expectedErrorCode: "deceased_memory.author.forbidden");
+            expectedErrorCode: "deceased_memory.delete.forbidden");
 
     private static async Task AssertRemoveMemoryScenario(
         Guid currentUserId,

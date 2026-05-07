@@ -259,7 +259,10 @@ public sealed class DeceasedQueriesTests
     public async Task HasMemories_TrueAndFalse()
     {
         var deceased = MakeDeceased();
-        deceased.AddMemory("Текст", CardAuthorId);
+        var memoryResult = deceased.AddMemory("Текст", CardAuthorId);
+        // После D11.4.7 HasMemories считает только Approved — добавление
+        // ещё не делает воспоминание видимым.
+        deceased.ApproveMemory(memoryResult.Value.Id);
 
         var deceasedRepo = new Mock<IDeceasedRepository>();
         deceasedRepo
@@ -284,6 +287,17 @@ public sealed class DeceasedQueriesTests
             new HasMemoriesQuery(empty.Id), CancellationToken.None);
         withoutMemories.IsSuccess.Should().BeTrue();
         withoutMemories.Value.HasMemories.Should().BeFalse();
+
+        // Pending не считается видимым.
+        var pendingOnly = MakeDeceased();
+        pendingOnly.AddMemory("Pending", CardAuthorId);
+        deceasedRepo
+            .Setup(x => x.GetByIdWithMemories(pendingOnly.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pendingOnly);
+        var withPending = await useCase.Execute(
+            new HasMemoriesQuery(pendingOnly.Id), CancellationToken.None);
+        withPending.IsSuccess.Should().BeTrue();
+        withPending.Value.HasMemories.Should().BeFalse();
     }
 
     private static Deceased MakeDeceased() =>

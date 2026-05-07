@@ -76,5 +76,15 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasIndex(x => x.UserNameNormalized)
             .IsUnique()
             .HasDatabaseName(DbConstraints.UxUsersName);
+
+        // GetAllUsersUseCase фильтрует WHERE role = ... и сортирует
+        // ORDER BY registered_at_utc DESC; без индексов sequential scan
+        // на масштабе пользовательской базы (см. D11.5.1).
+        builder.HasIndex(x => x.Role)
+            .HasDatabaseName("ix_users_role");
+
+        builder.HasIndex(x => x.RegisteredAtUtc)
+            .IsDescending()
+            .HasDatabaseName("ix_users_registered_at_utc");
     }
 }

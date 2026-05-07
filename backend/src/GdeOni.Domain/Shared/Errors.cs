@@ -84,7 +84,7 @@ public static class Errors
             Error.Validation("life_period.death_date.in_future", "Death date cannot be in the future");
 
         public static Error BirthDateAfterDeathDate() =>
-            Error.Validation("life_period.birth_date.invalid", "Birth date cannot be later than death date");
+            Error.Validation("life_period.birth_date.after_death_date", "Birth date cannot be later than death date");
     }
 
     public static class BurialLocation
@@ -136,12 +136,12 @@ public static class Errors
 
         public static Error UpdateMemoryForbidden() =>
             Error.Forbidden(
-                "deceased_memory.author.forbidden",
+                "deceased_memory.update.forbidden",
                 "You cannot update a memory on behalf of another user.");
-        
+
         public static Error DeleteMemoryForbidden() =>
             Error.Forbidden(
-                "deceased_memory.author.forbidden",
+                "deceased_memory.delete.forbidden",
                 "You cannot delete a memory on behalf of another user.");
         
         public static Error UpdateForbidden() =>
@@ -182,7 +182,7 @@ public static class Errors
                 $"Biography must be at most {maxLength} characters");
         
         public static Error InsufficientPermissionsToViewAllDeceased() =>
-            Error.Unauthorized("deceased.insufficient_permissions.view_all", 
+            Error.Forbidden("deceased.insufficient_permissions.view_all",
                 "You don't have permission to view all deceased. Admin or SuperAdmin rights are required.");
 
         public static Error EpitaphTooLong(int maxLength) =>
@@ -229,8 +229,8 @@ public static class Errors
         
         public static Error UnverifiedForbidden() =>
             Error.Forbidden(
-                "deceased.unverified.forbidden",
-                "You do not have permission to verify the deceased's account.");
+                "deceased.unverify.forbidden",
+                "You do not have permission to unverify the deceased's account.");
     }
     
     public static class DeceasedMetadata
@@ -242,7 +242,7 @@ public static class Errors
         
         public static Error DeleteDeceasedMetadataForbidden() =>
             Error.Forbidden(
-                "deceased_metadata.author.forbidden",
+                "deceased_metadata.delete.forbidden",
                 "You cannot delete a deceased person's metadata card on behalf of another user.");
     }
 
@@ -253,12 +253,12 @@ public static class Errors
 
         public static Error ApproveMemoryForbidden() =>
             Error.Forbidden(
-                "deceased_memory_approve.verify.forbidden",
+                "deceased_memory.approve.forbidden",
                 "You have no right to verify the authenticity of a deceased person's recording.");
-        
+
         public static Error RejectMemoryForbidden() =>
             Error.Forbidden(
-                "deceased_memory_reject.verify.forbidden",
+                "deceased_memory.reject.forbidden",
                 "You have no right to verify the authenticity of a deceased person's recording.");
 
         public static Error NotFound(Guid? id = null) =>
@@ -370,7 +370,7 @@ public static class Errors
             Error.Validation("user.last_login_at_utc.in_future", "LastLoginAtUtc cannot be in the future");
         
         public static Error InsufficientPermissionsToViewAllUsers() =>
-            Error.Unauthorized("user.insufficient_permissions.view_all", 
+            Error.Forbidden("user.insufficient_permissions.view_all",
                 "You don't have permission to view all users. Admin or SuperAdmin rights are required.");
     }
 
@@ -406,7 +406,7 @@ public static class Errors
             Error.Conflict("tracking.already.active", "Tracking is already active");
 
         public static Error NotTracked() =>
-            Error.Forbidden(
+            Error.NotFound(
                 "tracking.not_tracked",
                 "Current user does not track this deceased.");
     }
@@ -435,6 +435,7 @@ public static class Errors
                 DbConstraints.UxUsersName => User.UserNameAlreadyExists(),
                 DbConstraints.DeceasedSearchKey => Deceased.AlreadyExists(),
                 DbConstraints.UxDeceasedMediaStorageKey => DeceasedMedia.DuplicateStorageKey(),
+                DbConstraints.UxRefreshTokensTokenHash => RefreshToken.TokenHashAlreadyExists(),
                 _ => Error.Conflict(
                     "conflict.unique_constraint",
                     "A unique constraint was violated.")
@@ -597,5 +598,10 @@ public static class Errors
             Error.Unauthorized(
                 "refresh_token.replay_detected",
                 "Refresh token replay detected. All active sessions have been revoked.");
+
+        public static Error TokenHashAlreadyExists() =>
+            Error.Conflict(
+                "refresh_token.token_hash.duplicate",
+                "Refresh token hash collision detected.");
     }
 }

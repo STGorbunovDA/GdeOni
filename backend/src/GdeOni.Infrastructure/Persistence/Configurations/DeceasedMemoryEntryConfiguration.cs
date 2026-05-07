@@ -51,5 +51,11 @@ public sealed class DeceasedMemoryEntryConfiguration : IEntityTypeConfiguration<
 
         builder.HasIndex(x => x.AuthorUserId)
             .HasDatabaseName("ix_memory_entries_author_user_id");
+
+        // Композитный индекс под HasMemories (где filter ModerationStatus
+        // = Approved) и админ-выборку Pending по конкретной карточке
+        // (см. D11.5.6). Первое имя — shadow-FK, второе — CLR-property.
+        builder.HasIndex("deceased_id", nameof(DeceasedMemoryEntry.ModerationStatus))
+            .HasDatabaseName("ix_memory_entries_deceased_id_moderation_status");
     }
 }

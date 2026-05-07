@@ -32,7 +32,7 @@ public sealed class LifePeriodTests
     /// <summary>
     /// BirthDate позже DeathDate — нарушение хронологии: человек
     /// не мог родиться после собственной смерти. Domain отвергает
-    /// с конкретным `life_period.birth_date.invalid`.
+    /// с конкретным `life_period.birth_date.after_death_date`.
     /// </summary>
     [Fact]
     public void Create_BirthDateAfterDeathDate_ReturnsBirthDateAfterDeathDate()
@@ -46,7 +46,7 @@ public sealed class LifePeriodTests
 
         // Assert
         result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be("life_period.birth_date.invalid");
+        result.Error.Code.Should().Be("life_period.birth_date.after_death_date");
     }
 
     /// <summary>

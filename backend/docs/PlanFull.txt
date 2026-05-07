@@ -486,10 +486,11 @@ D7. Media API.
 D8. Route API.
 D9. Tests.
 D10. Backend E2E check.
+D11. Backend audit follow-ups (контрактные правки + правка тестов).
 
 Правило:
 
-Не переходить к frontend, пока D1-D10 не завершены.
+Не переходить к frontend, пока D1-D11 не завершены.
 
 =====================================================================
 D1. ФУНДАМЕНТ API
@@ -4440,10 +4441,347 @@ E2E прогон выполнен вручную через curl + PowerShell п
 dotnet test backend.sln зелёный: 113 + 115 + 31 + 64 = 323 теста, 0 failed.
 
 =====================================================================
+D11. BACKEND AUDIT FOLLOW-UPS
+=====================================================================
+
+Цель:
+
+Закрыть неточности и контрактные расхождения, найденные при сквозном
+аудите 2026-05-06 (3 параллельных subagent: API+Application, Domain,
+Infrastructure). Каждый пункт помечен:
+  • Severity: Blocker / High / Medium / Low.
+  • [tests] — какие существующие тесты придётся переписать (большинство
+    тестов сейчас зафиксировали БАГ, а не ожидаемое поведение, поэтому
+    ломаются вместе с фиксом).
+
+---------------------------------------------------------------------
+D11.1. Контрактные баги, ломающие клиента (Blocker / High)
+---------------------------------------------------------------------
+
+[x] D11.1.1 [Blocker] Зарегистрировать JsonStringEnumConverter глобально.
+    Файл: backend/src/GdeOni.API/Program.cs (вокруг AddControllers()).
+    Сейчас все enum'ы (RelationshipType, MediaKind, ModerationStatus,
+    UserRole, TrackStatus, LocationAccuracy, RoutingMode) сериализуются
+    и парсятся как int. E2E подтвердил: relationshipType:"Sibling" → 400,
+    нужен relationshipType:5. Frontend будет ожидать строки.
+    Действие: AddControllers().AddJsonOptions(o =>
+      o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+    Учесть: RouteResponse.Mode уже отдаётся строкой (RoutingResponseMapping.cs:28)
+    — после фикса консистентность восстановится.
+    [tests] Все тесты, сериализующие enum'ы как int в payload (при
+    создании deceased через at-grave, Tracking, Media-upload form),
+    должны переехать на строковые значения. Затронуты:
+      • tests/GdeOni.Api.IntegrationTests/Auth/AuthExtendedTests.cs
+      • tests/GdeOni.Api.IntegrationTests/Admin/AdminIntegrationTests.cs
+      • tests/GdeOni.Api.IntegrationTests/Media/MediaIntegrationTests.cs
+      • tests/GdeOni.Api.IntegrationTests/TrackedDeceased/TrackedDeceasedIntegrationTests.cs
+      • tests/GdeOni.Api.IntegrationTests/BurialLocation/BurialLocationAndMetadataTests.cs
+      • tests/GdeOni.Api.IntegrationTests/Infrastructure/TestSeed.cs (helpers).
+    Form-binding (multipart kind) останется int — задокументировать.
+
+[x] D11.1.2 [High] Errors.User.InsufficientPermissionsToViewAllUsers и
+    Errors.Deceased.InsufficientPermissionsToViewAllDeceased сейчас
+    Error.Unauthorized → HTTP 401. Семантически это Forbidden (403).
+    Файл: backend/src/GdeOni.Domain/Shared/Errors.cs:184-186 и :372-374.
+    Аналогичный баг, как уже исправленный UserForbidden.
+    Замечание: контроллеры закрыты [Authorize(Roles="SuperAdmin,Admin")]
+    — фреймворк сам отдаст 403, поэтому ветка может быть мёртвой;
+    проверить, есть ли путь, где она ещё достижима, иначе удалить.
+    [tests] Если есть тесты, ассертящие 401 здесь — переключить на 403
+    (по факту таких пока нет, тесты используют только framework-403).
+
+[x] D11.1.3 [High] Errors.Tracking.NotTracked() сейчас Error.Forbidden
+    (HTTP 403), но семантически это NotFound (404) или Conflict (409):
+    у пользователя нет такой подписки.
+    Файл: backend/src/GdeOni.Domain/Shared/Errors.cs:408-411.
+    [tests] Application.Tests/Users/TrackingUseCaseTests.cs — ассерты
+    Error.Type сменятся (Forbidden → NotFound|Conflict).
+
+[x] D11.1.4 [High] UserRole.SuperAdmin = 0 — это default value
+    неинициализированного enum. JSON-десериализация без поля role или
+    повреждённый JWT-claim даёт SuperAdmin.
+    Файл: backend/src/GdeOni.Domain/Shared/UserRole.cs.
+    Действие: ввести Unknown = 0 как явный sentinel, сдвинуть остальные
+    значения, либо оставить нумерацию и явно валидировать в
+    CurrentUserService и User.Register.
+    [tests] EF-миграция (значения хранятся строкой через
+    HasConversion<string>() — проверить!). Если хранится int — нужна
+    миграция данных. Domain-тесты ChangeRole/Register придётся
+    обновить под новый sentinel.
+
+---------------------------------------------------------------------
+D11.2. Коды ошибок: коллизии и нарушение конвенции (High / Medium)
+---------------------------------------------------------------------
+
+[x] D11.2.1 [High] UpdateMemoryForbidden() и DeleteMemoryForbidden()
+    возвращают один и тот же код "deceased_memory.author.forbidden".
+    Файл: Errors.cs:139, :144.
+    Действие: deceased_memory.update.forbidden и
+    deceased_memory.delete.forbidden.
+    [tests] Application.Tests/DeceasedRecords/MemoryAndMetadataUseCaseTests.cs
+    — обновить ассерты Error.Code.
+
+[x] D11.2.2 [High] ApproveMemoryForbidden / RejectMemoryForbidden
+    используют '_' внутри сегмента entity:
+    "deceased_memory_approve.verify.forbidden",
+    "deceased_memory_reject.verify.forbidden".
+    Файл: Errors.cs:255-262. Должно быть:
+    deceased_memory.approve.forbidden / deceased_memory.reject.forbidden.
+    [tests] MemoryAndMetadataUseCaseTests.cs — обновить ассерты.
+
+[x] D11.2.3 [High] DeleteDeceasedMetadataForbidden() =
+    "deceased_metadata.author.forbidden" — должно быть
+    deceased_metadata.delete.forbidden.
+    Файл: Errors.cs:243.
+    [tests] MemoryAndMetadataUseCaseTests.cs — ассерт Error.Code.
+
+[x] D11.2.4 [Medium] UnverifiedForbidden() сообщение дублирует
+    VerifyForbidden ("verify the deceased's account"); код
+    deceased.unverified.forbidden — лучше deceased.unverify.forbidden.
+    Файл: Errors.cs:230-233.
+
+[x] D11.2.5 [Medium] BirthDateAfterDeathDate использует код
+    life_period.birth_date.invalid, тогда как соседи
+    life_period.birth_date.required / .in_future. Согласовать:
+    life_period.birth_date.after_death_date.
+    Файл: Errors.cs:88.
+
+[x] D11.2.6 [Medium] Errors.UniqueConstraint.FromName switch не имеет
+    ветки для DbConstraints.UxRefreshTokensTokenHash — коллизия хэша
+    refresh-токена сваливается в общий conflict.unique_constraint.
+    Файл: Errors.cs (район :408-441).
+
+[x] D11.2.7 [Low] RoleUnknownNotAllowed() и RoleSuperAdminNotAllowed()
+    помечены аудитом как мёртвые, но фактически используются в
+    ChangeRoleCommandValidator (строки 19-22) — после проверки
+    кейс закрыт без правок (false positive аудита).
+
+---------------------------------------------------------------------
+D11.3. API-конвенции: коды ответа и mappers (Medium)
+---------------------------------------------------------------------
+
+[ ] D11.3.1 [Medium] POST на создание возвращают 200 вместо 201:
+    • DeceasedMediaController.Upload (Upload, controllers/...:38-40);
+    • DeceasedMemoriesController.AddMemory (...:24-26);
+    • MeTrackedDeceasedController.Track (...:94-99) — идемпотентен,
+      но при первом создании должен быть 201.
+    Должно быть FromResult(result, ToCreatedResponse).
+    [tests] Api.IntegrationTests/Media + .../TrackedDeceased +
+    DeceasedMemoriesController — все ассерты StatusCode == 200 на
+    создание заменить на 201 + проверка Location-заголовка.
+
+[ ] D11.3.2 [Medium] Конструирование Command/Query в контроллерах
+    в обход API/Mappers/. CLAUDE.md требует extension-методы.
+    Затронуто в нарушение конвенции:
+      • AuthController.cs (Login/Refresh/Logout — все три);
+      • UsersController.cs (8 экшенов);
+      • MeTrackedDeceasedController.cs (7 экшенов);
+      • DeceasedRecordsController.cs (Update/Delete/ClearBurialLocation);
+      • DeceasedMediaController.cs (Upload/GetMediaList/GetMediaById/
+        DeleteMedia/SetMainMediaPhoto);
+      • DeceasedMetadataController.cs (ClearMetadata);
+      • DeceasedRecordsAdminController.cs (Verify/Unverified);
+      • DeceasedMemoriesController.cs (RemoveMemory);
+      • DeceasedRecordsSupportiveController.cs (3 экшена).
+    Действие: создать недостающие *Mapping.cs в API/Mappers/.
+    [tests] контроллерные тесты не должны сломаться (мапперы — чистая
+    рефакторинг-операция).
+
+[ ] D11.3.3 [Medium] DeceasedMetadataController объявлен как
+    public class (без sealed). Все остальные контроллеры — sealed.
+    Файл: API/Controllers/DeceasedMetadataController.cs:17.
+
+[ ] D11.3.4 [Medium] Дублирование MediaKind/FileKind — две сущности
+    для одного концепта. DeceasedMediaController.cs:49 принимает
+    [FromForm] FileKind kind, а GetMediaListRequest.Kind — MediaKind?.
+    Унифицировать (оставить MediaKind, удалить FileKind либо явный alias).
+
+[ ] D11.3.5 [Medium] Часть PUT-эндпоинтов возвращают response-объект,
+    хотя по семантике уместен 204 NoContent: ChangePassword, ChangeEmail,
+    ChangeRole, UpdateUserProfile, DeleteUser. Сравнить с уже-204'ными
+    ApproveMedia/RejectMedia/SetMainPhoto/DeleteMedia/Logout —
+    выровнять по решению.
+    [tests] Если унификация в сторону 204 — все ассерты
+    StatusCode == 200 + body на этих эндпоинтах перепишутся.
+
+[ ] D11.3.6 [Low] [ProducesResponseType] неполные на ряде экшенов:
+    ClearBurialLocation, RemoveMemory не объявляют 400;
+    AddMemory/UpdateMemory не объявляют 409. Пройтись по всем
+    use-case'ам и сверить актуальный набор Errors.* с атрибутами.
+
+[ ] D11.3.7 [Low] 6 контроллеров делят [Route("api/deceased-records")]
+    — Swagger UI рассыпает их по разным секциям. Добавить общий
+    [Tags("Deceased")] для группировки в Swagger.
+
+---------------------------------------------------------------------
+D11.4. Доменные мутации и инварианты (Medium)
+---------------------------------------------------------------------
+
+[x] D11.4.1 [Medium] LifePeriod.cs:24 берёт DateTime.UtcNow
+    напрямую — VO становится недетерминированной, тесты возле
+    полуночи UTC хрупкие. RefreshToken.Issue уже принимает nowUtc
+    (line 55) — выровнять: LifePeriod.Create(... DateTime nowUtc).
+    [tests] Domain.Tests/LifePeriodTests — все вызовы Create()
+    дополнятся nowUtc-аргументом.
+
+[x] D11.4.2 [Medium] User.UpdateProfile (User.cs:142-158) меняет
+    UserName, но НЕ ротирует SecurityStamp. ChangeEmail / ChangePassword /
+    ChangeRole — ротируют. Решить: считаем UserName частью identity
+    или нет. Если да — добавить RotateSecurityStamp(); если нет —
+    задокументировать в комментарии.
+    [tests] Domain.Tests/UserTests + Application.Tests/Users/
+    UpdateUserProfileUseCaseTests — добавить ассерт по SecurityStamp.
+
+[x] D11.4.3 [Medium] User.MarkLogin (User.cs:198-202) — void, без
+    валидации. Закрыто без правок: оставить void by design — единственный
+    вызывающий (LoginUseCase) использует дефолтный аргумент DateTime.UtcNow,
+    Errors.User.LastLoginAtUtcInFuture не достижимо на практике.
+    Это согласуется с историческим решением (см. PlanFull.txt:2179
+    "Сделать MarkLogin void"). False positive аудита.
+
+[x] D11.4.4 [Medium] User.RemoveTracking и User.TrackDeceased не
+    зовут Touch() на родителе (UpdatedAtUtc не двигается).
+    Прочие мутации все Touch'ат — выровнять.
+    [tests] Domain.Tests/UserTests — добавить ассерт UpdatedAtUtc.
+
+[x] D11.4.5 [Medium] Deceased.ChangeBurialLocation (Deceased.cs:166)
+    вызывает RebuildSearchKey() и Touch() даже если новый
+    BurialLocation структурно равен старому. Добавить guard "is same".
+    Не критично, но единообразно с уже добавленным
+    BurialLocationAlreadyNull.
+
+[ ] D11.4.6 [Medium] Deceased.MainMediaId / MainMedia ведутся
+    вручную в SetMainPhoto, RemoveMedia, RejectMedia — риск дрейфа.
+    Сделать MainMedia computed (поиск по _media.IsMainPhoto), либо
+    вынести в одну приватную SetMainBy(id?).
+
+[x] D11.4.7 [Low] Deceased.HasMemories() считает все memories
+    включая Pending/Rejected. Если контракт — "видимые", фильтровать
+    по ModerationStatus.Approved.
+    [tests] Application.Tests/HasMemoriesUseCaseTests — сверить
+    ожидание с фактом, поправить тест/код.
+
+---------------------------------------------------------------------
+D11.5. Persistence: индексы, конвенции репозиториев (Medium / Low)
+---------------------------------------------------------------------
+
+[x] D11.5.1 [Medium] UserConfiguration не индексирует Role и
+    RegisteredAtUtc, хотя GetPagedUsersUseCase фильтрует по Role и
+    сортирует по registered_at_utc DESC — sequential scan на users.
+    Файл: src/GdeOni.Infrastructure/Persistence/Configurations/
+    UserConfiguration.cs + UserRepository.cs:186-211.
+    Миграция AddIndex_users_role + AddIndex_users_registered_at_utc.
+
+[ ] D11.5.2 [Medium] DeceasedRepository.GetPaged (DeceasedRepository.cs:
+    144-152) использует ILIKE '%search%' по first/last/middle name —
+    full table scan на масштабе. Решение: pg_trgm-extension + GIN-индекс
+    по нормализованному выражению, либо документировать предел.
+
+[ ] D11.5.3 [Medium] RefreshTokenRepository не реализует Delete /
+    ExistsBy* (CLAUDE.md контракт). RevokeAllForUser вызывает
+    ExecuteUpdateAsync напрямую — обходит явную UoW границу через
+    Save(ct). Внутренний комментарий это уже признаёт.
+    Действие: либо привести к контракту, либо явно зафиксировать
+    исключение в CLAUDE.md.
+    [tests] Infrastructure.Tests/RefreshTokenRepositoryTests — добавить
+    тесты на Delete/ExistsBy и/или обновить под текущий контракт.
+
+[ ] D11.5.4 [Medium] DeceasedConfiguration после миграции
+    MakeBurialLocationOptional не делает явного
+    Navigation(x=>x.BurialLocation).IsRequired(false) — EF выводит
+    через nullable annotation. Внутри owned-типа Latitude/Longitude
+    .IsRequired(), что ломает чтение строк, где часть колонок NULL.
+
+[ ] D11.5.5 [Medium] DeceasedRepository.GetByIdWithMedia не имеет
+    AsNoTracking-варианта; query-юзкейсы тянут change-tracker зря.
+
+[x] D11.5.6 [Low] DeceasedMediaConfiguration не индексирует
+    ModerationStatus, DeceasedMemoryEntryConfiguration не имеет
+    композитного (deceased_id, moderation_status). Админ-выборки
+    Pending — sequential scan.
+
+[x] D11.5.7 [Low] RefreshTokenConfiguration: HasIndex(UserId)
+    без явного имени — несогласованно с DbConstraints. Не unique,
+    но конвенция требует именования.
+
+---------------------------------------------------------------------
+D11.6. MinIO / Storage (Medium / Low)
+---------------------------------------------------------------------
+
+[ ] D11.6.1 [Medium] MinioFileStorage.BuildObjectKey не санитизирует
+    OriginalFileName. Path.GetExtension оставляет user-controlled
+    расширение в ключе (например ".jpg%00.exe"). Префикс GUID
+    защищает от коллизий, но расширение надо whitelist'ить.
+    Файл: src/GdeOni.Infrastructure/Storage/MinioFileStorage.cs:86-91.
+
+[ ] D11.6.2 [Medium] MinioBootstrap.EnsureBucketAsync безусловно
+    переустанавливает public-read policy на каждом старте — снесёт
+    кастомные правки админом. Гард if (!exists) или сравнение
+    текущего policy.
+    Файл: MinioBootstrap.cs:51-57.
+
+[ ] D11.6.3 [Medium] Presigned URL TTL не имеет дефолта/cap'а —
+    клиент может попросить 30 дней. Добавить
+    MinioOptions.MaxPresignedTtl + clamp.
+    Файл: MinioFileStorage.cs:63-75.
+
+[ ] D11.6.4 [Low] MinioOptions.PublicBaseUrl при reverse-proxy с
+    префиксом (https://files/storage) теряет /storage сегмент —
+    BuildPresignedClient берёт только host:port.
+
+---------------------------------------------------------------------
+D11.7. Безопасность и DI-lifetime (Medium / Low)
+---------------------------------------------------------------------
+
+[ ] D11.7.1 [Medium] BCrypt work-factor захардкожен в 10 (PasswordHasher.cs:17).
+    Для 2026 рекомендуется 12. Сделать BCryptOptions.WorkFactor через
+    конфиг.
+    [tests] Если регистрационные тесты замеряют время — увеличится.
+
+[ ] D11.7.2 [Medium] PasswordHasher зарегистрирован Scoped — должен
+    быть Singleton (stateless).
+    Файл: src/GdeOni.Infrastructure/DependencyInjection.cs:51.
+
+[ ] D11.7.3 [Medium] JWT secret-length check (API/DependencyInjection.cs:91-94)
+    проверяет байты UTF-8, не энтропию. Секрет вида
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" пройдёт. Документировать
+    требование к источнику энтропии (или Base64-decoded length >= 32).
+
+[ ] D11.7.4 [Low] RefreshTokensCleanupService без джиттера — реплики
+    стартуют cleanup в одинаковую секунду. Idempotent, но шум в
+    логах.
+
+[ ] D11.7.5 [Low] AddDbContextPool без явного poolSize (default 1024).
+
+---------------------------------------------------------------------
+Порядок работ по D11
+---------------------------------------------------------------------
+
+1. D11.1 — Blocker / High в первую очередь (контракт API).
+2. D11.2 — коды ошибок + типы (мини-патч в Errors.cs + ассерты в тестах).
+3. D11.4 — доменные инварианты (LifePeriod nowUtc, MarkLogin Result,
+   Touch'и, Memory-фильтр).
+4. D11.5 — миграции под индексы.
+5. D11.3 — Mappers и status codes (рефакторинг + правки тестов).
+6. D11.6 + D11.7 — security/storage hardening.
+
+После каждого пункта прогон dotnet test backend.sln должен оставаться
+зелёным.
+
+D11 закрыт, когда:
+
+[ ] Каждый подпункт D11.x.y отмечен [x].
+[ ] dotnet test backend.sln зелёный (все тесты переписаны под
+    исправленное поведение).
+[ ] CLAUDE.md обновлён, если фикс затрагивает конвенцию (Mappers,
+    статус-коды, ApiResponse).
+[ ] Свежий E2E прогон (повтор D10) подтверждает изменённые контракты.
+
+=====================================================================
 E. FRONTEND ROADMAP
 =====================================================================
 
-Frontend начинать только после D1-D10.
+Frontend начинать только после D1-D11.
 
 ---------------------------------------------------------------------
 E1. Каркас приложения

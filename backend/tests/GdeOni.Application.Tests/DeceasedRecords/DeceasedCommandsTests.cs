@@ -293,7 +293,7 @@ public sealed class DeceasedCommandsTests
             CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be("deceased.unverified.forbidden");
+        result.Error.Code.Should().Be("deceased.unverify.forbidden");
     }
 
     /// <summary>
