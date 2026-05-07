@@ -16,8 +16,16 @@ using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMediaDescription.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.Model;
+using GdeOni.Application.DeceasedRecords.Commands.DeleteMedia.Model;
+using GdeOni.Application.DeceasedRecords.Commands.SetMainMediaPhoto.Model;
+using GdeOni.Application.DeceasedRecords.Commands.UploadMedia.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Verify.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetAgeAtDeath.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetById.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetDistance.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.Model;
+using GdeOni.Application.DeceasedRecords.Queries.HasMemories.Model;
 
 namespace GdeOni.API.Mappers;
 
@@ -254,5 +262,34 @@ public static class DeceasedRecordsMapping
         => new(deceasedId);
 
     public static UnverifiedDeceasedCommand ToUnverifiedCommand(Guid deceasedId)
+        => new(deceasedId);
+
+    public static GetMediaListQuery ToQuery(this GetMediaListRequest request, Guid deceasedId)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return new GetMediaListQuery(
+            deceasedId,
+            request.Kind,
+            request.ModerationStatus,
+            request.Page,
+            request.PageSize);
+    }
+
+    public static GetMediaByIdQuery ToGetMediaByIdQuery(Guid deceasedId, Guid mediaId)
+        => new(deceasedId, mediaId);
+
+    public static DeleteMediaCommand ToDeleteMediaCommand(Guid deceasedId, Guid mediaId)
+        => new(deceasedId, mediaId);
+
+    public static SetMainMediaPhotoCommand ToSetMainMediaPhotoCommand(Guid deceasedId, Guid mediaId)
+        => new(deceasedId, mediaId);
+
+    public static GetDistanceQuery ToDistanceQuery(Guid deceasedId, double latitude, double longitude)
+        => new(deceasedId, latitude, longitude);
+
+    public static GetAgeAtDeathQuery ToAgeAtDeathQuery(Guid deceasedId)
+        => new(deceasedId);
+
+    public static HasMemoriesQuery ToHasMemoriesQuery(Guid deceasedId)
         => new(deceasedId);
 }

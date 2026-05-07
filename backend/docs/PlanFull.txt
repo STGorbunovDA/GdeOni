@@ -4570,7 +4570,7 @@ D11.3. API-конвенции: коды ответа и mappers (Medium)
     DeceasedMemoriesController — все ассерты StatusCode == 200 на
     создание заменить на 201 + проверка Location-заголовка.
 
-[~] D11.3.2 [Medium] Конструирование Command/Query в контроллерах
+[x] D11.3.2 [Medium] Конструирование Command/Query в контроллерах
     в обход API/Mappers/. CLAUDE.md требует extension-методы.
     Затронуто в нарушение конвенции:
       • AuthController.cs (Login/Refresh/Logout — все три);
@@ -4586,14 +4586,15 @@ D11.3. API-конвенции: коды ответа и mappers (Medium)
     Действие: создать недостающие *Mapping.cs в API/Mappers/.
     [tests] контроллерные тесты не должны сломаться (мапперы — чистая
     рефакторинг-операция).
-    [partial] AuthController, DeceasedRecordsController.GetById/Delete/
-    ClearBurialLocation, DeceasedMetadataController.ClearMetadata,
-    DeceasedMemoriesController.RemoveMemory, DeceasedRecordsAdminController.
-    Verify/Unverified переведены на mappers.
-    [open] UsersController (8 экшенов), MeTrackedDeceasedController
-    (7 экшенов), DeceasedMediaController (5), DeceasedRecordsSupportiveController
-    (3) — оставлены inline; рефакторинг по тому же шаблону, не меняет
-    тесты. Технический долг.
+    Закрыто полностью: AuthMapping (Login/Refresh/Logout), UsersMapping
+    (Register/GetAll/GetById/UpdateProfile/ChangePassword/ChangeEmail/
+    ChangeRole/Delete), TrackedDeceasedMapping (GetList/GetDetails/
+    Exists/Track/Update/Untrack/GetRoute), DeceasedRecordsMapping
+    дополнен (GetById/Delete/ClearBurialLocation/Verify/Unverified/
+    GetMediaList/GetMediaById/DeleteMedia/SetMainMediaPhoto/GetDistance/
+    GetAgeAtDeath/HasMemories), плюс ClearMetadata/RemoveMemory.
+    Все 30 экшенов в 8 контроллерах больше не конструируют Command/Query
+    inline.
 
 [x] D11.3.3 [Medium] DeceasedMetadataController объявлен как
     public class (без sealed). Все остальные контроллеры — sealed.

@@ -43,8 +43,7 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
         [FromServices] IGetMyTrackedDeceasedListUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetMyTrackedDeceasedListQuery(request.Page, request.PageSize);
-        var result = await useCase.Execute(query, cancellationToken);
+        var result = await useCase.Execute(request.ToQuery(), cancellationToken);
         return FromResult(result);
     }
 
@@ -63,8 +62,10 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
         [FromServices] IGetMyTrackedDeceasedDetailsUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetMyTrackedDeceasedDetailsQuery(deceasedId);
-        var result = await useCase.Execute(query, cancellationToken);
+        var result = await useCase.Execute(
+            TrackedDeceasedMapping.ToDetailsQuery(deceasedId),
+            cancellationToken);
+
         return FromResult(result, r => r.ToDetailsResponse().ToOkResponse());
     }
 
@@ -81,8 +82,10 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
         [FromServices] IIsTrackedByMeUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var query = new IsTrackedByMeQuery(deceasedId);
-        var result = await useCase.Execute(query, cancellationToken);
+        var result = await useCase.Execute(
+            TrackedDeceasedMapping.ToIsTrackedByMeQuery(deceasedId),
+            cancellationToken);
+
         return FromResult(result);
     }
 
@@ -102,14 +105,7 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
         [FromServices] ITrackDeceasedUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var command = new TrackDeceasedCommand(
-            deceasedId,
-            request.RelationshipType,
-            request.PersonalNotes,
-            request.NotifyOnDeathAnniversary,
-            request.NotifyOnBirthAnniversary);
-
-        var result = await useCase.Execute(command, cancellationToken);
+        var result = await useCase.Execute(request.ToCommand(deceasedId), cancellationToken);
         return FromResult(
             result,
             r => r.ToCreatedResponse($"/api/users/me/tracked-deceased/{deceasedId}"));
@@ -129,15 +125,7 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
         [FromServices] IUpdateTrackingUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var command = new UpdateTrackingCommand(
-            deceasedId,
-            request.RelationshipType,
-            request.PersonalNotes,
-            request.NotifyOnDeathAnniversary,
-            request.NotifyOnBirthAnniversary,
-            request.TrackStatus);
-
-        var result = await useCase.Execute(command, cancellationToken);
+        var result = await useCase.Execute(request.ToCommand(deceasedId), cancellationToken);
         return FromResult(result);
     }
 
@@ -154,8 +142,10 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
         [FromServices] IRemoveTrackingUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var command = new RemoveTrackingCommand(deceasedId);
-        var result = await useCase.Execute(command, cancellationToken);
+        var result = await useCase.Execute(
+            TrackedDeceasedMapping.ToRemoveCommand(deceasedId),
+            cancellationToken);
+
         return FromResult(result);
     }
 
@@ -180,8 +170,10 @@ public sealed class MeTrackedDeceasedController : ApiControllerBase
         [FromServices] IGetRouteToGraveUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetRouteToGraveQuery(deceasedId, fromLat, fromLon, mode);
-        var result = await useCase.Execute(query, cancellationToken);
+        var result = await useCase.Execute(
+            TrackedDeceasedMapping.ToRouteQuery(deceasedId, fromLat, fromLon, mode),
+            cancellationToken);
+
         return FromResult(result, r => r.ToRouteResponse().ToOkResponse());
     }
 }

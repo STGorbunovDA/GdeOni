@@ -1,4 +1,5 @@
-﻿using GdeOni.API.Extensions;
+using GdeOni.API.Extensions;
+using GdeOni.API.Mappers;
 using GdeOni.API.Models.Users;
 using GdeOni.API.RateLimiting;
 using GdeOni.API.Response;
@@ -47,13 +48,7 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IRegisterUserUseCase registerUserUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new RegisterUserCommand(
-            request.Email,
-            request.UserName,
-            request.FullName,
-            request.Password);
-
-        var result = await registerUserUseCase.Execute(command, cancellationToken);
+        var result = await registerUserUseCase.Execute(request.ToCommand(), cancellationToken);
 
         return FromResult(
             result,
@@ -92,15 +87,7 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IGetAllUsersUseCase getAllUsersUseCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetAllUsersQuery(
-            request.Search,
-            request.Role,
-            request.RegisteredAtUtc,
-            request.LastLoginAtUtc,
-            request.Page,
-            request.PageSize);
-
-        var result = await getAllUsersUseCase.Execute(query, cancellationToken);
+        var result = await getAllUsersUseCase.Execute(request.ToQuery(), cancellationToken);
         return FromResult(result);
     }
 
@@ -119,8 +106,9 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IGetUserByIdUseCase getUserByIdUseCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetUserByIdQuery(id);
-        var result = await getUserByIdUseCase.Execute(query, cancellationToken);
+        var result = await getUserByIdUseCase.Execute(
+            UsersMapping.ToGetByIdQuery(id),
+            cancellationToken);
 
         return FromResult(result);
     }
@@ -143,9 +131,7 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IUpdateUserProfileUseCase updateUserProfileUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new UpdateUserProfileCommand(id, request.UserName, request.FullName);
-        var result = await updateUserProfileUseCase.Execute(command, cancellationToken);
-
+        var result = await updateUserProfileUseCase.Execute(request.ToCommand(id), cancellationToken);
         return FromResult(result);
     }
 
@@ -168,9 +154,7 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IChangePasswordUseCase changePasswordUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new ChangePasswordCommand(id, request.CurrentPassword, request.NewPassword);
-        var result = await changePasswordUseCase.Execute(command, cancellationToken);
-
+        var result = await changePasswordUseCase.Execute(request.ToCommand(id), cancellationToken);
         return FromResult(result);
     }
 
@@ -194,9 +178,7 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IChangeEmailUseCase changeEmailUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new ChangeEmailCommand(id, request.Email);
-        var result = await changeEmailUseCase.Execute(command, cancellationToken);
-
+        var result = await changeEmailUseCase.Execute(request.ToCommand(id), cancellationToken);
         return FromResult(result);
     }
 
@@ -217,9 +199,7 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IChangeRoleUseCase changeRoleUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new ChangeRoleCommand(id, request.UserRole);
-        var result = await changeRoleUseCase.Execute(command, cancellationToken);
-
+        var result = await changeRoleUseCase.Execute(request.ToCommand(id), cancellationToken);
         return FromResult(result);
     }
 
@@ -239,8 +219,9 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IDeleteUserUseCase deleteUserUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new DeleteUserCommand(id);
-        var result = await deleteUserUseCase.Execute(command, cancellationToken);
+        var result = await deleteUserUseCase.Execute(
+            UsersMapping.ToDeleteCommand(id),
+            cancellationToken);
 
         return FromResult(result);
     }

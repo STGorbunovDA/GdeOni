@@ -1,4 +1,5 @@
-﻿using GdeOni.API.Response;
+﻿using GdeOni.API.Mappers;
+using GdeOni.API.Response;
 using GdeOni.Application.DeceasedRecords.Queries.GetAgeAtDeath.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetAgeAtDeath.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetDistance.Model;
@@ -34,8 +35,9 @@ public sealed class DeceasedRecordsSupportiveController : ApiControllerBase
         [FromServices] IGetDistanceUseCase getDistanceUseCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetDistanceQuery(id, latitude, longitude);
-        var result = await getDistanceUseCase.Execute(query, cancellationToken);
+        var result = await getDistanceUseCase.Execute(
+            DeceasedRecordsMapping.ToDistanceQuery(id, latitude, longitude),
+            cancellationToken);
 
         return FromResult(result);
     }
@@ -54,7 +56,10 @@ public sealed class DeceasedRecordsSupportiveController : ApiControllerBase
         [FromServices] IGetAgeAtDeathUseCase getAgeAtDeathUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await getAgeAtDeathUseCase.Execute(new GetAgeAtDeathQuery(id), cancellationToken);
+        var result = await getAgeAtDeathUseCase.Execute(
+            DeceasedRecordsMapping.ToAgeAtDeathQuery(id),
+            cancellationToken);
+
         return FromResult(result);
     }
 
@@ -72,8 +77,9 @@ public sealed class DeceasedRecordsSupportiveController : ApiControllerBase
         [FromServices] IHasMemoriesUseCase hasMemoriesUseCase,
         CancellationToken cancellationToken)
     {
-        var query = new HasMemoriesQuery(id);
-        var result = await hasMemoriesUseCase.Execute(query, cancellationToken);
+        var result = await hasMemoriesUseCase.Execute(
+            DeceasedRecordsMapping.ToHasMemoriesQuery(id),
+            cancellationToken);
 
         return FromResult(result);
     }

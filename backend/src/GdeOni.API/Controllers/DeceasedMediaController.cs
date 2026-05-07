@@ -89,14 +89,7 @@ public sealed class DeceasedMediaController : ApiControllerBase
         [FromServices] IGetMediaListUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetMediaListQuery(
-            id,
-            request.Kind,
-            request.ModerationStatus,
-            request.Page,
-            request.PageSize);
-
-        var result = await useCase.Execute(query, cancellationToken);
+        var result = await useCase.Execute(request.ToQuery(id), cancellationToken);
         return FromResult(result);
     }
 
@@ -115,8 +108,10 @@ public sealed class DeceasedMediaController : ApiControllerBase
         [FromServices] IGetMediaByIdUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetMediaByIdQuery(id, mediaId);
-        var result = await useCase.Execute(query, cancellationToken);
+        var result = await useCase.Execute(
+            DeceasedRecordsMapping.ToGetMediaByIdQuery(id, mediaId),
+            cancellationToken);
+
         return FromResult(result);
     }
 
@@ -136,8 +131,10 @@ public sealed class DeceasedMediaController : ApiControllerBase
         [FromServices] IDeleteMediaUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var command = new DeleteMediaCommand(id, mediaId);
-        var result = await useCase.Execute(command, cancellationToken);
+        var result = await useCase.Execute(
+            DeceasedRecordsMapping.ToDeleteMediaCommand(id, mediaId),
+            cancellationToken);
+
         return FromUnitResult(result);
     }
 
@@ -180,8 +177,10 @@ public sealed class DeceasedMediaController : ApiControllerBase
         [FromServices] ISetMainMediaPhotoUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var command = new SetMainMediaPhotoCommand(id, mediaId);
-        var result = await useCase.Execute(command, cancellationToken);
+        var result = await useCase.Execute(
+            DeceasedRecordsMapping.ToSetMainMediaPhotoCommand(id, mediaId),
+            cancellationToken);
+
         return FromUnitResult(result);
     }
 }
