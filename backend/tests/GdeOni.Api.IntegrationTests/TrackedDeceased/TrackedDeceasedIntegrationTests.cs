@@ -102,11 +102,11 @@ public sealed class TrackedDeceasedIntegrationTests
 
         var response = await user.Client.PatchAsJsonAsync($"/api/users/me/tracked-deceased/{deceasedId}", new
         {
-            relationshipType = (int)RelationshipType.Friend,
+            relationshipType = nameof(RelationshipType.Friend),
             personalNotes = "Обновлённые заметки",
             notifyOnDeathAnniversary = true,
             notifyOnBirthAnniversary = false,
-            trackStatus = (int)TrackStatus.Active
+            trackStatus = nameof(TrackStatus.Active)
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -149,7 +149,7 @@ public sealed class TrackedDeceasedIntegrationTests
             $"/api/users/me/tracked-deceased/{deceasedId}",
             new
             {
-                relationshipType = (int)RelationshipType.Friend,
+                relationshipType = nameof(RelationshipType.Friend),
                 personalNotes = (string?)null,
                 notifyOnDeathAnniversary = false,
                 notifyOnBirthAnniversary = false
@@ -206,7 +206,7 @@ public sealed class TrackedDeceasedIntegrationTests
             },
             tracking = new
             {
-                relationshipType = (int)RelationshipType.Friend,
+                relationshipType = nameof(RelationshipType.Friend),
                 personalNotes = (string?)null,
                 notifyOnDeathAnniversary = false,
                 notifyOnBirthAnniversary = false

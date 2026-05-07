@@ -49,7 +49,7 @@ internal static class TestSeed
             },
             tracking = new
             {
-                relationshipType = (int)RelationshipType.Friend,
+                relationshipType = nameof(RelationshipType.Friend),
                 personalNotes = (string?)null,
                 notifyOnDeathAnniversary = false,
                 notifyOnBirthAnniversary = false

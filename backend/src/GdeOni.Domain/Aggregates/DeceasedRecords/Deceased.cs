@@ -427,6 +427,12 @@ public sealed class Deceased : Entity<Guid>
         if (metadata is null)
             return Errors.Deceased.MetadataRequired();
 
+        // No-op guard (D11.14.1): тот же metadata структурно — не двигаем
+        // UpdatedAtUtc. ValueObject.Equals сравнивает по
+        // GetEqualityComponents, без рассинхронизации после Trim.
+        if (Equals(Metadata, metadata))
+            return UnitResult.Success<Error>();
+
         Metadata = metadata;
         Touch();
 
@@ -435,6 +441,11 @@ public sealed class Deceased : Entity<Guid>
 
     public UnitResult<Error> ClearMetadata()
     {
+        // No-op guard (D11.14.2): уже Empty — не двигаем UpdatedAtUtc.
+        // Повторный DELETE /metadata идемпотентен и не должен дёргать БД.
+        if (Metadata.IsEmpty())
+            return UnitResult.Success<Error>();
+
         Metadata = DeceasedMetadata.Empty();
         Touch();
 

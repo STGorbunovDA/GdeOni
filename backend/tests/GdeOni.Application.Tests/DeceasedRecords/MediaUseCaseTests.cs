@@ -299,6 +299,155 @@ public sealed class MediaUseCaseTests
     }
 
     /// <summary>
+    /// D11.13.1: outsider запрашивает Pending media по прямому Id → 404.
+    /// Без этой проверки любой авторизованный юзер мог бы скачать
+    /// неотмодерированный файл, минуя GetMediaList (там фильтр Approved
+    /// для не-владельца).
+    /// </summary>
+    [Fact]
+    public async Task GetById_PendingMedia_AsOutsider_Returns404()
+    {
+        var deceased = MakeDeceased();
+        var media = deceased.AddMedia(
+            uploadedByUserId: Guid.NewGuid(), MediaKind.DeceasedPhoto,
+            "p.jpg", "deceased-photos", "k1",
+            "image/jpeg", 1000).Value;
+        // ModerationStatus по умолчанию = Pending.
+
+        var outsiderId = Guid.NewGuid();
+        var (deceasedRepo, fileStorage, currentUser, _) = BuildMocks();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(outsiderId));
+        currentUser.Setup(x => x.IsAdmin()).Returns(false);
+        deceasedRepo
+            .Setup(x => x.GetByIdWithMediaById(deceased.Id, media.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(deceased);
+
+        var useCase = new GetMediaByIdUseCase(
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
+            TestExecutor.With<GetMediaByIdQuery, GetMediaByIdQueryValidator>());
+
+        var result = await useCase.Execute(
+            new GetMediaByIdQuery(deceased.Id, media.Id),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("deceased_media.not.found");
+        // Url не строился — file storage не дёргался.
+        fileStorage.Verify(
+            x => x.GetPublicUrl(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+        fileStorage.Verify(
+            x => x.GetPresignedUrlAsync(
+                It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// D11.13.1: автор карточки видит Pending media своих гостей,
+    /// чтобы модерировать или удалить до Approve.
+    /// </summary>
+    [Fact]
+    public async Task GetById_PendingMedia_AsCardAuthor_Returns200()
+    {
+        var deceased = MakeDeceased();
+        var media = deceased.AddMedia(
+            uploadedByUserId: Guid.NewGuid(), MediaKind.DeceasedPhoto,
+            "p.jpg", "deceased-photos", "k1",
+            "image/jpeg", 1000).Value;
+
+        var (deceasedRepo, fileStorage, currentUser, _) = BuildMocks();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(CardAuthorId));
+        currentUser.Setup(x => x.IsAdmin()).Returns(false);
+        deceasedRepo
+            .Setup(x => x.GetByIdWithMediaById(deceased.Id, media.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(deceased);
+        fileStorage.Setup(x => x.GetPublicUrl("deceased-photos", "k1"))
+            .Returns("http://public/url");
+
+        var useCase = new GetMediaByIdUseCase(
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
+            TestExecutor.With<GetMediaByIdQuery, GetMediaByIdQueryValidator>());
+
+        var result = await useCase.Execute(
+            new GetMediaByIdQuery(deceased.Id, media.Id),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.ModerationStatus.Should().Be("Pending");
+    }
+
+    /// <summary>
+    /// D11.13.1: admin видит Pending media для модерации.
+    /// </summary>
+    [Fact]
+    public async Task GetById_PendingMedia_AsAdmin_Returns200()
+    {
+        var deceased = MakeDeceased();
+        var media = deceased.AddMedia(
+            uploadedByUserId: Guid.NewGuid(), MediaKind.DeceasedPhoto,
+            "p.jpg", "deceased-photos", "k1",
+            "image/jpeg", 1000).Value;
+
+        var (deceasedRepo, fileStorage, currentUser, _) = BuildMocks();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
+        currentUser.Setup(x => x.IsAdmin()).Returns(true);
+        deceasedRepo
+            .Setup(x => x.GetByIdWithMediaById(deceased.Id, media.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(deceased);
+        fileStorage.Setup(x => x.GetPublicUrl("deceased-photos", "k1"))
+            .Returns("http://public/url");
+
+        var useCase = new GetMediaByIdUseCase(
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
+            TestExecutor.With<GetMediaByIdQuery, GetMediaByIdQueryValidator>());
+
+        var result = await useCase.Execute(
+            new GetMediaByIdQuery(deceased.Id, media.Id),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// D11.13.1: uploader видит свой собственный Pending — может
+    /// перепроверить файл / описание до модерации.
+    /// </summary>
+    [Fact]
+    public async Task GetById_PendingMedia_AsUploader_Returns200()
+    {
+        var uploaderId = Guid.NewGuid();
+        var deceased = MakeDeceased();
+        var media = deceased.AddMedia(
+            uploadedByUserId: uploaderId, MediaKind.DeceasedPhoto,
+            "p.jpg", "deceased-photos", "k1",
+            "image/jpeg", 1000).Value;
+
+        var (deceasedRepo, fileStorage, currentUser, _) = BuildMocks();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(uploaderId));
+        currentUser.Setup(x => x.IsAdmin()).Returns(false);
+        deceasedRepo
+            .Setup(x => x.GetByIdWithMediaById(deceased.Id, media.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(deceased);
+        fileStorage.Setup(x => x.GetPublicUrl("deceased-photos", "k1"))
+            .Returns("http://public/url");
+
+        var useCase = new GetMediaByIdUseCase(
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
+            TestExecutor.With<GetMediaByIdQuery, GetMediaByIdQueryValidator>());
+
+        var result = await useCase.Execute(
+            new GetMediaByIdQuery(deceased.Id, media.Id),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    /// <summary>
     /// SetMainPhoto outsider → SetMainPhotoForbidden. Save не вызывается.
     /// </summary>
     [Fact]

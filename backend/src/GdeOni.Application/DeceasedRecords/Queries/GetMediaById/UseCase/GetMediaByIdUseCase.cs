@@ -41,6 +41,21 @@ public sealed class GetMediaByIdUseCase(
         if (media is null)
             return Errors.DeceasedMedia.NotFound(query.MediaId);
 
+        // D11.13.1: Pending/Rejected media видят только uploader,
+        // автор карточки и админ. Остальным — NotFound (как и в
+        // GetMediaListUseCase, который для outsider'а принудительно
+        // выставляет moderationStatus=Approved). Иначе авторизованный
+        // юзер с Guid media скачивает файл в обход модерации.
+        if (media.ModerationStatus != ModerationStatus.Approved)
+        {
+            var currentUserId = currentUserIdResult.Value;
+            var canSeePending = currentUserService.IsAdmin()
+                || media.UploadedByUserId == currentUserId
+                || deceased.CreatedByUserId == currentUserId;
+            if (!canSeePending)
+                return Errors.DeceasedMedia.NotFound(query.MediaId);
+        }
+
         var (url, isPresigned) = await BuildUrl(media, cancellationToken);
 
         return Result.Success<MediaDetailsResponse, Error>(new MediaDetailsResponse

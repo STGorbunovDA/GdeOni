@@ -279,6 +279,44 @@ public sealed class DeceasedTests
     }
 
     /// <summary>
+    /// D11.14.1: UpdateMetadata с тем же metadata (по
+    /// GetEqualityComponents) — no-op, UpdatedAtUtc не двигается.
+    /// </summary>
+    [Fact]
+    public void UpdateMetadata_SameValues_DoesNotTouch()
+    {
+        var deceased = CreateSampleDeceased();
+        var first = DeceasedMetadata.Create(
+            "Покойся с миром", "Православие", null, false, null).Value;
+        deceased.UpdateMetadata(first);
+        var initialUpdatedAt = deceased.UpdatedAtUtc;
+
+        var same = DeceasedMetadata.Create(
+            "Покойся с миром", "Православие", null, false, null).Value;
+        var result = deceased.UpdateMetadata(same);
+
+        result.IsSuccess.Should().BeTrue();
+        deceased.UpdatedAtUtc.Should().Be(initialUpdatedAt);
+    }
+
+    /// <summary>
+    /// D11.14.2: ClearMetadata на уже Empty metadata — no-op,
+    /// UpdatedAtUtc не двигается. Свежесозданная карточка имеет
+    /// Metadata = Empty по умолчанию.
+    /// </summary>
+    [Fact]
+    public void ClearMetadata_AlreadyEmpty_DoesNotTouch()
+    {
+        var deceased = CreateSampleDeceased();
+        deceased.UpdatedAtUtc.Should().BeNull();
+
+        var result = deceased.ClearMetadata();
+
+        result.IsSuccess.Should().BeTrue();
+        deceased.UpdatedAtUtc.Should().BeNull();
+    }
+
+    /// <summary>
     /// AddMemory — happy path: запись добавлена в коллекцию,
     /// статус Pending (модерация ещё не решила), AuthorUserId сохранён.
     /// </summary>

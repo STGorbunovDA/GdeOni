@@ -5109,6 +5109,172 @@ D11.12 закрыт, когда:
 
 D11.12 закрыт 2026-05-07.
 
+---------------------------------------------------------------------
+D11.13. Седьмой проход аудита (2026-05-07)
+---------------------------------------------------------------------
+
+Прицельный проход по query-use-case'ам и проверкам видимости
+медиа/воспоминаний. Найден 1 контрактный пробел (Medium).
+
+[x] D11.13.1 [Medium] GetMediaByIdUseCase не проверяет, имеет ли
+    текущий юзер право видеть media с ModerationStatus != Approved.
+    GetMediaListUseCase для не-owner / не-admin ставит фильтр
+    Approved принудительно (line 39-47), а единичный GetById отдаёт
+    любой статус — Pending/Rejected включая Url, StorageKey и
+    presigned-ссылку на содержимое. Если authenticated user знает
+    Guid media (логи, leak, перебор), он скачивает Pending-файл
+    в обход модерации.
+    Файл: src/GdeOni.Application/DeceasedRecords/Queries/GetMediaById/
+    UseCase/GetMediaByIdUseCase.cs.
+    Решение: после того как media найдено, если ModerationStatus !=
+    Approved и юзер не isAdmin / не uploader / не CreatedByUserId
+    карточки — вернуть Errors.DeceasedMedia.NotFound (как list). Это
+    скрывает факт существования pending-файла от посторонних.
+    [tests] Application.Tests/DeceasedRecords/MediaUseCaseTests —
+    добавить кейсы:
+      • GetById_PendingMedia_AsOutsider_Returns404;
+      • GetById_PendingMedia_AsAuthor_Returns200;
+      • GetById_PendingMedia_AsAdmin_Returns200;
+      • GetById_PendingMedia_AsUploader_Returns200.
+
+D11.13 закрыт, когда:
+
+[x] Каждый подпункт D11.13.x отмечен [x].
+[x] dotnet test backend.sln зелёный
+    (119 Domain + 123 Application + 31 Infrastructure + 65 API.IntegrationTests = 338/0 failed).
+
+D11.13 закрыт 2026-05-07.
+
+---------------------------------------------------------------------
+D11.14. Восьмой проход аудита (2026-05-07)
+---------------------------------------------------------------------
+
+Прицельный проход по mutator'ам Deceased — оставшиеся места без
+no-op guard'ов (D11.4.5/D11.10.2 покрыли BurialLocation+UpdateMainInfo,
+D11.11.1 — UpdateDescription, D11.9.2 — EditText). Найдено 2 пункта.
+
+[x] D11.14.1 [Low] Deceased.UpdateMetadata всегда Touch() даже если
+    новый metadata структурно идентичен текущему. PUT с теми же
+    полями зря двигает UpdatedAtUtc. DeceasedMetadata — ValueObject
+    с GetEqualityComponents, можно сравнить структурно.
+    Файл: src/GdeOni.Domain/Aggregates/DeceasedRecords/Deceased.cs:425-434.
+    Решение: после null-check `if (Equals(Metadata, metadata)) return Success`.
+    [tests] Domain.Tests/DeceasedTests — UpdateMetadata_SameValues_DoesNotTouch.
+
+[x] D11.14.2 [Low] Deceased.ClearMetadata всегда Touch() даже если
+    Metadata уже Empty. Повторный DELETE /metadata зря двигает
+    UpdatedAtUtc.
+    Файл: src/GdeOni.Domain/Aggregates/DeceasedRecords/Deceased.cs:436-442.
+    Решение: `if (Metadata.IsEmpty()) return Success`. Helper IsEmpty
+    уже определён в DeceasedMetadata.
+    [tests] Domain.Tests/DeceasedTests — ClearMetadata_AlreadyEmpty_DoesNotTouch.
+
+D11.14 закрыт, когда:
+
+[x] Каждый подпункт D11.14.x отмечен [x].
+[x] dotnet test backend.sln зелёный
+    (121 Domain + 123 Application + 31 Infrastructure + 65 API.IntegrationTests = 340/0 failed).
+
+D11.14 закрыт 2026-05-07.
+
+---------------------------------------------------------------------
+D11.15. Девятый проход аудита (2026-05-07)
+---------------------------------------------------------------------
+
+Прицельный проход по консистентности именования и контрактным
+проверкам в тестах. Найдено 2 пункта (оба Low).
+
+[x] D11.15.1 [Low] Два validator-файла названы *RequestValidator.cs,
+    хотя содержат класс *CommandValidator. Имя файла не соответствует
+    имени класса; все остальные validator-файлы в проекте называются
+    *CommandValidator.cs.
+    Файлы:
+      • src/GdeOni.Application/DeceasedRecords/Commands/UpdateMemory/
+        Validation/UpdateMemoryRequestValidator.cs (класс
+        UpdateMemoryCommandValidator);
+      • src/GdeOni.Application/DeceasedRecords/Commands/ClearMetadata/
+        Validation/ClearMetadataRequestValidator.cs (класс
+        ClearMetadataCommandValidator).
+    Решение: переименовать файлы через `git mv` чтобы имя файла
+    совпало с именем класса (UpdateMemoryCommandValidator.cs и
+    ClearMetadataCommandValidator.cs).
+
+[x] D11.15.2 [Low] Integration-тесты после D11.1.1 продолжают слать
+    `relationshipType = (int)RelationshipType.Friend`. JsonStringEnumConverter
+    с дефолтным `allowIntegerValues=true` пропускает int — тесты работают.
+    Но контракт frontend'а — строки ("Friend", "Sibling" и т.д.); тесты
+    не проверяют этот контракт и не упадут, если кто-то случайно отключит
+    converter. Сделать строковую сериализацию в тестах через
+    `nameof(RelationshipType.Friend)`.
+    Файлы (5 мест):
+      • tests/GdeOni.Api.IntegrationTests/Infrastructure/TestSeed.cs:52;
+      • tests/GdeOni.Api.IntegrationTests/BurialLocation/
+        BurialLocationAndMetadataTests.cs:170;
+      • tests/GdeOni.Api.IntegrationTests/TrackedDeceased/
+        TrackedDeceasedIntegrationTests.cs:105, :152, :209.
+
+D11.15 закрыт, когда:
+
+[x] Каждый подпункт D11.15.x отмечен [x].
+[x] dotnet test backend.sln зелёный
+    (121 Domain + 123 Application + 31 Infrastructure + 65 API.IntegrationTests = 340/0 failed).
+    Дополнительно: D11.15.2 заодно реально проверил, что сервер
+    принимает строковые enum'ы (а не только integer fallback) —
+    integration-тесты прошли с `nameof(...)` без изменений в API.
+
+D11.15 закрыт 2026-05-07.
+
+---------------------------------------------------------------------
+D11.16. Десятый проход аудита (2026-05-07)
+---------------------------------------------------------------------
+
+Проверка дрейфа документации против текущего состояния кода.
+CLAUDE.md содержит несколько устаревших утверждений после правок
+D2-D11. Найдено 4 пункта документального drift'а.
+
+[x] D11.16.1 [Low] CLAUDE.md:7 ссылается на `backend/docs/plan.txt` —
+    такого файла нет (есть `PlanFull.txt`). Сломанная markdown-ссылка.
+
+[x] D11.16.2 [Low] CLAUDE.md:31 утверждает: «Тестовый проект отсутствует
+    — не предлагай команды `dotnet test`, пока не появится
+    `*.Tests.csproj`». На самом деле в репозитории 4 тестовых проекта
+    (Domain.Tests, Application.Tests, Infrastructure.Tests,
+    Api.IntegrationTests; 340 тестов). Замечание устарело и
+    запрещает агенту рекомендовать `dotnet test`.
+
+[x] D11.16.3 [Low] CLAUDE.md:60 перечисляет ErrorType как
+    Validation/NotFound/Conflict/Forbidden/Unauthorized/Failure —
+    пропущен `TooManyRequests` (Error.cs:46-47, ErrorType.cs:63),
+    добавленный вместе с rate-limiting'ом.
+
+[x] D11.16.4 [Low] CLAUDE.md упоминает несуществующий
+    `DeceasedPhotosController` (line 70) и коллекцию `_photos`
+    (line 76). Оба удалены миграцией 20260430173514_DropDeceasedPhotos
+    при переходе на единый DeceasedMedia: реально есть
+    DeceasedMediaController + `_media`. Также DeceasedMetadata
+    назван «owned-типом» (line 80), но в EF-конфигурации он
+    `metadata.ToJson()` (jsonb-колонка). Уточнить как
+    «JSON-сериализуемый VO».
+
+Решение: один редакторский проход по CLAUDE.md, исправить ссылки и
+устаревшие фрагменты. Тесты не затронуты — документ-only фикс.
+
+D11.16 закрыт, когда:
+
+[x] Каждый подпункт D11.16.x отмечен [x].
+[x] CLAUDE.md обновлён: ссылка plan.txt → PlanFull.txt, удалена
+    стропа про отсутствующий тестовый проект (заменена на описание
+    4 проектов), добавлен TooManyRequests в перечень ErrorType,
+    DeceasedPhotosController + _photos исправлены на актуальный
+    DeceasedMediaController + _media, DeceasedMetadata уточнён как
+    JSON-сериализуемый VO (не owned columns). Дополнительно
+    задокументирован контракт ISecurityStampInvalidator (D11.8.1)
+    и no-op-guard паттерн.
+[x] dotnet test backend.sln зелёный (документ-only — 121 Domain +
+    123 Application + 31 Infrastructure + 65 IntegrationTests = 340/0 failed).
+
+D11.16 закрыт 2026-05-07.
+
 =====================================================================
 E. FRONTEND ROADMAP
 =====================================================================
