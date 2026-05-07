@@ -4789,12 +4789,23 @@ D11.7. Безопасность и DI-lifetime (Medium / Low)
 
 D11 закрыт, когда:
 
-[ ] Каждый подпункт D11.x.y отмечен [x].
-[ ] dotnet test backend.sln зелёный (все тесты переписаны под
-    исправленное поведение).
-[ ] CLAUDE.md обновлён, если фикс затрагивает конвенцию (Mappers,
-    статус-коды, ApiResponse).
-[ ] Свежий E2E прогон (повтор D10) подтверждает изменённые контракты.
+[x] Каждый подпункт D11.x.y отмечен [x].
+[x] dotnet test backend.sln зелёный (все тесты переписаны под
+    исправленное поведение). 113 + 115 + 31 + 64 = 323/0 failed.
+[x] CLAUDE.md обновлён, где фикс затрагивает конвенцию: добавлены
+    разделы про RefreshTokenRepository contract exception (D11.5.3)
+    и ILIKE %% known limit (D11.5.2).
+[x] Свежий E2E прогон (повтор D10) подтверждает изменённые контракты:
+    POST /api/users → 201 (вместо 200);
+    POST /api/deceased-records/at-grave принимает relationshipType:"Sibling"
+    string (вместо int 5), возвращает 201;
+    POST /api/deceased-records/{id}/media принимает kind=DeceasedPhoto
+    string в multipart-form, возвращает 201 + Location;
+    GET /tracked-deceased отдаёт relationshipType:"Sibling" / status:"Active"
+    строками; GET /route?mode=Auto работает.
+
+D11 закрыт 2026-05-07. 9 коммитов в dev: 98df1df, 1611993, 84d6bf5,
+cca9464, ab9751a, 9ad5d35, 6b2d9c2, 4de761a, 8dbdf0c.
 
 =====================================================================
 E. FRONTEND ROADMAP
