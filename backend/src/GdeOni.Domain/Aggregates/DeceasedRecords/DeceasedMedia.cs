@@ -143,6 +143,12 @@ public sealed class DeceasedMedia : Entity<Guid>
         if (descriptionResult.IsFailure)
             return descriptionResult.Error;
 
+        // No-op guard (D11.11.1): тот же description после нормализации —
+        // не двигаем UpdatedAtUtc. Симметрично DeceasedMemoryEntry.EditText
+        // (D11.9.2).
+        if (Description == descriptionResult.Value)
+            return UnitResult.Success<Error>();
+
         Description = descriptionResult.Value;
         Touch();
         return UnitResult.Success<Error>();

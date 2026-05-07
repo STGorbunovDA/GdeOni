@@ -62,7 +62,7 @@ public static class DeceasedRecordsResponseMapping
             CemeteryName = deceased.BurialLocation?.CemeteryName,
             PlotNumber = deceased.BurialLocation?.PlotNumber,
             GraveNumber = deceased.BurialLocation?.GraveNumber,
-            Accuracy = deceased.BurialLocation is null ? null : (int)deceased.BurialLocation.Accuracy,
+            Accuracy = deceased.BurialLocation?.Accuracy.ToString(),
 
             ShortDescription = deceased.ShortDescription,
             Biography = deceased.Biography,

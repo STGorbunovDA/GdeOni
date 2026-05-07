@@ -164,6 +164,23 @@ public sealed class DeceasedMediaTests
     }
 
     /// <summary>
+    /// D11.11.1: UpdateDescription с тем же значением (после Trim) —
+    /// no-op, UpdatedAtUtc не двигается.
+    /// </summary>
+    [Fact]
+    public void UpdateDescription_SameDescription_DoesNotTouch()
+    {
+        var media = CreateSampleMedia(description: "Описание");
+        var initialUpdatedAt = media.UpdatedAtUtc;
+
+        var result = media.UpdateDescription("  Описание  ");
+
+        result.IsSuccess.Should().BeTrue();
+        media.Description.Should().Be("Описание");
+        media.UpdatedAtUtc.Should().Be(initialUpdatedAt);
+    }
+
+    /// <summary>
     /// Reject обнуляет IsMainPhoto: если медиа было main и
     /// модерация его отклонила, оно перестаёт быть main даже на
     /// уровне самого entity'а (плюс Deceased.RejectMedia обнулит

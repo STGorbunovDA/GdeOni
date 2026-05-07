@@ -22,7 +22,10 @@ public sealed class DeceasedDetailsResponse
     public string? CemeteryName { get; init; }
     public string? PlotNumber { get; init; }
     public string? GraveNumber { get; init; }
-    public int? Accuracy { get; init; }
+    // D11.12.1: enum-поле отдаётся строкой (как ModerationStatus,
+    // RelationshipType, TrackStatus после D11.1.1). Раньше ехало int 1/2/3/4
+    // и ломало симметрию с Create/Update-Request, где Accuracy уже строка.
+    public string? Accuracy { get; init; }
 
     public string? ShortDescription { get; init; }
     public string? Biography { get; init; }

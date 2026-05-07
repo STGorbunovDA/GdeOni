@@ -253,6 +253,32 @@ public sealed class DeceasedTests
     }
 
     /// <summary>
+    /// D11.10.2: PUT с теми же значениями (включая ShortDescription/
+    /// Biography = null/null как у sample) — no-op, UpdatedAtUtc не
+    /// двигается, SearchKey не пересобирается.
+    /// </summary>
+    [Fact]
+    public void UpdateMainInfo_SameValues_DoesNotTouch()
+    {
+        var deceased = CreateSampleDeceased();
+        var oldSearchKey = deceased.SearchKey;
+        var oldUpdatedAt = deceased.UpdatedAtUtc;
+
+        var result = deceased.UpdateMainInfo(
+            firstName: "Иван",
+            lastName: "Иванов",
+            middleName: null,
+            birthDate: new DateOnly(1950, 6, 15),
+            deathDate: SampleDeathDate,
+            shortDescription: null,
+            biography: null);
+
+        result.IsSuccess.Should().BeTrue();
+        deceased.SearchKey.Should().Be(oldSearchKey);
+        deceased.UpdatedAtUtc.Should().Be(oldUpdatedAt);
+    }
+
+    /// <summary>
     /// AddMemory — happy path: запись добавлена в коллекцию,
     /// статус Pending (модерация ещё не решила), AuthorUserId сохранён.
     /// </summary>

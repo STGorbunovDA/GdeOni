@@ -103,11 +103,11 @@ internal sealed class MinioFileStorage : IFileStorage
             return presignedUrl;
 
         // SDK уже выставил scheme/host из _presignedClient (host:port из
-        // PublicBaseUrl). Берём всё после хоста и добавляем prefix.
-        var rest = signedUri.PathAndQuery;
+        // PublicBaseUrl). AbsolutePath даёт чистый path без query —
+        // ручной split на '?' не нужен (D11.11.2).
         var builder = new UriBuilder(signedUri)
         {
-            Path = prefix + rest.Split('?', 2)[0],
+            Path = prefix + signedUri.AbsolutePath,
             Query = signedUri.Query.TrimStart('?')
         };
         return builder.Uri.ToString();

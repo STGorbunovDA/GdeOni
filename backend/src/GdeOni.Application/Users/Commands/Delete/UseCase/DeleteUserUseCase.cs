@@ -11,6 +11,7 @@ namespace GdeOni.Application.Users.Commands.Delete.UseCase;
 public sealed class DeleteUserUseCase(
     IUserRepository userRepository,
     ICurrentUserService currentUserService,
+    ISecurityStampInvalidator securityStampInvalidator,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IDeleteUserUseCase
 {
@@ -59,6 +60,12 @@ public sealed class DeleteUserUseCase(
         // Refresh-токены удаляемого пользователя уйдут сами по
         // OnDelete Cascade (RefreshTokenConfiguration).
         await userRepository.Save(cancellationToken);
+        // D11.10.1: после удаления user'а access-токены у атакующего
+        // живут до истечения SecurityStampCacheTtlSeconds, потому что
+        // OnTokenValidated проверяет stamp по кешу. Cache.Remove
+        // закрывает окно: следующий запрос пойдёт в БД, увидит, что
+        // юзера нет, и завалит токен.
+        securityStampInvalidator.Invalidate(user.Id);
 
         return Result.Success<DeleteUserResponse, Error>(
             new DeleteUserResponse(command.UserId));

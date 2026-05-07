@@ -28,7 +28,7 @@ public sealed class DeleteUserUseCaseTests
     [Fact]
     public async Task Execute_NonAdmin_ReturnsUserForbidden()
     {
-        var (userRepo, currentUser, useCase) = BuildHarness(isAdmin: false, isSuperAdmin: false);
+        var (userRepo, currentUser, _, useCase) = BuildHarness(isAdmin: false, isSuperAdmin: false);
         currentUser
             .Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
@@ -51,7 +51,7 @@ public sealed class DeleteUserUseCaseTests
     public async Task Execute_DeletingSelf_ReturnsDeleteSelfForbidden()
     {
         var currentUserId = Guid.NewGuid();
-        var (userRepo, currentUser, useCase) = BuildHarness(isAdmin: true, isSuperAdmin: false);
+        var (userRepo, currentUser, _, useCase) = BuildHarness(isAdmin: true, isSuperAdmin: false);
         currentUser
             .Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(currentUserId));
@@ -74,7 +74,7 @@ public sealed class DeleteUserUseCaseTests
         var currentUserId = Guid.NewGuid();
         var targetSuperAdmin = User.RegisterSuperAdmin("super@example.com", "$hash").Value;
 
-        var (userRepo, currentUser, useCase) = BuildHarness(isAdmin: true, isSuperAdmin: true);
+        var (userRepo, currentUser, _, useCase) = BuildHarness(isAdmin: true, isSuperAdmin: true);
         currentUser
             .Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(currentUserId));
@@ -102,7 +102,7 @@ public sealed class DeleteUserUseCaseTests
         targetAdmin.ChangeRole(UserRole.Admin);
 
         // currentUser — Admin, но НЕ SuperAdmin.
-        var (userRepo, currentUser, useCase) = BuildHarness(isAdmin: true, isSuperAdmin: false);
+        var (userRepo, currentUser, _, useCase) = BuildHarness(isAdmin: true, isSuperAdmin: false);
         currentUser
             .Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(currentUserId));
@@ -129,7 +129,7 @@ public sealed class DeleteUserUseCaseTests
         var currentUserId = Guid.NewGuid();
         var targetUser = User.Register("user@example.com", "$hash").Value;
 
-        var (userRepo, currentUser, useCase) = BuildHarness(isAdmin: true, isSuperAdmin: false);
+        var (userRepo, currentUser, invalidator, useCase) = BuildHarness(isAdmin: true, isSuperAdmin: false);
         currentUser
             .Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(currentUserId));
@@ -144,17 +144,24 @@ public sealed class DeleteUserUseCaseTests
         result.Value.UserId.Should().Be(targetUser.Id);
         userRepo.Verify(x => x.Delete(targetUser), Times.Once);
         userRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Once);
+        // D11.10.1: после удаления кеш SecurityStamp должен быть сброшен,
+        // иначе access-токены удалённого user'а проживут TTL.
+        invalidator.Verify(x => x.Invalidate(targetUser.Id), Times.Once);
     }
 
     /// <summary>
     /// Helper: собирает моки + use case за один вызов. Возвращает
     /// userRepo и currentUser для дополнительной настройки в тесте.
     /// </summary>
-    private static (Mock<IUserRepository>, Mock<ICurrentUserService>, DeleteUserUseCase) BuildHarness(
-        bool isAdmin, bool isSuperAdmin)
+    private static (
+        Mock<IUserRepository>,
+        Mock<ICurrentUserService>,
+        Mock<ISecurityStampInvalidator>,
+        DeleteUserUseCase) BuildHarness(bool isAdmin, bool isSuperAdmin)
     {
         var userRepo = new Mock<IUserRepository>();
         var currentUser = new Mock<ICurrentUserService>();
+        var invalidator = new Mock<ISecurityStampInvalidator>();
 
         currentUser.Setup(x => x.IsAdmin()).Returns(isAdmin);
         currentUser
@@ -164,8 +171,9 @@ public sealed class DeleteUserUseCaseTests
         var useCase = new DeleteUserUseCase(
             userRepo.Object,
             currentUser.Object,
+            invalidator.Object,
             TestExecutor.With<DeleteUserCommand, DeleteUserCommandValidator>());
 
-        return (userRepo, currentUser, useCase);
+        return (userRepo, currentUser, invalidator, useCase);
     }
 }

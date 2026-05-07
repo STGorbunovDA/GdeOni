@@ -155,6 +155,18 @@ public sealed class Deceased : Entity<Guid>
         if (biographyResult.IsFailure)
             return biographyResult.Error;
 
+        // No-op guard (D11.10.2): PUT с теми же значениями не должен
+        // двигать UpdatedAtUtc и пересобирать SearchKey. Симметрично
+        // ChangeBurialLocation (D11.4.5). PersonName/LifePeriod —
+        // ValueObject, Equals структурный.
+        if (Equals(Name, nameResult.Value) &&
+            Equals(LifePeriod, periodResult.Value) &&
+            ShortDescription == shortDescriptionResult.Value &&
+            Biography == biographyResult.Value)
+        {
+            return UnitResult.Success<Error>();
+        }
+
         Name = nameResult.Value;
         LifePeriod = periodResult.Value;
         ShortDescription = shortDescriptionResult.Value;

@@ -120,6 +120,29 @@ public sealed class BurialLocationAndMetadataTests
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    /// <summary>
+    /// D11.12.1: GET /api/deceased-records/{id} возвращает accuracy
+    /// строкой ("Exact"), а не магическим int. Симметрия с
+    /// CreateDeceasedRequest, где Accuracy уже строкой принимается
+    /// (после D11.1.1 — JsonStringEnumConverter).
+    /// </summary>
+    [Fact]
+    public async Task GetById_BurialAccuracy_IsSerializedAsString()
+    {
+        var user = await _factory.RegisterAndLoginAsync();
+        var deceasedId = await CreateAtGraveAsync(user.Client);
+
+        var response = await user.Client.GetAsync($"/api/deceased-records/{deceasedId}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(body);
+        var accuracy = doc.RootElement.GetProperty("result").GetProperty("accuracy");
+
+        accuracy.ValueKind.Should().Be(JsonValueKind.String);
+        accuracy.GetString().Should().Be("Exact");
+    }
+
     private static async Task<Guid> CreateAtGraveAsync(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/deceased-records/at-grave", new

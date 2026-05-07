@@ -4984,6 +4984,131 @@ D11.9 закрыт, когда:
 
 D11.9 закрыт 2026-05-07.
 
+---------------------------------------------------------------------
+D11.10. Четвёртый проход аудита (2026-05-07)
+---------------------------------------------------------------------
+
+Целевой проход по AddAtGrave, UpdateDeceased, DeleteUser,
+RouteLinkProvider'ам, DbInitializer и tracked-deceased queries.
+Найдены 2 пункта.
+
+[x] D11.10.1 [Medium] DeleteUserUseCase удаляет пользователя, refresh-
+    токены уходят по OnDelete Cascade — но SecurityStamp-кеш в
+    IMemoryCache не сбрасывается. Если у атакующего есть украденный
+    access-токен удалённого user'а, OnTokenValidated в течение
+    SecurityStampCacheTtlSeconds (≤30s) видит закешированный stamp,
+    а БД-проверка не доходит — токен переживает delete. Симметрично
+    D11.8.1 (там та же дыра при ChangeEmail/Password/Role/UpdateProfile).
+    Файл: src/GdeOni.Application/Users/Commands/Delete/UseCase/
+    DeleteUserUseCase.cs.
+    Решение: inject ISecurityStampInvalidator, вызвать Invalidate(user.Id)
+    после userRepository.Save. Cache.Remove на несуществующем ключе
+    no-op, поэтому никаких defensive-проверок не нужно.
+    [tests] Application.Tests/Users/DeleteUserUseCaseTests — добавить
+    мок ISecurityStampInvalidator + ассерт Verify(Invalidate, Times.Once)
+    в happy-path.
+
+[x] D11.10.2 [Medium] Deceased.UpdateMainInfo всегда дёргает Touch() +
+    RebuildSearchKey() даже если все поля идентичны текущим. PUT с
+    теми же значениями зря двигает UpdatedAtUtc и пересобирает
+    SearchKey. Inconsistency с ChangeBurialLocation (D11.4.5) — там
+    no-op guard уже есть.
+    Файл: src/GdeOni.Domain/Aggregates/DeceasedRecords/Deceased.cs:133-167.
+    Решение: построить Name/LifePeriod, сравнить с текущими (через
+    Equals у ValueObject + сравнение ShortDescription/Biography);
+    если структурно совпадают — return Success без мутаций.
+    [tests] Domain.Tests/DeceasedTests — добавить
+    UpdateMainInfo_SameValues_DoesNotTouch.
+
+D11.10 закрыт, когда:
+
+[x] Каждый подпункт D11.10.x отмечен [x].
+[x] dotnet test backend.sln зелёный
+    (118 Domain + 119 Application + 31 Infrastructure + 64 API.IntegrationTests = 332/0 failed).
+
+D11.10 закрыт 2026-05-07.
+
+---------------------------------------------------------------------
+D11.11. Пятый проход аудита (2026-05-07)
+---------------------------------------------------------------------
+
+Целевой проход по FileValidator, RateLimiting, RefreshTokenFactory,
+ValidatedUseCaseExecutor, mappers, ApplyPublicPathPrefix и use case'ам
+обновления медиа. Найдено 2 пункта (оба Low).
+
+[x] D11.11.1 [Low] DeceasedMedia.UpdateDescription всегда вызывает
+    Touch() даже если description идентичен текущему. PATCH с тем же
+    значением зря двигает UpdatedAtUtc. Inconsistency с D11.9.2
+    (DeceasedMemoryEntry.EditText), где no-op guard уже есть.
+    Файл: src/GdeOni.Domain/Aggregates/DeceasedRecords/DeceasedMedia.cs:140-149.
+    Решение: после NormalizeDescription сравнить `Description ==
+    descriptionResult.Value` — при совпадении return Success без мутаций.
+    [tests] Domain.Tests/DeceasedMediaTests — добавить
+    UpdateDescription_SameDescription_DoesNotTouch.
+
+[x] D11.11.2 [Low] MinioFileStorage.ApplyPublicPathPrefix использует
+    `signedUri.PathAndQuery.Split('?', 2)[0]` чтобы получить path без
+    query, при том что `signedUri.AbsolutePath` уже даёт чистый path.
+    Излишняя строковая операция плюс неявное предположение что в path
+    нет литерального `?` (что некорректный URL, но всё же).
+    Файл: src/GdeOni.Infrastructure/Storage/MinioFileStorage.cs:107-112.
+    Решение: заменить split на signedUri.AbsolutePath.
+    [tests] Infrastructure.Tests/MinioFileStorageTests — существующие
+    кейсы должны продолжить проходить.
+
+D11.11 закрыт, когда:
+
+[x] Каждый подпункт D11.11.x отмечен [x].
+[x] dotnet test backend.sln зелёный
+    (119 Domain + 119 Application + 31 Infrastructure + 64 API.IntegrationTests = 333/0 failed).
+
+D11.11 закрыт 2026-05-07.
+
+---------------------------------------------------------------------
+D11.12. Шестой проход аудита (2026-05-07)
+---------------------------------------------------------------------
+
+Целевой проход по DTOs, Domain.Error, JwtOptions, AppDbContext.
+Найден 1 Medium-баг (response-контракт) + 2 Low (sealed + комментарий).
+
+[x] D11.12.1 [Medium] DeceasedDetailsResponse.Accuracy — int?, тогда
+    как остальные enum-поля в ответах после D11.1.1 идут строками
+    (ModerationStatus, RelationshipType, TrackStatus). В CreateDeceased/
+    UpdateDeceased Request клиент отправляет LocationAccuracy строкой,
+    а в ответе GetById получает int 1/2/3/4 — асимметрия контракта.
+    Файлы:
+      • src/GdeOni.API/Models/DeceasedRecords/DeceasedDetailsResponse.cs:25;
+      • src/GdeOni.API/Mappers/DeceasedRecordsResponseMapping.cs:65.
+    Решение: изменить тип Accuracy на `string?` + в маппере отдавать
+    `Accuracy.ToString()`. Тестов на это поле нет — добавить
+    Api.IntegrationTests кейс на GET /api/deceased-records/{id}, который
+    ассертит accuracy = "Exact" (строка).
+
+[x] D11.12.2 [Low] Domain.Shared.Error объявлен `public class` (не
+    sealed). Все остальные классы в проекте sealed (ApiResponse,
+    PagedResponse, репозитории, конфигурации, валидаторы). Конструктор
+    Error приватный — наследоваться извне всё равно нельзя, но `sealed`
+    даёт явный сигнал и убирает виртуальный method dispatch для
+    ToString и т.п.
+    Файл: src/GdeOni.Domain/Shared/Error.cs:3.
+
+[x] D11.12.3 [Low] JwtOptions.SecurityStampCacheTtlSeconds комментарий
+    устарел после D11.8.1+D11.10.1: написано "после смены пароля/роли/
+    email старые токены продолжают проходить валидацию до этого TTL",
+    но invalidator теперь сбрасывает кеш сразу. TTL остаётся актуальным
+    только для (a) прямых мутаций User в БД минуя use case'ы (миграции,
+    manual SQL), (b) multi-instance деплоя — IMemoryCache локальный, не
+    распределённый.
+    Файл: src/GdeOni.Application/Common/Security/JwtOptions.cs:14-21.
+
+D11.12 закрыт, когда:
+
+[x] Каждый подпункт D11.12.x отмечен [x].
+[x] dotnet test backend.sln зелёный
+    (119 Domain + 119 Application + 31 Infrastructure + 65 API.IntegrationTests = 334/0 failed).
+
+D11.12 закрыт 2026-05-07.
+
 =====================================================================
 E. FRONTEND ROADMAP
 =====================================================================
