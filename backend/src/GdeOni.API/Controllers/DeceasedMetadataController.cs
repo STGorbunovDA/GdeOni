@@ -14,6 +14,7 @@ namespace GdeOni.API.Controllers;
 /// Контроллер для управления метаданными умерших.
 /// </summary>
 [Route("api/deceased-records")]
+[Tags("DeceasedRecords")]
 public sealed class DeceasedMetadataController : ApiControllerBase
 {
     /// <summary>

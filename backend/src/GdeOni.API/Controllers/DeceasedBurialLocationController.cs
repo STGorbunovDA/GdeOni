@@ -12,6 +12,7 @@ namespace GdeOni.API.Controllers;
 /// Контроллер для управления местом захоронения умершего.
 /// </summary>
 [Route("api/deceased-records")]
+[Tags("DeceasedRecords")]
 public sealed class DeceasedBurialLocationController : ApiControllerBase
 {
     /// <summary>

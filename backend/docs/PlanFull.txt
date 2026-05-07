@@ -4609,7 +4609,7 @@ D11.3. API-конвенции: коды ответа и mappers (Medium)
     AddMemory/UpdateMemory не объявляют 409. Пройтись по всем
     use-case'ам и сверить актуальный набор Errors.* с атрибутами.
 
-[ ] D11.3.7 [Low] 6 контроллеров делят [Route("api/deceased-records")]
+[x] D11.3.7 [Low] 6 контроллеров делят [Route("api/deceased-records")]
     — Swagger UI рассыпает их по разным секциям. Добавить общий
     [Tags("Deceased")] для группировки в Swagger.
 
@@ -4747,7 +4747,7 @@ D11.7. Безопасность и DI-lifetime (Medium / Low)
     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" пройдёт. Документировать
     требование к источнику энтропии (или Base64-decoded length >= 32).
 
-[ ] D11.7.4 [Low] RefreshTokensCleanupService без джиттера — реплики
+[x] D11.7.4 [Low] RefreshTokensCleanupService без джиттера — реплики
     стартуют cleanup в одинаковую секунду. Idempotent, но шум в
     логах.
 

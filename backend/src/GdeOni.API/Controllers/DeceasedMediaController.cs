@@ -29,6 +29,7 @@ namespace GdeOni.API.Controllers;
 /// </summary>
 [Route("api/deceased-records/{id:guid}/media")]
 [Authorize]
+[Tags("DeceasedRecords")]
 public sealed class DeceasedMediaController : ApiControllerBase
 {
     /// <summary>
