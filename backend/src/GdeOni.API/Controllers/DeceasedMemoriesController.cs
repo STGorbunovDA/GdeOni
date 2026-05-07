@@ -84,8 +84,9 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
         [FromServices] IRemoveMemoryUseCase removeMemoryUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new RemoveMemoryCommand(id, memoryId);
-        var result = await removeMemoryUseCase.Execute(command, cancellationToken);
+        var result = await removeMemoryUseCase.Execute(
+            DeceasedRecordsMapping.ToRemoveMemoryCommand(id, memoryId),
+            cancellationToken);
 
         return FromResult(result);
     }

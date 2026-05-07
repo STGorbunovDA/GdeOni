@@ -4570,7 +4570,7 @@ D11.3. API-конвенции: коды ответа и mappers (Medium)
     DeceasedMemoriesController — все ассерты StatusCode == 200 на
     создание заменить на 201 + проверка Location-заголовка.
 
-[ ] D11.3.2 [Medium] Конструирование Command/Query в контроллерах
+[~] D11.3.2 [Medium] Конструирование Command/Query в контроллерах
     в обход API/Mappers/. CLAUDE.md требует extension-методы.
     Затронуто в нарушение конвенции:
       • AuthController.cs (Login/Refresh/Logout — все три);
@@ -4586,6 +4586,14 @@ D11.3. API-конвенции: коды ответа и mappers (Medium)
     Действие: создать недостающие *Mapping.cs в API/Mappers/.
     [tests] контроллерные тесты не должны сломаться (мапперы — чистая
     рефакторинг-операция).
+    [partial] AuthController, DeceasedRecordsController.GetById/Delete/
+    ClearBurialLocation, DeceasedMetadataController.ClearMetadata,
+    DeceasedMemoriesController.RemoveMemory, DeceasedRecordsAdminController.
+    Verify/Unverified переведены на mappers.
+    [open] UsersController (8 экшенов), MeTrackedDeceasedController
+    (7 экшенов), DeceasedMediaController (5), DeceasedRecordsSupportiveController
+    (3) — оставлены inline; рефакторинг по тому же шаблону, не меняет
+    тесты. Технический долг.
 
 [x] D11.3.3 [Medium] DeceasedMetadataController объявлен как
     public class (без sealed). Все остальные контроллеры — sealed.
@@ -4596,13 +4604,19 @@ D11.3. API-конвенции: коды ответа и mappers (Medium)
     [FromForm] FileKind kind, а GetMediaListRequest.Kind — MediaKind?.
     Унифицировать (оставить MediaKind, удалить FileKind либо явный alias).
 
-[ ] D11.3.5 [Medium] Часть PUT-эндпоинтов возвращают response-объект,
+[x] D11.3.5 [Medium] Часть PUT-эндпоинтов возвращают response-объект,
     хотя по семантике уместен 204 NoContent: ChangePassword, ChangeEmail,
-    ChangeRole, UpdateUserProfile, DeleteUser. Сравнить с уже-204'ными
-    ApproveMedia/RejectMedia/SetMainPhoto/DeleteMedia/Logout —
-    выровнять по решению.
-    [tests] Если унификация в сторону 204 — все ассерты
-    StatusCode == 200 + body на этих эндпоинтах перепишутся.
+    ChangeRole, UpdateUserProfile, DeleteUser. Решение — оставить как
+    есть (design decision):
+    • эндпоинты возвращают `Result<TResponse, Error>`, где TResponse
+      содержит userId + новый SecurityStamp; ChangeEmail возвращает
+      нормализованный email, DeleteUser — id удалённого юзера. Удалив
+      body, потеряли бы полезную для клиента информацию.
+    • 204 NoContent по семантике подходит для "не имеет смыслового
+      ответа", тогда как здесь ответ — "вот обновлённое состояние".
+    • Approve/Reject/SetMainPhoto/DeleteMedia вернут 204 потому что
+      это `UnitResult<Error>` — нет осмысленного payload.
+    Закрыто без правок; зафиксировано как разумный компромисс.
 
 [x] D11.3.6 [Low] [ProducesResponseType] неполные на ряде экшенов:
     ClearBurialLocation, RemoveMemory не объявляют 400;

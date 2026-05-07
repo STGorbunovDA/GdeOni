@@ -111,8 +111,9 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IGetDeceasedByIdUseCase getDeceasedByIdUseCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetDeceasedByIdQuery(id);
-        var result = await getDeceasedByIdUseCase.Execute(query, cancellationToken);
+        var result = await getDeceasedByIdUseCase.Execute(
+            DeceasedRecordsMapping.ToGetByIdQuery(id),
+            cancellationToken);
 
         return FromResult(result, r => r.ToDetailsResponse().ToOkResponse());
     }
@@ -156,8 +157,9 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IDeleteDeceasedUseCase deleteDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new DeleteDeceasedCommand(id);
-        var result = await deleteDeceasedUseCase.Execute(command, cancellationToken);
+        var result = await deleteDeceasedUseCase.Execute(
+            DeceasedRecordsMapping.ToDeleteCommand(id),
+            cancellationToken);
 
         return FromResult(result);
     }
@@ -179,8 +181,9 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IClearBurialLocationUseCase clearBurialLocationUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new ClearBurialLocationCommand(id);
-        var result = await clearBurialLocationUseCase.Execute(command, cancellationToken);
+        var result = await clearBurialLocationUseCase.Execute(
+            DeceasedRecordsMapping.ToClearBurialLocationCommand(id),
+            cancellationToken);
 
         return FromResult(result);
     }

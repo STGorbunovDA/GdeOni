@@ -54,8 +54,9 @@ public sealed class DeceasedMetadataController : ApiControllerBase
         [FromServices] IClearMetadataUseCase clearMetadataUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new ClearMetadataCommand(id);
-        var result = await clearMetadataUseCase.Execute(command, cancellationToken);
+        var result = await clearMetadataUseCase.Execute(
+            DeceasedRecordsMapping.ToClearMetadataCommand(id),
+            cancellationToken);
 
         return FromResult(result);
     }

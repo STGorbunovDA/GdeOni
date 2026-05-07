@@ -39,8 +39,9 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
         [FromServices] IVerifyDeceasedUseCase verifyDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new VerifyDeceasedCommand(id);
-        var result = await verifyDeceasedUseCase.Execute(command, cancellationToken);
+        var result = await verifyDeceasedUseCase.Execute(
+            DeceasedRecordsMapping.ToVerifyCommand(id),
+            cancellationToken);
 
         return FromResult(result);
     }
@@ -62,8 +63,9 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
         [FromServices] IUnverifiedDeceasedUseCase unverifiedDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new UnverifiedDeceasedCommand(id);
-        var result = await unverifiedDeceasedUseCase.Execute(command, cancellationToken);
+        var result = await unverifiedDeceasedUseCase.Execute(
+            DeceasedRecordsMapping.ToUnverifiedCommand(id),
+            cancellationToken);
 
         return FromResult(result);
     }
