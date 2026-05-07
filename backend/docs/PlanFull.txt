@@ -4604,7 +4604,7 @@ D11.3. API-конвенции: коды ответа и mappers (Medium)
     [tests] Если унификация в сторону 204 — все ассерты
     StatusCode == 200 + body на этих эндпоинтах перепишутся.
 
-[ ] D11.3.6 [Low] [ProducesResponseType] неполные на ряде экшенов:
+[x] D11.3.6 [Low] [ProducesResponseType] неполные на ряде экшенов:
     ClearBurialLocation, RemoveMemory не объявляют 400;
     AddMemory/UpdateMemory не объявляют 409. Пройтись по всем
     use-case'ам и сверить актуальный набор Errors.* с атрибутами.
@@ -4672,12 +4672,12 @@ D11.5. Persistence: индексы, конвенции репозиториев 
     UserConfiguration.cs + UserRepository.cs:186-211.
     Миграция AddIndex_users_role + AddIndex_users_registered_at_utc.
 
-[ ] D11.5.2 [Medium] DeceasedRepository.GetPaged (DeceasedRepository.cs:
+[x] D11.5.2 [Medium] DeceasedRepository.GetPaged (DeceasedRepository.cs:
     144-152) использует ILIKE '%search%' по first/last/middle name —
     full table scan на масштабе. Решение: pg_trgm-extension + GIN-индекс
     по нормализованному выражению, либо документировать предел.
 
-[ ] D11.5.3 [Medium] RefreshTokenRepository не реализует Delete /
+[x] D11.5.3 [Medium] RefreshTokenRepository не реализует Delete /
     ExistsBy* (CLAUDE.md контракт). RevokeAllForUser вызывает
     ExecuteUpdateAsync напрямую — обходит явную UoW границу через
     Save(ct). Внутренний комментарий это уже признаёт.

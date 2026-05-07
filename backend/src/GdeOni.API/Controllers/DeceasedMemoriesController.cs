@@ -29,6 +29,7 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AddMemory(
         [FromRoute] Guid id,
         [FromBody] AddMemoryRequest request,
@@ -53,6 +54,7 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateMemory(
         [FromRoute] Guid id,
         [FromRoute] Guid memoryId,
@@ -72,6 +74,7 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
     [HttpDelete("{id:guid}/memories/{memoryId:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<RemoveMemoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
