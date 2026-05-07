@@ -178,6 +178,58 @@ public sealed class UserTests
     }
 
     /// <summary>
+    /// D11.8.2: PATCH с теми же значениями (после нормализации) — no-op,
+    /// SecurityStamp не ротируется, UpdatedAtUtc не двигается.
+    /// </summary>
+    [Fact]
+    public void UpdateProfile_SameValues_DoesNotRotateSecurityStamp()
+    {
+        var user = User.Register(
+            "alice@example.com", "hash",
+            fullName: "Alice Cooper", userName: "Alice").Value;
+        var initialStamp = user.SecurityStamp;
+        var initialUpdatedAt = user.UpdatedAtUtc;
+
+        // Та же display, тот же full name. UserName сравнивается по
+        // нормализованной форме ("Alice" == "alice" by normalize).
+        user.UpdateProfile(userName: "Alice", fullName: "Alice Cooper");
+
+        user.SecurityStamp.Should().Be(initialStamp);
+        user.UpdatedAtUtc.Should().Be(initialUpdatedAt);
+    }
+
+    /// <summary>
+    /// D11.8.2: ChangeEmail с тем же email (после нормализации) — no-op.
+    /// </summary>
+    [Fact]
+    public void ChangeEmail_SameEmail_DoesNotRotateSecurityStamp()
+    {
+        var user = User.Register("alice@example.com", "hash").Value;
+        var initialStamp = user.SecurityStamp;
+
+        var result = user.ChangeEmail("ALICE@example.com");
+
+        result.IsSuccess.Should().BeTrue();
+        user.SecurityStamp.Should().Be(initialStamp);
+    }
+
+    /// <summary>
+    /// D11.8.2: ChangeRole с той же ролью — no-op.
+    /// </summary>
+    [Fact]
+    public void ChangeRole_SameRole_DoesNotRotateSecurityStamp()
+    {
+        var user = User.Register("alice@example.com", "hash").Value;
+        user.ChangeRole(UserRole.Admin);
+        var stampAfterFirstChange = user.SecurityStamp;
+
+        var result = user.ChangeRole(UserRole.Admin);
+
+        result.IsSuccess.Should().BeTrue();
+        user.SecurityStamp.Should().Be(stampAfterFirstChange);
+    }
+
+    /// <summary>
     /// ChangeEmail с невалидным форматом → EmailInvalid (System.Net.Mail
     /// MailAddress конструктор кидает, домен ловит).
     /// </summary>

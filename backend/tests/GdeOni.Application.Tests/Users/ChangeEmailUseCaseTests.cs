@@ -27,7 +27,7 @@ public sealed class ChangeEmailUseCaseTests
         var user = User.Register("alice@example.com", "hash").Value;
         var oldStamp = user.SecurityStamp;
 
-        var (userRepo, refreshRepo, currentUser, useCase) = BuildHarness();
+        var (userRepo, refreshRepo, currentUser, invalidator, useCase) = BuildHarness();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(user.Id));
         currentUser.Setup(x => x.IsAdmin()).Returns(false);
@@ -47,6 +47,40 @@ public sealed class ChangeEmailUseCaseTests
         refreshRepo.Verify(
             x => x.RevokeAllForUser(user.Id, It.IsAny<CancellationToken>()),
             Times.Once);
+        // D11.8.1: после ротации stamp кеш должен быть инвалидирован.
+        invalidator.Verify(x => x.Invalidate(user.Id), Times.Once);
+    }
+
+    /// <summary>
+    /// D11.8.2: тот же email (после нормализации) — domain делает
+    /// no-op, use case не дёргает Save / RevokeAllForUser / Invalidate.
+    /// </summary>
+    [Fact]
+    public async Task Execute_SameEmail_NoOp()
+    {
+        var user = User.Register("alice@example.com", "hash").Value;
+        var oldStamp = user.SecurityStamp;
+
+        var (userRepo, refreshRepo, currentUser, invalidator, useCase) = BuildHarness();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(user.Id));
+        currentUser.Setup(x => x.IsAdmin()).Returns(false);
+        userRepo.Setup(x => x.GetById(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        userRepo.Setup(x => x.ExistsByEmail(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await useCase.Execute(
+            new ChangeEmailCommand(user.Id, "ALICE@example.com"),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        user.SecurityStamp.Should().Be(oldStamp);
+        userRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Never);
+        refreshRepo.Verify(
+            x => x.RevokeAllForUser(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        invalidator.Verify(x => x.Invalidate(It.IsAny<Guid>()), Times.Never);
     }
 
     /// <summary>
@@ -58,7 +92,7 @@ public sealed class ChangeEmailUseCaseTests
     {
         var user = User.Register("alice@example.com", "hash").Value;
 
-        var (userRepo, refreshRepo, currentUser, useCase) = BuildHarness();
+        var (userRepo, refreshRepo, currentUser, _, useCase) = BuildHarness();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(user.Id));
         currentUser.Setup(x => x.IsAdmin()).Returns(false);
@@ -87,7 +121,7 @@ public sealed class ChangeEmailUseCaseTests
     {
         var target = User.Register("bob@example.com", "hash").Value;
 
-        var (userRepo, _, currentUser, useCase) = BuildHarness();
+        var (userRepo, _, currentUser, _, useCase) = BuildHarness();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
         currentUser.Setup(x => x.IsAdmin()).Returns(false);
@@ -106,16 +140,19 @@ public sealed class ChangeEmailUseCaseTests
         Mock<IUserRepository> UserRepo,
         Mock<IRefreshTokenRepository> RefreshRepo,
         Mock<ICurrentUserService> CurrentUser,
+        Mock<ISecurityStampInvalidator> Invalidator,
         ChangeEmailUseCase UseCase) BuildHarness()
     {
         var userRepo = new Mock<IUserRepository>();
         var refreshRepo = new Mock<IRefreshTokenRepository>();
         var currentUser = new Mock<ICurrentUserService>();
+        var invalidator = new Mock<ISecurityStampInvalidator>();
         var useCase = new ChangeEmailUseCase(
             userRepo.Object,
             refreshRepo.Object,
             currentUser.Object,
+            invalidator.Object,
             TestExecutor.With<ChangeEmailCommand, ChangeEmailCommandValidator>());
-        return (userRepo, refreshRepo, currentUser, useCase);
+        return (userRepo, refreshRepo, currentUser, invalidator, useCase);
     }
 }

@@ -149,6 +149,15 @@ public sealed class User : Entity<Guid>
         if (fullNameResult.IsFailure)
             return fullNameResult.Error;
 
+        // No-op guard (D11.8.2): PATCH с теми же значениями не должен
+        // ротировать SecurityStamp и инвалидировать токены на других
+        // устройствах. Сравниваем по нормализованным формам.
+        if (UserNameNormalized == userNameResult.Value.Normalized &&
+            FullName == fullNameResult.Value)
+        {
+            return UnitResult.Success<Error>();
+        }
+
         UserName = userNameResult.Value.Display;
         UserNameNormalized = userNameResult.Value.Normalized;
         FullName = fullNameResult.Value;
@@ -167,6 +176,11 @@ public sealed class User : Entity<Guid>
         var emailResult = NormalizeEmail(email);
         if (emailResult.IsFailure)
             return emailResult.Error;
+
+        // No-op guard (D11.8.2): тот же email после нормализации —
+        // не ротируем SecurityStamp.
+        if (Email == emailResult.Value)
+            return UnitResult.Success<Error>();
 
         Email = emailResult.Value;
         SecurityStamp = Guid.NewGuid();
@@ -193,6 +207,12 @@ public sealed class User : Entity<Guid>
         {
             return Errors.User.RoleInvalid();
         }
+
+        // No-op guard (D11.8.2): та же роль — не ротируем SecurityStamp
+        // и не дёргаем RevokeAllForUser. Защита от случайного
+        // "переназначить ту же роль через UI" → массовый force-logout.
+        if (Role == role)
+            return UnitResult.Success<Error>();
 
         Role = role;
         SecurityStamp = Guid.NewGuid();
@@ -380,6 +400,27 @@ public sealed class User : Entity<Guid>
 
         return Result.Success<(string, string), Error>(
             (display, display.ToLowerInvariant()));
+    }
+
+    /// <summary>
+    /// Единый источник истины для нормализованной формы UserName,
+    /// используемой в unique-индексе (D11.8.3). Use case'ы зовут
+    /// этот helper для проверки `ExistsByUserName(normalized)` —
+    /// иначе при изменении правил нормализации в домене (strip эмодзи,
+    /// NFKC и т.д.) Application-слой продолжит проверять по старой
+    /// логике и конфликт всплывёт только через 23505 на Save.
+    /// При невалидном имени возвращает Failure (не Domain Error,
+    /// а просто пустую строку — use case всё равно не может сделать
+    /// проверку и должен дальше отдать запрос в User.Register, который
+    /// вернёт нормальную ошибку).
+    /// </summary>
+    public static string ComputeNormalizedUserName(string? userName, string email)
+    {
+        var normalizedEmail = (email ?? string.Empty).Trim().ToLowerInvariant();
+        var display = string.IsNullOrWhiteSpace(userName)
+            ? (normalizedEmail.Length > 0 ? normalizedEmail.Split('@')[0] : string.Empty)
+            : userName.Trim();
+        return display.ToLowerInvariant();
     }
 
     private static Result<string?, Error> NormalizeFullName(string? fullName)

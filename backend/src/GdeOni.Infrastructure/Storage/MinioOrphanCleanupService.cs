@@ -34,9 +34,15 @@ internal sealed class MinioOrphanCleanupService(
             return;
         }
 
+        // Джиттер до InitialDelayMinutes минут — не даём репликам
+        // дёргать MinIO+БД в одну секунду каждый цикл (см. D11.8.4,
+        // паттерн скопирован из RefreshTokensCleanupService).
+        var jitter = Random.Shared.Next(cleanup.InitialDelayMinutes * 60);
         try
         {
-            await Task.Delay(TimeSpan.FromMinutes(cleanup.InitialDelayMinutes), stoppingToken);
+            await Task.Delay(
+                TimeSpan.FromMinutes(cleanup.InitialDelayMinutes) + TimeSpan.FromSeconds(jitter),
+                stoppingToken);
         }
         catch (OperationCanceledException)
         {

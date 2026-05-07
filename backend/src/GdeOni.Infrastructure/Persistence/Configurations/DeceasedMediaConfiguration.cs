@@ -78,8 +78,10 @@ public sealed class DeceasedMediaConfiguration : IEntityTypeConfiguration<Deceas
         builder.HasIndex(x => x.DeceasedId)
             .HasDatabaseName("ix_deceased_media_deceased_id");
 
-        builder.HasIndex(x => x.Kind)
-            .HasDatabaseName("ix_deceased_media_kind");
+        // ix_deceased_media_kind удалён в D11.8.6: cardinality 4
+        // (DeceasedPhoto/GravePhoto/Document/Other) — selectivity ~25%,
+        // PostgreSQL planner всё равно проигнорирует. Если в будущем
+        // понадобится фильтрация — composite (deceased_id, kind).
 
         builder.HasIndex(x => x.UploadedByUserId)
             .HasDatabaseName("ix_deceased_media_uploaded_by_user_id");

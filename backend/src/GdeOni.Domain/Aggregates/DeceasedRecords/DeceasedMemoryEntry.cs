@@ -55,9 +55,15 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
         if (textResult.IsFailure)
             return textResult.Error;
 
+        // No-op guard (D11.9.2): автор открыл UI и нажал Save без правок —
+        // Approved-запись не должна терять статус модерации. Сравниваем
+        // нормализованные формы.
+        if (Text == textResult.Value)
+            return UnitResult.Success<Error>();
+
         Text = textResult.Value;
-        // Любая правка текста возвращает запись в Pending. Без этого
-        // обходится модерация: автор пишет одобряемое содержимое,
+        // Любая фактическая правка текста возвращает запись в Pending.
+        // Без этого обходится модерация: автор пишет одобряемое содержимое,
         // ждёт Approved, затем редактирует на произвольный текст —
         // и запись остаётся Approved. Reset при каждом EditText
         // заставляет каждый текст пройти модерацию заново.

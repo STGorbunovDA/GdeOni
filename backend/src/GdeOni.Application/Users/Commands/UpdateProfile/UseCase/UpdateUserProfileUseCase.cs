@@ -10,6 +10,7 @@ namespace GdeOni.Application.Users.Commands.UpdateProfile.UseCase;
 public sealed class UpdateUserProfileUseCase(
     IUserRepository userRepository,
     ICurrentUserService currentUserService,
+    ISecurityStampInvalidator securityStampInvalidator,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IUpdateUserProfileUseCase
 {
@@ -45,11 +46,19 @@ public sealed class UpdateUserProfileUseCase(
         if (userNameExists && user.UserNameNormalized != normalizedNewUserName)
             return Errors.User.UserNameAlreadyExists();
 
+        // Снимаем SecurityStamp до вызова мутации — если домен сделает
+        // no-op (D11.8.2), stamp не изменится и invalidate можно
+        // пропустить.
+        var stampBefore = user.SecurityStamp;
+
         var result = user.UpdateProfile(command.UserName, command.FullName);
         if (result.IsFailure)
             return result.Error;
 
         await userRepository.Save(cancellationToken);
+        // D11.8.1: если домен реально ротировал stamp, выбиваем кеш.
+        if (user.SecurityStamp != stampBefore)
+            securityStampInvalidator.Invalidate(user.Id);
 
         return Result.Success<UpdateUserProfileResponse, Error>(
             new UpdateUserProfileResponse(user.Id));

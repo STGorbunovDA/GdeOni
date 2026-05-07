@@ -4807,6 +4807,183 @@ D11 закрыт, когда:
 D11 закрыт 2026-05-07. 9 коммитов в dev: 98df1df, 1611993, 84d6bf5,
 cca9464, ab9751a, 9ad5d35, 6b2d9c2, 4de761a, 8dbdf0c.
 
+---------------------------------------------------------------------
+D11.8. Повторный аудит после закрытия D11.1-D11.7 (2026-05-07)
+---------------------------------------------------------------------
+
+Повторный проход по контроллерам, use case'ам, domain-агрегатам и
+infra-конфигурациям после закрытия D11.1-D11.7. Найдены 6 новых
+проблем — security-окно при ротации SecurityStamp, отсутствующие
+no-op guards в Domain, дубликат логики и cleanup-mismatches в
+индексах/background services.
+
+[x] D11.8.1 [High] SecurityStamp-кеш в IMemoryCache не инвалидируется
+    при ChangeEmail / ChangePassword / ChangeRole / UpdateProfile.
+    User.cs ротирует SecurityStamp на доменном уровне, репозиторий
+    пишет новое значение в БД, но кеш в `OnTokenValidated` хранит
+    старый stamp до истечения SecurityStampCacheTtlSeconds (≤30s).
+    Это означает, что украденный access-токен переживает смену
+    пароля на TTL — security-окно.
+    Решение: интерфейс ISecurityStampInvalidator (Application
+    abstraction), реализация SecurityStampInvalidator в API/Security/
+    через IMemoryCache.Remove(SecurityStampCacheKey(userId)).
+    Вызывать после userRepository.Save в 4 use case'ах.
+    Файлы:
+      • src/GdeOni.Application/Common/Security/ISecurityStampInvalidator.cs (NEW);
+      • src/GdeOni.API/Security/SecurityStampInvalidator.cs (NEW);
+      • src/GdeOni.API/DependencyInjection.cs (регистрация);
+      • src/GdeOni.Application/Users/Commands/ChangeEmail/UseCase/ChangeEmailUseCase.cs;
+      • src/GdeOni.Application/Users/Commands/ChangePassword/UseCase/ChangePasswordUseCase.cs;
+      • src/GdeOni.Application/Users/Commands/ChangeRole/UseCase/ChangeRoleUseCase.cs;
+      • src/GdeOni.Application/Users/Commands/UpdateProfile/UseCase/UpdateUserProfileUseCase.cs.
+    [tests] Application.Tests/Users/* — добавить мок
+    ISecurityStampInvalidator + ассерт Verify(Invalidate, Times.Once).
+
+[x] D11.8.2 [Medium] User.UpdateProfile / ChangeEmail / ChangeRole
+    ротируют SecurityStamp без проверки "реально ли изменилось значение".
+    PATCH с теми же UserName/FullName/Email/Role инвалидирует все
+    access-токены текущего юзера на других устройствах — заметный
+    UX-регресс. Аналогично ChangePassword (no-op detect через
+    BCrypt.Verify нового пароля против текущего хеша).
+    Решение: no-op guards в User-доменных методах + у ChangePassword
+    ранний return до Hash(), если новый пароль совпадает с текущим.
+    Файлы:
+      • src/GdeOni.Domain/Aggregates/User/User.cs (UpdateProfile,
+        ChangeEmail, ChangeRole — early return UnitResult.Success
+        если значения совпадают);
+      • src/GdeOni.Application/Users/Commands/ChangePassword/UseCase/
+        ChangePasswordUseCase.cs (после Verify(currentPassword) —
+        отдельный Verify(newPassword, currentHash) → если true,
+        ранний return Success без мутаций).
+    [tests] Domain.Tests/UserTests — добавить три теста
+    *_SameValue_DoesNotRotateSecurityStamp + *_DoesNotTouch.
+    Application.Tests/ChangePasswordUseCaseTests — тест на
+    "новый пароль == текущий" → Success без RevokeAllForUser.
+
+[x] D11.8.3 [Low] RegisterUserUseCase.Handle (line 37-39) дублирует
+    логику нормализации UserName из User.NormalizeUserName: вычисляет
+    effectiveUserName для проверки ExistsByUserName. Если домен
+    изменит правила (strip эмодзи, NFKC, etc.) — use case продолжит
+    проверять по старой логике → конфликты в unique-constraint всё
+    равно проявятся, но через 23505 на Save вместо явного 409.
+    Решение: публичный helper `User.ComputeNormalizedUserName(userName,
+    email)` — единый источник истины для нормализации.
+    Файлы:
+      • src/GdeOni.Domain/Aggregates/User/User.cs (новый public static
+        метод; внутренний NormalizeUserName делегирует);
+      • src/GdeOni.Application/Users/Commands/Register/UseCase/
+        RegisterUserUseCase.cs (использует helper вместо ручной
+        нормализации).
+    [tests] Не должны сломаться — рефакторинг без изменения
+    поведения.
+
+[x] D11.8.4 [Low] MinioOrphanCleanupService без джиттера на initial-
+    delay (line 39): `Task.Delay(InitialDelayMinutes)` без рандома.
+    D11.7.4 закрыл аналогичную проблему только в RefreshTokensCleanupService;
+    MinioOrphanCleanup пропустили. Реплики стартуют cleanup в одну
+    секунду, дёргают MinIO и БД синхронно.
+    Решение: добавить `Random.Shared.Next` jitter — копия паттерна
+    из RefreshTokensCleanupService.cs:29.
+    Файл: src/GdeOni.Infrastructure/Storage/MinioOrphanCleanupService.cs.
+
+[x] D11.8.5 [Low] DeceasedMemoryEntryConfiguration: после создания
+    composite-индекса (deceased_id, moderation_status) в D11.5.6
+    остался single-column ix_memory_entries_deceased_id (line 49-50).
+    Composite-индекс с deceased_id как первой колонкой покрывает
+    любой запрос по deceased_id → single-column дублирует.
+    Решение: миграция на DROP INDEX ix_memory_entries_deceased_id +
+    удалить .HasIndex("deceased_id") из конфигурации.
+    Файлы:
+      • src/GdeOni.Infrastructure/Persistence/Configurations/
+        DeceasedMemoryEntryConfiguration.cs;
+      • src/GdeOni.Infrastructure/Migrations/<новая миграция>.cs.
+
+[x] D11.8.6 [Low] DeceasedMediaConfiguration: индекс
+    ix_deceased_media_kind на колонку с cardinality 4 (DeceasedPhoto/
+    GravePhoto/Document/Other). PostgreSQL planner проигнорирует
+    из-за низкой selectivity (~25%); индекс лишь занимает место.
+    Решение: миграция на DROP INDEX ix_deceased_media_kind + удалить
+    .HasIndex(x => x.Kind) из конфигурации. Если в будущем понадобится
+    фильтрация — composite (deceased_id, kind).
+    Файлы:
+      • src/GdeOni.Infrastructure/Persistence/Configurations/
+        DeceasedMediaConfiguration.cs;
+      • src/GdeOni.Infrastructure/Migrations/<та же миграция, что D11.8.5>.cs.
+
+D11.8 закрыт, когда:
+
+[x] Каждый подпункт D11.8.x отмечен [x].
+[x] dotnet test backend.sln зелёный
+    (116 Domain + 119 Application + 31 Infrastructure + 64 API.IntegrationTests = 330/0 failed).
+[x] Новая EF-миграция применена к dev-БД (D11.8.5+D11.8.6:
+    20260507064729_D11_8_DropRedundantIndexes).
+
+D11.8 закрыт 2026-05-07.
+
+---------------------------------------------------------------------
+D11.9. Третий проход аудита (2026-05-07)
+---------------------------------------------------------------------
+
+Третий проход после закрытия D11.8 — целевой аудит репозиториев,
+валидаторов, ExceptionMiddleware и edge case'ов в доменных мутациях.
+Найдены 4 проблемы.
+
+[x] D11.9.1 [Medium] DeceasedRepository.GetPaged: фильтры Country/City
+    через EF.Functions.ILike(value, country) БЕЗ обрамления `%` —
+    exact case-insensitive match, тогда как соседний search использует
+    `$"%{search}%"`. Inconsistency: поиск `?country=Russia` НЕ
+    найдёт записи со страной "Russian Federation"; админ-выборка
+    ожидает substring-фильтр (как Search и UserRepository.GetPaged).
+    Файл: src/GdeOni.Infrastructure/Persistence/Repositories/
+    DeceasedRepository.cs:161-177.
+    Решение: обернуть country/city в `$"%{value}%"` — единая
+    substring-семантика во всех ILike-фильтрах.
+    [tests] Если есть тесты на exact match Country/City — поменяться
+    под substring.
+
+[x] D11.9.2 [Medium] DeceasedMemoryEntry.EditText всегда сбрасывает
+    ModerationStatus в Pending — даже если новый текст совпадает со
+    старым. Сценарий: автор открыл UI редактирования, нажал Save без
+    изменений → Approved memory становится Pending, исчезает из
+    публичного списка до повторной модерации.
+    Файл: src/GdeOni.Domain/Aggregates/DeceasedRecords/
+    DeceasedMemoryEntry.cs:52-67.
+    Решение: после NormalizeAndValidateText проверить `Text == normalized`
+    и вернуть Success без мутаций (no-op).
+    [tests] Domain.Tests/DeceasedMemoryEntryTests — добавить тест
+    EditText_SameText_DoesNotResetModerationStatus.
+
+[x] D11.9.3 [Low] ExceptionMiddleware ловит UniqueConstraintException
+    и хардкодит StatusCode = 409. Но Errors.UniqueConstraint.FromName
+    может (в будущем) вернуть Error другого типа — middleware
+    отдаст всё равно 409 + код ошибки от другого Type, ломая
+    маппинг ResponseExtensions.ToErrorResponse.
+    Файл: src/GdeOni.API/Extensions/ExceptionMiddleware.cs:29-36.
+    Решение: использовать `error.ToErrorResponse()` (через
+    `executeResult.ExecuteResultAsync(ActionContext)`) или
+    напрямую вычислять StatusCode через тот же switch, что в
+    ResponseExtensions.cs. Минимальный вариант — extract switch в
+    статический helper и переиспользовать.
+    [tests] Не должно сломать существующие — сейчас все
+    UniqueConstraint-ошибки уже Conflict.
+
+[x] D11.9.4 [Low] GetAllUsersQueryValidator: `RuleFor(x => x.Role)
+    .IsInEnum()` пропускает UserRole.Unknown (sentinel из D11.1.4).
+    Запрос с `?role=Unknown` валидируется как корректный, потом
+    репозиторий фильтрует WHERE role = 'Unknown' — пустой результат.
+    Не критично, но валидатор должен явно отвергать sentinel.
+    Файл: src/GdeOni.Application/Users/Queries/GetAll/Validation/
+    GetAllUsersQueryValidator.cs:29-32.
+    Решение: добавить `.NotEqual(UserRole.Unknown)` после IsInEnum().
+
+D11.9 закрыт, когда:
+
+[x] Каждый подпункт D11.9.x отмечен [x].
+[x] dotnet test backend.sln зелёный
+    (117 Domain + 119 Application + 31 Infrastructure + 64 API.IntegrationTests = 331/0 failed).
+
+D11.9 закрыт 2026-05-07.
+
 =====================================================================
 E. FRONTEND ROADMAP
 =====================================================================

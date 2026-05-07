@@ -160,7 +160,10 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
 
         if (!string.IsNullOrWhiteSpace(query.Country))
         {
-            var country = query.Country.Trim();
+            // Substring-семантика, как у Search ниже (D11.9.1): иначе
+            // `?country=Russia` не находил запись со страной
+            // "Russian Federation".
+            var country = $"%{query.Country.Trim()}%";
             dbQuery = dbQuery.Where(x =>
                 x.BurialLocation != null &&
                 x.BurialLocation.Country != null &&
@@ -169,7 +172,7 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
 
         if (!string.IsNullOrWhiteSpace(query.City))
         {
-            var city = query.City.Trim();
+            var city = $"%{query.City.Trim()}%";
             dbQuery = dbQuery.Where(x =>
                 x.BurialLocation != null &&
                 x.BurialLocation.City != null &&

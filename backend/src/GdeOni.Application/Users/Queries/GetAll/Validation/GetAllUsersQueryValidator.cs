@@ -31,6 +31,14 @@ public sealed class GetAllUsersQueryValidator : AbstractValidator<GetAllUsersQue
             .WithError(Errors.User.RoleInvalid())
             .When(x => x.Role.HasValue);
 
+        // Sentinel Unknown (D11.1.4) валиден для enum, но как фильтр
+        // бессмыслен — таких пользователей нет. Возвращаем 400 явно
+        // (D11.9.4), а не пустой список без объяснения.
+        RuleFor(x => x.Role)
+            .NotEqual(UserRole.Unknown)
+            .WithError(Errors.User.RoleInvalid())
+            .When(x => x.Role.HasValue);
+
         RuleFor(x => x.RegisteredAtUtc)
             .LessThanOrEqualTo(_ => DateTime.UtcNow)
             .WithError(Errors.User.RegisteredAtUtcInFuture())

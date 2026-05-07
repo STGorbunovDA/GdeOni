@@ -31,7 +31,11 @@ public sealed class ExceptionMiddleware(
 
             context.Response.Clear();
             context.Response.ContentType = "application/json";
-            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            // Берём StatusCode из Error.Type — Errors.UniqueConstraint.FromName
+            // сейчас возвращает только Conflict, но в будущем может маппить
+            // на NotFound/Validation, и middleware не должен хардкодить 409
+            // (см. D11.9.3).
+            context.Response.StatusCode = error.Type.ToHttpStatusCode();
 
             await context.Response.WriteAsJsonAsync(response);
         }

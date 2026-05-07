@@ -101,6 +101,26 @@ public sealed class DeceasedMemoryEntryTests
     }
 
     /// <summary>
+    /// D11.9.2: автор открыл UI и нажал Save с тем же текстом —
+    /// no-op, статус Approved сохраняется, UpdatedAtUtc не двигается.
+    /// </summary>
+    [Fact]
+    public void EditText_SameText_DoesNotResetModerationStatus()
+    {
+        var memory = DeceasedMemoryEntry.Create("Хороший текст").Value;
+        memory.Approve();
+        var initialUpdatedAt = memory.UpdatedAtUtc;
+
+        // Тот же текст с пробелами по краям — после Trim будет идентичен.
+        var result = memory.EditText("  Хороший текст  ");
+
+        result.IsSuccess.Should().BeTrue();
+        memory.Text.Should().Be("Хороший текст");
+        memory.ModerationStatus.Should().Be(ModerationStatus.Approved);
+        memory.UpdatedAtUtc.Should().Be(initialUpdatedAt);
+    }
+
+    /// <summary>
     /// Approve повторно (на уже Approved memory) → AlreadyApproved.
     /// Conflict-ошибка, ровно 409 на уровне API.
     /// </summary>

@@ -25,7 +25,7 @@ public sealed class ChangeRoleUseCaseTests
     {
         var target = User.Register("bob@example.com", "hash").Value;
 
-        var (userRepo, refreshRepo, currentUser, useCase) = BuildHarness();
+        var (userRepo, refreshRepo, currentUser, invalidator, useCase) = BuildHarness();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
         currentUser.Setup(x => x.IsAdmin()).Returns(false);
@@ -47,7 +47,7 @@ public sealed class ChangeRoleUseCaseTests
         var target = User.Register("peer@example.com", "hash").Value;
         target.ChangeRole(UserRole.Admin);
 
-        var (userRepo, _, currentUser, useCase) = BuildHarness();
+        var (userRepo, _, currentUser, _, useCase) = BuildHarness();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
         currentUser.Setup(x => x.IsAdmin()).Returns(true);
@@ -72,7 +72,7 @@ public sealed class ChangeRoleUseCaseTests
     {
         var target = User.RegisterSuperAdmin("super@example.com", "hash").Value;
 
-        var (userRepo, _, currentUser, useCase) = BuildHarness();
+        var (userRepo, _, currentUser, _, useCase) = BuildHarness();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
         currentUser.Setup(x => x.IsAdmin()).Returns(true);
@@ -98,7 +98,7 @@ public sealed class ChangeRoleUseCaseTests
         var target = User.Register("bob@example.com", "hash").Value;
         var oldStamp = target.SecurityStamp;
 
-        var (userRepo, refreshRepo, currentUser, useCase) = BuildHarness();
+        var (userRepo, refreshRepo, currentUser, invalidator, useCase) = BuildHarness();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
         currentUser.Setup(x => x.IsAdmin()).Returns(true);
@@ -117,6 +117,39 @@ public sealed class ChangeRoleUseCaseTests
         refreshRepo.Verify(
             x => x.RevokeAllForUser(target.Id, It.IsAny<CancellationToken>()),
             Times.Once);
+        invalidator.Verify(x => x.Invalidate(target.Id), Times.Once);
+    }
+
+    /// <summary>
+    /// D11.8.2: та же роль — domain делает no-op, use case не должен
+    /// дёргать Save / RevokeAllForUser / Invalidate.
+    /// </summary>
+    [Fact]
+    public async Task Execute_SameRole_NoOp()
+    {
+        var target = User.Register("bob@example.com", "hash").Value;
+        target.ChangeRole(UserRole.Admin);
+        var oldStamp = target.SecurityStamp;
+
+        var (userRepo, refreshRepo, currentUser, invalidator, useCase) = BuildHarness();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
+        currentUser.Setup(x => x.IsAdmin()).Returns(true);
+        currentUser.Setup(x => x.IsInRole(nameof(UserRole.SuperAdmin))).Returns(true);
+        userRepo.Setup(x => x.GetById(target.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(target);
+
+        var result = await useCase.Execute(
+            new ChangeRoleCommand(target.Id, UserRole.Admin),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        target.SecurityStamp.Should().Be(oldStamp);
+        userRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Never);
+        refreshRepo.Verify(
+            x => x.RevokeAllForUser(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        invalidator.Verify(x => x.Invalidate(It.IsAny<Guid>()), Times.Never);
     }
 
     /// <summary>
@@ -130,7 +163,7 @@ public sealed class ChangeRoleUseCaseTests
     {
         var target = User.Register("bob@example.com", "hash").Value;
 
-        var (userRepo, _, currentUser, useCase) = BuildHarness();
+        var (userRepo, _, currentUser, _, useCase) = BuildHarness();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
         currentUser.Setup(x => x.IsAdmin()).Returns(true);
@@ -151,16 +184,19 @@ public sealed class ChangeRoleUseCaseTests
         Mock<IUserRepository> UserRepo,
         Mock<IRefreshTokenRepository> RefreshRepo,
         Mock<ICurrentUserService> CurrentUser,
+        Mock<ISecurityStampInvalidator> Invalidator,
         ChangeRoleUseCase UseCase) BuildHarness()
     {
         var userRepo = new Mock<IUserRepository>();
         var refreshRepo = new Mock<IRefreshTokenRepository>();
         var currentUser = new Mock<ICurrentUserService>();
+        var invalidator = new Mock<ISecurityStampInvalidator>();
         var useCase = new ChangeRoleUseCase(
             userRepo.Object,
             refreshRepo.Object,
             currentUser.Object,
+            invalidator.Object,
             TestExecutor.With<ChangeRoleCommand, ChangeRoleCommandValidator>());
-        return (userRepo, refreshRepo, currentUser, useCase);
+        return (userRepo, refreshRepo, currentUser, invalidator, useCase);
     }
 }

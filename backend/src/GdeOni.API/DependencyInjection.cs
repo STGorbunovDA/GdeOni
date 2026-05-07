@@ -148,6 +148,8 @@ public static class DependencyInjection
         services.AddMemoryCache();
         services.AddScoped<IJwtProvider, JwtProvider>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        // Без состояния — IMemoryCache внутри сам Singleton (D11.8.1).
+        services.AddSingleton<ISecurityStampInvalidator, SecurityStampInvalidator>();
 
         return services;
     }

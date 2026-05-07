@@ -6,9 +6,13 @@ namespace GdeOni.API.Extensions;
 
 public static class ResponseExtensions
 {
-    public static ActionResult ToErrorResponse(this Error error)
-    {
-        var statusCode = error.Type switch
+    /// <summary>
+    /// Единый switch ErrorType→HTTP-статус. Используется и в
+    /// ToErrorResponse (через ActionResult), и в ExceptionMiddleware,
+    /// который пишет ответ напрямую в Response.StatusCode (D11.9.3).
+    /// </summary>
+    public static int ToHttpStatusCode(this ErrorType type) =>
+        type switch
         {
             ErrorType.Validation => StatusCodes.Status400BadRequest,
             ErrorType.NotFound => StatusCodes.Status404NotFound,
@@ -20,9 +24,11 @@ public static class ResponseExtensions
             _ => StatusCodes.Status500InternalServerError
         };
 
+    public static ActionResult ToErrorResponse(this Error error)
+    {
         return new ObjectResult(ApiResponse<object?>.Error(error))
         {
-            StatusCode = statusCode
+            StatusCode = error.Type.ToHttpStatusCode()
         };
     }
 

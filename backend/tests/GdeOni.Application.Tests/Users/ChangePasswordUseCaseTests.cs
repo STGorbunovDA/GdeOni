@@ -38,7 +38,7 @@ public sealed class ChangePasswordUseCaseTests
         // приватный setter, поэтому используем то, что родилось.
         var userId = user.Id;
 
-        var (userRepo, refreshRepo, hasher, currentUser, useCase) =
+        var (userRepo, refreshRepo, hasher, currentUser, invalidator, useCase) =
             BuildHarness(currentUserId: userId, isAdmin: false);
 
         userRepo
@@ -48,6 +48,10 @@ public sealed class ChangePasswordUseCaseTests
         hasher
             .Setup(x => x.Verify("OldPassword123!", user.PasswordHash))
             .Returns(true);
+        // No-op detect (D11.8.2): новый пароль НЕ совпадает с текущим.
+        hasher
+            .Setup(x => x.Verify("NewPassword456!", user.PasswordHash))
+            .Returns(false);
         hasher
             .Setup(x => x.Hash("NewPassword456!"))
             .Returns("new-hash");
@@ -57,13 +61,48 @@ public sealed class ChangePasswordUseCaseTests
             new ChangePasswordCommand(userId, "OldPassword123!", "NewPassword456!"),
             CancellationToken.None);
 
-        // Assert: успех + хеш обновлён + Save + RevokeAllForUser.
+        // Assert: успех + хеш обновлён + Save + RevokeAllForUser + Invalidate.
         result.IsSuccess.Should().BeTrue();
         user.PasswordHash.Should().Be("new-hash");
         userRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Once);
         refreshRepo.Verify(
             x => x.RevokeAllForUser(userId, It.IsAny<CancellationToken>()),
             Times.Once);
+        invalidator.Verify(x => x.Invalidate(userId), Times.Once);
+    }
+
+    /// <summary>
+    /// D11.8.2: новый пароль идентичен текущему — Save / Hash /
+    /// RevokeAllForUser / Invalidate НЕ вызываются.
+    /// </summary>
+    [Fact]
+    public async Task Execute_NewPasswordSameAsCurrent_NoOp()
+    {
+        var user = User.Register("self@example.com", "current-hash").Value;
+        var userId = user.Id;
+
+        var (userRepo, refreshRepo, hasher, _, invalidator, useCase) =
+            BuildHarness(currentUserId: userId, isAdmin: false);
+
+        userRepo
+            .Setup(x => x.GetById(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        hasher
+            .Setup(x => x.Verify("SamePassword123!", user.PasswordHash))
+            .Returns(true);
+
+        var result = await useCase.Execute(
+            new ChangePasswordCommand(userId, "SamePassword123!", "SamePassword123!"),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        user.PasswordHash.Should().Be("current-hash");
+        hasher.Verify(x => x.Hash(It.IsAny<string>()), Times.Never);
+        userRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Never);
+        refreshRepo.Verify(
+            x => x.RevokeAllForUser(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        invalidator.Verify(x => x.Invalidate(It.IsAny<Guid>()), Times.Never);
     }
 
     /// <summary>
@@ -77,7 +116,7 @@ public sealed class ChangePasswordUseCaseTests
         var user = User.Register("self@example.com", "old-hash").Value;
         var userId = user.Id;
 
-        var (userRepo, refreshRepo, hasher, _, useCase) =
+        var (userRepo, refreshRepo, hasher, _, _, useCase) =
             BuildHarness(currentUserId: userId, isAdmin: false);
 
         userRepo
@@ -112,12 +151,17 @@ public sealed class ChangePasswordUseCaseTests
         var victim = User.Register("victim@example.com", "old-hash").Value;
         var victimId = victim.Id;
 
-        var (userRepo, refreshRepo, hasher, _, useCase) =
+        var (userRepo, refreshRepo, hasher, _, _, useCase) =
             BuildHarness(currentUserId: adminId, isAdmin: true);
 
+        var originalHash = victim.PasswordHash;
         userRepo
             .Setup(x => x.GetById(victimId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(victim);
+        // No-op detect: новый пароль не совпадает с текущим хешем.
+        hasher
+            .Setup(x => x.Verify("AdminReset123!", originalHash))
+            .Returns(false);
         hasher
             .Setup(x => x.Hash("AdminReset123!"))
             .Returns("new-hash");
@@ -126,12 +170,14 @@ public sealed class ChangePasswordUseCaseTests
             new ChangePasswordCommand(victimId, CurrentPassword: null, "AdminReset123!"),
             CancellationToken.None);
 
-        // Assert: успех + Verify НЕ вызывался (skip CurrentPassword).
+        // Assert: успех + Verify CurrentPassword НЕ вызывался (skip).
+        // Verify нового пароля для no-op detect — вызывается ровно один раз
+        // против исходного хеша до его перезаписи.
         result.IsSuccess.Should().BeTrue();
         victim.PasswordHash.Should().Be("new-hash");
         hasher.Verify(
-            x => x.Verify(It.IsAny<string>(), It.IsAny<string>()),
-            Times.Never);
+            x => x.Verify("AdminReset123!", originalHash),
+            Times.Once);
         refreshRepo.Verify(
             x => x.RevokeAllForUser(victimId, It.IsAny<CancellationToken>()),
             Times.Once);
@@ -145,12 +191,14 @@ public sealed class ChangePasswordUseCaseTests
         Mock<IRefreshTokenRepository>,
         Mock<IPasswordHasher>,
         Mock<ICurrentUserService>,
+        Mock<ISecurityStampInvalidator>,
         ChangePasswordUseCase) BuildHarness(Guid currentUserId, bool isAdmin)
     {
         var userRepo = new Mock<IUserRepository>();
         var refreshRepo = new Mock<IRefreshTokenRepository>();
         var hasher = new Mock<IPasswordHasher>();
         var currentUser = new Mock<ICurrentUserService>();
+        var invalidator = new Mock<ISecurityStampInvalidator>();
 
         currentUser
             .Setup(x => x.GetCurrentUserId())
@@ -162,8 +210,9 @@ public sealed class ChangePasswordUseCaseTests
             refreshRepo.Object,
             hasher.Object,
             currentUser.Object,
+            invalidator.Object,
             TestExecutor.With<ChangePasswordCommand, ChangePasswordCommandValidator>());
 
-        return (userRepo, refreshRepo, hasher, currentUser, useCase);
+        return (userRepo, refreshRepo, hasher, currentUser, invalidator, useCase);
     }
 }

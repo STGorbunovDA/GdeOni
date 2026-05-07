@@ -32,11 +32,10 @@ public sealed class RegisterUserUseCase(
         if (emailExists)
             return Errors.User.EmailAlreadyExists();
 
-        // Вычисляем эффективный username для проверки уникальности
-        // (домен применяет ту же логику при создании пользователя)
-        var effectiveUserName = string.IsNullOrWhiteSpace(command.UserName)
-            ? command.Email.Trim().ToLowerInvariant().Split('@')[0]
-            : command.UserName.Trim().ToLowerInvariant();
+        // Единый источник истины для normalized-формы — Domain.User
+        // (D11.8.3): иначе при изменении правил нормализации Application
+        // и Domain могут разойтись.
+        var effectiveUserName = User.ComputeNormalizedUserName(command.UserName, command.Email);
 
         var userNameExists = await userRepository.ExistsByUserName(effectiveUserName, cancellationToken);
         if (userNameExists)
