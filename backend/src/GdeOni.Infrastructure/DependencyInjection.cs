@@ -48,12 +48,16 @@ public static class DependencyInjection
         services.AddScoped<IDeceasedRepository, DeceasedRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
-        services.AddScoped<IPasswordHasher, PasswordHasher>();
+        // PasswordHasher без состояния: BCrypt.Net не использует поля
+        // экземпляра. Singleton экономит аллокацию на каждый запрос
+        // (см. D11.7.2).
+        services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IRefreshTokenFactory, RefreshTokenFactory>();
 
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
 
         services.Configure<MinioOptions>(configuration.GetSection(MinioOptions.SectionName));
+        services.Configure<BCryptOptions>(configuration.GetSection(BCryptOptions.SectionName));
 
         services.AddSingleton<IMinioClient>(sp =>
         {

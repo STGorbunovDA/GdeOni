@@ -1,4 +1,5 @@
 using GdeOni.Infrastructure.Security;
+using Microsoft.Extensions.Options;
 
 namespace GdeOni.Infrastructure.Tests.Security;
 
@@ -10,7 +11,11 @@ namespace GdeOni.Infrastructure.Tests.Security;
 /// </summary>
 public sealed class PasswordHasherTests
 {
-    private readonly PasswordHasher _hasher = new();
+    // Тестовый work-factor 4 — минимально допустимый для BCrypt;
+    // ускоряет PasswordHasherTests в десятки раз без потери поведения
+    // (round-trip / разная соль).
+    private readonly PasswordHasher _hasher = new(
+        Options.Create(new BCryptOptions { WorkFactor = 4 }));
 
     /// <summary>
     /// Hash затем Verify тем же паролем = true. Базовый round-trip

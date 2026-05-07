@@ -46,14 +46,18 @@ internal static class MinioBootstrap
                 cancellationToken);
 
             logger.LogInformation("MinIO: bucket '{Bucket}' создан.", bucket);
-        }
 
-        if (publicRead)
-        {
-            var policy = BuildPublicReadPolicy(bucket);
-            await client.SetPolicyAsync(
-                new SetPolicyArgs().WithBucket(bucket).WithPolicy(policy),
-                cancellationToken);
+            if (publicRead)
+            {
+                // Применяем default-policy ровно один раз — при создании
+                // bucket'а. Если bucket уже существует, ручные правки
+                // админа (через mc / консоль) не затираются на каждом
+                // рестарте API (см. D11.6.2).
+                var policy = BuildPublicReadPolicy(bucket);
+                await client.SetPolicyAsync(
+                    new SetPolicyArgs().WithBucket(bucket).WithPolicy(policy),
+                    cancellationToken);
+            }
         }
     }
 

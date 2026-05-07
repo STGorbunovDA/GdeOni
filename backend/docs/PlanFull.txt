@@ -4708,19 +4708,19 @@ D11.5. Persistence: индексы, конвенции репозиториев 
 D11.6. MinIO / Storage (Medium / Low)
 ---------------------------------------------------------------------
 
-[ ] D11.6.1 [Medium] MinioFileStorage.BuildObjectKey не санитизирует
+[x] D11.6.1 [Medium] MinioFileStorage.BuildObjectKey не санитизирует
     OriginalFileName. Path.GetExtension оставляет user-controlled
     расширение в ключе (например ".jpg%00.exe"). Префикс GUID
     защищает от коллизий, но расширение надо whitelist'ить.
     Файл: src/GdeOni.Infrastructure/Storage/MinioFileStorage.cs:86-91.
 
-[ ] D11.6.2 [Medium] MinioBootstrap.EnsureBucketAsync безусловно
+[x] D11.6.2 [Medium] MinioBootstrap.EnsureBucketAsync безусловно
     переустанавливает public-read policy на каждом старте — снесёт
     кастомные правки админом. Гард if (!exists) или сравнение
     текущего policy.
     Файл: MinioBootstrap.cs:51-57.
 
-[ ] D11.6.3 [Medium] Presigned URL TTL не имеет дефолта/cap'а —
+[x] D11.6.3 [Medium] Presigned URL TTL не имеет дефолта/cap'а —
     клиент может попросить 30 дней. Добавить
     MinioOptions.MaxPresignedTtl + clamp.
     Файл: MinioFileStorage.cs:63-75.
@@ -4733,12 +4733,12 @@ D11.6. MinIO / Storage (Medium / Low)
 D11.7. Безопасность и DI-lifetime (Medium / Low)
 ---------------------------------------------------------------------
 
-[ ] D11.7.1 [Medium] BCrypt work-factor захардкожен в 10 (PasswordHasher.cs:17).
+[x] D11.7.1 [Medium] BCrypt work-factor захардкожен в 10 (PasswordHasher.cs:17).
     Для 2026 рекомендуется 12. Сделать BCryptOptions.WorkFactor через
     конфиг.
     [tests] Если регистрационные тесты замеряют время — увеличится.
 
-[ ] D11.7.2 [Medium] PasswordHasher зарегистрирован Scoped — должен
+[x] D11.7.2 [Medium] PasswordHasher зарегистрирован Scoped — должен
     быть Singleton (stateless).
     Файл: src/GdeOni.Infrastructure/DependencyInjection.cs:51.
 

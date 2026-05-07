@@ -66,10 +66,17 @@ internal sealed class MinioFileStorage : IFileStorage
         TimeSpan expiresIn,
         CancellationToken cancellationToken)
     {
+        // Clamp на MaxPresignedTtl (D11.6.3): даже если caller попросит
+        // 30 дней, выдаём не более чем сконфигурированный максимум.
+        var maxTtl = TimeSpan.FromHours(_options.MaxPresignedTtlHours);
+        var effectiveTtl = expiresIn > maxTtl ? maxTtl : expiresIn;
+        if (effectiveTtl <= TimeSpan.Zero)
+            effectiveTtl = TimeSpan.FromMinutes(1);
+
         var args = new PresignedGetObjectArgs()
             .WithBucket(bucket)
             .WithObject(objectKey)
-            .WithExpiry((int)expiresIn.TotalSeconds);
+            .WithExpiry((int)effectiveTtl.TotalSeconds);
 
         return _presignedClient.PresignedGetObjectAsync(args);
     }
@@ -83,11 +90,41 @@ internal sealed class MinioFileStorage : IFileStorage
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown file kind.")
     };
 
+    // Whitelist расширений: всё, что не из этого набора, превращается
+    // в ".bin". Защищает от user-controlled расширений вида ".jpg%00.exe"
+    // или ".php" в storage-key (см. D11.6.1). Источник истины по
+    // content-type валидации — FileValidator на Application-слое;
+    // здесь — последний барьер именно в имени файла.
+    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".webp", ".pdf"
+    };
+
     private static string BuildObjectKey(UploadFileRequest request)
     {
-        var extension = Path.GetExtension(request.OriginalFileName);
+        var extension = SanitizeExtension(request.OriginalFileName);
         var prefix = request.Kind.ToString().ToLowerInvariant();
         return $"{prefix}/{request.DeceasedId}/{Guid.NewGuid()}{extension}";
+    }
+
+    private static string SanitizeExtension(string? originalFileName)
+    {
+        if (string.IsNullOrWhiteSpace(originalFileName))
+            return ".bin";
+
+        var raw = Path.GetExtension(originalFileName);
+        if (string.IsNullOrEmpty(raw))
+            return ".bin";
+
+        // Path.GetExtension возвращает с ведущей точкой. Дополнительно
+        // отбрасываем всё после первого "странного" символа и приводим
+        // к lower — defense in depth, даже если хост-парсер пропустил
+        // экзотику.
+        var trimmed = new string(raw
+            .TakeWhile(ch => char.IsLetterOrDigit(ch) || ch == '.')
+            .ToArray());
+
+        return AllowedExtensions.Contains(trimmed) ? trimmed.ToLowerInvariant() : ".bin";
     }
 
     // Если PublicBaseUrl задан, presigned URL должен вести на публичный домен,
