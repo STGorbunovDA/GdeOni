@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using GdeOni.API;
 using GdeOni.API.Extensions;
 using GdeOni.API.Hosting;
+using GdeOni.API.Options;
 using GdeOni.API.RateLimiting;
 using GdeOni.Application;
 using GdeOni.Infrastructure;
@@ -19,6 +20,11 @@ builder.Services.AddSecurity(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddCustomCors(builder.Configuration, builder.Environment);
 builder.Services.AddCustomRateLimiting(builder.Configuration);
+
+// D17. Информация о версиях клиента отдаётся через /api/app/version.
+// Секция в appsettings опциональна — дефолты в самом классе.
+builder.Services.Configure<AppVersionOptions>(
+    builder.Configuration.GetSection(AppVersionOptions.SectionName));
 
 builder.Services
     .AddControllers()

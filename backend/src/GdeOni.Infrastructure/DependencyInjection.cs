@@ -1,8 +1,10 @@
-﻿using GdeOni.Application.Abstractions.Persistence;
+﻿using GdeOni.Application.Abstractions.Features;
+using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Routing;
 using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Common.Security;
 using GdeOni.Infrastructure.Data;
+using GdeOni.Infrastructure.Features;
 using GdeOni.Infrastructure.Persistence;
 using GdeOni.Infrastructure.Persistence.Cleanup;
 using GdeOni.Infrastructure.Persistence.Repositories;
@@ -64,6 +66,12 @@ public static class DependencyInjection
 
         services.Configure<MinioOptions>(configuration.GetSection(MinioOptions.SectionName));
         services.Configure<BCryptOptions>(configuration.GetSection(BCryptOptions.SectionName));
+
+        // D17. Feature flags читаются через IOptionsMonitor для
+        // hot-reload без рестарта. Сервис без состояния → Singleton.
+        services.Configure<FeatureFlagsOptions>(
+            configuration.GetSection(FeatureFlagsOptions.SectionName));
+        services.AddSingleton<IFeatureFlagService, OptionsFeatureFlagService>();
 
         services.AddSingleton<IMinioClient>(sp =>
         {

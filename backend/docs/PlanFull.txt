@@ -247,7 +247,9 @@ Frontend в будущем:
 - Mantine;
 - React Hook Form;
 - Zod;
-- Yandex Maps API.
+- Yandex Maps API (опционально, только если решим показывать
+  embed-карту на карточке умершего; для маршрутизации не нужен —
+  см. F14.2: deep-link во внешние сервисы строится на клиенте).
 
 =====================================================================
 C. КЛЮЧЕВЫЕ СУЩНОСТИ
@@ -5275,206 +5277,4033 @@ D11.16 закрыт, когда:
 
 D11.16 закрыт 2026-05-07.
 
-=====================================================================
-E. FRONTEND ROADMAP
-=====================================================================
-
-Frontend начинать только после D1-D11.
-
 ---------------------------------------------------------------------
-E1. Каркас приложения
+D12. Мобильная карточка должна открываться для архивных tracking
 ---------------------------------------------------------------------
 
-Создать frontend project.
+Контекст: E9.1 (мобилка) ввёл архивацию через PATCH Status=Archived.
+Юзер должен иметь возможность открыть архивную карточку и нажать
+"Вернуть из архива". Но GetMyTrackedDeceasedDetailsUseCase явно
+возвращал tracking.not_tracked (404) для архивных:
+
+    if (tracking is null || tracking.IsArchived())
+        return Errors.Tracking.NotTracked();
+
+После архивации карточка пропадала и из ArchivePage нельзя было
+её восстановить — 404. Это блокирующий баг архивного flow.
+
+Исправление:
+
+- В GetMyTrackedDeceasedDetailsUseCase убрать `|| tracking.IsArchived()`.
+  Tracking null → NotTracked остаётся (нет связи у юзера). Архивные
+  возвращаются как обычные.
+- Скрытие от чужих юзеров продолжает работать: GetTracking ищет
+  только в коллекции текущего user-а — чужие архивные записи
+  никогда не попадут в выдачу.
+- Видимость в UI:
+  - GET /me/tracked-deceased (список) — возвращает ВСЕ статусы,
+    мобилка фильтрует Active/Muted для главного экрана и Archived
+    для архивного. Это уже работало корректно;
+  - GET /me/tracked-deceased/{id} (details) — теперь работает для
+    архивных тоже. Mobile видит Status=Archived и показывает
+    "Вернуть из архива".
+
+[tests] — есть смысл добавить тест в UserQueriesTests:
+GetMyTrackedDeceasedDetails_TrackingArchived_ReturnsTracking
+(в дополнение к существующему _NotTracked → NotTracked happy-path).
+
+D12 закрыт когда:
+[x] Code: убрана строка с tracking.IsArchived() в GetDetails use case.
+[ ] Tests: добавлен тест на архивный case.
+[x] Docs: эта запись в PlanFull.txt.
+
+---------------------------------------------------------------------
+D13. Auto-approve media для автора карточки
+---------------------------------------------------------------------
+
+Контекст: на мобилке (E10) реализован auto-promote — первое
+загруженное фото умершего автоматически становится главным
+(чтобы аватар появился в списке "Отслеживаемые"). Без этого
+backend в /me/tracked-deceased отдавал MainPhotoUrl=null.
+
+Но при PATCH /main-photo backend возвращал 409
+(MainPhotoMustBeApproved), потому что:
+
+- AddMedia ставит свежее media в ModerationStatus.Pending;
+- Deceased.SetMainPhoto явно требует Approved;
+- Auto-approve для media автора карточки не было.
+
+Из-за этого:
+- юзер загружает фото в свою карточку → Pending → SetMainPhoto 409;
+- аватар в списке остаётся пустой, пока админ не одобрит media.
+
+Это плохой UX в основном сценарии (автор сам загружает фото
+о своём родственнике). Модерация задумана для контента от
+третьих лиц (родственник 2 загружает фото в чужую карточку
+родственника 1), и для этого случая Pending остаётся.
+
+Исправление в UploadMediaUseCase: после deceased.AddMedia(),
+если currentUser является автором карточки (deceased.CreatedByUserId)
+или админом, новое media сразу .Approve(). Иначе остаётся Pending.
+
+Что это закрывает:
+
+- авто-аватар в списке "Отслеживаемые" работает сразу после
+  первой загрузки фото;
+- SetMainPhoto от мобилки тоже работает для автора карточки;
+- модерация остаётся для чужих юзеров (UploadForbidden и так
+  блокирует загрузку, но в будущем когда добавим "родственник
+  пишет в чужой карточке" — там и сработает Pending).
+
+[tests] — есть смысл добавить:
+1. Application unit-test на UploadMediaUseCase: если currentUser =
+   CreatedByUserId → ModerationStatus.Approved; если admin → также
+   Approved; иначе остаётся Pending.
+2. Integration test: упросить существующий
+   MediaIntegrationTests.UploadPhotoAsync — убрать ручной
+   Approve-шаг между Upload и SetMainPhoto, если он был.
+
+D13 закрыт когда:
+[x] Code: auto-approve в UploadMediaUseCase для автора/админа.
+[ ] Tests: добавлены тесты.
+[x] Docs: эта запись в PlanFull.txt.
+
+---------------------------------------------------------------------
+D14. Модерация воспоминаний отключена (default = Approved)
+---------------------------------------------------------------------
+
+Контекст: при разработке E12 (mobile UI воспоминаний) обнаружился
+дискомфортный UX-сценарий — модерация задумывалась как защита
+от спама/подделок, но в реальном flow ("свой про своего родственника")
+она только мешает:
+
+- user A оставляет воспоминание на карточке user A → backend
+  ставит Pending → mobile показывает badge "На модерации" → admin
+  должен Approve → только после этого запись видна другим;
+- В отсутствие admin-панели (E13 не реализован) Approve делать
+  некому, воспоминания фактически "висят";
+- Если user A оставил коммент на карточке user B, user A в выдаче
+  не видит даже свою же Pending запись (canSeeAllMemories=false
+  для не-card-author/не-admin).
+
+Решение: модерация воспоминаний по дефолту выключена.
+Инфраструктура (enum ModerationStatus, Approve/Reject методы на
+DeceasedMemoryEntry, админ-эндпоинты ApproveMemory/RejectMemory)
+сохранена для возможного будущего антиспам-кейса — но в обычном
+flow воспоминания сразу Approved.
+
+Изменения:
+
+- AddMemoryUseCase: после `deceased.AddMemory(...)` явно зовём
+  `memoryResult.Value.Approve()` (аналог D13 для media). Pending
+  больше не появляется в обычном пути.
+- UpdateMemoryUseCase: после `deceased.EditMemory(...)` явный
+  `memory.Approve()` если запись ещё не Approved. Это нужно
+  потому что `DeceasedMemoryEntry.EditText` в Domain при
+  фактической правке текста ставит запись обратно в Pending
+  (защита от подмены — была актуальна когда модерация работала,
+  сейчас сразу откатываем). No-op guard EditText (текст не
+  изменился, статус не трогается) даёт уже Approved → пропускаем
+  чтобы не получить AlreadyApproved error.
+- GetMyTrackedDeceasedDetailsUseCase: canSeeAllMemories всегда
+  true. Параметр в Result оставлен (mapper его читает).
+- GetDeceasedByIdUseCase: то же, canSeeAllMemories=true.
+
+Что НЕ менялось:
+
+- Domain (DeceasedMemoryEntry): дефолт в конструкторе по-прежнему
+  Pending, EditText по-прежнему делает Pending при правке.
+  Это семантически корректно — Domain выражает "новая запись
+  без явного approve = непроверена". Use case-слой решает,
+  нужно ли сразу Approve. Если потом захотим вернуть модерацию —
+  убираем Approve() в use case'е, инфраструктура остаётся.
+- Админ-эндпоинты ApproveMemory / RejectMemory остаются. Админ
+  по-прежнему может вручную Reject запись (например, нашёл спам).
+- Media-модерация — не менялась. D13 уже сделал auto-approve
+  для автора карточки/админа.
+
+Mobile (E12 update):
+
+- MemoryItemViewModel — убраны поля StatusBadge / ShowStatusBadge,
+  оставлены только Id/Text/CreatedAtUtc/CanEdit.
+- DeceasedDetailsPage.xaml — убран Border-badge "На модерации /
+  Отклонено" над текстом воспоминания. Воспоминание выглядит как
+  обычный текст без статус-плашки.
+- Сами enum-константы ModerationStatuses в MemoryDtos оставлены
+  (вдруг понадобятся, когда вернём админ-панель).
+
+D14 (про модерацию воспоминаний) закрыт когда:
+[x] Code (backend): AddMemoryUseCase + UpdateMemoryUseCase +
+    обе query'и.
+[x] Code (mobile): MemoryItemViewModel + DeceasedDetailsPage.xaml.
+[x] Tests: dotnet test backend.sln зелёный (340/340).
+    Адаптировано 6 тестов:
+    - MemoryUseCaseTests.AddMemory_AnyAuthenticated_AddsAsPending
+      → AddsAsApproved (assertion + название);
+    - MemoryAndMetadataUseCaseTests.UpdateMemory_Author_ResetsToPendingAndSaves
+      → KeepsApprovedAndSaves;
+    - DeceasedQueriesTests.GetById_Outsider_CanNotSeeAllMemories
+      → CanSeeAllMemories (assertion false → true);
+    - AdminIntegrationTests.ApproveMemory_Admin_Returns200:
+      теперь Reject → Approve, иначе AlreadyApproved 409;
+    - AdminIntegrationTests.ApproveMedia_Admin_Returns204: то же.
+    - MediaIntegrationTests.SetMainPhoto_PendingAndGraveAndApproved
+      → SetMainPhoto_RejectedAndGraveAndApproved: проверка
+      MainPhotoMustBeApproved через явно Rejected media (D13
+      убрал Pending-ветку для автора карточки).
+[x] Migration: не требуется. Изменения только в use case-логике,
+    schema (колонка moderation_status в deceased_memories /
+    deceased_media) не менялась.
+[x] Docs: эта запись.
+
+---------------------------------------------------------------------
+D15. Verify/Unverify больше не gating + GetAll открыт всем
+---------------------------------------------------------------------
+
+Контекст: пользователь спросил про E13 (админка) — нужно ли
+включать Verify/Unverify в админский функционал. Решено: убрать
+обязательность верификации из публичной выдачи. Логика:
+
+- "пользователь добавил умершего и слава богу" — карточка должна
+  быть доступна сразу, без модерации;
+- "в случае чего админ может запретить" — этого достаточно через
+  DELETE /api/deceased-records/{id} (уже существует), который
+  доступен админу/автору. Удаление дубликатов — та же ручка;
+- IsVerified остаётся как информационный флаг ("проверено
+  редакцией"), но больше нигде не используется как gate.
+
+Что было до D15:
+
+- GetAllDeceasedUseCase отбивал не-админов с
+  Errors.Deceased.InsufficientPermissionsToViewAllDeceased
+  ("deceased.insufficient_permissions.view_all"). Это блокировало
+  фичу "поиск перед добавлением" — обычный юзер не мог найти
+  существующего умершего, чтобы не плодить дубликаты.
+- GetDeceasedByIdUseCase и так не фильтровал по IsVerified,
+  карточка была доступна любому авторизованному, кто знает
+  guid'ом — но никак её было не найти.
+
+Что менялось:
+
+- GetAllDeceasedUseCase: убран `if (!IsAdmin())`. Все
+  авторизованные могут вызывать GET /api/deceased-records с
+  фильтрами Search/Country/City/IsVerified/CreatedFrom/CreatedTo
+  и пагинацией.
+- Errors.Deceased.InsufficientPermissionsToViewAllDeceased
+  оставлен в Errors.cs — может пригодиться позже для других
+  endpoint'ов; на стороне Deceased.GetAll больше не используется.
+
+Что НЕ менялось:
+
+- Verify/Unverify endpoint'ы (`POST/DELETE /api/deceased-records/
+  {id}/verify`) — остались админскими. IsVerified остаётся в
+  schema и в ответах, для будущей UI-бирки "✓ проверено".
+- Никаких полей в БД не добавляли, миграция не нужна.
+- GetAll для пользователей (`/api/users`) остался admin-only —
+  поиск среди юзеров и менеджмент аккаунтов это другой кейс.
+
+Tests:
+
+- DeceasedQueriesTests.GetAll_NotAdmin_ReturnsForbidden
+  → GetAll_AnyAuthenticated_ReturnsPaged. assertion переписана:
+  раньше ожидали IsFailure + код ошибки, теперь IsSuccess +
+  Verify(GetPaged).
+- GetAll_Admin_ReturnsPaged остался — admin тоже работает,
+  гонять отдельным тестом нет смысла, но имеется как был.
+- Integration tests на DeceasedRecords GetAll не было (только
+  Users.GetAll_NotAdmin_Returns403 — не трогаем, это другая
+  ручка).
+
+D15 закрыт когда:
+[x] Code: GetAllDeceasedUseCase без admin-guard +
+    DeceasedRecordsController.GetAll: [Authorize(Roles=...)] →
+    [Authorize]. Этот controller-side guard я первоначально
+    забыл — ASP.NET отдавал 403 до того, как use case
+    выполнялся. Mobile получал HTTP 403 Forbidden из браузера
+    эмулятора — поймали по скриншоту юзера.
+[x] Tests: DeceasedQueriesTests адаптирован (Application 123/123).
+    Добавлены 3 интеграционных теста
+    (DeceasedRecordsSearchTests) — anonymous→401, authed→200,
+    search-filter работает по substring. Регрессия "вернули
+    admin-only на контроллер" теперь поймается тестом.
+    Полный прогон dotnet test backend.sln — 343/343.
+[x] Migration: не требуется (schema не менялась).
+[x] Docs: эта запись.
+
+=====================================================================
+D-PROD. PRODUCTION & MONETIZATION FOUNDATION (D16-D21)
+=====================================================================
+
+Блок D16-D21 — заготовки под выход в production и платную модель.
+Цель: сделать так, чтобы каждая фича подключалась небольшим коммитом
+(новый IPaymentProvider, новый push-провайдер, новый feature flag),
+без переписывания доменной модели.
+
+Порядок реализации (рекомендация — снизу вверх по зависимостям):
+  1. D17 Версионность + feature flags  → инфра для feature-gate;
+  2. D16 Подписка (модель + заглушка)  → единый guard через AuthorizationPolicy;
+  3. D19 Privacy / 152-ФЗ              → обязательно перед публикацией;
+  4. D20 CI/CD                         → нужно ДО первого релиза;
+  5. D21 Crash reporting               → видимость прод-падений;
+  6. D14 → D18 Push                    → последний, требует FCM-аккаунт.
+
+Все D-секции этого блока на момент написания плана — [ ] (не
+реализованы). Они задают архитектуру; реализация — отдельными
+коммитами в порядке выше.
+
+---------------------------------------------------------------------
+D16. Подписка через YooKassa (Subscription model + payments)
+---------------------------------------------------------------------
+
+Цель: дать возможность платно подписываться, и если подписка
+включена глобально (D17.IsSubscriptionEnabled=true) — гейтить ВСЁ
+приложение целиком (а не отдельные фичи). Модель "оплатил →
+пользуешься всем"; цена сознательно низкая, поэтому per-feature
+gates избыточны.
+
+Реализуем в два захода: сначала доменная модель + заглушка платежей
+(FakePaymentProvider, всегда успех — для dev и тестов), потом
+подключаем настоящий YooKassa через IPaymentProvider-интерфейс.
+
+Domain:
+
+- Новый owned value-object `Subscription` на агрегате `User`:
+  - `Status` (enum SubscriptionStatus: None, **Trial**, PendingPayment,
+    Active, Cancelled, Expired). Регистрация флоу: `User.Register`
+    создаёт юзера со Status=None, затем `RegisterUserUseCase` сразу
+    вызывает `user.StartTrial(nowUtc, 30d)` → Status=Trial. То есть
+    после успешной регистрации пользователь всегда в Trial-периоде
+    на 30 дней. Решение 2026-05-14. None остаётся только как
+    initial state до StartTrial (одна транзакция register).
+  - `Plan` (enum SubscriptionPlan: Monthly, Yearly). На Trial =
+    `null` (план ещё не выбран).
+  - `ExpiresAtUtc` (DateTime?) — момент окончания текущего периода.
+  - `CurrentPeriodStartedAtUtc` (DateTime?) — для расчёта prorate
+    при смене плана (далеко в будущем).
+  - `LastPaymentId` (string?) — внешний ID платежа в YooKassa,
+    нужно для idempotency webhook'а.
+  - `CancelledAtUtc` (DateTime?) — момент отказа. До ExpiresAtUtc
+    подписка ещё активна (paid period), но не продлится автоматом.
+- Доменные методы (все возвращают `UnitResult<Error>`):
+  - `User.StartTrial(nowUtc, trialDuration)` — вызывается из
+    `User.Register`. `Status = Trial`, `ExpiresAtUtc = nowUtc +
+    trialDuration` (по умолчанию 30 дней, конфигурируется через
+    `SubscriptionOptions.TrialDuration`). Идемпотентен: если
+    Status уже не None — no-op.
+  - `User.RequestSubscriptionPayment(plan, paymentId)` →
+    `Status = PendingPayment`, `LastPaymentId = paymentId`.
+  - `User.ActivateSubscription(plan, expiresAtUtc, paymentId)` →
+    `Status = Active`. Зовётся из webhook'а после успешной оплаты.
+    Если `Subscription.Status` уже Active и новая `ExpiresAtUtc`
+    позже текущей — продлеваем; иначе no-op (idempotency).
+  - `User.CancelSubscription()` → `Status = Cancelled`,
+    `CancelledAtUtc = UtcNow`. ExpiresAtUtc не трогаем —
+    paid-period дорабатывает.
+  - `User.HasActiveSubscription(nowUtc)` → bool —
+    `(Status == Active || Status == Trial) && ExpiresAtUtc > nowUtc`.
+    Trial и Active с точки зрения гейта эквивалентны: пользователь
+    в trial-периоде получает полный доступ. Используется в
+    `ActiveSubscriptionAuthorizationHandler`.
+  - `User.IsOnTrial(nowUtc)` → bool — `Status == Trial &&
+    ExpiresAtUtc > nowUtc`. Используется только для UI (показывать
+    "осталось N дней trial" в SubscriptionPage).
+- Errors.Subscription:
+  - `AlreadyActive()` — попытка купить, когда уже Active и не
+    близко к окончанию.
+  - `PaymentNotFound()` — webhook пришёл на неизвестный paymentId.
+  - `SubscriptionRequired()` — Forbidden для любых эндпоинтов, не
+    входящих в whitelist, если глобальный гейт активен.
+  - `InvalidPaymentSignature()` — webhook от не-YooKassa источника.
+
+Application:
+
+Структура: `Application/Subscriptions/{Commands,Queries}/<UseCase>/`.
+
+- В `RegisterUserUseCase` после `User.Register(...)` сразу вызвать
+  `user.StartTrial(_clock.UtcNow, _subscriptionOptions.TrialDuration)`
+  — это даёт автоматический 30-дневный пробный период всем новым
+  юзерам. Решение 2026-05-14. SuperAdmin/Admin не получают Trial
+  через миграцию `AddSubscriptionToUsers` — у них Status=None и
+  handler пускает их по `IsAdmin()`-ветке.
+- `Queries/GetMySubscription` → возвращает
+  `MySubscriptionResponse(Status, Plan?, ExpiresAtUtc?, CancelledAtUtc?,
+  IsActiveNow, IsOnTrial, DaysUntilExpiry)`.
+  - `IsOnTrial=true` → UI пишет "Пробный период — осталось N дней"
+    (где N = DaysUntilExpiry).
+  - `Status=Active` → UI пишет "Подписка активна — осталось N дней
+    до списания" (DaysUntilExpiry = дней до ExpiresAtUtc).
+  - `Status=Cancelled` → "Подписка отменена, доступ до DD.MM.YYYY"
+    (всё ещё DaysUntilExpiry).
+  - `Status=None/Expired` → "Подписка не активна".
+  Решение 2026-05-14: одно универсальное поле DaysUntilExpiry,
+  посчитанное на бэке (без локальных часовых поясов клиента —
+  бэк считает в UTC от текущего момента до ExpiresAtUtc).
+- `Commands/CreatePayment` → принимает `(plan)`, генерирует
+  paymentId через `IPaymentProvider.CreateAsync`, обновляет User
+  через `RequestSubscriptionPayment`, возвращает `CheckoutUrl` для
+  redirect на YooKassa.
+- `Commands/CancelSubscription` → зовёт `User.CancelSubscription()`.
+  Опционально: дёргает `IPaymentProvider.CancelRecurringAsync` если
+  у YooKassa есть recurring; без recurring (single payment) —
+  ничего внешнего, просто помечаем "не продлять".
+- `Commands/ProcessPaymentWebhook` → принимает signed payload от
+  YooKassa. Проверяет подпись через `IPaymentProvider.VerifyWebhook`,
+  достаёт paymentId/status/amount, находит юзера по
+  `Subscription.LastPaymentId`, зовёт `ActivateSubscription`.
+  Идемпотентно: повторный webhook с тем же paymentId → no-op
+  (доменный метод сам проверит, что Status уже Active).
+
+Abstractions:
+
+- `IPaymentProvider` (Application.Abstractions.Payments):
+  ```
+  Task<PaymentCreated> CreateAsync(Guid userId, SubscriptionPlan plan, CancellationToken ct);
+  Task<PaymentVerification> VerifyWebhookAsync(string payload, string signatureHeader, CancellationToken ct);
+  Task<UnitResult<Error>> CancelRecurringAsync(string externalPaymentId, CancellationToken ct);
+  ```
+  - `PaymentCreated(string ExternalPaymentId, string CheckoutUrl)`.
+  - `PaymentVerification(string ExternalPaymentId, PaymentStatus Status, decimal Amount)` где Status: Succeeded / Cancelled / Pending.
+- Опции: `SubscriptionOptions` (`MonthlyPriceRub`, `YearlyPriceRub`,
+  `Currency`, `ProductDescription`, `TrialDuration` — `TimeSpan`,
+  по умолчанию 30 дней).
+
+Infrastructure:
+
+- `Infrastructure/Payments/FakePaymentProvider.cs` — для dev/тестов.
+  CreateAsync генерирует случайный GUID как paymentId и возвращает
+  CheckoutUrl = "https://example.invalid/fake-checkout/{id}".
+  VerifyWebhookAsync ничего не верифицирует (тесты вызывают напрямую).
+  Зарегистрирован как `IPaymentProvider` если в appsettings секции
+  YooKassa нет (см. ниже).
+- `Infrastructure/Payments/YooKassaPaymentProvider.cs` — реальная
+  интеграция. Использует HttpClient с базовым auth (ShopId + SecretKey
+  в `YooKassaOptions`). CreateAsync → POST https://api.yookassa.ru/v3/payments
+  с idempotency-key, payload `{ amount, currency, confirmation: { type:
+  redirect, return_url }, capture: true, metadata: { userId, plan } }`.
+  Возвращает `confirmation_url`. Webhook verification — через
+  HMAC SHA256 по shared-secret (см. YooKassa docs "Уведомления").
+- DI: `IPaymentProvider` → `YooKassaPaymentProvider` если
+  `YooKassaOptions.SecretKey` непустой, иначе `FakePaymentProvider`.
+
+API:
+
+- `[Authorize] GET /api/users/me/subscription` →
+  `MySubscriptionResponse`.
+- `[Authorize] POST /api/users/me/subscription/create-payment` →
+  body `{ plan: "Monthly"|"Yearly" }` → returns
+  `{ checkoutUrl, externalPaymentId }`. Mobile открывает URL
+  во встроенном браузере / WebView.
+- `[Authorize] POST /api/users/me/subscription/cancel` → 200 OK.
+- `[AllowAnonymous] POST /api/payments/yookassa/webhook` →
+  принимает payload + проверяет подпись через
+  `IPaymentProvider.VerifyWebhook`. Никакой авторизации по JWT —
+  webhook идёт от YooKassa, а не от юзера. Подпись и есть auth.
+  Защита от replay: idempotency по externalPaymentId (в БД
+  колонка LastPaymentId).
+- `SubscriptionsController` — отдельный controller, чтобы admin-
+  endpoint'ы (см. ниже) не пересекались с обычными.
+
+Subscription gate (единый, на всё приложение):
+
+Решение: один глобальный гейт через ASP.NET AuthorizationPolicy,
+а не ручная проверка в каждом use-case'е. Это убирает дублирование
+и не оставляет шансов забыть проверку.
+
+- `AuthorizationPolicy` с именем `RequireActiveSubscription`,
+  регистрируется в `Program.cs`:
+  ```
+  options.AddPolicy("RequireActiveSubscription", policy =>
+      policy.RequireAuthenticatedUser()
+            .AddRequirements(new ActiveSubscriptionRequirement()));
+  ```
+- `ActiveSubscriptionAuthorizationHandler` (Application/Subscriptions/
+  Authorization):
+  ```
+  if (!_featureFlags.IsSubscriptionEnabled)
+  {
+      context.Succeed(requirement);     // фича выключена → всем ОК
+      return;
+  }
+  if (_currentUser.IsAdmin())            // SuperAdmin / Admin
+  {
+      context.Succeed(requirement);     // админам подписка не нужна
+      return;
+  }
+  var user = await _userRepo.GetByIdAsync(...);
+  if (user.HasActiveSubscription(_clock.UtcNow)) context.Succeed(requirement);
+  // иначе — fail; AuthorizationMiddleware ответит 403.
+  ```
+  Решение (2026-05-14): админы (Admin / SuperAdmin) освобождены от
+  подписки — платить за собственный сервис абсурдно. Проверка идёт
+  по claim'у, а не по hit'у в БД — у Admin'а ротация роли в любом
+  случае инвалидирует security stamp и токен.
+- В `ExceptionMiddleware` (или дополнительном `IAuthorizationMiddlewareResultHandler`)
+  тело 403 выставлять кодом `subscription.required` через ApiResponse,
+  чтобы mobile/web мог отличить "нет роли" от "нужна подписка"
+  и показать paywall.
+- Применение: политика навешивается **глобально** в `MapControllers`,
+  а Controllers/actions из whitelist помечаются
+  `[AllowAnonymous]` (если совсем без auth) или
+  `[Authorize(Policy = "BasicAuth")]` (только аутентификация,
+  без проверки подписки).
+- Whitelist (доступно без подписки):
+  - `AuthController` (login / register / refresh / logout);
+  - `UsersController` `/me/*` (GetCurrent / Update / ChangePassword /
+    ChangeEmail / Delete) — юзер должен мочь зайти в профиль и
+    удалить аккаунт;
+  - `SubscriptionsController` (`/me/subscription` GET, `create-payment`,
+    `cancel`) — иначе нечем купить;
+  - `AppController` (`/api/app/version`, `/api/app/features`);
+  - `LegalController` (`/api/legal/*`);
+  - `/api/payments/yookassa/webhook`.
+- Use case'ы остаются "чистыми" — не знают про подписку. Если в
+  будущем понадобятся точечные исключения (например, прочитать
+  собственные tracked-карточки даже когда подписка истекла) — это
+  делается атрибутом `[AllowReadAfterExpiry]` на action'е и
+  обработкой в authorization handler.
+
+Migration:
+
+[ ] AddSubscriptionToUsers — колонки
+    `subscription_status`, `subscription_plan`, `subscription_expires_at_utc`,
+    `subscription_current_period_started_at_utc`, `subscription_last_payment_id`,
+    `subscription_cancelled_at_utc`. EF owned value-object конфиг в
+    `UserConfiguration`.
+
+Tests:
+
+[ ] Domain: `User.StartTrial` выставляет Status=Trial и
+    ExpiresAtUtc = nowUtc + 30 дней; повторный вызов на не-None →
+    no-op.
+[ ] Domain: `HasActiveSubscription` true при Status=Trial и
+    ExpiresAtUtc > now; false когда Trial истёк.
+[ ] Domain: `IsOnTrial` true только для Trial-статуса.
+[ ] Domain: `User.ActivateSubscription` после Trial — Status=Active,
+    Trial overrides (один платёж переводит trial → paid).
+[ ] Domain: `User.ActivateSubscription` продлевает, если ExpiresAtUtc
+    в будущем; idempotent при повторном вызове.
+[ ] Domain: `HasActiveSubscription` ложно при Status=Cancelled даже
+    если ExpiresAtUtc > now (то есть `Cancelled` всё равно даёт
+    paid-period, но HasActive дальше учитывает Status — спорное
+    решение, тест зафиксирует выбор; уточнить).
+[ ] Application: `RegisterUserUseCase` стартует Trial у нового юзера
+    (проверить через GetMySubscription после register → IsOnTrial=true).
+[ ] Application: `ActiveSubscriptionAuthorizationHandler` пускает
+    юзера в течение Trial-периода (200 на запросы, требующие подписки).
+[ ] Application: после Trial-окончания тот же юзер получает 403 +
+    code "subscription.required".
+[ ] Application: ProcessPaymentWebhookUseCase активирует юзера по
+    externalPaymentId; повторный webhook → no-op.
+[ ] Application: CreatePaymentUseCase у юзера с Active → AlreadyActive
+    (если до конца периода далеко).
+[ ] Integration: GET /api/users/me/subscription для нового юзера →
+    Status=None, IsActiveNow=false.
+[ ] Integration: webhook с невалидной подписью → 400 / 401 (TBD).
+
+Что НЕ делаем в этой итерации:
+
+- Promo-коды / скидки;
+- Рефанды через API;
+- Множественные тарифные планы (только Monthly/Yearly);
+- Семейная подписка / sharing;
+- Trial-периоды (можно добавить через "первый месяц бесплатно" —
+  отдельная фича).
+
+---------------------------------------------------------------------
+D17. Версионность приложения + feature flags
+---------------------------------------------------------------------
+
+Цель: backend знает минимально-поддерживаемую и последнюю версию
+клиента; знает, какие фичи сейчас включены. Это даёт kill-switch
+для старых версий и возможность активировать платную фичу одним
+изменением в appsettings без редеплоя клиента.
+
+API:
+
+- `[AllowAnonymous] GET /api/app/version` →
+  ```
+  {
+    "minSupportedVersion": "1.0.0",
+    "latestVersion": "1.0.0",
+    "forceUpdateMessage": null,
+    "downloadUrl": "https://gdeoni.ru/download"
+  }
+  ```
+  AllowAnonymous — иначе старый клиент с протухшим токеном не
+  узнает, что надо обновляться. Клиент дёргает этот endpoint при
+  каждом старте приложения.
+
+- `[Authorize] GET /api/app/features` →
+  ```
+  {
+    "subscriptionEnabled": false,
+    "gracePeriodDaysAfterExpiry": 0
+  }
+  ```
+  Дёргается после логина. Mobile/web кешируют на сессию (или TTL
+  5 минут). Решение (2026-05-14): per-feature gating не делаем —
+  подписка единая на всё приложение (см. D16 "Subscription gate").
+  `subscriptionEnabled=false` → free-режим для всех (бета/preview),
+  `=true` → нужен HasActiveSubscription для всех authorized
+  эндпоинтов кроме whitelist'а.
+  `gracePeriodDaysAfterExpiry` — на сколько дней после ExpiresAtUtc
+  ещё пускать (на случай задержки списания/обновления статуса
+  webhook'ом); 0 = жёстко по дате.
+
+Конфиг (appsettings.json):
+
+```
+"AppVersion": {
+  "MinSupportedVersion": "1.0.0",
+  "LatestVersion": "1.0.0",
+  "DownloadUrl": "https://gdeoni.ru/download",
+  "ForceUpdateMessage": null
+},
+"FeatureFlags": {
+  "SubscriptionEnabled": false,
+  "GracePeriodDaysAfterExpiry": 0
+}
+```
+
+Application:
+
+- `IFeatureFlagService` (Application.Abstractions.Features):
+  ```
+  bool IsSubscriptionEnabled { get; }
+  int GracePeriodDaysAfterExpiry { get; }
+  ```
+- Реализация: `OptionsFeatureFlagService` — обёртка над
+  `IOptionsMonitor<FeatureFlagsOptions>` (для hot-reload без
+  перезапуска).
+
+Использование:
+
+Use case'ы саму подписку **не проверяют** — это работа
+AuthorizationPolicy `RequireActiveSubscription` (см. D16).
+`IFeatureFlagService` используется только в этом handler'е и в
+`AppController` для отдачи DTO клиенту.
+
+Tests:
+
+[x] `OptionsFeatureFlagService` корректно читает обе настройки
+    из `IOptionsMonitor` (включая hot-reload через CurrentValue).
+[x] `GET /api/app/version` без auth → 200 + minSupportedVersion.
+[x] `GET /api/app/features` без auth → 401.
+[x] `GET /api/app/features` под авторизованным юзером → 200 +
+    SubscriptionEnabled/GracePeriodDaysAfterExpiry из конфига.
+
+---------------------------------------------------------------------
+D17.1. Реализовано — 2026-05-14
+---------------------------------------------------------------------
+
+[x] `Application/Abstractions/Features/FeatureFlagsOptions.cs` —
+    SectionName="FeatureFlags", два свойства (SubscriptionEnabled,
+    GracePeriodDaysAfterExpiry) с дефолтами false/0.
+[x] `Application/Abstractions/Features/IFeatureFlagService.cs` —
+    read-only интерфейс над опциями.
+[x] `Infrastructure/Features/OptionsFeatureFlagService.cs` —
+    обёртка над IOptionsMonitor<FeatureFlagsOptions>, Singleton,
+    hot-reload через CurrentValue.
+[x] `API/Options/AppVersionOptions.cs` — SectionName="AppVersion",
+    четыре свойства (MinSupportedVersion/LatestVersion default
+    "1.0.0", DownloadUrl/ForceUpdateMessage nullable).
+[x] `API/Models/App/AppVersionResponse.cs` + `AppFeaturesResponse.cs`
+    — record-DTO.
+[x] `API/Controllers/AppController.cs` — `[Route("api/app")]`:
+    `[AllowAnonymous] GET version`, `[Authorize] GET features`.
+[x] DI: `Configure<FeatureFlagsOptions>` + `AddSingleton<IFeatureFlagService>`
+    в Infrastructure; `Configure<AppVersionOptions>` в Program.cs API.
+[x] Тесты:
+    - `Infrastructure.Tests/Features/OptionsFeatureFlagServiceTests.cs`
+      — 3 unit-теста (ReturnsValues, Defaults, HotReload).
+    - `Api.IntegrationTests/App/AppEndpointsTests.cs` — 3
+      integration-теста (Anonymous→200, Anonymous→401,
+      Authenticated→200).
+[x] Полный прогон `dotnet test backend.sln` — 372/372 passed
+    (Domain 121 + Application 134 + Infrastructure 34 + Integration 83).
+[x] appsettings.json: добавить опционально секции `AppVersion` и
+    `FeatureFlags`. Без них работает на дефолтах
+    (1.0.0/1.0.0/false/0), что и нужно для local-dev.
+
+---------------------------------------------------------------------
+D18. Push-уведомления (FCM, отложено за контракт)
+---------------------------------------------------------------------
+
+Цель: уведомлять юзера на годовщины смерти/рождения отслеживаемых
+карточек. Бизнес-логика "когда слать" уже частично есть в DTO
+TrackedDeceased (NotifyOnBirthAnniversary / NotifyOnDeathAnniversary),
+не хватает (а) хранения FCM-токена устройства, (б) фонового job'а,
+(в) FCM-провайдера.
+
+Domain:
+
+- Новый owned value-object `NotificationPreferences` на User:
+  `FcmToken (string?)`, `DeviceRegisteredAtUtc (DateTime?)`. Один
+  пользователь = одно устройство в MVP. Multi-device — отдельная
+  фича (`UserDevice` aggregate потом).
+- `User.RegisterDevice(fcmToken, nowUtc)` → перезаписывает токен,
+  обновляет DeviceRegisteredAtUtc.
+- `User.UnregisterDevice()` → null.
+
+Application + Infrastructure:
+
+- `IPushNotificationProvider` (Application.Abstractions.Notifications):
+  `Task<UnitResult<Error>> SendAsync(string fcmToken, PushPayload payload, ct)`.
+- Реализация `FirebasePushNotificationProvider` — HTTP-вызов FCM
+  v1 API через service account. Service account JSON хранится в
+  user-secrets / k8s secret, читается через `FcmOptions.CredentialsPath`.
+- `Hosted/AnniversaryNotificationJob` — `BackgroundService`,
+  просыпается каждый час (или раз в сутки в 09:00 локального
+  времени юзера — потребует TimeZone в Profile). Запрашивает все
+  TrackedDeceased где сегодня (UTC) день годовщины и
+  Notify*Anniversary=true, шлёт push'и по парам (user, deceased).
+- Idempotency: чтобы не послать дважды при рестарте — таблица
+  `notification_log(user_id, deceased_id, anniversary_kind,
+  sent_at_utc)` с unique-индексом `(user_id, deceased_id,
+  anniversary_kind, date(sent_at_utc))`.
+
+API:
+
+- `[Authorize] PUT /api/users/me/notification-preferences` →
+  body `{ fcmToken }`. Mobile вызывает после получения FCM-токена
+  у Firebase SDK (E23).
+- `[Authorize] DELETE /api/users/me/notification-preferences` →
+  при logout.
+
+Migration:
+
+[ ] AddNotificationPreferencesToUsers — fcm_token, device_registered_at_utc.
+[ ] CreateNotificationLog — таблица notification_log с unique-индексом.
+
+Tests:
+
+[ ] Domain: RegisterDevice перезаписывает токен.
+[ ] Application: AnniversaryNotificationJob выбирает только сегодняшние
+    годовщины и только включённые флаги.
+[ ] Application: при повторном запуске job'а в тот же день — повторно
+    не шлёт (idempotency по notification_log).
+
+Что НЕ делаем сейчас:
+
+- iOS APNs (нет iOS-клиента).
+- Web push notifications (PWA) — отдельная задача в F23.
+- In-app notifications (Bell-иконка с историей).
+- Push на новое воспоминание / фото — отдельный feature после MVP.
+
+---------------------------------------------------------------------
+D19. Privacy Policy / Terms of Use / 152-ФЗ
+---------------------------------------------------------------------
+
+Обязательно перед публикацией в Google Play и для соответствия
+российскому законодательству о персональных данных (152-ФЗ).
+
+Domain:
+
+- `User.PrivacyPolicyAcceptedAt (DateTime?)`.
+- `User.TermsAcceptedAt (DateTime?)`.
+- `User.PrivacyPolicyVersion (int)` — версия документа на момент
+  принятия (если обновим политику, заставим перепринять).
+- Доменный метод `User.AcceptLegal(privacyVersion, termsVersion, nowUtc)`.
+
+API:
+
+- `GET /api/legal/privacy-policy` — отдаёт URL/HTML/JSON политики
+  или просто константный URL `https://gdeoni.ru/privacy`. AllowAnonymous.
+- `GET /api/legal/terms-of-use` — то же.
+- `POST /api/users/me/accept-legal` — `{ privacyVersion, termsVersion }`,
+  записывает на User. Зовётся mobile после регистрации/при обнаружении
+  устаревшей версии.
+- Регистрационный flow расширяем: тело `POST /api/auth/register`
+  получает поля `privacyPolicyAccepted: bool` и `termsAccepted: bool`,
+  если оба true — выставляем `AcceptedAt = UtcNow` сразу при
+  создании User. Без них — Validation error.
+
+Migration:
+
+[ ] AddLegalAcceptanceToUsers — privacy_policy_accepted_at_utc,
+    terms_accepted_at_utc, privacy_policy_version.
+
+Tests:
+
+[ ] Регистрация без acceptedFlags → Validation error.
+[ ] POST /accept-legal обновляет таймстампы.
+[ ] HasOutdatedAcceptance (опционально, для будущего) — возвращает
+    true если PrivacyPolicyVersion < ConfiguredVersion.
+
+Контент:
+
+[ ] Текст Privacy Policy — отдельный документ
+    `backend/docs/legal/privacy-policy-v1.md`. На web/mobile —
+    статическая страница со встроенным markdown.
+[ ] Текст Terms of Use — `legal/terms-of-use-v1.md`.
+
+---------------------------------------------------------------------
+D20. CI/CD pipelines
+---------------------------------------------------------------------
+
+GitHub Actions (или GitLab CI — какой удобнее держать).
+
+Backend (`.github/workflows/backend-ci.yml`):
+
+[ ] On `push` / `pull_request` в main:
+    1. checkout, setup-dotnet 10.
+    2. `dotnet restore backend/backend.sln`.
+    3. `dotnet build backend/backend.sln --no-restore -c Release`.
+    4. `dotnet test backend/backend.sln --no-build -c Release`.
+       Integration-тесты подымают PostgreSQL + MinIO через
+       Testcontainers — внутри GHA это работает с docker-сервисом
+       (ubuntu-latest), на Windows-runner'е нужны special-настройки.
+    5. На теге `vX.Y.Z` — публикация Docker image
+       `ghcr.io/<owner>/gdeoni-api:X.Y.Z`.
+
+Mobile (`.github/workflows/mobile-ci.yml`):
+
+[ ] On `push` / `pull_request`:
+    1. checkout, setup-dotnet 10 + Android workload.
+    2. `dotnet test frontend/mobile/GdeOni.Mobile.Tests --no-restore`.
+[ ] On `push` tag `mobile-vX.Y.Z`:
+    3. `dotnet publish frontend/mobile/GdeOni.Mobile -c Release
+        -f net10.0-android`.
+    4. Подпись APK keystore'ом (хранится в GitHub Secrets).
+    5. Upload в Google Play Console через `gradle-play-publisher`
+        или `fastlane supply`.
+
+Что НЕ делаем сейчас:
+
+- iOS pipeline (нет iOS-клиента).
+- Production-deploy backend (нет prod-инфры).
+- Web pipeline (web ещё не начат, F-секция).
+- Coverage reporting.
+
+---------------------------------------------------------------------
+D21. Crash reporting / Observability в production
+---------------------------------------------------------------------
+
+Сейчас: Serilog → Seq локально. Этого хватает для dev, но в prod
+нужно видеть exceptions, медленные запросы, ошибки клиента.
+
+Backend:
+
+[ ] Добавить Sentry .NET integration. SentryOptions из appsettings
+    (DSN, Environment, Release). Захват exceptions из
+    ExceptionMiddleware → Sentry.CaptureException перед
+    возвратом 500. Скоп — userId из CurrentUserService.
+[ ] Health-check endpoint `GET /health` (AllowAnonymous) — Db +
+    MinIO ping + статус миграций.
+[ ] OpenTelemetry export (опционально, отложим до факта prod-
+    мониторинга).
+
+Mobile:
+
+[ ] Firebase Crashlytics SDK подключение в MauiProgram.
+    google-services.json — в Platforms/Android (gitignored, в Play
+    Console secret).
+[ ] Логирование handled exceptions через
+    `Crashlytics.RecordException` в `try/catch` ключевых VM.
+
+Web:
+
+[ ] Sentry browser SDK в F-секции (F25).
+
+Tests:
+
+Тестов нет (это инфра-обвязки, юнит-тестируется только в самом SDK).
+
+=====================================================================
+КОНЕЦ БЛОКА D-PROD
+=====================================================================
+
+---------------------------------------------------------------------
+E11. Маршрут до могилы (mobile, реализация)
+---------------------------------------------------------------------
+
+Что сделано:
+
+- frontend/mobile/.../Services/Api/Models/RoutingDtos.cs:
+  записи RouteResponse / GraveLocation / FromCoordinates / RouteLink,
+  константы RoutingModes (Auto/Pedestrian/MassTransit/Bicycle) и
+  RouteProviders с человеко-читаемыми именами:
+  "yandex"  → "Яндекс.Карты"
+  "google"  → "Google Maps"
+  "2gis"    → "2ГИС"
+  (RoutingMode на backend сериализуется строкой — D11.1.1).
+- ITrackedDeceasedApi.GetRouteAsync(deceasedId, fromLat, fromLon, mode):
+  Refit-обёртка над GET /api/users/me/tracked-deceased/{id}/route.
+- DeceasedDetailsViewModel.BuildRouteAsync — full flow:
+    1. Проверка HasBurialLocation (если у могилы нет координат —
+       мягкий alert "попросите автора уточнить место", без запроса
+       геолокации и без HTTP-ошибки 409).
+    2. IGeolocationService.RequestAndGetCurrentAsync() — берём
+       координаты пользователя.
+    3. Обработка GeolocationErrorKind:
+       - PermissionDeniedPermanent → alert с кнопкой "Открыть
+         настройки", за которой geolocationService.OpenAppSettings();
+       - остальные kind'ы (PermissionDenied / LocationServicesDisabled /
+         Timeout / Unknown) → обычный alert с текстом из VM.
+    4. GET /route с mode=Auto. Если backend всё же вернул 409
+       (race condition: BurialLocation удалили между LoadAsync и
+       тапом) — отдельный текст про "координаты не указаны".
+    5. UI оставлен только под Яндекс (решение 2026-05-13): из
+       route.Links берётся ссылка с Provider == "yandex" и
+       открывается напрямую, без ActionSheet. Backend по-прежнему
+       отдаёт все три (yandex/google/2gis) — Google и 2ГИС просто
+       игнорируем на стороне UI, поэтому при необходимости вернуть
+       выбор хватит локальной правки в ShowRoutePickerAsync.
+    6. Launcher.Default.OpenAsync(new Uri(link.Url)) — открытие
+       во внешнем приложении. Если приложение не установлено,
+       Android откроет ссылку в браузере (yandexmaps://... +
+       fallback на https://yandex.ru/maps/).
+
+Почему именно так:
+
+- Карта внутри приложения не строится. Сторонние сервисы знают
+  пробки, общественный транспорт и обновляются чаще. План в E11
+  прямо говорил "Открыть в Яндекс.Картах / Google Maps / 2GIS";
+  по решению 2026-05-13 на UI оставлен только Яндекс, остальные
+  два провайдера сохранены в коде (RouteProviders константы,
+  ExternalMapsService.cs билдеры) — это product-решение, а не
+  технический трейд-офф.
+- mode=Auto захардкожен — выбор режима (пешком / транспорт) пока
+  не нужен в MVP. Backend контракт уже принимает все четыре
+  значения, поэтому добавить выпадушку — это отдельный E-пункт
+  потом (E11.2, если понадобится).
+- Backend-валидация маршрута (тип, диапазоны координат) уже
+  покрыта серверным валидатором GetRouteToGraveQueryValidator —
+  на mobile дублировать смысла нет, отдадим юзеру серверную ошибку.
+- HasBurialLocation на VM уже проставлен с loaddata из
+  GetMyTrackedDeceasedDetails — кнопка "Построить маршрут" в
+  XAML привязана IsEnabled="{Binding HasBurialLocation}", так что
+  в обычном сценарии 409 не должен случаться.
+
+E11 закрыт когда:
+[x] Code: RoutingDtos, GetRouteAsync, BuildRouteAsync с геолокацией
+    и Launcher.
+[ ] Tests: VM-тест на BuildRouteAsync (mock api+geo, проверить что
+    при HasBurialLocation=false api не дёргается; при успехе ссылка
+    Яндекс открывается через Launcher; при PermissionDeniedPermanent
+    кнопка "Открыть настройки" вызывает OpenAppSettings).
+    (URL-builder сами и nearest-neighbor покрыты в Shared-тестах,
+    см. E19 запись ниже — там OptimizeOrder + ExternalMapsUrlBuilder.)
+[x] Docs: эта запись в PlanFull.txt.
+
+---------------------------------------------------------------------
+E12. Воспоминания (mobile, реализация)
+---------------------------------------------------------------------
+
+Что сделано:
+
+- Services/Api/Models/MemoryDtos.cs:
+  AddMemoryRequest(Text), UpdateMemoryRequest(Text),
+  AddMemoryResponse(MemoryId), UpdateMemoryResponse(MemoryId);
+  ModerationStatuses (Pending/Approved/Rejected);
+  MemoryLimits.MaxTextLength = 5000 (синхронизирован с
+  DeceasedMemoryEntry.MaxTextLength на backend).
+- IDeceasedMemoriesApi: POST/PUT/DELETE по
+  /api/deceased-records/{id}/memories[/{memoryId}].
+- ViewModels/MemoryItemViewModel.cs — wrapper record над
+  DeceasedMemoryResponse с computed-полями CanEdit, StatusBadge,
+  ShowStatusBadge. CanEdit считается ещё при загрузке (см.
+  MemoryItemViewModel.From) — XAML-биндинги остаются простыми.
+- ViewModels/MemoryEditorViewModel.cs — отдельный VM для редактора.
+  QueryProperty'и deceasedId, memoryId, text (url-encoded
+  initial text для edit-режима). CharCountText, IsTooLong и
+  CanSave — реактивные guard'ы.
+- Views/Tracked/MemoryEditorPage.xaml — Editor с MaxLength=5000,
+  кнопки Save/Cancel. Назад через GoToAsync("..").
+- AppShell.RegisterRoute("memory-editor", typeof(MemoryEditorPage)).
+- DeceasedDetailsViewModel:
+  - инжектится IDeceasedMemoriesApi, IAuthService;
+  - в LoadAsync до GetDetails вызывается authService.GetCurrentUserAsync()
+    один раз, кешируется в _currentUserId — нужно для CanEdit;
+  - ObservableCollection<MemoryItemViewModel> вместо
+    DeceasedMemoryResponse;
+  - команды AddMemoryAsync (push memory-editor без memoryId),
+    EditMemoryAsync(MemoryItemViewModel) с проверкой CanEdit и
+    url-encoded передачей текста, DeleteMemoryAsync(...) с
+    подтверждением и reload.
+- DeceasedDetailsPage.OnAppearing → LoadAsync(): когда юзер
+  возвращается из MemoryEditorPage через GoToAsync("..") — карточка
+  перечитывается, чтобы Memories отразили серверное состояние.
+- DeceasedDetailsPage.xaml:
+  - кнопка "＋" сверху секции "Воспоминания" → AddMemoryCommand;
+  - SwipeView c RightItems "Редактировать" (Azure) и "Удалить"
+    (#C0392B). IsVisible на SwipeItem'ах привязан к
+    MemoryItemViewModel.CanEdit;
+  - badge "На модерации" / "Отклонено" для не-Approved (Mist
+    background, AzureDeep text);
+  - подсказка "Свайп влево — редактировать / удалить" под
+    воспоминанием, тоже только при CanEdit.
+
+Что НЕ покрыто (и почему):
+
+- Author видит свои Pending-памяти только на своей карточке.
+  Backend сейчас фильтрует Memories по canSeeAllMemories
+  (CreatedByUserId == currentUserId || IsAdmin) — поэтому если
+  user A оставит коммент на карточке user B, user A в выдаче
+  /me/tracked-deceased/{B}/details своего Pending не увидит,
+  пока admin не Approve. UX-дефект на стыке E12 + backend.
+  Решение — отдельный D-пункт (D14) в backend: всегда
+  возвращать memory'и, где AuthorUserId == currentUserId,
+  плюс Approved-память других людей. На mobile поправок не
+  потребуется. Делаем по приоритету, не блокирует E12.
+- Admin-флаг IsAdmin не передаётся в mobile (CurrentUserResponse
+  содержит Role, но мы не используем). Соответственно admin не
+  увидит "Редактировать" в свайпе на чужих карточках. Backend
+  всё равно проверит права на PUT/DELETE и отдаст 403 при
+  попытке вручную — поэтому это безопасно, просто менее удобно.
+  Когда понадобится — добавить bool IsAdmin в VM и расширить
+  MemoryItemViewModel.From проверкой.
+
+E12 закрыт когда:
+[x] Code: API client, MemoryEditorPage, обновлённый DeceasedDetails.
+[ ] Tests: VM-тесты на DeceasedDetailsViewModel (Add/Edit/Delete
+    Memory commands вызывают правильные методы api; CanEdit
+    проверяет AuthorUserId vs currentUserId).
+[x] Docs: эта запись в PlanFull.txt.
+
+---------------------------------------------------------------------
+E15. Карта со всеми отслеживаемыми (mobile) — ОТМЕНЁН, см. E19
+---------------------------------------------------------------------
+
+UPDATE 2026-05-13: E15 в исходном виде (карта с пинами всех
+отслеживаемых) закрыт и переработан в E19 "Маршрут по нескольким
+могилам". Причина: Google Maps API key для embed-карты — это
+платный аккаунт и привязка к биллингу; пользователю на самом деле
+нужен не пин на карте, а оптимальный обход нескольких точек за
+день. Без своей карты внутри приложения мы получаем то же самое,
+делегируя навигацию во внешние Яндекс/Google/2ГИС (см. E19).
+
+Файлы MapPage / MapViewModel / MapPinItemViewModel удалены,
+таб "Карта" в AppBottomBar переименован в "Маршрут". Старый
+описательный блок ниже оставлен как историческая справка, всё в
+[ ] больше не выполняется.
+
+────────────────── ИСТОРИЧЕСКАЯ ЧАСТЬ (deprecated) ──────────────────
+
+Зачем понадобился отдельный E-пункт:
+
+В исходном плане под map-таб отдельной секции не было — карта
+упоминалась только в E7 (AtGravePage, выбор координат при
+создании карточки) и E11 (deep-link во внешние карты).
+MapPage в Shell-баре был placeholder'ом ("Карта появится в E5",
+устаревшая надпись с ранней нумерации). Чтобы таб не висел
+мёртвым грузом, делаем его полезным: показываем все могилы,
+которые юзер отслеживает, как пины на карте, тап → переход
+в карточку. Сценарий выбран на этапе E15 (см. историю чата).
+
+Что сделано:
+
+- ViewModels/MapPinItemViewModel.cs — sealed record с computed
+  Location (Microsoft.Maui.Devices.Sensors.Location), потому что
+  maps:Pin.Location ожидает именно этот тип.
+- ViewModels/MapViewModel.cs:
+  - инжектится ITrackedDeceasedApi, IGeolocationService;
+  - LoadAsync → GET /api/users/me/tracked-deceased?page=1&pageSize=200,
+    фильтрует HasGraveLocation, наполняет Pins;
+  - TotalCount + EmptyText: разные тексты для "ни одной карточки"
+    и "карточки есть, но без координат";
+  - ComputeInitialRegionAsync — центр-of-mass всех пинов + maxDist + 1.5км
+    запаса (минимум 2 км); если пинов нет — координаты пользователя
+    с радиусом 10 км; иначе fallback Москва (55.7558, 37.6173, 50 км);
+  - PinTappedAsync(MapPinItemViewModel) → GoToAsync deceased-details.
+- Views/Map/MapPage.xaml — ВНИМАНИЕ: maps:Map УБРАН из XAML
+  временно (см. ниже "Текущий fallback"). Когда появится Google
+  Maps API key, его нужно вернуть с разметкой:
+    maps:Map ItemsSource={Binding Pins} с DataTemplate
+    {x:DataType="vm:MapPinItemViewModel"} → maps:Pin (Label, Address,
+    Location, MarkerClicked). IsShowingUser=True — голубая точка
+    "где я". IsVisible привязан к HasPins, чтобы при пустом списке
+    показывался overlay-card с 🕊 + EmptyText.
+- Views/Map/MapPage.xaml.cs — пока упрощён до OnAppearing →
+  LoadAsync. Когда maps:Map вернётся, добавить обратно:
+  - подписку на VM.PropertyChanged(InitialRegion) →
+    ApplyInitialRegion через MapView.MoveToRegion(MapSpan.FromCenterAndRadius).
+    MAUI Maps initial region — императивное API, биндинга нет;
+  - _appliedRegion guard от повторного MoveToRegion с тем же регионом;
+  - OnPinMarkerClicked: BindingContext (MapPinItemViewModel) →
+    VM.PinTappedAsync. Pin не ICommandSource — Command в
+    DataTemplate привязать нельзя.
+
+Текущий fallback (приложение не должно падать):
+
+При первом запуске на эмуляторе тап по табу "Карта" уронил всё
+приложение с RuntimeException: "API key not found. Check that
+<meta-data android:name='com.google.android.geo.API_KEY' .../> is
+in <application> of AndroidManifest.xml". Google Maps SDK падает
+при инфляции виджета maps:Map даже если виджет невидимый —
+поэтому простое IsVisible="False" не помогает.
+
+Решение на сейчас: maps:Map убран из XAML, на его месте —
+CollectionView с теми же Pins. Карточка-пин содержит "📍"-иконку
+в круге, FullName, Subtitle и стрелку справа. TapGestureRecognizer
+вызывает PinTappedCommand → переход в deceased-details (та же
+команда, что планировалась для MarkerClicked). Вверху экрана —
+информер "Карта временно в виде списка" с указанием на E15.
+
+VM (MapViewModel + MapPinItemViewModel) и backend-логика не
+менялись — когда вернём виджет, изменения в XAML минимальные.
+
+Что нужно перед production (== вернуть карту):
+
+[ ] Google Maps API key в Platforms/Android/AndroidManifest.xml:
+    <meta-data android:name="com.google.android.geo.API_KEY"
+               android:value="${MAPS_API_KEY}" />
+    Без ключа на Android карта показывает серую сетку. В dev
+    на эмуляторе с Google APIs image иногда рендерит без ключа,
+    но в release без него не работает.
+[ ] Включить Maps SDK for Android в Google Cloud Console для
+    этого пакета (com.gdeoni.mobile).
+
+E15 (карта) закрыт когда:
+[x] Code: MapViewModel + MapPinItemViewModel; MapPage в режиме
+    list-fallback (не падает без API key).
+[ ] Tests: VM-тест на LoadAsync (фильтрация без координат,
+    ComputeInitialRegion на пустых пинах → fallback).
+[x] Docs: эта запись в PlanFull.txt + явно описаны требования к
+    Google Maps API key и список изменений для возврата виджета.
+[ ] Manifest: добавлен API key (отложено до production).
+[ ] XAML: вернуть maps:Map после добавления API key (см. блок
+    "Что нужно перед production" выше).
+
+---------------------------------------------------------------------
+E16. Поиск умершего перед добавлением (mobile)
+---------------------------------------------------------------------
+
+Зачем:
+
+UX-проблема в оригинальном flow: юзер у могилы тапал "Добавить
+умершего" и сразу попадал на форму. Если карточка уже была в
+системе (кто-то другой добавил), он создавал дубликат вместо
+того, чтобы подписаться. После D15 (открытие GetAll для всех)
+эта проблема решается на mobile-стороне.
+
+Новый flow:
+
+1. TrackedListPage "+ Добавить умершего" → теперь идёт не сразу
+   на at-grave, а на новую страницу deceased-search.
+2. DeceasedSearchPage:
+   - input "Имя, фамилия или отчество..." с ReturnType=Search
+     и ReturnCommand={Binding SearchCommand};
+   - кнопка "Найти" с IsEnabled={Binding CanSearch}
+     (CanSearch — Query.Trim().Length >= 2);
+   - GET /api/deceased-records?search=...&page=1&pageSize=20;
+   - список результатов карточками (🕊-аватар, ФИО, "† дата · город");
+   - tap на карточку → AddMeTrackingRequest(Friend) →
+     POST /api/users/me/tracked-deceased/{id} →
+     GoToAsync //main/tracked/deceased-details?deceasedId={id}
+     (absolute route — сбрасывает search-page из стэка, юзер
+     возвращается на главную, а не на свой поиск);
+   - после поиска без результатов — Border "Никого не нашли"
+     с пояснением "можно создать новую карточку";
+   - кнопка "＋ Создать новую карточку" видна всегда внизу →
+     GoToAsync at-grave (relative push, юзер может вернуться
+     назад в поиск).
+
+Что добавлено:
+
+- Services/Api/Models/DeceasedSearchDtos.cs:
+  DeceasedSearchItem (все поля из backend
+  GetAllDeceasedItemResponse — Id, FullName, BirthDate,
+  DeathDate, BurialLocation поля, IsVerified, CreatedAtUtc);
+  AddMeTrackingRequest (RelationshipType, PersonalNotes,
+  NotifyOnDeathAnniversary, NotifyOnBirthAnniversary);
+  TrackDeceasedResponse (TrackingId, DeceasedId).
+- IDeceasedRecordsApi.GetAllAsync(search?, country?, city?,
+  page, pageSize) → ApiEnvelope<PagedResponse<DeceasedSearchItem>>.
+- ITrackedDeceasedApi.TrackAsync(deceasedId, AddMeTrackingRequest)
+  → ApiEnvelope<TrackDeceasedResponse>. Backend POST идемпотентен
+  (см. MeTrackedDeceasedController.Track), повторный вызов
+  переводит Archived/Muted → Active.
+- ViewModels/DeceasedSearchViewModel.cs:
+  - Query / CanSearch / IsBusy / ErrorMessage / HasSearched
+    как ObservableProperty;
+  - SearchCommand / TrackAndOpenCommand(item) / CreateNewCommand /
+    BackCommand;
+  - default RelationshipType=Friend при подписке (юзер сможет
+    поменять в настройках tracking-а внутри карточки).
+- Views/Tracked/DeceasedSearchPage.xaml + .cs.
+- AppShell.RegisterRoute("deceased-search", ...).
+- MauiProgram: DeceasedSearchViewModel + DeceasedSearchPage
+  AddTransient.
+- TrackedListViewModel.AddDeceasedAsync: GoToAsync
+  "at-grave" → "deceased-search".
+
+Что не сделано (TODO):
+
+- Дебаунс на ввод. Сейчас юзер должен явно нажать "Найти"
+  (или Enter). Дебаунс на 300мс сделает UX живее, но требует
+  Timer/SemaphoreSlim — отложил.
+- Фильтр по городу/стране. Backend поддерживает country/city
+  query params, на mobile сейчас передаём только search.
+  Добавится когда станет нужно — DTO и API уже готовы.
+- Геопроксимити-сортировка. У нас есть текущие координаты
+  юзера (E6) и координаты могил — можно сортировать по
+  расстоянию. Backend GetAllDeceasedUseCase сейчас отдаёт
+  OrderByDescending(CreatedAtUtc); отдельная сортировка —
+  отдельная задача.
+- Подсветка строки "уже отслеживается". Можно дёргать
+  /tracked-deceased/{id}/exists в DataTemplate, но это N+1
+  запросов на пейдж. Лучше сделать batch-endpoint /exists?ids=...
+  — отдельная задача, оставил как TODO в backend.
+
+E16 закрыт когда:
+[x] Backend: D15 (GetAll открыт всем) — отдельная запись выше.
+[x] Mobile: DeceasedSearchPage + VM, регистрация route, API
+    методы, кнопка "+" на TrackedListPage идёт в search.
+[x] Mobile (E17.1): tap на найденного — теперь preview без
+    моментальной подписки (см. E17.1 ниже).
+[x] Mobile (E17.3): пагинация поиска + фильтр по городу.
+[x] Tests (частично): CanSearch-логика вынесена в
+    Shared.Search.DeceasedSearchCriteria и покрыта 10 тестами
+    в DeceasedSearchCriteriaTests (>=2 символа после Trim,
+    одна-только-дата, комбинации, пустой ввод). VM-тесты на
+    Navigate / pagination — требуют Shell-мок, отложены.
+[x] Docs: эта запись.
+
+---------------------------------------------------------------------
+E17.1. Preview карточки умершего (tap из поиска)
+---------------------------------------------------------------------
+
+Зачем:
+
+В первом проходе E16 при тапе на найденного юзера сразу
+подписывали через POST /tracked-deceased/{id} и кидали в полную
+карточку (deceased-details). Проблема: в поиске может быть
+тёзка/однофамилец с теми же датами, и юзер обнаружит ошибку
+только после подписки. Это создаёт мусорные tracking-записи
+"я подписался на не того" — потом архивировать и удалять.
+
+Решение: между поиском и подпиской — промежуточная preview-страница.
+Юзер видит карточку умершего (фото, биография, место), но без
+tracking-инфо и без upload-кнопок. Внизу кнопка действия:
+- "Открыть мою карточку" — если уже отслеживает (через
+  GET /tracked-deceased/{id}/exists → Tracked=true);
+- "Добавить в отслеживание" — если ещё нет.
+
+После подписки переход на полную карточку (deceased-details).
+
+Что добавлено:
+
+- IDeceasedRecordsApi.GetByIdAsync(deceasedId) → ApiEnvelope<
+  DeceasedDetailsResponse> — обёртка над GET /api/deceased-records/
+  {id}. Endpoint существовал, открыт всем авторизованным.
+- ITrackedDeceasedApi.IsTrackedAsync(deceasedId) → ApiEnvelope<
+  IsTrackedResponse> — обёртка над GET /tracked-deceased/{id}/exists.
+- DTO IsTrackedResponse(bool Tracked) в DeceasedSearchDtos.cs.
+  Backend поле — Tracked (см. IsTrackedByMeResponse в Application).
+- ViewModels/DeceasedPreviewViewModel.cs:
+  - QueryProperty deceasedId, OnDeceasedIdChanged → LoadAsync;
+  - LoadAsync параллельно дёргает GetByIdAsync + IsTrackedAsync +
+    GetListAsync(media, page=1 pageSize=50) для главного фото;
+  - PrimaryActionCommand: если IsAlreadyTracked → переход в
+    deceased-details; иначе TrackAsync(Friend default) → переход.
+  - ActionButtonText computed: "Открыть мою карточку" или
+    "Добавить в отслеживание".
+- Views/Tracked/DeceasedPreviewPage.xaml: hero-аватар (фото или
+  🕊-placeholder), ФИО, daty жизни, ✓-бирка если IsVerified,
+  ShortDescription/Biography/LocationText в облачных карточках,
+  внизу подсказка "Это нужный вам человек?" + большая кнопка
+  действия.
+- AppShell.RegisterRoute("deceased-preview").
+- DeceasedSearchViewModel: команда `TrackAndOpenAsync` заменена
+  на `OpenPreviewAsync(item)` → GoToAsync deceased-preview.
+- DeceasedSearchPage.xaml: TapGestureRecognizer
+  CommandParameter ссылается на `OpenPreviewCommand` вместо
+  `TrackAndOpenCommand`.
+
+E17.1 закрыт когда:
+[x] Code: DTO IsTrackedResponse + API методы + VM + Page + route.
+[x] Search: TapGestureRecognizer вызывает OpenPreview.
+[ ] Tests: VM-тест на PrimaryActionCommand (IsAlreadyTracked=true
+    → нет POST, IsAlreadyTracked=false → POST с дефолтным Friend).
+[x] Docs: эта запись.
+
+---------------------------------------------------------------------
+E17.2. Удаление tracking навсегда из архива
+---------------------------------------------------------------------
+
+Зачем:
+
+E9.1 ввёл архив — мягкое удаление через PATCH Status=Archived.
+Карточка в архиве остаётся в БД и трекинге, юзер может вернуть.
+Не хватало финальной ступени — "вообще убрать". Сценарии:
+- юзер ошибся и подписался на не того, заархивировал, теперь
+  не хочет видеть даже в архиве;
+- архив разросся, юзер чистит старые записи.
+
+Подходящий endpoint уже был — DELETE /api/users/me/tracked-deceased/
+{id} (см. MeTrackedDeceasedController.Untrack). На mobile он был
+зарегистрирован в ITrackedDeceasedApi.UntrackAsync, но кнопки в UI
+не было. E17.2 добавляет именно UI.
+
+Что добавлено:
+
+- ArchiveViewModel.UntrackForeverAsync(item) → DisplayAlert
+  "Удалить из отслеживания навсегда?" → DELETE → удаление из
+  локальной коллекции Items (без полного refresh). Чёткий текст
+  алерта объясняет, что карточка умершего остаётся в системе, а
+  убирается только tracking.
+- ArchivePage.xaml: DataTemplate обёрнут в SwipeView с RightItems
+  SwipeItem "Удалить навсегда" (#C0392B). Под информацией о
+  родственнике добавлена подсказка "Свайп влево — удалить навсегда"
+  (FontSize=10, AzureDeep@0.6 opacity).
+
+Что НЕ менялось:
+
+- Сама карточка умершего (Deceased) остаётся в БД. Это важно:
+  если 5 юзеров отслеживают одного человека, и один из них
+  Untrack — у других tracking-и не теряются. Удалить саму
+  карточку умершего может только админ/автор через DELETE
+  /api/deceased-records/{id} (см. E13/F8).
+- Команда RestoreCommand (вернуть из архива в Active) — не
+  трогалась, остаётся работающей на DeceasedDetailsPage.
+
+E17.2 закрыт когда:
+[x] Code: UntrackForeverCommand + SwipeView в ArchivePage.
+[ ] Tests: VM-тест что UntrackForever вызывает api.UntrackAsync
+    и удаляет item из Items.
+[x] Docs: эта запись.
+
+---------------------------------------------------------------------
+E17.3. Пагинация и фильтр в поиске умершего
+---------------------------------------------------------------------
+
+Зачем:
+
+В первом E16 поиск дёргал GET /deceased-records?search=...&page=1&
+pageSize=20 и показывал только первые 20 результатов. Backend
+поддерживает фильтры (country/city/IsVerified/createdFrom/To) и
+totalCount в pagedResponse, но mobile это игнорировал.
+
+Проблема при росте базы — если 1000 "Ивановых", юзер видел
+20 случайных, никаких подсказок уточнить.
+
+Что добавлено:
+
+- DeceasedSearchViewModel:
+  - constant PageSize = 20;
+  - ObservableProperty CityFilter, CurrentPage, TotalCount;
+  - SearchAsync: сбрасывает CurrentPage и Results, вызывает
+    LoadNextPageAsync (общий код);
+  - LoadMoreAsync: проверяет HasMore + IsBusy, вызывает
+    LoadNextPageAsync (без сброса);
+  - LoadNextPageAsync: page = CurrentPage+1, передаёт CityFilter
+    как city query; добавляет items в Results (не Clear);
+    обновляет TotalCount/CurrentPage;
+  - computed:
+    - HasMore = Results.Count < TotalCount;
+    - ShowTooManyHint = HasSearched && TotalCount > 50;
+    - SummaryText = "Найдено: N, показано: M";
+    - HasSummary = HasSearched && TotalCount > 0;
+- DeceasedSearchPage.xaml:
+  - второй Entry "Город (необязательно)" → CityFilter;
+  - Label с SummaryText (CaptionLabel);
+  - Label "Слишком много совпадений. Попробуйте уточнить город..."
+    оранжевым, IsVisible={Binding ShowTooManyHint};
+  - Button "Загрузить ещё" (GhostButton) после CollectionView,
+    IsVisible={Binding HasMore}.
+
+E17.3 закрыт когда:
+[x] Code: пагинация в VM + UI в Page.
+[ ] Tests: VM-тест что LoadMoreAsync прирастает Results, HasMore
+    флаг работает по сравнению с TotalCount, повторный SearchAsync
+    сбрасывает Results.
+[x] Docs: эта запись.
+
+---------------------------------------------------------------------
+E17.4. Фильтры по дате рождения и смерти в поиске
+---------------------------------------------------------------------
+
+Зачем:
+
+E17.3 ввёл фильтр по городу — но по тёзкам это всё равно не
+помогает. Поиск "Иванов в Москве" может вернуть десятки. Дата
+рождения / смерти отличает их радикально: вряд ли два полных
+тёзки с одинаковыми датами. Это финальный фильтр для дисамбига.
+
+Backend изменения (миграция не нужна — schema уже хранит
+LifePeriod.BirthDate и DeathDate как DateOnly, добавляем только
+query-фильтрацию):
+
+- GetAllDeceasedQuery: добавлены DateOnly? BirthDate и DateOnly?
+  DeathDate. Старый сигнатурный порядок сохранён, новые поля
+  идут после CreatedFrom/CreatedTo, перед Page/PageSize.
+- GetAllDeceasedRequest (API DTO): те же два поля nullable
+  DateOnly?, доступны как query-параметры через FromQuery
+  binding.
+- DeceasedRecordsGetAllMapping.ToQuery: проброс новых полей.
+- DeceasedRepository.GetPaged: два новых блока `if (query.BirthDate
+  .HasValue) dbQuery = dbQuery.Where(x => x.LifePeriod.BirthDate
+  == query.BirthDate.Value);` и аналогично для DeathDate.
+  Семантика — точное совпадение. Карточки с null BirthDate
+  отсеиваются если фильтр задан.
+
+Mobile изменения:
+
+- IDeceasedRecordsApi.GetAllAsync: новые опциональные
+  [Query(Format="yyyy-MM-dd")] DateOnly? birthDate/deathDate.
+  Refit сериализует DateOnly в ISO-формат, ASP.NET Core
+  понимает на FromQuery.
+- DeceasedSearchViewModel:
+  - ObservableProperty DateTime BirthDate (default Today-70 лет),
+    bool UseBirthDateFilter;
+  - ObservableProperty DateTime DeathDate (default Today-1 год),
+    bool UseDeathDateFilter;
+  - LoadNextPageAsync: преобразование DateTime → DateOnly через
+    DateOnly.FromDateTime, только если UseXFilter=true.
+- DeceasedSearchPage.xaml:
+  - два Grid'а с CheckBox + Label + DatePicker;
+  - DatePicker.IsEnabled={Binding UseXDateFilter} —
+    отключённый picker визуально серый, не реагирует на тапы.
+
+Зачем pattern "bool flag + DateTime" вместо DateTime?:
+DatePicker в MAUI не умеет хранить null. TargetNullValue работает
+плохо с этим контролом (показывает 1/1/0001). Чисто практичнее
+использовать пару (DateTime значение + bool flag включён ли) и
+конвертировать в DateOnly? только на этапе запроса.
+
+Tests:
+
+- DeceasedRepositoryTests: 4 теста были на старой сигнатуре
+  GetAllDeceasedQuery (6 nullable + Page/PageSize) → дополнены
+  null'ами для BirthDate/DeathDate. Сами тесты не проверяют
+  новые фильтры — это нужно добавить отдельно.
+- DeceasedQueriesTests.GetAll_AnyAuthenticated_ReturnsPaged и
+  GetAll_Admin_ReturnsPaged: то же — добавлены null'ы.
+- Полный прогон backend.sln — 344/344 (было 343, +1 случайно
+  в Integration; возможно дрифт из-за пересборки).
+
+E17.4.1: Поиск только по датам (без имени) тоже валиден.
+CanSearch активна если включён хотя бы один из фильтров —
+по имени ИЛИ по дате рождения ИЛИ по дате смерти. Все
+критерии независимы; можно вбить только дату смерти и
+найти всех умерших в этот день. Backend это уже поддерживает
+(каждый Where независим), поэтому фикс только во VM.
+
+E17.4 закрыт когда:
+[x] Code (backend): Query+Request+Mapper+Repository.
+[x] Code (mobile): API method (string params + invariant
+    formatting в VM) + VM props + XAML pickers.
+[x] Migration: не нужна (LifePeriod.BirthDate/DeathDate уже в
+    схеме как DateOnly).
+[x] Tests: существующие тесты адаптированы под новую сигнатуру,
+    backend.sln 347/347.
+[x] Tests (новые): DeceasedRecordsSearchTests.GetAll_FiltersBy
+    DeathDate и GetAll_FiltersByBirthDate. Каждый создаёт две
+    карточки с одной фамилией но разными датами, проверяет что
+    фильтр оставляет только нужную.
+[x] Bug fix: первая версия передавала DateOnly через
+    [Query(Format="yyyy-MM-dd")] — Refit 8 не уважает этот
+    атрибут для DateOnly, в реальном запросе уходил локальный
+    формат "12.05.2025". Backend (ASP.NET DateOnly binder) такой
+    формат не парсит, фильтр игнорировался → 0 результатов.
+    Fix: передаём string вручную через DateOnly.ToString(
+    "yyyy-MM-dd", CultureInfo.InvariantCulture) в VM. Тест
+    GetAll_FiltersByDeathDate ловит регрессию на backend-стороне
+    (отправляет точно "yyyy-MM-dd" в URL).
+[x] Docs: эта запись.
+
+---------------------------------------------------------------------
+E17.5. Отдельные поля для имени, фамилии, отчества
+---------------------------------------------------------------------
+
+Зачем:
+
+Один `search` параметр был слишком общим — ILike по любому из
+трёх полей. Юзер вводил "Иван" — мог найти и "Иванова",
+и "Петра Ивановича", и "Ивана Сидорова". Когда нужно найти
+конкретного Дмитрия Клусевича — нужны раздельные input'ы.
+
+Backend:
+
+- GetAllDeceasedQuery: + string? FirstName, string? LastName,
+  string? MiddleName. Идут сразу после Search.
+- GetAllDeceasedRequest: те же три поля как FromQuery params.
+- Mapper: проброс.
+- DeceasedRepository.GetPaged: три новых блока `if + ILike`.
+  Между собой AND'ятся — если передал firstName=Иван +
+  lastName=Клусевич, ищет именно такого человека, а не
+  "хоть какого-то Ивана или хоть какого-то Клусевича".
+- Legacy `Search` оставлен — ILike по любому из трёх. Используется
+  как fallback или для совместимости (на mobile UI уже не дёргает,
+  но контракт сохранён).
+
+Mobile:
+
+- IDeceasedRecordsApi.GetAllAsync: + firstName, lastName,
+  middleName параметры (string?).
+- DeceasedSearchViewModel:
+  - ObservableProperty FirstNameFilter, LastNameFilter,
+    MiddleNameFilter; Query оставлен для совместимости (но
+    не используется в UI);
+  - CanSearch = хотя бы одно поле длиной >= 2 (любое из 4-х:
+    Query/First/Last/Middle). Без критериев поиска не пускаем —
+    защита от случайного перебора всей базы;
+  - LoadNextPageAsync передаёт три параметра отдельно через
+    NullIfEmpty helper.
+- DeceasedSearchPage.xaml: вместо одного "Имя, фамилия или
+  отчество..." теперь три Entry — "Фамилия", "Имя", "Отчество"
+  (порядок как в русском оффициальном bureau). ReturnType=Next
+  для удобного перехода tab'ом, последний (City) — Search.
+
+Tests (адаптация старых):
+
+- 11 вызовов GetAllDeceasedQuery в DeceasedRepositoryTests и
+  DeceasedQueriesTests дополнены тремя null'ами (FirstName,
+  LastName, MiddleName). Использовал replace_all для общих
+  паттернов; ручные правки для именованных параметров и
+  IsVerified-кейсов.
+
+Tests (новые):
+
+- DeceasedRecordsSearchTests.GetAll_FiltersByNameFields:
+  создаёт двух с одной фамилией но разными именами (Иван и
+  Пётр). Сначала lastName=маркер → оба в выдаче. Потом
+  lastName=маркер + firstName=Иван → только Иван. Это
+  фиксирует AND-семантику.
+
+---------------------------------------------------------------------
+E18. Смена пароля в профиле (mobile)
+---------------------------------------------------------------------
+
+Backend не менялся — endpoint `PUT /api/users/{userId}/password` уже
+существует (UsersController.ChangePassword + ChangePasswordUseCase).
+Принимает body `{ CurrentPassword: string?, NewPassword: string }`,
+rate-limiting через AuthRateLimitOptions.PolicyName, min 8 / max 128
+символов. После успеха ротируется SecurityStamp → текущий access-токен
+становится невалидным (OnTokenValidated сверит → 401).
+
+Mobile:
+
+- IUsersApi.ChangePasswordAsync(userId, ChangePasswordRequest):
+  PUT /api/users/{userId}/password. Возвращает
+  ApiEnvelope<ChangePasswordResponse(UserId)>.
+- DTO ChangePasswordRequest(string? CurrentPassword, string NewPassword)
+  + ChangePasswordResponse(Guid UserId) в AuthDtos.cs.
+- PasswordPolicy константы (MinPasswordLength=8, MaxPasswordLength=128)
+  на mobile, синхронизированы с backend.Application.Constants.
+- ViewModels/ChangePasswordViewModel.cs:
+  - три поля: CurrentPassword, NewPassword, ConfirmPassword;
+  - reactive guards: IsNewPasswordTooShort, IsNewPasswordTooLong,
+    PasswordsMatch, CanSubmit (всё одновременно);
+  - SubmitCommand: получает currentUserId через
+    authService.GetCurrentUserAsync, дёргает PUT, после 200
+    показывает alert "Пароль изменён", вызывает LogoutAsync()
+    (best-effort: серверу всё равно нечего отозвать с старым
+    SecurityStamp), GoToAsync //login.
+- Views/Profile/ChangePasswordPage.xaml + .cs: три Entry
+  IsPassword=True, инлайн валидации длины, кнопка "Сменить пароль"
+  с IsEnabled={Binding CanSubmit}.
+- ProfilePage.xaml: добавлена кнопка "Сменить пароль"
+  (GhostButton) между "Обновить" и "Выйти".
+- ProfileViewModel.ChangePasswordCommand: GoToAsync change-password.
+- AppShell.RegisterRoute("change-password", typeof(ChangePasswordPage)).
+- MauiProgram: DI для VM + Page.
+
+Почему force-logout после смены:
+
+Backend ротирует SecurityStamp при ChangePassword (security-stamp
+invalidation, см. D11.8.1 в плане). OnTokenValidated кеширует
+SecurityStamp с TTL ~30s — после смены пароля любой запрос с
+текущим токеном через 30s упадёт на 401 (когда кеш протухнет и
+сверится с БД). Чтобы не получить 401 в неожиданный момент,
+сами вылогиниваем юзера на login и просим ввести новый пароль.
+
+E18 закрыт когда:
+[x] Code: API method + DTO + VM + Page + button + DI + route.
+[x] Migration: не требуется (endpoint существует, schema не менялась).
+[x] Tests (частично): правила пароля вынесены в
+    Shared.Auth.PasswordRules + PasswordPolicy и покрыты 10
+    тестами в PasswordRulesTests (IsTooShort граница 8,
+    IsTooLong граница 128, PasswordsMatch null/пустой/совпадение,
+    CanSubmit happy и rejected пути). VM-тест на навигацию после
+    PUT — требует Shell-мок, отложено. Backend ChangePassword
+    покрыт integration-тестами в Users-секции.
+[x] Docs: эта запись.
+
+---------------------------------------------------------------------
+E19. Маршрут по нескольким могилам (mobile)
+---------------------------------------------------------------------
+
+Зачем:
+
+Закрывает реальный пользовательский сценарий: "я еду сегодня
+обойти несколько могил — построй мне маршрут". Заменяет старый
+E15 (карта с пинами), потому что для embed-карты нужен платный
+Google Maps API key, а реальная польза достижима без неё —
+оптимизация порядка точек локально + delegation навигации во
+внешние Яндекс/Google/2ГИС.
+
+Сценарий:
+
+1. Юзер на табе "Маршрут" (бывшая "Карта" в нижнем баре).
+2. Видит список своих tracked-карточек, у которых есть координаты
+   места захоронения (HasGraveLocation). Без координат не
+   показываем — построить маршрут к точке без координат нельзя.
+3. Отмечает чекбоксами те могилы, которые хочет обойти. Чекбокс
+   плюс tap-to-toggle на всю карточку (большой touch-target).
+4. Жмёт "Построить маршрут (N)". По решению 2026-05-13 на UI
+   оставлен только Яндекс — без выбора провайдера, приложение
+   открывается напрямую. Билдеры Google / 2ГИС в
+   ExternalMapsService.cs сохранены, чтобы при необходимости
+   вернуть ActionSheet хватило локальной правки в RoutePage.xaml.cs.
+5. Приложение получает текущую геопозицию (если разрешена) как
+   origin, оптимизирует порядок объезда (TSP nearest-neighbor),
+   собирает Яндекс deep-link URL и открывает приложение через
+   Launcher.OpenAsync. Дальше навигация — у Яндекс.Карт.
+
+Backend:
+
+Изменений не требуется. Переиспользуем GET
+/api/users/me/tracked-deceased (E9) — там уже HasGraveLocation +
+GraveLatitude + GraveLongitude в DTO.
+
+Mobile:
+
+- Services/Routing/ExternalMapsService.cs:
+  - enum ExternalMapsProvider { Yandex, Google, DoubleGis };
+  - sealed record RoutePoint(double Latitude, double Longitude);
+  - interface IExternalMapsService.OpenRouteAsync(provider, origin, points, ct):
+    собирает URL под выбранный сервис и зовёт Launcher.OpenAsync.
+  - URL-схемы:
+    * Yandex: https://yandex.ru/maps/?rtext=lat,lon~lat,lon~...&rtt=auto
+      Порядок точек = порядок проезда (Яндекс не делает свою TSP-
+      оптимизацию). Отдаём уже отсортированные локально координаты.
+    * Google: https://www.google.com/maps/dir/?api=1
+              &travelmode=driving&origin=lat,lon&destination=lat,lon
+              &waypoints=lat,lon|lat,lon  (до 9 waypoints в universal URL).
+    * 2ГИС: https://2gis.ru/routeSearch/rsType/car/points/lon,lat|lon,lat
+      ВАЖНО: 2ГИС использует ОБРАТНЫЙ порядок (lon,lat) —
+      легко перепутать и получить точку в океане.
+  - Все double форматируются через CultureInfo.InvariantCulture
+    ({0:F6}) — иначе на ru-RU локали запятая вместо точки сломает
+    URL.
+  - При неудаче Launcher.OpenAsync возвращаем false; VM показывает
+    "Не удалось открыть приложение карт".
+
+- ViewModels/RouteViewModel.cs:
+  - инжектится ITrackedDeceasedApi, IGeolocationService,
+    IExternalMapsService;
+  - LoadAsync → GET /api/users/me/tracked-deceased?page=1&pageSize=100,
+    фильтрует HasGraveLocation, наполняет ObservableCollection
+    <RouteCandidateViewModel>. При перезагрузке сохраняет
+    предыдущий выбор (HashSet<Guid> по DeceasedId);
+  - BuildRouteAsync(providerKey: string):
+    a) парсит providerKey в enum,
+    b) фильтрует выбранные кандидаты,
+    c) запрашивает геолокацию (best-effort — без неё работаем),
+    d) запускает OptimizeOrder (nearest-neighbor TSP),
+    e) вызывает IExternalMapsService.OpenRouteAsync;
+  - ClearSelectionCommand: снимает все чекбоксы.
+  - OptimizeOrder: nearest-neighbor от origin (если есть) или
+    от первой точки. O(N²) — для 2-15 точек неотличимо от
+    оптимума, Held-Karp DP добавим если понадобится.
+  - RouteCandidateViewModel: DeceasedId, FullName, Subtitle,
+    Latitude, Longitude + ObservableProperty IsSelected.
+
+- Views/Route/RoutePage.xaml + .cs:
+  - Header + список с CheckBox + Border (CloudCard);
+  - TapGestureRecognizer на карточку → OnCandidateTapped в
+    code-behind переключает IsSelected (touch-target больше);
+  - Внизу — две кнопки: "Построить маршрут (N)" (Primary,
+    IsEnabled=HasSelection) и "Сбросить выбор" (Ghost,
+    IsVisible=HasSelection);
+  - OnBuildRouteClicked → BuildRouteCommand.ExecuteAsync("Yandex")
+    напрямую, без ActionSheet (UI решение 2026-05-13).
+
+- AppShell.xaml: ShellContent Route="map" → "route", тип
+  map:MapPage → route:RoutePage, namespace тоже переименован.
+- AppBottomBar.xaml / .cs: TabMap → TabRoute, "Карта" →
+  "Маршрут", OnMapTapped → OnRouteTapped, route == "map"
+  → "route", навигация //map → //route.
+- MauiProgram.cs: убрана регистрация MapViewModel/MapPage,
+  добавлены RouteViewModel/RoutePage, ExternalMapsService.
+
+Удалённые файлы:
+
+- Views/Map/MapPage.xaml + .cs
+- ViewModels/MapViewModel.cs
+- ViewModels/MapPinItemViewModel.cs
+- (папка Views/Map тоже удалена)
+
+Что осознанно НЕ делаем:
+
+- Реальное отслеживание движения внутри приложения — это работа
+  Яндекс/Google/2ГИС, мы только подаём им готовый маршрут.
+- Точный TSP (Held-Karp DP) — на масштабе нескольких могил
+  nearest-neighbor даёт оптимум или копеечную погрешность.
+- Backend-endpoint /route на multiple deceased (multi-point) — не
+  нужен, deep-link собирается полностью на клиенте. Существующий
+  /api/users/me/tracked-deceased/{id}/route (single-point) остался
+  для индивидуального маршрута к одной могиле, его пока не
+  используем из mobile UI (но контракт ITrackedDeceasedApi.GetRouteAsync
+  на месте).
+
+E19 закрыт когда:
+[x] Code: ExternalMapsService + RouteViewModel +
+    RouteCandidateViewModel + RoutePage + Shell/BottomBar/DI
+    обновлены.
+[x] Cleanup: удалены MapPage, MapViewModel, MapPinItemViewModel
+    и папка Views/Map.
+[x] Tests (частично): закрыт юнит-тестами на Shared-уровне
+    (frontend/mobile/GdeOni.Mobile.Tests, 54 теста, все зелёные):
+    - RouteOptimizerTests: nearest-neighbor на 3+4-точечных
+      кейсах, edge-кейсы (пустой/одиночный), HaversineKm sanity,
+      инвариант "не мутируем input list";
+    - ExternalMapsUrlBuilderTests: invariant culture форматирует
+      "0.000000,0.000000" даже на ru-RU; правильный порядок
+      lon,lat для 2ГИС (защита от регрессии — самая опасная
+      ошибка); Google waypoints корректны при origin=null
+      (первая точка → origin, средние → waypoints, последняя →
+      destination); три-провайдерный диспатч Build(provider).
+    Для рефакторинга в Shared вынесены чистые билдеры
+    (frontend/mobile/GdeOni.Mobile.Shared/Routing/ExternalMapsUrlBuilder.cs)
+    и RouteOptimizer; mobile-ExternalMapsService теперь тонкая
+    обёртка Launcher.OpenAsync, RouteViewModel.OptimizeOrder
+    делегирует в Shared (без зависимости от MAUI Location).
+[ ] Tests: VM-тест на RouteViewModel.LoadAsync (фильтрация без
+    координат и Archived, сохранение выбора между перезагрузками).
+    Не закрыт юнит-тестами — VM зависит от Shell.Current /
+    Launcher / API-моков, требует более тяжёлой тест-инфры.
+[x] Docs: эта запись + E15 помечен deprecated.
+
+---------------------------------------------------------------------
+E20. Правка координат места захоронения (mobile)
+---------------------------------------------------------------------
+
+Зачем:
+
+В пользовательском сценарии: «у могилы я отметил место, но GPS
+дал смещение метров 30 — хочу подвинуть точку точно». Или: «карточку
+завёл из дома по координатам с сайта кладбища, потом приехал и
+снял реальный GPS — хочу обновить». До E20 у пользователя такой
+возможности не было — координаты задавались только при создании
+через AtGravePage. Теперь на карточке умершего рядом с «Построить
+маршрут» появилась кнопка «Поправить координаты».
+
+Backend:
+
+Эндпойнт `PUT /api/deceased-records/{id}/burial-location/from-gps`
+уже существовал (DeceasedBurialLocationController) и принимает
+`{ Latitude, Longitude, AccuracyMeters? }`. До E20 use case делал
+`BurialLocation.CreateFromGps(...)` — который ставит Country/City/
+CemeteryName/PlotNumber/GraveNumber в null. При повторном вызове
+для правки координат это обнуляло уже введённый адрес.
+
+Исправление в SetBurialLocationFromGpsUseCase.Handle:
+
+- Читаем `deceased.BurialLocation` до создания нового value object'а.
+- Вместо `BurialLocation.CreateFromGps` используем `BurialLocation.Create`
+  с явной передачей country / region / city / cemeteryName / plotNumber
+  / graveNumber из существующего BurialLocation (или null, если у
+  карточки координат ещё не было — первичное проставление).
+- Accuracy остаётся LocationAccuracy.Exact (как и раньше при FromGps).
+
+Это расширяет семантику эндпойнта: теперь он не только "set first
+time", но и "fix coordinates without touching address". Имя пути
+осталось `/from-gps` ради обратной совместимости.
+
+Mobile:
+
+- DTO SetBurialLocationRequest(Latitude, Longitude, AccuracyMeters?)
+  + SetBurialLocationResponse(DeceasedId) в DeceasedRecordsDtos.cs.
+- IDeceasedRecordsApi.SetBurialLocationAsync(deceasedId, request)
+  → PUT /burial-location/from-gps.
+- ViewModels/BurialLocationEditorViewModel.cs:
+  - QueryProperty[deceasedId, lat, lon, acc] для prefill;
+  - те же три строковых поля что в AtGraveViewModel (LatitudeInput,
+    LongitudeInput, AccuracyInput) с одним и тем же TryParseDouble
+    (запятая → точка, InvariantCulture), теми же диапазонами
+    lat ∈ [-90, 90], lon ∈ [-180, 180], accuracy ≥ 0;
+  - RequestLocationAsync (GPS), OpenAppSettingsCommand;
+  - SubmitAsync → SetBurialLocationAsync → GoToAsync("..").
+  - 403 → "Координаты можно править только автору карточки или
+    администратору".
+- Views/Tracked/BurialLocationEditorPage.xaml + .cs — три Entry
+  с placeholder'ами + GhostButton "Получить координаты" + PrimaryButton
+  "Сохранить". Пояснительная подпись "Адрес (страна, город,
+  кладбище) изменится не будет — здесь меняем только точку на карте".
+- DeceasedDetailsViewModel:
+  - EditCoordinatesCommand → GoToAsync с подставленными текущими lat
+    /lon/acc (форматирование "0.000000" / "0", InvariantCulture).
+- DeceasedDetailsPage.xaml — в карточке "Место захоронения" под
+  кнопкой "Построить маршрут" добавлена GhostButton "Поправить
+  координаты".
+- AppShell.RegisterRoute("burial-location-editor",
+  typeof(BurialLocationEditorPage)).
+- MauiProgram: DI для VM + Page.
+
+Что осознанно НЕ делаем:
+
+- Не правим Country / City / CemeteryName / PlotNumber / GraveNumber
+  через этот же экран — для них нужен отдельный flow (когда
+  понадобится). Сейчас address меняется только при создании
+  карточки.
+- Не показываем доступ-гейт на стороне mobile (видимость кнопки
+  всем) — backend всё равно отдаст 403 для не-автора и не-админа,
+  а лишний клиентский guard потребовал бы тащить CreatedByUserId
+  в TrackedDeceasedDetailsResponse, чего там нет. UX-цена: для
+  outsider'а откроется страница, нажмёт "Сохранить" — увидит
+  понятное сообщение про 403.
+
+E20 закрыт когда:
+[x] Code (backend): SetBurialLocationFromGpsUseCase теперь
+    сохраняет адресные поля (Create вместо CreateFromGps).
+[x] Code (mobile): DTO + API + VM + Page + кнопка + DI + route.
+[x] Migration: не требуется (schema не менялась).
+[x] Tests (частично):
+    - Integration-тест добавлен: BurialLocationAndMetadataTests.
+      SetFromGps_PreservesExistingAddressFields — создаёт at-grave с
+      City="Москва", Country="Россия", CemeteryName="Test cemetery";
+      затем PUT /burial-location/from-gps с новыми lat/lon; затем
+      GET /api/deceased-records/{id} и проверяет, что и координаты
+      обновились, и адресные поля сохранились. Защищает от
+      регрессии E20-фикса (use case до 2026-05-13 затирал адрес).
+      Запускается через `dotnet test` после остановки локального
+      GdeOni.API процесса (иначе lock на dll).
+    - Парсинг координат покрыт CoordinateParserTests в
+      frontend/mobile/GdeOni.Mobile.Tests (запятая/точка,
+      диапазоны lat/lon/accuracy).
+[ ] Tests: VM-тест на BurialLocationEditorViewModel
+    (prefill через QueryProperty, 403 → friendly message —
+    требует Shell/API-моков, отложено).
+[x] Docs: эта запись + F-зеркало.
+
+---------------------------------------------------------------------
+E21. Поиск умерших рядом (mobile)
+---------------------------------------------------------------------
+
+Сценарий:
+
+Юзер на кладбище нажимает кнопку "Найти рядом". Приложение берёт
+его GPS-координаты, запрашивает у backend список умерших с
+координатами в радиусе (default 100 м, слайдер 50–500 м), показывает
+список с расстоянием до каждого. Тап → preview-страница (E17.1) →
+"Добавить в отслеживание" → можно строить маршрут (E11/E19). Помогает,
+когда юзер физически у могилы, но не знает имени умершего или не
+видит карточки в общем поиске.
+
+Backend:
+
+- `Application/DeceasedRecords/Queries/GetNearbyDeceased/`:
+  - `Model/GetNearbyDeceasedQuery(Latitude, Longitude, RadiusMeters, Page, PageSize)`
+  - `Model/NearbyDeceasedItemResponse` — всё то же что в GetAll + новое
+    поле `DistanceMeters` (int, округлённое расстояние от точки поиска).
+  - `UseCase/GetNearbyDeceasedUseCase` — авторизация через `ICurrentUserService.
+    GetCurrentUserId` (как в GetAll после D15), вызывает
+    repo.GetNearby, маппит в response.
+  - `Validation/GetNearbyDeceasedQueryValidator`:
+    lat ∈ [-90, 90], lon ∈ [-180, 180], RadiusMeters ∈ [10, 5000],
+    Page ≥ 1, PageSize ∈ [1, 100]. Минимум 10м — ниже GPS-шума, выше
+    5км — это уже не "рядом", а full-scan.
+
+- `Errors.NearbySearch.RadiusOutOfRange(int min, int max)` в Domain.Shared.Errors —
+  Validation error c кодом "nearby_search.radius.invalid".
+
+- `IDeceasedRepository.GetNearby(query, ct) → (List<NearbyDeceasedRow>,
+  TotalCount)`. NearbyDeceasedRow(Deceased, DistanceMeters double) —
+  локальная для repo-уровня структура.
+
+- `DeceasedRepository.GetNearby`:
+  1. Считаем bounding box в градусах: latDelta = R/111320, lonDelta =
+     R/(111320·|cos(lat)|), safeCosLat = max(|cos(lat)|, 0.001) для
+     guard у полюсов.
+  2. EF where по `BurialLocation.Latitude ∈ [minLat, maxLat]` И
+     `Longitude ∈ [minLon, maxLon]` — узкий результат, использует
+     композитный индекс `ix_deceased_burial_lat_lon` (см. ниже).
+     Карточки без BurialLocation автоматически отсеиваются.
+  3. На отфильтрованных bbox-карточках считаем точное расстояние через
+     доменный `BurialLocation.DistanceTo(lat, lon)` (haversine в км).
+  4. Where DistanceKm·1000 ≤ RadiusMeters, OrderBy distance, Skip/Take.
+  5. Возвращаем (page, totalCount-после-точной-фильтрации).
+  Антимеридиан (lon ±180°) не обрабатывается специально — карточек
+  на антимеридиане в обозримом будущем не будет; если понадобится,
+  добавим OR-условие через split bbox.
+
+- `DeceasedConfiguration` (Infrastructure): композитный B-tree индекс
+  на (latitude, longitude) внутри OwnsOne(BurialLocation):
+  ```
+  location.HasIndex(x => new { x.Latitude, x.Longitude })
+      .HasDatabaseName("ix_deceased_burial_lat_lon");
+  ```
+  Намеренно НЕ PostGIS — наша нагрузка не оправдывает добавление
+  расширения. При росте до миллионов записей переедем на gist/geom.
+
+- `DeceasedRecordsController.GetNearby`:
+  `[HttpGet("nearby")] [Authorize]` — `GET /api/deceased-records/nearby?
+  lat=&lon=&radiusMeters=&page=&pageSize=`. DTO `GetNearbyDeceasedRequest`
+  с дефолтным radiusMeters=100 и pageSize=20. Mapper
+  `DeceasedRecordsGetNearbyMapping.ToQuery` → GetNearbyDeceasedQuery.
+
+- DI: `IGetNearbyDeceasedUseCase → GetNearbyDeceasedUseCase` в
+  Application/DependencyInjection.cs.
+
+Migration:
+
+[ ] Требуется: `dotnet ef migrations add E21_AddBurialLatLonIndex
+    --project ../GdeOni.Infrastructure --startup-project .` (генерирует
+    миграцию с CreateIndex на колонки latitude+longitude таблицы
+    deceased) + `dotnet ef database update`. Не сделано в этом
+    коммите: при создании миграции запущенный dev API держит lock на
+    dll. После остановки API команда отработает за секунду — EF
+    видит HasIndex в DeceasedConfiguration и генерирует тривиальную
+    миграцию.
+
+Mobile:
+
+- `Shared/Search/DistanceFormatter` — общий хелпер форматирования:
+  `Format(int meters) → "120 м"` (под 1000) либо `"1.2 км"` (от 1000).
+  Использует invariant culture (точка как разделитель), чтобы не
+  ломаться на ru-RU локали; clamp отрицательных значений к 0.
+- DTO `NearbyDeceasedItem` в DeceasedSearchDtos.cs — координаты,
+  адрес, IsVerified, **DistanceMeters**.
+- `IDeceasedRecordsApi.GetNearbyAsync(lat, lon, radiusMeters, page,
+  pageSize)` — GET /api/deceased-records/nearby.
+- `ViewModels/NearbySearchViewModel`:
+  - инжектится IDeceasedRecordsApi + IGeolocationService;
+  - SearchAsync: запрос геолокации (RequestAndGetCurrentAsync), при
+    success → GET /nearby, при PermissionDeniedPermanent → показываем
+    ShowOpenSettings;
+  - RadiusMeters: int с дефолтом 100, привязан к Slider на странице
+    (50..500); RadiusDisplay форматируется через DistanceFormatter;
+  - Results — ObservableCollection<NearbyDeceasedRowViewModel> с
+    pre-форматированными LifePeriod, LocationText, DistanceText;
+  - OpenPreviewAsync → "deceased-preview?deceasedId=...";
+  - BackAsync → "..".
+- `Views/Tracked/NearbySearchPage.xaml+cs` — Header с описанием,
+  Slider радиуса, кнопка "Найти рядом", CollectionView результатов
+  (имя + расстояние справа + даты + локация), empty-state с подсказкой.
+- `AppShell.RegisterRoute("nearby-search", typeof(NearbySearchPage))`.
+- `MauiProgram`: DI VM + Page.
+- `TrackedListPage`: новая кнопка "📍 Найти рядом" под "Добавить
+  умершего"/"Архив". `TrackedListViewModel.OpenNearbySearchAsync` →
+  "nearby-search".
+
+Что НЕ делаем в MVP:
+
+- PostGIS / spatial-индексы (overkill, см. выше).
+- Фильтр по "только мои tracked" — юзер ищет НОВУЮ карточку, обычно.
+- Карта с пинами вокруг (отдельная фича, мы выше отказались от
+  embed-карты — Google Maps API key платный).
+- Multi-select для построения маршрута сразу из nearby (E19 уже
+  делает то же из tracked-списка). Если выяснится, что юзер хочет
+  массово подписаться "на всех в радиусе" — отдельный E-пункт.
+
+E21 закрыт когда:
+[x] Code (backend): Query/Response/UseCase/Validator/Repository/
+    Controller/Mapper/DI/Errors.
+[x] Code (mobile): Shared.DistanceFormatter + DTO/API/VM/Page/
+    Shell route/DI/кнопка на главной.
+[ ] Migration: после остановки локального GdeOni.API запустить
+    `dotnet ef migrations add E21_AddBurialLatLonIndex` +
+    `dotnet ef database update`. EF-конфиг уже на месте.
+[x] Tests (backend, частично): Application — 4 теста (happy,
+    радиус out-of-range Theory из 5 значений, координаты
+    out-of-range Theory из 4, mapping distance/address). Integration
+    — 7 тестов: anonymous→401, no-results→200 empty, фильтр по
+    радиусу (close found / far skipped), сортировка по distance,
+    радиус ниже минимума→400, радиус выше максимума→400, lat
+    out-of-range→400. Запустить после остановки API (lock на dll).
+[x] Tests (mobile): DistanceFormatter (11 тестов) — границы метры/км,
+    округление десятых, invariant culture, отрицательный clamp.
+[x] Docs: эта запись + F-зеркало.
+
+---------------------------------------------------------------------
+E17.5 закрыт когда:
+[x] Code (backend): Query+Request+Mapper+Repository.
+[x] Code (mobile): API + VM + XAML.
+[x] Migration: не нужна (схема Deceased.Name уже хранит три
+    поля).
+[x] Tests: 11 старых тестов адаптированы + 1 новый
+    GetAll_FiltersByNameFields. backend.sln 347/347.
+[x] Docs: эта запись.
+
+=====================================================================
+E-PROD. MOBILE PRODUCTION ROADMAP (E22-E25)
+=====================================================================
+
+Блок E22-E25 — параллель к D16-D21 на стороне Android-клиента.
+Цель: дать UI/проверки для версионности, feature-flags, подписки,
+push'ей, согласия с PD, crash-reporting. Реализация — небольшими
+коммитами, каждый закрывает одну D-зависимость.
+
+Порядок (зеркало D-PROD):
+  1. E22 версионность + feature flags + Subscription UI
+  2. E24 Privacy onboarding (требуется до публикации)
+  3. E25 Crash reporting (Firebase Crashlytics)
+  4. E23 Push (последний — нужен FCM-аккаунт)
+
+---------------------------------------------------------------------
+E22. Версионность, feature flags, подписка (mobile)
+---------------------------------------------------------------------
+
+Закрывает D16 (Subscription) + D17 (Version & FeatureFlags) на UI.
+
+API клиент:
+
+[ ] `IAppApi` — новый Refit-интерфейс:
+    `[Get("/api/app/version")] Task<ApiEnvelope<AppVersionResponse>> GetVersionAsync();`
+    `[Get("/api/app/features")] Task<ApiEnvelope<AppFeaturesResponse>> GetFeaturesAsync();`
+[ ] `ISubscriptionsApi`:
+    `GET /api/users/me/subscription`, `POST /create-payment`,
+    `POST /cancel`.
+
+DTO:
+
+[ ] `AppVersionResponse(string MinSupportedVersion, string LatestVersion,
+    string? ForceUpdateMessage, string? DownloadUrl)`.
+[ ] `AppFeaturesResponse(bool SubscriptionEnabled, int GracePeriodDaysAfterExpiry)`
+    — точная зеркальная копия серверного DTO.
+[ ] `MySubscriptionResponse(string Status, string? Plan,
+    DateTime? ExpiresAtUtc, DateTime? CancelledAtUtc, bool IsActiveNow,
+    bool IsOnTrial, int DaysUntilExpiry)` — поля для отображения
+    на ProfilePage статуса и оставшихся дней (для Trial и для
+    оплаченной подписки одинаково).
+[ ] `CreatePaymentRequest(string Plan) → CreatePaymentResponse(string CheckoutUrl)`.
+
+Shared:
+
+[ ] `Shared/Versioning/SemVer.cs` — парсер `Parse("1.2.3") → (1,2,3)`,
+    оператор сравнения `IsAtLeast(SemVer other)`. Юнит-тесты на
+    parse + сравнение (Major/Minor/Patch).
+[ ] `Shared/Subscriptions/SubscriptionStatus` enum (зеркало бэка).
+
+ViewModels + Pages:
+
+[ ] `App.OnStart` (или AppShell.OnAppearing): сразу после Splash —
+    `GetVersionAsync`. Если `currentVersion < minSupportedVersion` →
+    `BlockingUpdatePage` (модальная страница с ссылкой на
+    DownloadUrl, кнопка "Обновить", без "Назад"). Иначе если
+    `currentVersion < latestVersion` → soft banner на главной
+    "Доступна новая версия — обновитесь в Play Market".
+[ ] `IFeatureFlagService` (mobile-side cache): после логина зовёт
+    `GetFeaturesAsync`, кеширует на сессию. Используется в App-shell
+    для решения "показывать paywall на старте или нет".
+[ ] `SubscriptionViewModel` + `SubscriptionPage`:
+    - GET /me/subscription → показывает статус (Trial/Active/...)
+      и ExpiresAtUtc. На Trial — баннер "Пробный период:
+      осталось N дней" (через DaysUntilExpiry). На Active — "Подписка
+      активна, до DD.MM.YYYY (N дней)". На главной — soft reminder
+      в верхней части когда DaysUntilExpiry ≤ 3 (и для Trial, и для
+      Active — везде показываем "скоро спишется/закончится").
+    - Кнопка "Оформить подписку" → опции Monthly/Yearly → POST
+      /create-payment → открывает `CheckoutUrl` через
+      `Launcher.OpenAsync(...)`. После оплаты юзер вручную
+      возвращается в приложение, делает pull-to-refresh —
+      backend webhook к этому моменту обновил статус, видим Active.
+    - Кнопка "Отменить" → confirm dialog → POST /cancel →
+      статус Cancelled, ExpiresAtUtc прежний, paid-period
+      дорабатывает.
+[ ] `Views/Profile/SubscriptionPage.xaml(.cs)` — в Profile-flow,
+    кнопка "Подписка" в ProfilePage.
+[ ] `ProfilePage` (E5) расширить блоком "Подписка":
+    - Trial → "Пробный период до DD.MM.YYYY (N дней)";
+    - Active → "Подписка ({Plan}) до DD.MM.YYYY (N дней)";
+    - Cancelled → "Отменена, доступ до DD.MM.YYYY";
+    - Expired → "Подписка истекла"; кнопка "Продлить".
+    Решение 2026-05-14: дни до списания / окончания видны прямо на
+    ProfilePage без перехода на SubscriptionPage. DTO уже отдаёт
+    DaysUntilExpiry (см. D16 GetMySubscription).
+
+Глобальный paywall (единый для всего приложения):
+
+Решение (2026-05-14): per-feature paywall'ов нет. Если
+`features.SubscriptionEnabled && !subscription.IsActiveNow` →
+после Splash и проверки версии пользователь попадает на
+`SubscriptionRequiredPage` (paywall) и не может перейти ни в одну
+другую страницу до оплаты. Доступны только: профиль (чтобы выйти
+или удалить аккаунт), сама страница подписки, юр-документы.
+
+[ ] AppShell logic: на старте после Login →
+    if (features.SubscriptionEnabled && !currentUser.IsAdmin
+        && !subscription.IsActiveNow)
+       Shell.Current.GoToAsync("subscription-required");
+    else
+       Shell.Current.GoToAsync("main");
+    Решение (2026-05-14): админы paywall не видят — они освобождены
+    от подписки на бэке (см. D16 handler), UI повторяет это же.
+[ ] `SubscriptionRequiredPage` — paywall с описанием подписки,
+    кнопки Monthly / Yearly → `SubscriptionPage` flow. Кнопка "Выйти"
+    и пункт "Удалить аккаунт" в углу.
+[ ] HTTP-перехватчик (Refit DelegatingHandler): при ответе 403 +
+    `errorCode == "subscription.required"` → редирект на
+    `subscription-required` и инвалидация локального
+    isActiveNow. Так юзер, у которого подписка истекла между
+    запусками приложения, увидит paywall и не словит непонятные 403.
+
+Backend по-прежнему делает гейт — это единственная защита от
+обхода через прямой API-вызов.
+
+Что НЕ делаем в этой итерации:
+
+- In-app purchases (Google Play Billing) — это отдельная история и
+  Google берёт 15-30% комиссии. С YooKassa мы платим юр-лицу
+  напрямую, без посредника. Если Google потребует обязательно
+  Google Play Billing — переключимся; пока YooKassa.
+- Restore Purchases UI (нет IAP).
+- Trial-период UI.
+
+Tests:
+
+[ ] Shared.SemVer — парсинг и сравнение.
+[ ] VM-тесты — отложены до полноценной mock-инфры (см. E17 закр).
+
+---------------------------------------------------------------------
+E23. Push-уведомления (mobile)
+---------------------------------------------------------------------
+
+Закрывает D18 на стороне клиента. Делаем ПОСЛЕДНИМ — требует FCM-
+аккаунта и google-services.json.
+
+[ ] Подключить пакет `Plugin.Firebase.CloudMessaging` (или
+    нативный AndroidX через `Microsoft.Maui.Controls` + Java
+    binding — TBD при реализации).
+[ ] Получение FCM-токена при первом запуске → `PUT
+    /api/users/me/notification-preferences { fcmToken }`.
+[ ] Обработка пришедшего push'а — открытие карточки умершего:
+    payload `{ deceasedId, kind: "birthAnniversary"|"deathAnniversary" }`.
+[ ] UI: тогл "Получать уведомления" в SubscriptionPage / ProfilePage
+    (если premium-required — гейт через E22).
+[ ] При logout — DELETE /me/notification-preferences (чистим токен
+    на сервере; локально токен переподтянется при следующем логине
+    другим юзером).
+
+Permission:
+
+[ ] Android 13+ требует `POST_NOTIFICATIONS` permission. Запрос
+    при первом включении тоггла.
+
+Tests: VM-тесты на toggle (mock api).
+
+---------------------------------------------------------------------
+E24. Privacy / Terms onboarding (mobile)
+---------------------------------------------------------------------
+
+Закрывает D19. Обязательно ДО публикации в Google Play.
+
+[ ] На `LoginPage` и `RegisterPage` — чекбоксы "Я принимаю
+    Privacy Policy и Terms of Use" с inline-ссылками на тексты.
+    Регистрация заблокирована пока не отмечено.
+[ ] Pages `/legal/privacy` и `/legal/terms` — WebView с markdown-
+    рендером текста (или просто статичный текст через Label, если
+    тексты помещаются в ресурсы). Можно загружать с
+    `GET /api/legal/privacy-policy` для синхронизации.
+[ ] При обнаружении HasOutdatedAcceptance после логина — modal
+    "Мы обновили правила, прочитайте и подтвердите". До подтверждения
+    приложение в blocking-state.
+
+Tests: VM-тест на блок submit при некотировании.
+
+---------------------------------------------------------------------
+E25. Crash reporting (mobile)
+---------------------------------------------------------------------
+
+Закрывает D21 на клиенте.
+
+[ ] Подключить `Plugin.Firebase.Crashlytics` (или AppCenter,
+    решим по бюджету / удобству Console). Crashlytics бесплатен.
+[ ] `google-services.json` в `Platforms/Android` (gitignored).
+[ ] В MauiProgram.CreateMauiApp() — `FirebaseCrashlytics.SetUserId
+    (currentUserId.ToString())` после логина.
+[ ] Try/catch в ключевых VM (Submit, Save, Upload) — кроме
+    user-facing error message, ещё `Crashlytics.RecordException(ex)`.
+
+Tests: нет (внешний SDK).
+
+=====================================================================
+КОНЕЦ E-PROD. ОБЩИЙ ОБЗОР MOBILE: E1-E21 закрыто, E22-E25 запланировано.
+=====================================================================
+
+=====================================================================
+E. ANDROID APP (.NET MAUI) ROADMAP
+=====================================================================
+
+Mobile-приложение начинаем после закрытия D1-D11. Web-фронтенд
+(раздел F) делаем уже после того, как Android-клиент работает.
+
+=====================================================================
+АКТУАЛЬНОЕ СОСТОЯНИЕ МОДЕРАЦИИ И VERIFY (читать перед E-секциями)
+=====================================================================
+
+В разделах D7.* и D11.* есть исторические описания "Pending →
+Approve → публикация" для воспоминаний и фото, а также Verify
+карточки умершего. Эта модель перекрыта более поздними D13/D14/D15:
+
+- D13: media, загруженное автором карточки или админом, сразу
+  Approved. Pending в обычном flow не появляется (UploadForbidden
+  блокирует загрузку чужими пользователями).
+- D14: воспоминания всегда сразу Approved. EditMemory в use case
+  явно откатывает Domain.EditText→Pending обратно в Approved.
+  Параметр canSeeAllMemories в Result оставлен (используется
+  mapper'ом), но всегда true.
+- D15: GET /api/deceased-records открыт всем авторизованным
+  (для функции поиска перед добавлением, E16). IsVerified
+  остаётся как информационная бирка ("✓ проверено редакцией"),
+  но больше не gates выдачу. Verify/Unverify endpoint'ы остались
+  админскими.
+
+Что осталось у админа (E13):
+- удаление карточки (DELETE) как способ "запретить" контент;
+- Verify/Unverify как информационная бирка;
+- ручной Reject memory/media как анти-спам инструмент (опционально);
+- удаление чужого tracking (TODO: нужен admin-endpoint).
+
+Что НЕ нужно делать:
+- pending-списки media/memory (Pending не появляется в обычном flow);
+- BottomSheet с причиной reject (отложено вместе с админкой);
+- ждать модерации перед публикацией контента.
+
+=====================================================================
 
 Стек:
 
-- Vite;
-- React;
-- TypeScript;
-- React Router;
-- Axios;
-- TanStack Query;
-- Zustand;
-- Mantine.
+- .NET 10 + MAUI (single-target net10.0-android, без iOS/Mac/Windows).
+  Backend проект остаётся на .NET 8; mobile стартует на свежей LTS,
+  чтобы получить актуальный Android target и обновлённый MAUI runtime;
+- CommunityToolkit.Mvvm — ObservableObject, RelayCommand;
+- CommunityToolkit.Maui — popup, toast, behaviors;
+- Refit + Refit.HttpClientFactory — типобезопасные клиенты к backend;
+- Microsoft.Maui.Controls.Maps + Google Play Services — встроенная карта;
+- Microsoft.Maui.Storage SecureStorage — хранение access/refresh токенов;
+- Microsoft.Maui.Authentication.WebAuthenticator — позже для OAuth;
+- Polly — retry/timeout на сетевых вызовах;
+- SkiaSharp.Extended.UI.Maui — облачные декорации/анимации;
+- xUnit + NSubstitute — unit-тесты ViewModel.
 
-Задачи:
+Стиль "облачный/воздушный" (одна точка правды — design system в E3):
 
-- создать проект;
-- настроить routing;
-- настроить axios client;
-- настроить base API URL;
-- настроить auth store;
-- настроить protected routes.
+- палитра: белый, светло-голубой #E6F4FB (Sky), лазурный
+  #5FA8D3 (Azure), глубокий синий #1E3A5F (InkBlue, акценты),
+  мягкий серый #F4F6F8 (Mist, фон);
+- фон страниц — LinearGradientBrush сверху вниз
+  #FFFFFF → #E6F4FB + 2-3 PNG-облака с прозрачностью 30-50%
+  поверх в декоративных местах;
+- карточки — Frame CornerRadius=16, BorderColor #E0EAF2,
+  HasShadow=true (Android Elevation 4);
+- кнопки — CornerRadius=24, без жёстких теней, hover/pressed
+  переходит в чуть более насыщенный голубой;
+- иконки outline-style в едином синем оттенке;
+- шрифт системный (Roboto), без декоративных гарнитур;
+- анимации — fade/translate 250-300мс, чтобы было ощущение,
+  что элементы "выплывают из облаков".
 
 ---------------------------------------------------------------------
-E2. Auth
+E1. Подготовка машины разработчика
+---------------------------------------------------------------------
+
+Что нужно один раз поставить, прежде чем создавать проект:
+
+1. .NET 10 SDK (LTS) — winget install Microsoft.DotNet.SDK.10
+   (или ставится автоматически вместе с workload-ом
+   "Mobile development with .NET" в Visual Studio).
+2. Visual Studio 2022 17.8 или новее с workload-ом
+   "Mobile development with .NET" (включает MAUI + Android SDK
+   + эмуляторы + OpenJDK).
+3. Android SDK Manager → принять SDK Platform Android 14
+   (API level 34) и установить Android Emulator.
+4. Создать минимум один Pixel-эмулятор с API 34 в AVD Manager.
+5. dotnet workload install maui-android (если ставили только SDK
+   без Visual Studio).
+
+Проверка готовности:
+
+- dotnet workload list содержит maui-android;
+- dotnet new maui --list показывает шаблоны;
+- эмулятор стартует через VS (Tools → Android → Android Device Manager).
+
+---------------------------------------------------------------------
+E2. Каркас приложения
+---------------------------------------------------------------------
+
+Что делаем:
+
+1. dotnet new maui -n GdeOni.Mobile -o frontend/mobile/GdeOni.Mobile.
+2. В .csproj оставить только <TargetFrameworks>net10.0-android</TargetFrameworks>
+   (удаляем ios/maccatalyst/windows).
+3. Подключить NuGet пакеты:
+   - CommunityToolkit.Mvvm;
+   - CommunityToolkit.Maui;
+   - Refit;
+   - Refit.HttpClientFactory;
+   - Microsoft.Maui.Controls.Maps;
+   - Microsoft.Extensions.Http.Polly.
+
+Структура папок внутри GdeOni.Mobile:
+
+- Models/      DTO ответов backend (POCO records);
+- Services/    IAuthService, IDeceasedClient, ITokenStore, IGeolocationService;
+- ViewModels/  Login/Register/Tracked/Details/Upload/Route/Admin;
+- Views/       XAML страниц + UserControls;
+- Resources/Styles/   Colors.xaml, Styles.xaml;
+- Resources/Images/   иконки + clouds/cloud_*.png;
+- Resources/Raw/      appsettings.json;
+- App.xaml + AppShell.xaml.
+
+Routing: Shell с TabBar (главная "Отслеживаемые", "Карта",
+"Профиль") + Routing.RegisterRoute(...) для не-tab страниц
+(LoginPage, AtGravePage, DeceasedDetailsPage, RoutePage,
+UploadPage, AdminPage).
+
+---------------------------------------------------------------------
+E3. Облачная дизайн-система
+---------------------------------------------------------------------
+
+Что должно быть готово:
+
+- Resources/Styles/Colors.xaml — Cloud, Sky, Azure, AzureDeep,
+  InkBlue, Mist (одна точка правды для цветов);
+- Resources/Styles/Styles.xaml — стили PrimaryButton, GhostButton,
+  CloudCard (Frame), FormEntry, TitleLabel, BodyLabel;
+- Resources/Images/clouds/ — 3-4 декоративных облака PNG
+  с прозрачностью;
+- Views/Shared/CloudPage.xaml — базовая ContentPage с фоновым
+  градиентом и облаками; от неё наследуем экраны;
+- Resources/AppIcon/ + Resources/Splash/ — иконка приложения
+  и splash в облачной палитре.
+
+---------------------------------------------------------------------
+E4. Конфигурация и HttpClient
 ---------------------------------------------------------------------
 
 Сделать:
 
-- login page;
-- register page;
-- logout;
-- refresh token;
-- хранение access token;
-- получение пользователя через GET /api/users/me;
-- redirect неавторизованных пользователей на login.
+- Resources/Raw/appsettings.json (BaseApiUrl + флаги окружения);
+- AppConfig loader через FileSystem.OpenAppPackageFileAsync;
+- регистрация AddRefitClient<IDeceasedApi>() в MauiProgram.cs
+  с базовым URL;
+- DelegatingHandler AuthTokenHandler — добавляет
+  Authorization: Bearer {access} перед запросом;
+- DelegatingHandler RefreshTokenHandler — при 401 пытается
+  обновить access через /api/auth/refresh, повторяет
+  оригинальный запрос один раз;
+- ITokenStore с реализацией поверх SecureStorage:
+  Get/SaveAsync/ClearAsync;
+- AddTransientHttpErrorPolicy(Polly retry) — 2 попытки на
+  network/5xx, exponential backoff.
 
 ---------------------------------------------------------------------
-E3. Добавление умершего на могиле
+E5. Auth (вход / регистрация / logout)
+---------------------------------------------------------------------
+
+Сделать:
+
+- LoginPage — Email + Password, кнопка "Войти", ссылка
+  "Создать аккаунт";
+- RegisterPage — UserName, Email, Password, ConfirmPassword;
+- IAuthService.LoginAsync/RegisterAsync/RefreshAsync/LogoutAsync;
+- сохранение access + refresh в SecureStorage после успеха;
+- AppShell стартует:
+  - LoginPage если нет access token;
+  - MainTabsPage иначе;
+- Logout: SecureStorage.RemoveAll() + Shell.Current.GoToAsync("//login").
+
+Особенности Android:
+
+- если SecureStorage не работает (старые Android < 6 — крайне
+  редко), фоллбэк к Preferences с явным предупреждением в UI;
+- при возврате из background-а проверяем валидность токена
+  через тихий /api/users/me.
+
+---------------------------------------------------------------------
+E6. Геолокация и разрешения
+---------------------------------------------------------------------
+
+Что добавить:
+
+- Platforms/Android/AndroidManifest.xml:
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  <uses-permission android:name="android.permission.CAMERA" />
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+  <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+  <uses-permission android:name="android.permission.INTERNET" />
+- IGeolocationService.RequestAndGetCurrentAsync — оборачивает
+  Permissions.RequestAsync<LocationWhenInUse>() и
+  Geolocation.Default.GetLocationAsync(
+      new GeolocationRequest(GeolocationAccuracy.Best,
+          TimeSpan.FromSeconds(10)));
+- UI ошибок: если пользователь отказал — мягкое сообщение
+  "разрешите доступ к геолокации в настройках" с кнопкой
+  AppInfo.Current.ShowSettingsUI();
+- если accuracy > 50м — предупреждение "точность низкая,
+  поправьте маркер вручную".
+
+---------------------------------------------------------------------
+E7. Добавление умершего "у могилы"
 ---------------------------------------------------------------------
 
 UI flow:
 
-1. Пользователь нажимает "Добавить умершего".
-2. Frontend вызывает navigator.geolocation.getCurrentPosition.
-3. Браузер запрашивает разрешение.
-4. Если пользователь разрешил — получаем координаты.
-5. Показываем карту.
-6. Показываем маркер.
-7. Пользователь может поправить маркер.
-8. Пользователь заполняет форму.
-9. Frontend отправляет POST /api/deceased-records/at-grave.
-10. После успеха frontend переходит на карточку умершего.
+1. На главной — большая кнопка-карточка "Добавить умершего"
+   с иконкой могилы и плюсом, по центру экрана.
+2. Тап → запрашиваем геолокацию (E6).
+3. Открываем AtGravePage с картой, pin поставлен в текущую
+   точку, поверх карточка-форма (BottomSheet или Frame).
+4. Pin можно перетаскивать пальцем — accuracy сбрасываем в null
+   при ручном переносе.
+5. Форма (ФИО, даты, биография, фото) — ScrollView внутри
+   облачной карточки.
+6. Submit → POST /api/deceased-records/at-grave (JSON).
+7. После успеха переход на DeceasedDetailsPage с свежим id.
 
 Важно:
 
-- на production нужен HTTPS;
-- на localhost работает без HTTPS;
-- пользователь может запретить геолокацию;
-- accuracy может быть плохой;
-- нужно дать возможность поправить точку вручную.
+- кнопку Submit блокировать до получения координат;
+- при background-получении координат показывать ActivityIndicator
+  на pin'е;
+- если accuracy >= 100м — показать предупреждение поверх pin'а
+  ("точность ~{accuracy}м, поправьте если нужно").
 
 ---------------------------------------------------------------------
-E4. Список отслеживаемых
+E7.1. Подсказка про VPN
 ---------------------------------------------------------------------
 
-Страница:
+Многие пользователи держат включённым корпоративный или
+анонимный VPN и в этом случае часто жалуются "локация не работает".
+GPS физически от VPN не зависит, но провайдеры VPN иногда ставят
+свои location-провайдеры и переопределяют ответы FusedLocation.
 
-/tracked
+Что делаем:
 
-Показывать:
+- Services/Network/INetworkInfoService с методом IsVpnActive();
+- Android-реализация через ConnectivityManager:
+  для каждой сети из GetAllNetworks() проверяем
+  NetworkCapabilities.HasTransport(TransportType.Vpn).
+  Любые исключения проглатываются и возвращается false —
+  определение VPN не должно блокировать получение координат;
+- AtGraveViewModel:
+  - свойство IsVpnActive;
+  - метод RefreshVpnStatus() вызывается в OnAppearing страницы
+    и в начале RequestLocationCommand;
+- AtGravePage:
+  - жёлтый Border-баннер сверху с текстом
+    "⚠ У вас включён VPN. GPS может работать некорректно или
+    вообще не отдавать координаты. Если получить местоположение
+    не получается — отключите VPN и попробуйте снова";
+  - IsVisible bind на IsVpnActive — баннер пропадает, когда
+    VPN выключают;
+  - не блокирует Submit и не мешает запросить координаты —
+    только подсказка.
 
-- фото;
-- ФИО;
-- даты жизни;
-- наличие координат;
-- relationshipType;
-- кнопку "Открыть";
-- кнопку "Маршрут".
+Зачем:
+
+- разделяет два сценария ошибок ("отказ permission" vs
+  "VPN ломает FusedLocation"): юзер видит причину и понимает,
+  что делать;
+- если позже выяснится, что какой-то конкретный VPN-провайдер
+  стабильно ломает GPS — здесь же добавим вызов
+  geo.OpenAppSettings/SystemSettings.
+
+[tests] — INetworkInfoService под тесты не уходит, потому что
+реализация — тонкая обёртка над Android API; имеет смысл написать
+ViewModel-тест, который мокает INetworkInfoService и проверяет,
+что IsVpnActive прокидывается в баннер.
 
 ---------------------------------------------------------------------
-E5. Карточка умершего
+E7.2. Ручной ввод координат (lat / lon / accuracy)
 ---------------------------------------------------------------------
 
-Страница:
+Зачем:
 
-/tracked/:deceasedId
+GPS не всегда срабатывает: помещение, плохой приём, VPN, чужая
+позиция (юзер уже не у могилы, но хочет завести карточку из дома
+по координатам с сайта городского кладбища, Google Maps,
+бумажной карты). Ставить юзера в тупик "обязательно получите
+автомат" — плохо. Поэтому делаем три поля редактируемыми.
 
-Показывать:
+AtGraveViewModel (изменения):
 
-- ФИО;
-- даты;
-- биографию;
-- фото умершего;
-- фото могилы;
-- документы;
-- воспоминания;
-- координаты;
-- кнопку "Построить маршрут";
-- кнопку "Загрузить файл".
+- Источником истины становятся строковые свойства LatitudeInput,
+  LongitudeInput, AccuracyInput — все привязаны к Entry'ям через
+  TwoWay. Никакого dual storage (string + double?) — это сложно
+  держать в синхронизации; парсим только при Submit.
+- HasCoordinates → парсит LatitudeInput / LongitudeInput через
+  TryParseLatitude / TryParseLongitude (диапазон lat ∈ [-90, 90],
+  lon ∈ [-180, 180]).
+- IsAccuracyLow → парсит AccuracyInput и сравнивает с 50м.
+- CanSubmit → как и раньше, но теперь зависит от парсинга строк
+  + reactive [NotifyPropertyChangedFor] на LatitudeInput /
+  LongitudeInput.
+- RequestLocationAsync → при успехе пишет в LatitudeInput /
+  LongitudeInput / AccuracyInput строки (форматирование через
+  CultureInfo.InvariantCulture, "0.000000" для lat/lon, "0" для
+  accuracy). Текущий ручной ввод перезаписывается — пользователь
+  явно нажал "Получить координаты".
+- SubmitAsync — на входе делает финальный парсинг и при ошибке
+  пишет в ErrorMessage понятный текст ("Широта должна быть числом
+  в диапазоне [-90, 90]" и т.п.).
+- TryParseDouble принимает и точку, и запятую как разделитель
+  (`s.Replace(',', '.')`), потому что на ru-RU клавиатуре по
+  умолчанию запятая. Парсинг — всегда через InvariantCulture.
+
+AtGravePage.xaml (изменения):
+
+- Three Label'а с computed-текстом заменены на три Entry с
+  placeholder'ами ("например, 55.755826" / "например, 37.617300" /
+  "необязательно"). Стиль FormEntry, биндинг TwoWay.
+- Над сеткой полей — пояснительный CaptionLabel: "Нажмите
+  «Получить координаты» либо введите значения вручную. Допускается
+  точка или запятая в десятичной части."
+- Кнопка "Получить координаты" остаётся как было — заполняет те
+  же три Entry'я.
+- IsAccuracyLow-баннер не меняется (теперь триггерится от
+  ручного ввода тоже — это полезно: юзер ввёл "200" и сразу
+  видит, что точность считается низкой).
+
+Что НЕ делаем:
+
+- Не валидируем "координаты совпадают с city/country" — это
+  можно ввести вручную для совершенно другого места, и пусть
+  пользователь сам отвечает за свой ввод.
+- Не возвращаем readonly-режим при успешном GPS — пользователь
+  может захотеть поправить значения от руки после автозаполнения
+  (например, GPS показал точку в 30м от могилы — добавит
+  поправку вручную).
+
+Backend изменений не требует — DTO AddDeceasedAtGraveLocationRequest
+уже принимает double + опциональный AccuracyMeters.
+
+[tests] — желательно VM-тесты:
+- TryParseLatitude отвергает значения вне диапазона;
+- запятая как разделитель парсится корректно;
+- RequestLocation перезаписывает ручной ввод;
+- CanSubmit becomes true только когда оба поля валидно
+  парсятся.
 
 ---------------------------------------------------------------------
-E6. Загрузка файлов
+E8. Список отслеживаемых
+---------------------------------------------------------------------
+
+TrackedListPage:
+
+- CollectionView (виртуализация);
+- RefreshView — pull-to-refresh;
+- ItemTemplate = CloudCard с фото, ФИО, датами,
+  relationshipType, кнопкой "Открыть";
+- BottomSheet "Сортировка": по дате создания / по фамилии /
+  по дате смерти;
+- скелетон-плейсхолдеры на время первой загрузки.
+
+---------------------------------------------------------------------
+E9. Карточка умершего
+---------------------------------------------------------------------
+
+DeceasedDetailsPage:
+
+- Hero-блок: главное фото + ФИО + даты;
+- TabView: Главное / Фото / Документы / Воспоминания / Карта;
+- кнопка "Построить маршрут" в bottom action bar;
+- кнопка "Загрузить файл" → BottomSheet с выбором: фото / документ;
+- админ видит дополнительную кнопку "Модерация";
+- swipe-to-delete для своих воспоминаний и медиа.
+
+---------------------------------------------------------------------
+E9.1. Архив отслеживаемых вместо удаления
+---------------------------------------------------------------------
+
+Tracking в backend имеет Status (Active/Muted/Archived). Используем
+это вместо DELETE: юзер не "удаляет" tracking-связь, а переводит
+её в архив через PATCH со Status=Archived. Удаление (DELETE) убрано
+из мобильного UI полностью и доступно только админу — см. E13.
+
+Что в мобилке:
+
+- PATCH /api/users/me/tracked-deceased/{id} с body UpdateTrackingRequest
+  (все поля tracking-а + новый Status) — добавлен метод
+  ITrackedDeceasedApi.UpdateAsync. PATCH требует full set, не partial,
+  поэтому при архивации остальные поля (RelationshipType, PersonalNotes,
+  уведомления) подставляются из текущего Data.Tracking как есть.
+- DeceasedDetailsViewModel:
+  - ArchiveCommand — Status="Archived", переход на //main/tracked;
+  - RestoreCommand — Status="Active", переход на //main/tracked;
+  - IsArchived/IsActive computed-флаги управляют видимостью кнопок.
+- DeceasedDetailsPage:
+  - "В архив" — GhostButton, виден на Active;
+  - "Вернуть из архива" — PrimaryButton + жёлтый баннер "карточка в
+    архиве", виден на Archived;
+  - кнопки "Удалить" / "Перестать отслеживать" в UI нет вообще.
+- TrackedListViewModel — фильтрует список, выкидывая items со
+  Status=Archived; Muted остаётся (это статус уведомлений).
+- TrackedListPage — кнопка "Архив" рядом с "Добавить умершего".
+- Новый ArchivePage + ArchiveViewModel:
+  - тянет тот же /me/tracked-deceased список, оставляет только
+    Status=Archived;
+  - тап на карточку — открывает обычный DeceasedDetailsPage, где
+    юзер видит "Вернуть из архива".
+- Routing: Routing.RegisterRoute("archive", typeof(ArchivePage)).
+- ITrackedDeceasedApi.UntrackAsync (DELETE) — оставлен в интерфейсе
+  как зеркало backend-эндпоинта, но из мобильного UI не вызывается.
+
+Зачем именно архив, а не DELETE:
+
+- Сохраняется история (воспоминания, фото — пока не реализовано
+  в E10/E12, но связь через tracking уже не теряется);
+- Действие обратимо одним тапом — нет окна "случайно удалил, теперь
+  пересоздавать с нуля";
+- Соответствует уже существующей модели TrackStatus в Domain
+  (Active = 1, Muted = 2, Archived = 3).
+
+[tests] — есть смысл написать VM-тест на DeceasedDetailsViewModel:
+ArchiveCommand вызывает api.UpdateAsync с верным Status=Archived
+и не теряет остальные tracking-поля. И аналогично RestoreCommand.
+
+---------------------------------------------------------------------
+E10. Загрузка файлов
 ---------------------------------------------------------------------
 
 Сделать:
 
-- upload фото умершего;
-- upload фото могилы;
-- upload документа;
-- preview;
-- progress;
-- обработку ошибок MIME;
-- обработку ошибок размера;
-- установку main photo.
+- MediaPicker.Default.PickPhotoAsync — для фото;
+- FilePicker.Default.PickAsync — для документов;
+- multipart upload через HttpClient (Refit поддерживает Stream);
+- progress bar на основе ProgressMessageHandler;
+- preview перед отправкой;
+- обработка backend-ошибок (MIME, размер) — Toast
+  CommunityToolkit.Maui.Toast;
+- после загрузки — refresh карточки.
 
 ---------------------------------------------------------------------
-E7. Маршрут
+E11. Маршрут
+---------------------------------------------------------------------
+
+RoutePage:
+
+1. Берём координаты пользователя (E6).
+2. Зовём backend route endpoint.
+3. Показываем карту с двумя пинами (откуда / куда).
+4. Список из 3 кнопок: "Открыть в Яндекс.Картах",
+   "Открыть в Google Maps", "Открыть в 2GIS".
+5. Каждая → Launcher.Default.OpenAsync(deepLink).
+6. Если у могилы нет координат → 409 с мягким сообщением
+   "у этой могилы пока нет координат, попросите автора
+   карточки уточнить".
+7. Текст-предупреждение "маршрут до ближайшей точки кладбища,
+   дальше используйте номер участка".
+
+---------------------------------------------------------------------
+E12. Воспоминания
+---------------------------------------------------------------------
+
+MemoriesTab внутри DeceasedDetailsPage:
+
+- список воспоминаний (после D14 модерации нет — все Approved
+  по дефолту, юзер сразу видит свой/чужой коммент);
+- кнопка "Добавить воспоминание" → form-page с textArea;
+- редактирование своего → PUT; D14 явно делает Approve после
+  EditMemory, поэтому правка не уводит запись в Pending;
+- удаление через SwipeView.
+
+Актуальная реализация описана в "E12. Воспоминания (mobile,
+реализация)" выше (рядом с D-секциями).
+
+---------------------------------------------------------------------
+E13. Админка (минимальная версия после D13/D14/D15) — ОТЛОЖЕНА В F8
+---------------------------------------------------------------------
+
+UPDATE 2026-05-13: реализация админ-UI на mobile отложена. Решили
+делать админку только на web (см. F17) — потому что:
+- админ редко работает с телефона, ему нужны таблицы, фильтры,
+  массовые операции — это десктоп-сценарий;
+- на mobile у каждой админской кнопки пришлось бы делать видимость
+  только для роли Admin/SuperAdmin, что замусоривает UI обычного
+  юзера;
+- backend-эндпойнты (DELETE deceased, verify/unverify, reject
+  memory/media) уже на месте — web-фронт получит готовое API.
+
+Описание ниже оставлено как референс, что именно нужно покрыть
+в F17. Все [ ] здесь больше не выполняются — переехали в F17.
+
+────────────── ОРИГИНАЛЬНОЕ ОПИСАНИЕ (deprecated for mobile) ──────────────
+
+Контекст: исходный план E13 предполагал админку с pending-списками
+media/memory. После D13 (auto-approve media для автора карточки),
+D14 (модерация memory отключена) и D15 (Verify больше не gating)
+большая часть исходной админки потеряла смысл — в обычном flow
+ничего не попадает в Pending, IsVerified — просто бирка. То, что
+реально остаётся для админа:
+
+1. Просмотр всего каталога — `GET /api/deceased-records`. После
+   D15 этот endpoint открыт всем (для функции поиска перед
+   добавлением, E16), но именно админу он нужен ещё и для:
+   - найти дубликат;
+   - найти спам-карточку;
+   - проверить статистику базы.
+   В админ-UI — отдельная вкладка "Все карточки" с фильтрами,
+   которые backend уже поддерживает (Search/Country/City/
+   IsVerified/CreatedFrom/CreatedTo + пагинация).
+
+2. Физическое удаление карточки — `DELETE /api/deceased-records/{id}`.
+   Endpoint существует, разрешён админу/автору. Используется в
+   двух кейсах: удалить дубликат, "запретить" спам-карточку.
+   Это и есть "функционал, что в случае чего можно запретить"
+   из D15: запретить = удалить.
+
+3. Verify/Unverify карточки — endpoint остался (`POST/DELETE
+   /api/deceased-records/{id}/verify`), доступ только админу.
+   После D15 IsVerified не используется как gate, остался как
+   информер ("✓ проверено редакцией"). В админ-UI — кнопка-бирка
+   рядом с карточкой, чтобы официально подтвердить контент.
+
+4. Ручной Approve/Reject memory и media — endpoint'ы оставлены
+   как анти-спам инструмент. В обычном flow они не нужны (всё
+   сразу Approved), но если админ заметит спам/нарушение, может
+   вручную перевести запись в Rejected. В админ-UI — действие
+   "Скрыть" на карточке memory/media (без обязательного списка
+   pending, потому что Pending в обычном flow не существует).
+
+5. Удаление tracking чужого юзера — TODO, описан в исходном
+   плане E13:
+   - на стороне backend DELETE привязан к JWT текущего юзера,
+     т.е. админ может только сам у себя стереть tracking;
+   - для удаления "от имени другого юзера" понадобится отдельный
+     admin-endpoint (`DELETE /api/admin/users/{userId}/tracked-
+     deceased/{deceasedId}`);
+   - это backend-задача (новый D-пункт), создаётся когда реально
+     понадобится. На текущем этапе админ может попросить юзера
+     самостоятельно архивировать.
+
+Из исходного списка УБРАНО (после D13/D14):
+- список pending media — Pending нет в обычном flow;
+- approve / reject через BottomSheet — endpoint'ы остались как
+  ручной spam-control, но без "очереди модерации";
+- список pending memory — то же, отменено D14;
+- список последних жалоб — отложено до момента, когда появится
+  endpoint жалоб (отдельный D-пункт по факту нужды).
+
+---------------------------------------------------------------------
+E14. Сборка и запуск на эмуляторе/устройстве
+---------------------------------------------------------------------
+
+Debug на эмуляторе:
+
+1. F5 в Visual Studio с выбранным Android Emulator.
+2. Альтернатива из CLI:
+   dotnet build -t:Run -f net10.0-android.
+3. Логи — Logcat в VS или adb logcat (фильтр по тегу mono/dotnet).
+
+Release APK для тестов на физическом Android:
+
+1. dotnet publish -f net10.0-android -c Release.
+2. Подписать через keystore — генерируется один раз,
+   хранится у разработчика, в репо НЕ кладём.
+3. adb install bin/Release/net10.0-android/.../com.gdeoni.mobile-Signed.apk.
+
+---------------------------------------------------------------------
+E17. Тесты (mobile)
+---------------------------------------------------------------------
+
+Переименовано из E15 после того, как номера E15/E16 уехали на
+"Карта со всеми отслеживаемыми" и "Поиск умершего перед
+добавлением" соответственно (см. блоки реализации выше).
+
+UPDATE 2026-05-13: первая итерация тестовой инфры закрыта.
+
+Что сделано:
+
+[x] Создана GdeOni.Mobile.Shared (net10.0, без MAUI/Android) для
+    чистых helper-классов:
+    - Shared/Routing/RoutePoint + ExternalMapsProvider — DTO;
+    - Shared/Routing/ExternalMapsUrlBuilder — pure URL-билдеры
+      Yandex / Google / 2ГИС (раньше были private в
+      ExternalMapsService);
+    - Shared/Utils/CoordinateParser — TryParseDouble / Latitude /
+      Longitude / Accuracy (раньше дублировались в AtGraveViewModel
+      и BurialLocationEditorViewModel как приватные);
+    - Shared/Utils/RouteOptimizer — nearest-neighbor TSP +
+      HaversineKm (раньше был внутри RouteViewModel и тащил
+      Microsoft.Maui.Devices.Sensors.Location).
+    - Shared/Auth/PasswordPolicy + PasswordRules — константы
+      Min/MaxPasswordLength и правила CanSubmit / IsTooShort /
+      IsTooLong / PasswordsMatch (раньше дублировались в
+      ChangePasswordViewModel inline). PasswordPolicy в
+      AuthDtos.cs теперь алиас на Shared.
+    - Shared/Search/DeceasedSearchCriteria — CanSearch +
+      IsTextFieldLongEnough (раньше private static FieldLong
+      в DeceasedSearchViewModel).
+[x] Mobile-проект ссылается ProjectReference на Shared;
+    ExternalMapsService — тонкая обёртка `Launcher.OpenAsync` над
+    ExternalMapsUrlBuilder.Build; VM-ы зовут shared-парсеры и
+    RouteOptimizer.OptimizeOrder через переходные re-export'ы
+    RoutePoint (чтобы остальной код не пришлось переписывать).
+[x] Создан GdeOni.Mobile.Tests (net10.0, xunit 2.9 +
+    FluentAssertions 8.9 + Microsoft.NET.Test.Sdk 17.11):
+    - ExternalMapsUrlBuilderTests (12 тестов): корректный порядок
+      lon,lat для 2ГИС, Google waypoints при origin=null/со origin,
+      Yandex rtext с origin/без, invariant culture для отрицательных
+      и дробных, диспатчер Build(provider, ...) — guard на пустой
+      points.
+    - CoordinateParserTests (24 тест-кейса через Theory): запятая
+      и точка как разделитель, trim пробелов, диапазон lat
+      [-90, 90], lon [-180, 180], accuracy ≥ 0.
+    - RouteOptimizerTests (8 тестов): пустой и одиночный input,
+      NN с origin (Москва → Калуга → Тула → Питер по реальным
+      координатам), NN без origin, не мутируем input, HaversineKm
+      sanity (нулевая дистанция для совпадающих точек, Москва-Питер
+      ≈ 635 км, симметрия).
+    - PasswordRulesTests (10 тестов): IsTooShort граница 8,
+      IsTooLong граница 128, PasswordsMatch null/пустой/совпадение,
+      CanSubmit happy и rejected пути.
+    - DeceasedSearchCriteriaTests (10 тестов): IsTextFieldLongEnough
+      ≥2 после Trim, CanSearch отдельно по имени/фамилии/отчеству/
+      legacy query, отдельно только по дате (E17.4.1), комбинации,
+      пустой ввод.
+    Итого 90 тестов, все зелёные (`dotnet test` в
+    frontend/mobile/GdeOni.Mobile.Tests, ~200ms).
+
+Что НЕ покрыто пока:
+
+- ViewModel-тесты на CommunityToolkit.Mvvm (LoadAsync с моками
+  ITrackedDeceasedApi/IGeolocationService, навигация через
+  Shell.Current). Требует mock-инфры для Shell + дополнительный
+  слой абстракции над Shell. Отложено на отдельную итерацию.
+- UI-тесты (Appium/Maestro) — финальная задача release-проверки.
+
+---------------------------------------------------------------------
+E18. Что считаем готовым
+---------------------------------------------------------------------
+
+Android-приложение готово к demo/публикации, если:
+
+[ ] Регистрация / логин / logout работают.
+[ ] Refresh token обновляет access прозрачно при 401.
+[ ] Геолокация запрашивается, accuracy показан пользователю.
+[ ] "Добавить умершего" сначала открывает поиск (E16) — поиск
+    среди существующих, если не нашли — кнопка создать новую.
+[ ] Создание новой карточки через at-grave работает.
+[ ] Список отслеживаемых грузится, pull-to-refresh работает.
+[ ] Открываются фото и документы.
+[ ] Загрузка фото/документов работает с progress.
+[ ] Маршрут открывается во внешней карте (3 провайдера).
+[ ] Воспоминания добавляются и редактируются (без модерации,
+    D14).
+[ ] Карта таб — список карточек-пинов (после добавления Google
+    Maps API key → настоящая карта с пинами, см. E15).
+[ ] Облачный стиль применён ко всем страницам.
+[ ] Release APK устанавливается на физический Android.
+
+После E18 — переход к разделу F (web-фронтенд).
+
+=====================================================================
+F. WEB FRONTEND ROADMAP
+=====================================================================
+
+Web-фронтенд делаем как ПОЛНЫЙ ФУНКЦИОНАЛЬНЫЙ АНАЛОГ Android-клиента
+(E1–E20) + админка (бывший E13 отменён, переехал в F-секцию). API
+уже стабилен и обкатан мобилкой, контракт менять не нужно —
+переиспользуем как есть.
+
+Актуальная модель модерации и Verify — см. disclaimer-блок в начале
+E-роадмапа ("АКТУАЛЬНОЕ СОСТОЯНИЕ МОДЕРАЦИИ И VERIFY"). Веб
+повторяет ту же модель: контент сразу публикуется (без Pending),
+IsVerified — информационная бирка, "запретить" = DELETE карточки.
+
+---------------------------------------------------------------------
+ПРИНЦИПЫ И ПАРАЛЛЕЛИ E ↔ F
+---------------------------------------------------------------------
+
+Каждая F-секция ниже — это зеркало конкретного E-пункта (mobile) с
+явным переносом logic'а на браузер. Когда mobile-фича Android-
+specific (E7.1 VPN-banner), F явно помечает её "не применимо" и
+объясняет почему. Когда web должен сделать лучше mobile'а (например,
+таблицы с большими фильтрами в админке — F17 — где mobile никогда
+не было), это тоже отражено.
+
+Таблица соответствия E → F (high-level):
+
+  E2  Каркас MAUI      → F1  Каркас React+Vite
+  E3  Cloud design     → F2  Дизайн-система (Mantine + те же цвета)
+  E4  Config+HttpClient→ F3  Config+axios+interceptors
+  E5  Auth+JWT+Refresh → F4  Auth (login/register/logout/refresh)
+  E6  Геолокация       → F5  navigator.geolocation
+  E16 Поиск перед add  → F6  Search page (тот же flow)
+  E17.1 Preview        → F7  Preview перед подпиской
+  E17.3/4/5 Фильтры    → F6  (раздел "Расширенные фильтры")
+  E7  At-grave create  → F8  At-grave creation
+  E7.1 VPN-warning     → F8  Не применимо (Android-specific)
+  E7.2 Ручной ввод     → F8  Зеркало
+  E8  Список tracked   → F9  Список
+  E9.1 Архив           → F10 Архив-вкладка
+  E17.2 Delete forever → F10 (DELETE из архива)
+  E9  Карточка         → F11 Карточка умершего
+  E12 Воспоминания     → F12 Memories CRUD
+  E10 Загрузка файлов  → F13 Upload
+  E11 Маршрут single   → F14.1 Single-point route
+  E19 Маршрут multi    → F14.2 Multi-point route
+  E20 Правка координат → F15 Burial location editor
+  E18 Смена пароля     → F16 Профиль + смена пароля
+  E13 Админка          → F17 Админка (отменена на mobile)
+  E14 Build/Run        → F18 Build/Deploy web
+  E17 Тесты mobile     → F19 Тесты web
+  E18 Что готово       → F20 Чек-лист релиза web
+
+Каждая F-секция ниже расписана так же подробно, как соответствующая
+E. Если в E есть [x]/[ ] — в F они переходят как [ ] (ничего ещё
+не сделано на web). После имплементации эти [ ] закрываются в самих
+F-разделах.
+
+---------------------------------------------------------------------
+F1. Каркас приложения (~ E2)
+---------------------------------------------------------------------
+
+Стек:
+
+- Vite (build/dev server, быстрее CRA);
+- React 18+ с функциональными компонентами и hooks;
+- TypeScript (strict mode);
+- React Router 6 (SPA-роутинг);
+- Axios (HTTP-клиент, поддерживает interceptors как в RefreshTokenHandler
+  на mobile);
+- TanStack Query (server state + кеш + refetchOnWindowFocus —
+  параллель OnAppearing→LoadAsync в MAUI);
+- Zustand (UI state: текущий юзер, токены, флаги);
+- Mantine (UI-kit, поддерживает theming под Cloud design — см. F2);
+- React Hook Form + Zod (формы + валидация).
+
+Задачи:
+
+[ ] Создать проект `frontend/web` через `npm create vite@latest`,
+    шаблон react-ts.
+[ ] Папочная структура:
+    src/
+      api/            # axios + Refit-аналог, методы API
+      auth/           # Zustand store, login/logout, JWT helpers
+      components/     # переиспользуемые UI-блоки
+      design/         # тема Mantine, цвета, токены
+      hooks/          # useGeolocation, useCurrentUser, ...
+      pages/          # роутинг-компоненты (страницы)
+      routes/         # ProtectedRoute, RouterConfig
+      utils/          # парсеры координат, форматтеры дат
+[ ] React Router: BrowserRouter с маршрутами:
+    /login, /register, /tracked, /tracked/:id, /search, /at-grave,
+    /preview/:id, /route, /profile, /change-password,
+    /admin, /admin/all, /admin/users (последние — только для админов).
+[ ] ProtectedRoute: проверяет наличие access-токена в Zustand,
+    иначе redirect на /login (зеркало AppShell.OnAppearing).
+[ ] Base API URL читается из `import.meta.env.VITE_API_BASE_URL`
+    с fallback `http://localhost:5000`.
+
+Параллель к mobile: AppShell + TabBar → React Router + Mantine
+AppShell с боковой/нижней навигацией (Tracked / Маршрут / Профиль,
+плюс Админка для админов).
+
+---------------------------------------------------------------------
+F2. Дизайн-система (~ E3 Cloud)
+---------------------------------------------------------------------
+
+На mobile сделан Cloud-стиль: голубое небо как фон, белые
+"облачные" карточки с тенью, мягкие цвета. На web воспроизводим тот
+же визуальный язык, чтобы пользователь, переходя между mobile и
+web, чувствовал что это одно приложение.
+
+Mantine theme:
+
+[ ] Цвета (синхронизированы с frontend/mobile/.../Resources/Styles):
+    - Sky        #DCEEFB (фон-небо)
+    - Cloud      #F8FBFE (карточки-облака)
+    - Azure      #4A90E2 (primary/акцент)
+    - AzureDeep  #2C6FB2 (акценты второго уровня)
+    - Mist       #F4F6F8 (вторичный фон)
+    - InkBlue    #0E2A47 (текст)
+[ ] MantineProvider с `theme={ primaryColor: 'azure', ... }`.
+[ ] Глобальный CSS: background — линейный градиент Sky→Cloud, как
+    `CloudPage` на mobile.
+[ ] Стилизованные компоненты-обёртки:
+    - <CloudCard> — белый Card с shadow + rounded 16px;
+    - <PrimaryButton>, <GhostButton> — те же что на mobile;
+    - <TitleLabel>, <SubTitleLabel>, <BodyLabel>, <CaptionLabel> —
+      типографские пресеты.
+[ ] Иконки: lucide-react (mobile использует эмодзи 🕊/📍 —
+    на desktop они часто рендерятся убого, лучше lucide). Эмодзи
+    оставляем для empty-state'ов и заголовков, где они работают.
+
+---------------------------------------------------------------------
+F3. Конфигурация и HTTP-клиент (~ E4)
+---------------------------------------------------------------------
+
+Параллель с mobile AuthTokenHandler + RefreshTokenHandler + Polly.
+
+[ ] `src/api/client.ts`: axios.create({ baseURL, timeout: 30s }).
+[ ] `request` interceptor: добавляет `Authorization: Bearer <access>`
+    если есть токен в Zustand store (≈ AuthTokenHandler).
+[ ] `response` interceptor: при 401 — пытается обновить токен через
+    POST /api/auth/refresh, при успехе ретраит исходный request с
+    новым токеном, при провале — logout + redirect /login (≈
+    RefreshTokenHandler). Очередь параллельных запросов на время
+    refresh — через одну Promise, чтобы не было гонки нескольких
+    refresh'ей.
+[ ] Отдельный axios-instance для /auth/refresh без interceptor'ов
+    (≈ RefreshHttpClientProvider на mobile, чтобы не зациклиться).
+[ ] Refit-аналог: тонкие функции `api.deceased.getAll(params)`,
+    `api.tracked.list(page,size)`, ... — типизированные через
+    TypeScript интерфейсы. Можно сгенерить из Swagger schemas
+    (`openapi-typescript-codegen`), но в MVP проще руками для
+    тех ~20 эндпойнтов, что реально используем.
+[ ] DTO-типы выносим в `src/api/types.ts` — точное соответствие
+    тому, что отдаёт backend (PagedResponse<T>, ApiEnvelope<T>,
+    DeceasedSearchItem, MyTrackedDeceasedDetailsResponse, ...).
+
+Retry-политика (≈ Polly на mobile): не делаем в первом проходе —
+TanStack Query сам ретраит queries при network errors с
+exponential backoff. Для mutations (upload файла) — без ретраев,
+как и в mobile (E10).
+
+---------------------------------------------------------------------
+F4. Auth (~ E5)
+---------------------------------------------------------------------
+
+UI-страницы:
+
+[ ] `/login`: email + password + кнопка "Войти" + ссылка
+    "Регистрация".
+[ ] `/register`: email + password + confirm + кнопка
+    "Зарегистрироваться".
+[ ] Кнопка "Выйти" в AppShell.
+
+Логика:
+
+[ ] Zustand authStore: `{ accessToken, refreshToken, user, isLoading }`.
+    Persist в localStorage (для MVP — осознанный XSS-trade-off: на
+    production уйдём на httpOnly cookies, когда добавим server-
+    side rendering или прокси-эндпойнт; backend уже умеет
+    cookie-based refresh через тот же /auth/refresh).
+[ ] POST /api/auth/login → сохранить токены → GET /api/users/me →
+    положить user в store → navigate /tracked.
+[ ] POST /api/auth/register → автоматический логин после успеха
+    (если backend возвращает токены) или редирект на /login.
+[ ] Logout: POST /api/auth/logout (best-effort, серверу нечего
+    делать со старым SecurityStamp) → очистка store → /login.
+[ ] При старте приложения (App.tsx → useEffect): если в
+    localStorage есть refresh-токен — пытаемся подтянуть свежий
+    access через /auth/refresh; если успешно — пользователь
+    остаётся залогиненным, иначе чистим всё и идём на /login
+    (≈ AppShell.OnAppearing.HasSessionAsync).
+
+Параллель к mobile: refresh-токены, SecurityStamp invalidation,
+hot-swap access-токена в interceptor'е — всё это уже работает на
+backend, web подключается к тем же эндпойнтам.
+
+---------------------------------------------------------------------
+F5. Геолокация в браузере (~ E6)
+---------------------------------------------------------------------
+
+API: `navigator.geolocation.getCurrentPosition(success, error,
+{ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 })`.
+
+Особенности браузерной геолокации vs mobile:
+
+[ ] Permission prompt браузер показывает сам — отдельной кнопки
+    "разрешить" не нужно. Если юзер отказал, error callback
+    приходит с code=1 (PERMISSION_DENIED).
+[ ] На production обязателен HTTPS — без него browser
+    geolocation не работает совсем. На localhost работает.
+[ ] Accuracy в meters приходит в `position.coords.accuracy`.
+[ ] Polyfill для старых браузеров не нужен — поддержка везде.
+
+Hook `useGeolocation()`:
+
+```
+{
+  status: 'idle' | 'requesting' | 'success' | 'error',
+  position: { lat, lon, accuracy } | null,
+  error: { code, message } | null,
+  request: () => void
+}
+```
+
+Параллель к mobile: GeolocationService.RequestAndGetCurrentAsync →
+GeolocationResult. На web — то же, но без OpenAppSettings (в
+браузере у юзера нет "настроек разрешения" в обычном смысле;
+если он permanently denied, надо в адресной строке кликнуть на
+"замочек" и сбросить разрешение — это написано в alert при ошибке).
+
+VPN warning (E7.1): НЕ ПРИМЕНИМО для web. Браузер не даёт API
+проверить наличие VPN-туннеля (это privacy-граница). И сам
+сценарий "GPS через FusedLocationProvider портится из-за VPN" —
+Android-specific.
+
+---------------------------------------------------------------------
+F6. Поиск умершего перед добавлением (~ E16 + E17.3 + E17.4 + E17.5)
+---------------------------------------------------------------------
+
+Страница `/search`, открывается по клику "Добавить умершего" на
+главной (а не сразу at-grave форма). Цель — не плодить дубликаты:
+если кто-то уже завёл карточку этого человека, юзер должен
+подписаться на существующую (E16).
+
+Что показываем:
+
+[ ] Три раздельных поля: Имя, Фамилия, Отчество (E17.5 —
+    отдельные параметры, а не общий search по ФИО). Backend
+    GET /api/deceased-records принимает `firstName`,
+    `lastName`, `middleName` как отдельные query params.
+[ ] Город (фильтр по City — E17.3).
+[ ] Дата рождения + дата смерти (отдельные DatePicker'ы — E17.4).
+    Каждый управляется флагом "использовать" + опциональным
+    значением (на mobile это `_useBirthDateFilter: bool` +
+    `_birthDate: DateTime`). На web — Mantine `<DatePicker
+    clearable>`, который сам отдаёт null когда не выбран.
+[ ] Кнопка "Найти" доступна, если заполнено хоть одно поле или
+    дата (E17.4.1: поиск только по датам — валиден).
+[ ] Список результатов: Mantine `<Card>` с ФИО + датами + городом
+    + кнопкой "Подробнее".
+[ ] Пагинация (E17.3): footer с "Page N of M", `<Pagination>`
+    Mantine. PageSize 20 по умолчанию, max 100 (валидатор бэка).
+[ ] Empty-state: "По вашим параметрам никого не нашли. Если
+    карточки точно нет — нажмите «Создать новую» внизу."
+[ ] Кнопка "Создать новую" внизу страницы — открывает /at-grave
+    с переданными firstName/lastName/... как initial values.
+
+Формат дат для backend: ISO `yyyy-MM-dd`. Парсить через
+`format(date, 'yyyy-MM-dd')` из date-fns. На mobile ту же проблему
+решали ручным форматированием через InvariantCulture (Refit 8 не
+уважал [Query(Format=...)] на DateOnly) — на JS этого не нужно,
+форматируем строкой и отдаём.
+
+[ ] Tap на результат → /preview/:id (F7), не сразу подписка.
+
+---------------------------------------------------------------------
+F7. Preview карточки умершего (~ E17.1)
+---------------------------------------------------------------------
+
+Страница `/preview/:deceasedId`. Промежуточный экран между поиском
+и реальной подпиской — "это он или нет?".
+
+Что показываем:
+
+[ ] GET /api/deceased-records/{id} → ФИО, даты, биография,
+    адрес (без координат — preview не требует геолокации),
+    главное фото (если есть, через GET /media с фильтром
+    main_photo).
+[ ] GET /api/users/me/tracked-deceased/{id}/exists — backend
+    отдаёт `{ isTracked, status }`. Если уже трекаем →
+    кнопка "Открыть мою карточку" (idempotent navigate
+    /tracked/:id); иначе → кнопка "Добавить в отслеживание".
+[ ] При нажатии "Добавить в отслеживание": открывается модалка
+    с полями relationship type + personal notes + flags на
+    уведомления — те же что в at-grave form. POST
+    /api/users/me/tracked-deceased/{id} с этими данными.
+    После успеха → /tracked/:id.
+
+Параллель: DeceasedPreviewViewModel + DeceasedPreviewPage на
+mobile (E17.1). Web просто переводит ту же логику в React.
+
+---------------------------------------------------------------------
+F8. Добавление умершего "у могилы" (~ E7)
+---------------------------------------------------------------------
+
+Открывается из F6 (Поиск) кнопкой "Создать новую" с
+pre-filled именем/фамилией/отчеством, если юзер их искал.
+
+Структура формы (все блоки в `<CloudCard>`):
+
+[ ] **Координаты:** три Mantine TextInput с placeholder'ами
+    "55.755826" / "37.617300" / "необязательно", диапазоны
+    lat ∈ [-90, 90], lon ∈ [-180, 180], accuracy ≥ 0 (E7.2
+    + parseFloat с заменой запятой на точку). Кнопка "Получить
+    координаты" заполняет три поля через navigator.geolocation
+    (F5).
+[ ] **ФИО + даты:** три TextInput (имя/фамилия/отчество, E17.5)
+    + DatePicker BirthDate (clearable) + DatePicker DeathDate
+    (default today). Editor для shortDescription и biography.
+[ ] **Где захоронение:** Country (default "Россия"), City,
+    CemeteryName, PlotNumber, GraveNumber — все опциональные.
+[ ] **Кем приходится:** Select с 9 вариантами (Friend по
+    умолчанию, как на mobile). TextInput для personalNotes,
+    Switch для NotifyOnDeath/Birth.
+[ ] **Submit:** POST /api/deceased-records/at-grave →
+    /tracked/:id при успехе.
+
+VPN warning (E7.1): НЕ ПРИМЕНИМО для web. Браузер не может
+проверить VPN, и сам сценарий VPN-vs-FusedLocation — Android-
+specific.
+
+Submit-кнопка disabled пока нет валидных координат + имени +
+фамилии (≈ CanSubmit на mobile).
+
+---------------------------------------------------------------------
+F9. Список отслеживаемых (~ E8)
+---------------------------------------------------------------------
+
+Страница `/tracked`.
+
+[ ] GET /api/users/me/tracked-deceased?page=1&pageSize=20 через
+    TanStack Query (refetchOnWindowFocus — заменяет MAUI
+    OnAppearing→LoadAsync).
+[ ] Список Mantine Card'ов: фото (MainPhotoUrl) / 🕊-placeholder,
+    ФИО, даты, relationshipType (display через ту же таблицу
+    что на mobile RelationshipTypes.All), наличие координат,
+    кнопка "Открыть" → /tracked/:id.
+[ ] Pull-to-refresh — на web заменяем на кнопку "Обновить"
+    или auto-refetch через TanStack Query.
+[ ] Pagination — `<Pagination>` Mantine, как в F6.
+[ ] Empty-state: "Пока никого не отслеживаете. Найдите умершего
+    через поиск или добавьте новую карточку."
+[ ] Кнопка "Добавить" в углу → /search (F6).
+[ ] Кнопка "Архив" → /tracked/archive (F10).
+
+Сохраняется тот же концепт: tracked-вкладка не показывает
+Archived записи (TrackStatus.Active + Muted, но не Archived).
+
+---------------------------------------------------------------------
+F10. Архив отслеживаемых (~ E9.1 + E17.2)
+---------------------------------------------------------------------
+
+Страница `/tracked/archive`.
+
+[ ] GET /api/users/me/tracked-deceased?status=Archived → список
+    архивных карточек (backend поддерживает фильтр по статусу).
+[ ] Каждая карточка — Mantine Card с двумя действиями:
+    - "Восстановить" → PATCH /tracked-deceased/{id} с
+      Status=Active → исчезает из архива (E9.1).
+    - "Удалить навсегда" → confirm dialog → DELETE
+      /tracked-deceased/{id} → исчезает (E17.2).
+      В отличие от mobile-SwipeView, на web confirm-dialog
+      обязателен (нет жестов как guard).
+
+Empty-state: "Архив пуст. Карточки, которые вы перенесёте в
+архив, появятся здесь — их можно восстановить или удалить
+навсегда."
+
+---------------------------------------------------------------------
+F11. Карточка умершего (~ E9)
+---------------------------------------------------------------------
+
+Страница `/tracked/:deceasedId`.
+
+[ ] GET /api/users/me/tracked-deceased/{id} → MyTrackedDeceased
+    DetailsResponse.
+[ ] Hero-блок: главное фото (96x96 round), ФИО, даты, badge
+    "✓ Карточка верифицирована" если IsVerified.
+[ ] Блок "Кратко" — shortDescription (если есть).
+[ ] Блок "Биография" — biography (если есть).
+[ ] Блок "Место захоронения":
+    - LocationText (страна/город/кладбище);
+    - PlotInfo (участок + номер);
+    - CoordinatesText (lat/lon, 6 знаков, InvariantCulture);
+    - PrimaryButton "Построить маршрут" → F14.1 single-point
+      (disabled если HasBurialLocation=false);
+    - GhostButton "Поправить координаты" → F15 (E20).
+[ ] Блок "Ваше отслеживание": relationship, personalNotes,
+    notify flags.
+[ ] Блок "Воспоминания" (F12).
+[ ] Блок "Фото умершего" / "Фото могилы" / "Документы" —
+    галереи (F13).
+[ ] Хедер-действия: "В архив" (PATCH Status=Archived,
+    E9.1) или "Восстановить" (если IsArchived).
+
+---------------------------------------------------------------------
+F12. Воспоминания CRUD (~ E12)
+---------------------------------------------------------------------
+
+Воспоминания живут внутри карточки умершего (F11). Полный CRUD
+без модерации (D14 — контент сразу Approved):
+
+[ ] Список: GET /api/deceased-records/{id}/memories.
+    Каждое — компактный блок с текстом, автором, датой.
+[ ] Кнопка "+" в углу блока → модалка / отдельная страница
+    `/memory-editor`:
+    - режим Create: пустой textarea + Save → POST
+      /memories;
+    - режим Edit: pre-fill текстом + Save → PATCH
+      /memories/{id}.
+[ ] У каждой записи кнопки "Редактировать" / "Удалить"
+    видимы только автору (AuthorUserId === currentUserId,
+    ≈ MemoryItemViewModel.CanEdit на mobile).
+[ ] Удаление: confirm → DELETE /memories/{id}.
+[ ] Empty-state: "Пока нет воспоминаний. Нажмите +, чтобы
+    поделиться первым."
+
+Модерация (отклонить чужое воспоминание) — только в админке
+(F17), не в обычном UI юзера.
+
+---------------------------------------------------------------------
+F13. Загрузка файлов (~ E10)
+---------------------------------------------------------------------
+
+[ ] Три галереи на карточке: Фото умершего, Фото могилы,
+    Документы. GET /api/deceased-records/{id}/media с фильтром
+    по kind.
+[ ] Кнопка "Загрузить" → modal с тремя кнопками "Фото
+    умершего" / "Фото могилы" / "Документ" → input
+    type=file → POST /media multipart/form-data с заголовком
+    kind.
+[ ] Progress: axios.onUploadProgress → progress bar (Mantine
+    `<Progress>`).
+[ ] Тап на фото → modal с действиями:
+    - "Сделать главным" (только для DeceasedPhoto и если ещё
+      не main) → PUT /media/{id}/main-photo;
+    - "Удалить" → confirm → DELETE /media/{id}.
+[ ] Auto-promote main: если загрузили первое фото умершего и
+    main-photo ещё не было — auto-call SetMainPhoto (≈
+    UploadStreamAsync на mobile).
+[ ] Обработка ошибок: MIME (415), размер (413), backend-
+    валидация.
+
+---------------------------------------------------------------------
+F14. Маршрут
+---------------------------------------------------------------------
+
+Два сценария параллельны mobile: F14.1 single-point (~ E11) и
+F14.2 multi-point (~ E19). Кнопка "Построить маршрут" на карточке
+умершего ведёт в single, отдельный таб `/route` — в multi.
+
+---------------------------------------------------------------------
+F14.1. Single-point: маршрут к одной могиле (~ E11)
 ---------------------------------------------------------------------
 
 Логика:
 
-1. Получить текущие координаты пользователя.
-2. Вызвать backend route endpoint.
-3. Показать карту.
-4. Показать кнопки:
-   - открыть в Яндекс.Картах;
-   - открыть в Google Maps;
-   - открыть в 2GIS.
+1. Кнопка "Построить маршрут" на карточке (F11) активна, если
+   HasBurialLocation.
+2. navigator.geolocation.getCurrentPosition (F5) → fromLat, fromLon.
+3. GET /api/users/me/tracked-deceased/{id}/route?
+   fromLat=...&fromLon=...&mode=auto.
+4. Backend возвращает RouteResponse.Links: массив { provider,
+   url } для Yandex/Google/2GIS.
+5. По решению 2026-05-13 на UI оставлен только Яндекс — берём
+   из Links запись с `provider === 'yandex'` и открываем сразу
+   через window.open(url, '_blank'), без выбора провайдера.
+   Backend по-прежнему отдаёт три ссылки (это контракт), Google
+   и 2ГИС просто игнорируем на стороне UI; при необходимости
+   вернуть выбор — это локальная правка в React-компоненте.
 
-Если маршрут внутри кладбища неточный, показать текст:
+Embed-карта (опционально): через `<iframe>` с Яндекс Maps
+Embed API — бесплатно для частоты пользования сайта. Если
+пропускаем эту фичу — функционал не страдает (ссылки во
+внешние сервисы уже дают всё нужное).
 
-"Маршрут может быть построен до ближайшей точки или входа на кладбище. Дальше используйте координаты могилы и номер участка."
+Если route.Mode подсказывает, что маршрут до точки приблизи-
+тельный (на кладбище нет дорог) — показываем плашку:
+"Маршрут построен до ближайшей точки или входа на кладбище.
+Дальше используйте координаты могилы и номер участка."
 
 ---------------------------------------------------------------------
-E8. Админка
+F14.2. Multi-point: обход нескольких могил (~ E19)
 ---------------------------------------------------------------------
 
-Сделать:
+Полная зеркальная копия E19, перенесённая на JS.
 
-- список pending media;
-- approve media;
-- reject media;
-- просмотр жалоб/модерации;
-- базовую панель администратора.
+1. Страница `/route` (или таб внутри `/tracked`).
+2. GET /api/users/me/tracked-deceased?page=1&pageSize=100 →
+   фильтруем `HasGraveLocation` И `status !== 'Archived'` на
+   клиенте. Backend отдаёт обе категории, как и для mobile —
+   архивные в маршрут не пускаем, это "удалённые" с точки зрения
+   юзера (зеркало bug-fix в RouteViewModel 2026-05-13).
+3. Список Mantine `<Checkbox>` + Card; click на всю строку =
+   toggle (большой touch-target и для mouse тоже удобнее).
+4. Кнопка "Построить маршрут (N)" доступна при ≥1 выбранной.
+5. navigator.geolocation (F5) — best-effort origin.
+6. Локально считаем nearest-neighbor TSP (тот же алгоритм что
+   в RouteViewModel.OptimizeOrder на mobile):
+
+   ```ts
+   function optimizeOrder(origin, points) {
+     if (points.length <= 1) return points;
+     const remaining = [...points];
+     const ordered: Point[] = [];
+     let current = origin ?? remaining.shift()!;
+     if (!origin) ordered.push(current);
+     while (remaining.length > 0) {
+       let bestIdx = 0;
+       let bestDist = Infinity;
+       for (let i = 0; i < remaining.length; i++) {
+         const d = haversine(current, remaining[i]);
+         if (d < bestDist) { bestDist = d; bestIdx = i; }
+       }
+       ordered.push(remaining[bestIdx]);
+       current = remaining[bestIdx];
+       remaining.splice(bestIdx, 1);
+     }
+     return ordered;
+   }
+   ```
+
+7. По решению 2026-05-13 на UI оставлен только Яндекс — открываем
+   сразу, без popup'а выбора. Билдеры для Google и 2ГИС реализуем
+   рядом (см. ниже), но не вызываем — при необходимости вернуть
+   выбор хватит локальной правки React-компонента.
+8. Deep-link URL по тем же схемам, что в mobile
+   `ExternalMapsService.cs`:
+   - **Yandex (активный):** `https://yandex.ru/maps/?rtext=lat,lon~lat,lon&rtt=auto`
+   - Google (билдер на месте, не вызывается):
+     `https://www.google.com/maps/dir/?api=1`
+     `&travelmode=driving&origin=&destination=&waypoints=`
+   - 2ГИС (билдер на месте, не вызывается):
+     `https://2gis.ru/routeSearch/rsType/car/points/`
+     `lon,lat|lon,lat`  (**ОБРАТНЫЙ** порядок!)
+   Все double — через `Number.toFixed(6)`. На JS-стороне
+   локаль не влияет на toFixed, но `String(lat)` использовать
+   нельзя — у больших чисел экспонента и не та точность.
+9. window.open(yandexUrl, '_blank').
+
+Backend не трогаем — переиспользуем GET /tracked-deceased.
+
+---------------------------------------------------------------------
+F15. Правка координат места захоронения (~ E20)
+---------------------------------------------------------------------
+
+Открывается кнопкой "Поправить координаты" на карточке (F11).
+
+[ ] Модалка или отдельная страница `/burial-location-editor/:id`.
+[ ] Pre-fill из карточки: lat / lon / accuracy форматируются
+    через Number.toFixed(6 / 0).
+[ ] Те же три TextInput с теми же диапазонами что в F8
+    (валидация на парсинге).
+[ ] Кнопка "Получить координаты" заполняет поля через
+    navigator.geolocation (F5).
+[ ] Submit → PUT /api/deceased-records/{id}/burial-location/
+    from-gps с body `{ latitude, longitude, accuracyMeters? }`.
+    Эндпойнт исторически называется /from-gps, но backend
+    (после E20) сохраняет существующий Country/City/Cemetery/
+    Plot/Grave — это та же ручка, что для ручной правки.
+[ ] При 403 (не автор и не админ) — friendly message
+    "Координаты можно править только автору карточки или
+    администратору".
+[ ] После успеха закрываем модалку / возвращаемся на /tracked/
+    :id, TanStack Query инвалидирует кеш карточки → обновлённые
+    координаты сразу видны.
+
+---------------------------------------------------------------------
+F15a. Поиск умерших рядом (~ E21)
+---------------------------------------------------------------------
+
+Зеркало mobile-E21 — на десктопе менее частый сценарий, но на
+mobile-web (PWA на смартфоне) — основной: юзер на кладбище
+открывает сайт, тапает "Найти рядом", получает список умерших с
+координатами в радиусе. Тап → preview → подписка → маршрут (F14.1).
+
+UI:
+
+[ ] Страница `/nearby` (либо вкладка/секция внутри `/tracked`).
+[ ] navigator.geolocation.getCurrentPosition с
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } —
+    те же опции что в F5. Production обязательно HTTPS.
+[ ] При permission denied — alert с инструкцией "разрешите
+    геолокацию в настройках сайта (значок замочка в адресной
+    строке)". Нет аналога OpenAppSettings, на web он не нужен.
+[ ] Slider Mantine `<Slider>` радиуса с дискретными ступенями
+    50 / 100 / 200 / 300 / 500 м, default 100 м. Подпись
+    "Радиус: 100 м" форматируется через JS-копию DistanceFormatter
+    (см. ниже).
+[ ] GET /api/deceased-records/nearby с обязательными query:
+    `latitude`, `longitude`, `radiusMeters`, опционально `page`
+    (default 1), `pageSize` (default 20, max 100).
+
+    ВАЖНО: имена параметров — полные (`latitude`, `longitude`),
+    не сокращённые (`lat`, `lon`). Сокращённые не биндятся в
+    ASP.NET model binder на DTO GetNearbyDeceasedRequest, который
+    использует свойства `Latitude`/`Longitude`/`RadiusMeters`. На
+    sin'ах это уже найденная ошибка — был баг до 2026-05-13 в
+    mobile API клиенте и integration-тестах.
+
+[ ] Response: PagedResponse<NearbyDeceasedItem> со списком,
+    отсортированным по `distanceMeters` возрастающе. Каждый item:
+    `{ id, fullName, birthDate?, deathDate, latitude, longitude,
+    country?, city?, cemeteryName?, plotNumber?, graveNumber?,
+    isVerified, distanceMeters }`.
+[ ] Список Mantine Card'ов: имя сверху, "† dd.MM.yyyy" под именем,
+    локация (city / cemetery / plot / grave joined через ", ")
+    мелким шрифтом, бейдж дистанции справа в Azure цвете.
+[ ] Click на карточку → `/preview/:id` (F7), оттуда юзер уже
+    решает подписываться или нет.
+[ ] Empty state с 🕊: "Никого не нашли в этом радиусе. Попробуйте
+    увеличить расстояние или проверьте, что разрешена точная
+    геолокация."
+[ ] Кнопка "📍 Найти рядом" на `/tracked` (F9), под "Добавить
+    умершего" / "Архив" (зеркало TrackedListPage на mobile).
+
+Шейринг логики:
+
+[ ] **DistanceFormatter на JS** — точная копия
+    Shared/Search/DistanceFormatter.cs (mobile):
+    ```ts
+    export function formatDistance(meters: number): string {
+      if (meters < 0) meters = 0;
+      if (meters < 1000) return `${meters} м`;
+      const km = (meters / 1000).toFixed(1).replace(/\.0$/, '');
+      return `${km} км`;
+    }
+    ```
+    Тесты — те же кейсы что mobile DistanceFormatterTests (граница
+    1000, округление десятых, отрицательный clamp). Использовать
+    в обоих местах: подпись Slider'а и бейдж дистанции на карточке.
+
+Backend изменений не требует — переиспользуется тот же endpoint,
+что для mobile (E21). Валидация (lat ±90, lon ±180, radius
+[10, 5000]) тоже бэкенд-side, на UI достаточно ограничить slider
+крайними значениями.
+
+Что НЕ делаем:
+
+- Карта с пинами вокруг — общий принцип F: embed-карта опциональна
+  (см. F7.1), без неё ссылочный маршрут уже даёт всё нужное.
+- "Найти всех в радиусе 5 км" по дефолту — наоборот, фокусируем
+  юзера на ближайших точках. 5 км — это уже не "рядом", это
+  "по соседству", лучше открыть `/search` (F6).
+
+---------------------------------------------------------------------
+F16. Профиль и смена пароля (~ E18)
+---------------------------------------------------------------------
+
+Страница `/profile`.
+
+[ ] GET /api/users/me → отобразить UserName / FullName / Email
+    (Role не показываем — это служебная информация, юзеру она
+    ничего не даёт; зеркало решения 2026-05-13 для mobile).
+    Кнопка "Обновить" перезапрашивает.
+[ ] Кнопка "Сменить пароль" → /change-password.
+[ ] Кнопка "Выйти" → F4 logout.
+
+Страница `/change-password`:
+
+[ ] Три password input: CurrentPassword, NewPassword,
+    ConfirmPassword.
+[ ] Reactive валидация: новый пароль 8..128 символов
+    (PasswordPolicy константы, синхронизированы с
+    Application.Constants на backend), confirm == new.
+[ ] Submit → PUT /api/users/{userId}/password с body
+    `{ currentPassword, newPassword }`. Rate-limit на backend
+    через AuthRateLimitOptions — UI показывает 429 как
+    "Слишком много попыток, попробуйте через минуту".
+[ ] После успеха → alert "Пароль изменён" → force-logout +
+    redirect /login. Причина та же что на mobile E18:
+    backend ротирует SecurityStamp, текущий access-токен в
+    кеше OnTokenValidated станет невалидным через TTL ~30s.
+
+---------------------------------------------------------------------
+F17. Админка (= бывший E13 mobile, отменён там)
+---------------------------------------------------------------------
+
+UPDATE 2026-05-13: админ-UI делаем ТОЛЬКО на web. Mobile-вариант
+E13 отменён (админ редко с телефона, ему нужны таблицы и фильтры —
+десктоп-сценарий). Backend-эндпойнты уже готовы.
+
+Маршруты: `/admin/*` доступны только пользователям с ролью
+Admin или SuperAdmin (ProtectedRoute проверяет user.role).
+
+---------------------------------------------------------------------
+F17.1. Все карточки таблицей
+---------------------------------------------------------------------
+
+[ ] Страница `/admin/all`: Mantine `<Table>` с сортируемыми
+    колонками (FullName, BirthDate, DeathDate, Country, City,
+    IsVerified, CreatedAt, CreatedBy).
+[ ] Фильтры в верхней панели (≈ F6, но с расширенными):
+    + флаг "Только неверифицированные";
+    + диапазон CreatedFrom / CreatedTo;
+    + Country, City.
+[ ] Кнопки действий на каждой строке: Открыть карточку (F11),
+    Verify/Unverify (F17.3), Удалить (F17.2).
+[ ] Pagination + page-size selector (20/50/100).
+
+GET /api/deceased-records после D15 открыт всем, в админ-UI
+это та же ручка, но мы дополнительно показываем CreatedAt и
+CreatedBy (если backend их отдаёт в DeceasedSearchItem; иначе
+нужен extension D-пункт).
+
+---------------------------------------------------------------------
+F17.2. Удаление карточки
+---------------------------------------------------------------------
+
+[ ] Кнопка "Удалить" на строке таблицы и на карточке (F11)
+    для админов → confirm-modal "Удалить карточку <ФИО>
+    безвозвратно?".
+[ ] DELETE /api/deceased-records/{id} → invalidate кеша
+    GetAll → строка исчезает.
+[ ] Используется для двух кейсов:
+    - удалить дубликат, который проскочил unique-индекс;
+    - "запретить" спам/нарушение.
+
+---------------------------------------------------------------------
+F17.3. Verify / Unverify
+---------------------------------------------------------------------
+
+[ ] Кнопка-тогл "✓ Верифицировать" / "✗ Снять верификацию" на
+    карточке (F11) и в таблице (F17.1) — видимая только админу.
+[ ] POST /api/deceased-records/{id}/verify или DELETE того же
+    пути.
+[ ] После D15 IsVerified — информационная бирка, не gate. Юзеры
+    видят значок "✓ Карточка верифицирована" — это всё, на что
+    он влияет.
+
+---------------------------------------------------------------------
+F17.4. Ручной Reject memory / media
+---------------------------------------------------------------------
+
+[ ] В обычном flow (D13/D14) ничего не попадает в Pending —
+    весь контент сразу Approved. Но если админ заметит спам/
+    нарушение, он может вручную перевести запись в Rejected.
+[ ] На карточке умершего (F11) для админа в actions воспоми-
+    нания/фото появляется пункт "Скрыть" → PUT
+    /memories/{id}/reject или PUT /media/{id}/reject.
+[ ] Списка "всех Rejected" не делаем — это разовое действие,
+    отдельный отчёт не нужен.
+
+---------------------------------------------------------------------
+F17.5. Bootstrap первого SuperAdmin
+---------------------------------------------------------------------
+
+Проблема "курица и яйцо": регистрация всем даёт роль User,
+PUT /api/users/{id}/role доступен только админу — нечем
+повысить первого.
+
+Решение (выбираем одно):
+
+[ ] **Seed в API при старте** (предпочтительно): добавить
+    Infrastructure/HostedServices/SuperAdminSeeder, который
+    при старте API:
+    - читает `Seed:SuperAdminEmail` и `Seed:SuperAdminPassword`
+      из appsettings (опционально из appsettings.Development.
+      json или env-vars в production);
+    - если секции нет — no-op (production без секции == не
+      создаём ничего);
+    - если есть — ищет юзера по email, если нет → создаёт с
+      ролью SuperAdmin; если есть с другой ролью → повышает
+      до SuperAdmin (через UserRepository.ChangeRole).
+[ ] **Альтернатива — CLI-инструмент**: `dotnet run --project
+    Tools/PromoteAdmin -- --email=...`. Менее удобно для dev'а,
+    больше boilerplate. Делаем только если seed-вариант
+    почему-то не подходит.
+
+После bootstrap'а первый SuperAdmin может PUT-ом повышать
+других до Admin через /api/users/{id}/role.
+
+---------------------------------------------------------------------
+F17.6. Что НЕ делаем в админке
+---------------------------------------------------------------------
+
+Убрано после D13/D14/D15:
+
+- "список pending media" — Pending в обычном flow нет;
+- "approve media" — контент сразу Approved (D13);
+- "список pending memory" — то же (D14);
+- "approve memory" — то же (D14);
+- "очередь модерации" — не нужна, оба контента auto-approved.
+
+Отложено до факта необходимости (нет endpoint'а — нет UI):
+
+- список жалоб (нужен D-пункт для endpoint'а жалоб);
+- удаление tracking от имени другого юзера (нужен endpoint
+  `DELETE /api/admin/users/{userId}/tracked-deceased/{id}`).
+- user-панель (просмотр пользователей, заблокировать,
+  изменить роль через таблицу) — отдельная подзадача, появится
+  при росте нагрузки.
+
+---------------------------------------------------------------------
+F18. Сборка и деплой web (~ E14)
+---------------------------------------------------------------------
+
+[ ] Dev: `npm run dev` → Vite dev server на http://localhost:5173.
+[ ] Production build: `npm run build` → `dist/` со статикой.
+[ ] Подача статики: либо через nginx (рекомендуется для prod —
+    можно проксировать /api/ к backend на том же домене и
+    избежать CORS), либо через ASP.NET API static-file middleware
+    (для простоты при первом deploy).
+[ ] HTTPS обязателен (без него navigator.geolocation не работает
+    на production).
+[ ] Env vars: `VITE_API_BASE_URL` в `.env.production` указывает
+    на public URL backend'а.
+
+---------------------------------------------------------------------
+F19. Тесты web (~ E17 mobile-tests)
+---------------------------------------------------------------------
+
+Unit-тесты (Vitest):
+
+[ ] `optimizeOrder` (TSP nearest-neighbor) на 4-точечном кейсе.
+[ ] `buildYandexUrl` / `buildGoogleUrl` / `build2GisUrl` —
+    invariant-формат (toFixed(6)), правильный порядок координат
+    для 2ГИС (lon,lat!), корректные waypoints для Google при
+    origin=null.
+[ ] `parseCoordinate` (parseFloat + запятая → точка, диапазоны).
+[ ] `useGeolocation` mock через `mock global.navigator.geolocation`.
+
+Component-тесты (Vitest + React Testing Library):
+
+[ ] LoginPage submit happy/sad paths.
+[ ] DeceasedSearchPage: CanSearch reactive к именам + датам.
+[ ] BurialLocationEditor: prefill + 403 → friendly message.
+
+E2E (Playwright, отдельная итерация):
+
+[ ] Полный сценарий: login → search → preview → subscribe →
+    open card → upload photo → build route.
+
+---------------------------------------------------------------------
+F20. Что считаем готовым (~ E18 release checklist)
+---------------------------------------------------------------------
+
+Web готов к demo/публикации, если:
+
+[ ] Регистрация / логин / logout работают.
+[ ] Refresh-токен обновляется автоматически при 401.
+[ ] Геолокация запрашивается через browser API на HTTPS.
+[ ] "Добавить умершего" сначала открывает поиск (F6) —
+    среди существующих, если не нашли — "Создать новую".
+[ ] Создание новой карточки через at-grave работает (F8).
+[ ] Список tracked грузится с пагинацией (F9).
+[ ] Архив-вкладка с восстановлением и DELETE forever (F10).
+[ ] Открываются фото и документы (F11+F13).
+[ ] Загрузка фото/документов работает с progress (F13).
+[ ] Воспоминания CRUD (F12).
+[ ] Маршрут single-point открывается во внешней карте (F14.1).
+[ ] Маршрут multi-point строит порядок и открывает внешний
+    сервис (F14.2).
+[ ] "Поправить координаты" работает без обнуления адреса (F15).
+[ ] Профиль + смена пароля + force-logout (F16).
+[ ] Админ-UI: таблица всех карточек + DELETE + Verify +
+    Reject memory/media (F17).
+[ ] Bootstrap первого SuperAdmin через seed (F17.5).
+[ ] Облачный стиль (F2) применён ко всем страницам.
+[ ] Production-сборка деплоится за HTTPS (F18).
+
+После F20 — web готов. Дальнейшее развитие — отдельные
+итерации (E2E-тесты, embed-карта, жалобы, user-панель).
 
 =====================================================================
-F. SECURITY RULES
+F-PROD. WEB PRODUCTION ROADMAP (F22-F26)
 =====================================================================
 
-F1. userId брать только из JWT.
+Параллель E-PROD (E22-E25) на стороне React-приложения. Цель —
+дать web полный паритет с mobile по production-фичам: версионность,
+feature flags, подписка, push (web-PWA), privacy onboarding, crash
+reporting (Sentry).
 
-F2. Не принимать userId из body, query или route для пользовательских операций.
+Порядок (зеркало E-PROD):
+  1. F22 версионность + feature flags + Subscription UI
+  2. F24 Privacy onboarding (требуется перед публикацией)
+  3. F25 Crash reporting (Sentry browser SDK)
+  4. F23 Web push (если делаем PWA-нотификации; иначе skip)
 
-F3. Все пользовательские endpoints делать через /me.
+---------------------------------------------------------------------
+F22. Версионность, feature flags, подписка (web)
+---------------------------------------------------------------------
 
-F4. Проверки прав делать в use case, а не только через атрибуты контроллера.
+Закрывает D16 + D17 на web.
 
-F5. Координаты от смартфона хранить вместе с AccuracyMeters.
+API клиент (TypeScript):
 
-F6. Не считать GPS абсолютно точным.
+[ ] `api/app.ts`:
+    `getAppVersion(): Promise<AppVersion>` → `GET /api/app/version`.
+    `getFeatures(): Promise<AppFeatures>` → `GET /api/app/features`.
+[ ] `api/subscription.ts`:
+    `getMySubscription()`, `createPayment(plan)`, `cancelSubscription()`.
 
-F7. Загружаемые файлы проверять по:
+TypeScript-типы:
+
+[ ] `AppVersion { minSupportedVersion, latestVersion,
+    forceUpdateMessage?, downloadUrl? }`.
+[ ] `AppFeatures { subscriptionEnabled, gracePeriodDaysAfterExpiry }`
+    — зеркало бэкенда (без per-feature флагов; см. решение 2026-05-14
+    в D16/D17).
+[ ] `Subscription { status, plan?, expiresAtUtc?, cancelledAtUtc?,
+    isActiveNow, isOnTrial, daysUntilExpiry }`.
+
+Версионность web:
+
+[ ] В web "версия" — это commit SHA или build-timestamp из
+    `import.meta.env.VITE_APP_VERSION` (Vite подставляет на build-time).
+    Сравниваем как semver через `compare-versions` или ручной парсер.
+[ ] При старте приложения (App.tsx → useEffect): `getAppVersion()`,
+    если `currentVersion < minSupportedVersion` → блокирующая
+    модалка с инструкцией "Обновите страницу" + кнопка `window.
+    location.reload(true)`. Web-кейс проще mobile — пользователь
+    не должен качать APK, только перезагрузить страницу (нужный
+    хеш закешировался в Service Worker'е, отвалится после F-update).
+[ ] При `currentVersion < latestVersion` (soft) → toast "Доступна
+    новая версия — обновите страницу" с кнопкой Reload.
+
+Feature flags:
+
+[ ] `useFeatureFlags()` hook (TanStack Query):
+    `useQuery({ queryKey: ['features'], queryFn: getFeatures,
+    staleTime: 5 * 60 * 1000 })` — 5 минут кеша.
+[ ] `useRequireSubscription()` — helper, проверяет
+    `features.subscriptionEnabled && !currentUser.isAdmin
+    && !subscription.isActiveNow`. Решение (2026-05-14): админы
+    paywall не видят. Используется ровно в одном месте (см. ниже
+    глобальный гейт).
+
+UI:
+
+[ ] Страница `/profile` — блок "Подписка":
+    - Trial → "Пробный период до DD.MM.YYYY (N дней)";
+    - Active → "Подписка ({plan}) до DD.MM.YYYY (N дней)";
+    - Cancelled → "Отменена, доступ до DD.MM.YYYY";
+    - Expired → "Подписка истекла" + кнопка "Продлить".
+    Кнопка "Управлять подпиской" ведёт на `/subscription`.
+    Решение 2026-05-14: dnia до списания видны на странице
+    профиля без перехода в раздел подписки.
+[ ] Страница `/subscription`:
+    - GET текущая подписка → отображаем Status, expiresAt и
+      DaysUntilExpiry (для Trial — "осталось N дней пробного",
+      для Active — "до списания N дней");
+    - Кнопки "Оформить (Monthly)" / "Оформить (Yearly)" →
+      `createPayment(plan)` → `window.location.href = checkoutUrl`.
+    - После оплаты YooKassa redirect'нет на наш `/payment/return` —
+      эта страница показывает индикатор "Подтверждаем оплату...",
+      пуллит `getMySubscription` каждые 3 сек пока status не Active
+      (или timeout 60s).
+    - Кнопка "Отменить подписку" → confirm → `cancelSubscription()`.
+[ ] Глобальный paywall на UI (решение 2026-05-14: per-feature paywall'ов нет):
+    - `<RequireSubscription>` обёртка-router (или React Router
+      `loader`) на всех приватных роутах кроме whitelist:
+      `/profile`, `/subscription`, `/legal/*`, `/payment/return`,
+      `/auth/*`.
+    - Если `features.subscriptionEnabled && !subscription.isActiveNow`
+      → редирект на `/subscription` (стиль paywall: hero с описанием
+      подписки + кнопки Monthly/Yearly).
+    - axios interceptor: ответ 403 + `errorCode === 'subscription.required'`
+      → инвалидация `subscription` query + редирект на `/subscription`.
+      Защита от ситуации "подписка истекла между tab-сессиями".
+
+Что НЕ делаем сейчас:
+
+- Хранение данных карты на сайте (PCI-DSS не сертифицируемся —
+  всё через YooKassa redirect).
+- Apple Pay / Google Pay через web (нужны merchant-аккаунты).
+
+Tests (Vitest):
+
+[ ] SemVer compare on string inputs.
+[ ] `<RequireSubscription>` редиректит на /subscription, когда
+    subscriptionEnabled=true и isActiveNow=false.
+[ ] axios interceptor реагирует на 403 + subscription.required.
+
+---------------------------------------------------------------------
+F23. Web push (PWA, опционально)
+---------------------------------------------------------------------
+
+Web push — отдельная история от FCM mobile push'ей. Используем
+`PushManager` API + VAPID-ключи + Service Worker. **Этот раздел
+отложен до факта реальной потребности** (на web юзеры обычно не
+держат вкладку открытой → push'и не доходят).
+
+Что нужно если делаем:
+
+[ ] `manifest.json` для PWA.
+[ ] `service-worker.ts` с обработкой `push` event.
+[ ] Регистрация подписки на стороне браузера → `PUT
+    /api/users/me/notification-preferences` с web-push subscription
+    JSON вместо FCM-токена. Backend нужно расширить — это уже
+    отдельный D-пункт (для web нужен `web-push` пакет на сервере,
+    а не FCM SDK).
+
+Решение для MVP: **F23 не делаем**. Уведомления только в mobile
+(E23) — там они работают надёжно.
+
+---------------------------------------------------------------------
+F24. Privacy / Terms onboarding (web)
+---------------------------------------------------------------------
+
+Закрывает D19 на web. ОБЯЗАТЕЛЬНО перед production.
+
+[ ] На `/login` и `/register` — чекбоксы "Я принимаю Privacy
+    Policy и Terms of Use" с inline-ссылками на `/legal/privacy`
+    и `/legal/terms`. Submit заблокирован пока не отмечено.
+[ ] Страницы `/legal/privacy` и `/legal/terms` — статичные React-
+    компоненты с markdown-рендером текста. Можно загружать с
+    `GET /api/legal/privacy-policy` или хранить как импорт
+    `import privacyText from './privacy-policy-v1.md?raw'`.
+[ ] Если backend отдаёт HasOutdatedAcceptance → modal на любой
+    странице "Мы обновили правила, прочитайте и подтвердите".
+    Блокирующий, без X.
+[ ] Footer на всех страницах с ссылками на legal-документы +
+    "© 2026 Где Они" + contact email.
+
+Tests:
+
+[ ] Submit на /register заблокирован при некотировании.
+[ ] Submit разблокирован при обоих чекбоксах.
+
+---------------------------------------------------------------------
+F25. Crash reporting (web)
+---------------------------------------------------------------------
+
+Закрывает D21 на web.
+
+[ ] `@sentry/react` SDK. Init в `main.tsx`:
+    ```ts
+    Sentry.init({
+      dsn: import.meta.env.VITE_SENTRY_DSN,
+      environment: import.meta.env.MODE,
+      release: import.meta.env.VITE_APP_VERSION,
+      tracesSampleRate: 0.1,
+    });
+    ```
+[ ] `<Sentry.ErrorBoundary>` обёртка App-уровня + fallback UI.
+[ ] axios interceptor (response error) → `Sentry.captureException`.
+[ ] При логине — `Sentry.setUser({ id: user.id, email: user.email })`.
+[ ] При logout — `Sentry.setUser(null)`.
+
+Privacy: Sentry поддерживает scrub PII; настроить чтобы не уходили
+email/имена в breadcrumbs. Или вообще не отправлять `setUser({ email })`
+— только `id`.
+
+---------------------------------------------------------------------
+F26. CI/CD pipeline (web)
+---------------------------------------------------------------------
+
+`.github/workflows/web-ci.yml`:
+
+[ ] On `push` / `pull_request`:
+    1. checkout, setup-node 20.
+    2. `npm ci`.
+    3. `npm run typecheck` (tsc --noEmit).
+    4. `npm run lint`.
+    5. `npm test`.
+    6. `npm run build` (Vite production build).
+[ ] On `push` tag `web-vX.Y.Z`:
+    7. Deploy в S3 / Vercel / Netlify (TBD по выбранному хостингу).
+    8. Invalidate CloudFront / CDN cache.
+
+=====================================================================
+КОНЕЦ F-PROD. ОБЩИЙ ОБЗОР WEB: F1-F20 запланировано, F22-F26
+запланировано как production-обвязка.
+=====================================================================
+
+=====================================================================
+H. UNRESOLVED QUESTIONS (открытые вопросы перед прод-релизом)
+=====================================================================
+
+Решения, которые надо принять ДО запуска в продакшен, но они не
+блокируют текущую разработку. Зафиксированы здесь, чтобы не
+забыть.
+
+H1. Условия активации подписки (для D16/D17):
+
+Решено (2026-05-14): подписка единая на всё приложение, нет
+per-feature gates. Остаются конкретные параметры:
+
+[ ] Когда включаем SubscriptionEnabled=true в проде? Сразу с запуском
+    или сначала open-beta период без оплаты для накопления базы?
+[x] Trial-период: первый месяц бесплатно при регистрации.
+    Решено 2026-05-14: автоматически выставляется `Status=Trial`
+    + `ExpiresAtUtc = now + 30 days` в `RegisterUserUseCase`.
+    Длительность настраивается через `SubscriptionOptions.TrialDuration`
+    (default 30 дней). HasActiveSubscription включает Trial.
+[ ] Grace-period после истечения (GracePeriodDaysAfterExpiry в
+    FeatureFlags): сколько дней ещё пускать после ExpiresAtUtc, на
+    случай задержки списания или временной недоступности webhook'а.
+    Дефолт 0 = жёстко по дате; рекомендация: 1-3 дня.
+
+H2. Цены подписки (для SubscriptionOptions):
+
+[ ] MonthlyPriceRub, YearlyPriceRub.
+[ ] Скидка Yearly vs 12×Monthly (обычно ~30-40%).
+[ ] Currency — RUB сейчас, USD/EUR — отдельная задача (multi-currency).
+
+H3. YooKassa юр-лицо:
+
+[ ] ИП или ООО оформлено? ShopId и SecretKey получены?
+[ ] Договор с YooKassa подписан (нужен расчётный счёт)?
+[ ] Test-режим: YooKassa выдаёт тестовый ShopId — можно начать
+    интеграцию до получения боевых ключей.
+
+H4. Распространение приложения:
+
+[ ] Google Play Console аккаунт ($25 разово). Без него только
+    sideload APK.
+[ ] iOS — делаем или нет? Если да — AppStore Connect ($99/год)
+    и переписывание MAUI-кода на iOS-таргет. Решение влияет на
+    архитектуру D18 (нужен ещё APNs наряду с FCM).
+[ ] RuStore / Huawei AppGallery — отдельные публикации (Google в
+    РФ ограничен).
+
+H5. Хостинг backend:
+
+[ ] VPS (Hetzner / Selectel / TimeWeb) или managed (Yandex Cloud,
+    VK Cloud)? PostgreSQL managed или self-hosted?
+[ ] Domain (gdeoni.ru / .com / .app)?
+[ ] SSL — Let's Encrypt или Yandex Certificate Manager?
+[ ] CDN для медиа (MinIO behind proxy или S3-совместимый
+    Yandex Object Storage)?
+
+H6. Backup / DR:
+
+[ ] PostgreSQL backups — частота, retention, проверка восстановления.
+[ ] MinIO objects — реплика на S3 или другой регион.
+
+H7. Privacy Policy / Terms (для D19):
+
+[ ] Текст Privacy Policy готов? (Шаблон + юр-консультация.)
+[ ] Текст Terms of Use готов?
+[ ] Какие данные хранятся об умерших — это особый кейс по 152-ФЗ
+    (умершие — не субъекты ПД, но фото/биография может содержать
+    ПД родственников). Юр-консультация по объёму согласий.
+
+H8. Monetization открытых вопросов:
+
+[ ] Бесплатная версия с рекламой — НЕТ (продукт ритуальной тематики,
+    реклама неуместна).
+[ ] Donations кнопка (помимо подписки) — отложено до факта спроса.
+[ ] Подарочные подписки (купить родителю) — отложено.
+
+H9. Аналитика:
+
+[ ] Метрики продукта (Yandex Metrika? Plausible? PostHog?). Что
+    мерим: DAU, retention D1/D7, conversion в подписку.
+[ ] Без аналитики невозможно понять, какая фича драйвит подписку
+    — но GDPR/152-ФЗ требуют согласия на трекинг, см. H7.
+
+H10. i18n:
+
+[ ] Сейчас всё на русском. Если планируется хоть один язык —
+    закладывать `.resx` / `i18next` сразу, миграция UI-строк позже
+    в десятки раз дороже.
+
+H11. Onboarding-тур (mobile):
+
+[ ] Первый запуск — три-четыре экрана объясняют ключевые сценарии
+    ("Добавить умершего у могилы", "Маршрут", "Поиск рядом").
+    Отложено до факта необходимости (можно поправить если будут
+    жалобы "ничего не понятно").
+
+=====================================================================
+G. SECURITY RULES
+=====================================================================
+
+G1. userId брать только из JWT.
+
+G2. Не принимать userId из body, query или route для пользовательских операций.
+
+G3. Все пользовательские endpoints делать через /me.
+
+G4. Проверки прав делать в use case, а не только через атрибуты контроллера.
+
+G5. Координаты от смартфона хранить вместе с AccuracyMeters.
+
+G6. Не считать GPS абсолютно точным.
+
+G7. Загружаемые файлы проверять по:
 - MIME;
 - extension;
 - size;
 - magic numbers, если возможно.
 
-F8. Документы не делать public.
+G8. Документы не делать public.
 
-F9. Фото можно сделать public read.
+G9. Фото можно сделать public read.
 
-F10. Refresh token хранить только как hash.
+G10. Refresh token хранить только как hash.
 
-F11. Plain refresh token не хранить в БД.
+G11. Plain refresh token не хранить в БД.
 
-F12. Secrets не хранить в git.
+G12. Secrets не хранить в git.
 
-F13. Бизнес-ошибки не должны возвращать 500.
+G13. Бизнес-ошибки не должны возвращать 500.
 
-F14. 401 использовать для неавторизованных.
+G14. 401 использовать для неавторизованных.
 
-F15. 403 использовать для запрета доступа.
+G15. 403 использовать для запрета доступа.
 
-F16. 409 использовать для конфликтов.
+G16. 409 использовать для конфликтов.
 
 =====================================================================
-G. ПОРЯДОК PR
+H. ПОРЯДОК PR
 =====================================================================
 
-G1. PR-001: Docs + CORS + /me
+H1. PR-001: Docs + CORS + /me
 
 Сделать:
 
@@ -5485,7 +9314,7 @@ G1. PR-001: Docs + CORS + /me
 
 ---------------------------------------------------------------------
 
-G2. PR-002: Seed admin + secrets cleanup
+H2. PR-002: Seed admin + secrets cleanup
 
 Сделать:
 
@@ -5496,7 +9325,7 @@ G2. PR-002: Seed admin + secrets cleanup
 
 ---------------------------------------------------------------------
 
-G3. PR-003: Refresh tokens
+H3. PR-003: Refresh tokens
 
 Сделать:
 
@@ -5508,7 +9337,7 @@ G3. PR-003: Refresh tokens
 
 ---------------------------------------------------------------------
 
-G4. PR-004: Optional BurialLocation
+H4. PR-004: Optional BurialLocation
 
 Сделать:
 
@@ -5521,7 +9350,7 @@ G4. PR-004: Optional BurialLocation
 
 ---------------------------------------------------------------------
 
-G5. PR-005: AddDeceasedAtGrave
+H5. PR-005: AddDeceasedAtGrave
 
 Сделать:
 
@@ -5533,7 +9362,7 @@ G5. PR-005: AddDeceasedAtGrave
 
 ---------------------------------------------------------------------
 
-G6. PR-006: MeTrackedDeceased API
+H6. PR-006: MeTrackedDeceased API
 
 Сделать:
 
@@ -5546,7 +9375,7 @@ G6. PR-006: MeTrackedDeceased API
 
 ---------------------------------------------------------------------
 
-G7. PR-007: IFileStorage + MinIO
+H7. PR-007: IFileStorage + MinIO
 
 Сделать:
 
@@ -5558,7 +9387,7 @@ G7. PR-007: IFileStorage + MinIO
 
 ---------------------------------------------------------------------
 
-G8. PR-008: DeceasedMedia
+H8. PR-008: DeceasedMedia
 
 Сделать:
 
@@ -5570,7 +9399,7 @@ G8. PR-008: DeceasedMedia
 
 ---------------------------------------------------------------------
 
-G9. PR-009: Media API
+H9. PR-009: Media API
 
 Сделать:
 
@@ -5583,7 +9412,7 @@ G9. PR-009: Media API
 
 ---------------------------------------------------------------------
 
-G10. PR-010: Route API
+H10. PR-010: Route API
 
 Сделать:
 
@@ -5597,7 +9426,7 @@ G10. PR-010: Route API
 
 ---------------------------------------------------------------------
 
-G11. PR-011: Tests
+H11. PR-011: Tests
 
 Сделать:
 
@@ -5609,15 +9438,30 @@ G11. PR-011: Tests
 
 ---------------------------------------------------------------------
 
-G12. PR-012: Frontend start
+H12. PR-012: Android app start (раздел E)
 
-Начинать только после зелёного backend.
+Начинать только после зелёного backend и закрытия D11.
+
+Сделать:
+
+- создать solution-папку frontend/mobile/GdeOni.Mobile;
+- собрать каркас MAUI Android (E1-E2);
+- завести облачную дизайн-систему (E3);
+- подключить HttpClient + AuthHandler (E4);
+- закрыть Auth flow (E5);
+- запустить debug-сборку на эмуляторе.
+
+---------------------------------------------------------------------
+
+H13. PR-013: Web frontend start (раздел F)
+
+Начинать только после E16 (Android-приложение в demo-готовности).
 
 =====================================================================
-H. ЧТО НЕ ДЕЛАЕМ СЕЙЧАС
+I. ЧТО НЕ ДЕЛАЕМ СЕЙЧАС
 =====================================================================
 
-H1. OCR фото памятника.
+I1. OCR фото памятника.
 
 Почему не сейчас:
 
@@ -5630,16 +9474,17 @@ H1. OCR фото памятника.
 
 ---------------------------------------------------------------------
 
-H2. Push notifications.
+I2. Push notifications.
 
 Почему не сейчас:
 
 Сначала нужно реализовать базовый сценарий.
-Push-уведомления требуют отдельной инфраструктуры.
+Push-уведомления требуют отдельной инфраструктуры
+(FCM на Android отдельным этапом после E16).
 
 ---------------------------------------------------------------------
 
-H3. Email notifications.
+I3. Email notifications.
 
 Почему не сейчас:
 
@@ -5651,7 +9496,7 @@ H3. Email notifications.
 
 ---------------------------------------------------------------------
 
-H4. PostGIS.
+I4. PostGIS.
 
 Почему не сейчас:
 
@@ -5663,7 +9508,7 @@ PostGIS можно добавить позже для:
 
 ---------------------------------------------------------------------
 
-H5. CDN.
+I5. CDN.
 
 Почему не сейчас:
 
@@ -5672,7 +9517,7 @@ CDN понадобится позже для production-нагрузки.
 
 ---------------------------------------------------------------------
 
-H6. Антивирус.
+I6. Антивирус.
 
 Почему не сейчас:
 
@@ -5681,7 +9526,7 @@ H6. Антивирус.
 
 ---------------------------------------------------------------------
 
-H7. Оптимизация изображений.
+I7. Оптимизация изображений.
 
 Почему не сейчас:
 
@@ -5690,16 +9535,18 @@ H7. Оптимизация изображений.
 
 ---------------------------------------------------------------------
 
-H8. Mobile app.
+I8. iOS-сборка приложения.
 
 Почему не сейчас:
 
-Сначала делаем web frontend.
-Смартфон уже может отдавать GPS через browser geolocation.
+На старте мобильного клиента (раздел E) делаем только
+net10.0-android. iOS требует Mac, Apple Developer аккаунта
+и отдельного цикла публикации. Откроем после стабилизации
+Android-версии и появления спроса.
 
 ---------------------------------------------------------------------
 
-H9. Сложная админка.
+I9. Сложная админка.
 
 Почему не сейчас:
 
@@ -5708,7 +9555,7 @@ H9. Сложная админка.
 
 ---------------------------------------------------------------------
 
-H10. Импорт из внешних реестров.
+I10. Импорт из внешних реестров.
 
 Почему не сейчас:
 
@@ -5716,7 +9563,7 @@ H10. Импорт из внешних реестров.
 
 ---------------------------------------------------------------------
 
-H11. Full-text search.
+I11. Full-text search.
 
 Почему не сейчас:
 
@@ -5725,26 +9572,28 @@ PostgreSQL full-text можно добавить позже.
 
 ---------------------------------------------------------------------
 
-H12. Production deploy.
+I12. Production deploy.
 
 Почему не сейчас:
 
-Сначала нужно завершить backend и тесты.
+Сначала нужно завершить backend, Android-приложение и тесты.
 
 ---------------------------------------------------------------------
 
-H13. httpOnly cookie refresh token.
+I13. httpOnly cookie refresh token (web).
 
 Почему не сейчас:
 
-Для MVP можно начать с simpler token flow.
-Позже перейти на httpOnly cookie для лучшей безопасности.
+Для MVP web frontend (раздел F) можно начать с simpler
+token flow. Позже перейти на httpOnly cookie для лучшей
+безопасности. На Android вопрос не стоит — там SecureStorage.
 
 =====================================================================
-I. ФИНАЛЬНЫЙ КРИТЕРИЙ ГОТОВНОСТИ
+J. ФИНАЛЬНЫЙ КРИТЕРИЙ ГОТОВНОСТИ
 =====================================================================
 
-Backend считается готовым для перехода к frontend, если:
+Backend считается готовым для перехода к Android-приложению (раздел E)
+и web-фронтенду (раздел F), если:
 
 [ ] Работает регистрация.
 [ ] Работает логин.
@@ -5779,4 +9628,5 @@ Backend считается готовым для перехода к frontend, �
 [ ] Integration tests проходят.
 [ ] dotnet test backend.sln зелёный.
 
-После выполнения всех пунктов можно начинать frontend.
+После выполнения всех пунктов можно начинать раздел E (Android),
+а затем — F (web-фронтенд).
