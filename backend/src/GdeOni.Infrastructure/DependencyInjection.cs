@@ -76,13 +76,35 @@ public static class DependencyInjection
             configuration.GetSection(FeatureFlagsOptions.SectionName));
         services.AddSingleton<IFeatureFlagService, OptionsFeatureFlagService>();
 
-        // D16. Subscription opts + платёжный провайдер. Реальный
-        // YooKassaPaymentProvider подключается в D16.3 при наличии
-        // секции YooKassa в appsettings; сейчас — FakePaymentProvider
-        // как дефолт для dev / integration-тестов.
+        // D16. Subscription opts + платёжный провайдер.
         services.Configure<SubscriptionOptions>(
             configuration.GetSection(SubscriptionOptions.SectionName));
-        services.AddSingleton<IPaymentProvider, FakePaymentProvider>();
+        services.Configure<YooKassaOptions>(
+            configuration.GetSection(YooKassaOptions.SectionName));
+
+        // Выбор провайдера откладываем до resolution: на момент вызова
+        // AddInfrastructure() configuration может быть ещё не полностью
+        // собрана (в WebApplicationFactory ConfigureAppConfiguration
+        // выполняется ПОСЛЕ AddInfrastructure). Поэтому регистрируем
+        // обе реализации и решаем в factory через IOptions snapshot.
+        services.AddSingleton<FakePaymentProvider>();
+        services.AddHttpClient<YooKassaPaymentProvider>((sp, http) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<YooKassaOptions>>().Value;
+            YooKassaPaymentProvider.ConfigureClient(http, opts);
+        });
+
+        // Scoped — иначе AddHttpClient<TClient> (Transient через
+        // HttpClientFactory) попадёт в Singleton, что нарушает
+        // правила и фиксирует один HttpClient на всё приложение
+        // (важно для DNS-balancing).
+        services.AddScoped<IPaymentProvider>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<YooKassaOptions>>().Value;
+            return opts.IsConfigured
+                ? sp.GetRequiredService<YooKassaPaymentProvider>()
+                : sp.GetRequiredService<FakePaymentProvider>();
+        });
 
         services.AddSingleton<IMinioClient>(sp =>
         {
