@@ -5542,10 +5542,26 @@ D-PROD. PRODUCTION & MONETIZATION FOUNDATION (D16-D21)
 Порядок реализации (рекомендация — снизу вверх по зависимостям):
   1. D17 Версионность + feature flags  → инфра для feature-gate;
   2. D16 Подписка (модель + заглушка)  → единый guard через AuthorizationPolicy;
-  3. D19 Privacy / 152-ФЗ              → обязательно перед публикацией;
-  4. D20 CI/CD                         → нужно ДО первого релиза;
-  5. D21 Crash reporting               → видимость прод-падений;
-  6. D14 → D18 Push                    → последний, требует FCM-аккаунт.
+  3. D17.2 Force-update (раз не Play)  → блокирующий апдейт против /api/app/version;
+  4. D19 Privacy / 152-ФЗ              → обязательно перед публикацией (РФ-закон);
+  5. D20 CI/CD                         → нужно ДО первого релиза;
+  6. D21 Crash reporting (Sentry)      → видимость прод-падений;
+  7. D18 Локальные напоминания         → клиент сам планирует через WorkManager;
+                                          бэк ничего не шлёт, FCM не нужен.
+
+Решение 2026-05-19: распространение Android-приложения через
+собственный сайт (sideload APK), без Google Play Console. Это
+влияет на план:
+  - D20 не пушит в Play Store — артефакт APK кладём на сайт +
+    GitHub Release.
+  - D17 force-update flow становится критичным (нет автообновления
+    через Store).
+  - D18 не использует FCM — серверные пуши не нужны, годовщины
+    клиент планирует локально через WorkManager / AlarmManager.
+  - D21 на mobile = Sentry .NET (sentry-maui), а не Firebase
+    Crashlytics — чтобы не тащить google-services.json.
+  - iOS не делаем сейчас (см. H4). Делаем заготовку: код абстракций
+    кросс-платформенный, конкретные реализации только для Android.
 
 Все D-секции этого блока на момент написания плана — [ ] (не
 реализованы). Они задают архитектуру; реализация — отдельными
@@ -6028,76 +6044,136 @@ D17.1. Реализовано — 2026-05-14
     (1.0.0/1.0.0/false/0), что и нужно для local-dev.
 
 ---------------------------------------------------------------------
-D18. Push-уведомления (FCM, отложено за контракт)
+D17.2. Force-update flow (для sideload-распространения)
 ---------------------------------------------------------------------
 
-Цель: уведомлять юзера на годовщины смерти/рождения отслеживаемых
-карточек. Бизнес-логика "когда слать" уже частично есть в DTO
-TrackedDeceased (NotifyOnBirthAnniversary / NotifyOnDeathAnniversary),
-не хватает (а) хранения FCM-токена устройства, (б) фонового job'а,
-(в) FCM-провайдера.
+Решение 2026-05-19: распространяем APK через сайт, без Play Store.
+Поэтому need-to-update обнаруживается клиентом самостоятельно через
+`GET /api/app/version` и блокирующий экран обновления (см. E22
+BlockingUpdatePage).
 
-Domain:
+Backend (минимум, всё уже есть в D17.1):
 
-- Новый owned value-object `NotificationPreferences` на User:
-  `FcmToken (string?)`, `DeviceRegisteredAtUtc (DateTime?)`. Один
-  пользователь = одно устройство в MVP. Multi-device — отдельная
-  фича (`UserDevice` aggregate потом).
-- `User.RegisterDevice(fcmToken, nowUtc)` → перезаписывает токен,
-  обновляет DeviceRegisteredAtUtc.
-- `User.UnregisterDevice()` → null.
+- `GET /api/app/version` отдаёт `MinSupportedVersion`,
+  `LatestVersion`, `DownloadUrl`, `ForceUpdateMessage`. AllowAnonymous.
+- При мажорном breaking-change бэка (например, поменялся контракт
+  /auth/login) — поднимаем `MinSupportedVersion` в appsettings →
+  старые клиенты автоматом упираются в BlockingUpdatePage.
+- При патч/минор обновлении (UI-фиксы, новые фичи) — поднимаем
+  `LatestVersion`, `MinSupportedVersion` остаётся прежней → юзер
+  видит мягкий баннер.
 
-Application + Infrastructure:
+Что в семантике версии:
+- breaking-change = bumping MinSupportedVersion (force update);
+- backward-compat = bumping только LatestVersion (soft hint);
+- security-fix client-side = bumping MinSupportedVersion (force).
 
-- `IPushNotificationProvider` (Application.Abstractions.Notifications):
-  `Task<UnitResult<Error>> SendAsync(string fcmToken, PushPayload payload, ct)`.
-- Реализация `FirebasePushNotificationProvider` — HTTP-вызов FCM
-  v1 API через service account. Service account JSON хранится в
-  user-secrets / k8s secret, читается через `FcmOptions.CredentialsPath`.
-- `Hosted/AnniversaryNotificationJob` — `BackgroundService`,
-  просыпается каждый час (или раз в сутки в 09:00 локального
-  времени юзера — потребует TimeZone в Profile). Запрашивает все
-  TrackedDeceased где сегодня (UTC) день годовщины и
-  Notify*Anniversary=true, шлёт push'и по парам (user, deceased).
-- Idempotency: чтобы не послать дважды при рестарте — таблица
-  `notification_log(user_id, deceased_id, anniversary_kind,
-  sent_at_utc)` с unique-индексом `(user_id, deceased_id,
-  anniversary_kind, date(sent_at_utc))`.
+Контракт `DownloadUrl`:
 
-API:
+- Указывает на статичную страницу `https://gdeoni.ru/download` где
+  у юзера всегда доступен `latest.apk` и список предыдущих версий.
+- Не прямая ссылка на APK — нужно дать юзеру инструкцию "разрешите
+  unknown sources" + кнопку скачать. Прямая ссылка может скачивать
+  файл моментально, и юзер на старом Android может не понять как
+  установить.
 
-- `[Authorize] PUT /api/users/me/notification-preferences` →
-  body `{ fcmToken }`. Mobile вызывает после получения FCM-токена
-  у Firebase SDK (E23).
-- `[Authorize] DELETE /api/users/me/notification-preferences` →
-  при logout.
+`ForceUpdateMessage`:
 
-Migration:
+- Опциональное человекочитаемое описание ("Критическое
+  обновление безопасности — установите для продолжения").
+  Показывается на BlockingUpdatePage. На soft-banner используется
+  фиксированный текст "Доступно обновление".
 
-[ ] AddNotificationPreferencesToUsers — fcm_token, device_registered_at_utc.
-[ ] CreateNotificationLog — таблица notification_log с unique-индексом.
+Что НЕ делаем:
 
-Tests:
+- Дельта-апдейты / patches — простой full-APK download достаточен.
+- Background download — APK скачивается через системный браузер.
+- Анализ canary версии / gradual rollout — пока что нет масштаба
+  для статистически значимых A/B. Если понадобится — добавим
+  поле `RolloutPercent` в `AppVersionResponse`.
 
-[ ] Domain: RegisterDevice перезаписывает токен.
-[ ] Application: AnniversaryNotificationJob выбирает только сегодняшние
-    годовщины и только включённые флаги.
-[ ] Application: при повторном запуске job'а в тот же день — повторно
-    не шлёт (idempotency по notification_log).
+Tests: backend-тесты уже покрыты D17.1 (AppEndpointsTests). Mobile
+часть закрывается в E22 BlockingUpdatePage.
 
-Что НЕ делаем сейчас:
+Реализация:
 
-- iOS APNs (нет iOS-клиента).
-- Web push notifications (PWA) — отдельная задача в F23.
-- In-app notifications (Bell-иконка с историей).
-- Push на новое воспоминание / фото — отдельный feature после MVP.
+[ ] Mobile BlockingUpdatePage — см. E22 (уже описано).
+[ ] Поднять `MinSupportedVersion`/`LatestVersion` в appsettings
+    при каждом релизе → задачами D20 (CI/CD).
+[ ] Раздел `/download` на сайте gdeoni.ru с FAQ "как разрешить
+    установку из неизвестных источников" — задача F-блока.
+
+---------------------------------------------------------------------
+D18. Напоминания о годовщинах (только локально, без FCM)
+---------------------------------------------------------------------
+
+Решение 2026-05-19: единственный сценарий уведомлений в MVP —
+годовщины смерти/рождения отслеживаемых умерших. Дата известна
+клиенту в момент подписки → клиент сам планирует локальные
+notifications через WorkManager / AlarmManager. Сервер ничего не
+шлёт. Это убирает целиком зависимость от Firebase / FCM / Google
+Play Services.
+
+Зачем не FCM:
+- Распространение через сайт (sideload APK) → у части устройств
+  может не быть Google Play Services → FCM не доставит push.
+- Серверных событийных пушей в MVP не планируется ("кто-то
+  добавил воспоминание", "новый трекер" — после MVP).
+- Локальные нотификации работают офлайн, не зависят от устройства,
+  не требуют FCM-аккаунта, google-services.json, разрешения юзера
+  на сервер-сайд токен.
+
+Backend (что НЕ делаем):
+
+- Никаких NotificationPreferences VO на User.
+- Никаких FCM-токенов в БД.
+- Никаких IPushNotificationProvider / FirebasePushNotificationProvider.
+- Никаких BackgroundService / AnniversaryNotificationJob.
+- Никаких notification_log таблиц.
+- Никаких эндпоинтов `/api/users/me/notification-preferences`.
+
+Backend (что ДА делаем — минимально):
+
+- В DTO `TrackedDeceasedDto` уже отдаются необходимые поля для
+  планирования напоминаний на клиенте:
+  - `NotifyOnBirthAnniversary` (bool) — флаг включения;
+  - `NotifyOnDeathAnniversary` (bool) — флаг включения;
+  - `Deceased.BirthDate`, `Deceased.DeathDate` — даты годовщин;
+  - `Deceased.FullName` — для тела уведомления.
+- При изменении даты смерти/рождения через
+  `UpdateDeceasedMainInfo` клиент обязан перепланировать
+  уведомление при следующей синхронизации (см. E23).
+- При unsubscribe (`DELETE /api/users/me/tracked-deceased/{id}`)
+  клиент отменяет запланированные WorkManager-таски (см. E23).
+
+Migration: не нужна (нет новых полей).
+
+Tests: backend не тестируется — нет нового кода. Поведение
+покрывается клиентской частью (E23 mobile-тесты на WorkManager).
+
+Что НЕ делаем сейчас (отложено за MVP):
+
+- Серверные событийные пуши (новое воспоминание, фото на
+  отслеживаемой карточке). Появятся когда понадобится → тогда
+  добавим FCM-токен на User и одну отдельную таблицу device_token.
+- iOS-пуши APNs (iOS-клиента нет, см. H4 / I8).
+- Web push notifications (PWA) — отдельная задача F23, отложена.
+- In-app notification center (Bell-иконка с историей).
+
+Если в будущем понадобится серверный push: добавляем `IPushSender`
++ `device_tokens` таблицу + `RegisterDeviceCommand` в виде
+отдельного D-пункта. Текущее решение этому не мешает — никакая
+доменная модель не блокируется.
 
 ---------------------------------------------------------------------
 D19. Privacy Policy / Terms of Use / 152-ФЗ
 ---------------------------------------------------------------------
 
-Обязательно перед публикацией в Google Play и для соответствия
-российскому законодательству о персональных данных (152-ФЗ).
+Обязательно ДО публикации (даже при распространении через сайт)
+для соответствия российскому законодательству о персональных
+данных (152-ФЗ). Google Play не требуется — мы не публикуемся в
+Store (решение 2026-05-19), но 152-ФЗ применяется к любому
+обработчику ПД в РФ независимо от канала дистрибуции.
 
 Domain:
 
@@ -6165,10 +6241,24 @@ Mobile (`.github/workflows/mobile-ci.yml`):
     2. `dotnet test frontend/mobile/GdeOni.Mobile.Tests --no-restore`.
 [ ] On `push` tag `mobile-vX.Y.Z`:
     3. `dotnet publish frontend/mobile/GdeOni.Mobile -c Release
-        -f net10.0-android`.
-    4. Подпись APK keystore'ом (хранится в GitHub Secrets).
-    5. Upload в Google Play Console через `gradle-play-publisher`
-        или `fastlane supply`.
+        -f net10.0-android` → собирает signed APK
+        (`AndroidSigningKeyStore` + `AndroidSigningKeyPass`
+        из GitHub Secrets).
+    4. `gh release create mobile-vX.Y.Z app-release.apk` —
+        прикрепляем APK как artefact GitHub Release.
+    5. (Опционально) Upload APK на gdeoni.ru через SCP /
+        S3-совместимое API; обновить ссылку `latest.apk` →
+        новый файл. На сайте раздел `/download` отдаёт всегда
+        `latest.apk` + список предыдущих версий.
+    6. Параллельно обновить `appsettings.json` на бэке
+        (AppVersion:LatestVersion → новая версия) и задеплоить
+        конфиг — клиенты в течение часа подтянут soft-баннер.
+        При мажорном breaking change — также бампнуть
+        MinSupportedVersion для force-update.
+
+Решение 2026-05-19: распространение через собственный сайт,
+не через Google Play. Никаких `gradle-play-publisher` /
+`fastlane supply` / Play Console API.
 
 Что НЕ делаем сейчас:
 
@@ -6197,11 +6287,18 @@ Backend:
 
 Mobile:
 
-[ ] Firebase Crashlytics SDK подключение в MauiProgram.
-    google-services.json — в Platforms/Android (gitignored, в Play
-    Console secret).
-[ ] Логирование handled exceptions через
-    `Crashlytics.RecordException` в `try/catch` ключевых VM.
+[ ] `Sentry.Maui` NuGet — Sentry SDK для MAUI. DSN из
+    `appsettings.json` (через mobile-side `IConfiguration`) или из
+    BuildConfig. Решение 2026-05-19: используем Sentry, не
+    Firebase Crashlytics — не публикуемся в Play Store, нет смысла
+    тянуть google-services.json.
+[ ] `MauiProgram.CreateMauiApp()` —
+    `builder.UseSentry(options => { options.Dsn = ...;
+    options.SendDefaultPii = false; })`.
+[ ] После логина — `SentrySdk.ConfigureScope(s =>
+    s.User = new User { Id = userId.ToString() });`. БЕЗ email.
+[ ] Try/catch в ключевых VM (Submit, Save, Upload) — кроме
+    user-facing error message, ещё `SentrySdk.CaptureException(ex)`.
 
 Web:
 
@@ -7331,9 +7428,10 @@ push'ей, согласия с PD, crash-reporting. Реализация — н�
 
 Порядок (зеркало D-PROD):
   1. E22 версионность + feature flags + Subscription UI
-  2. E24 Privacy onboarding (требуется до публикации)
-  3. E25 Crash reporting (Firebase Crashlytics)
-  4. E23 Push (последний — нужен FCM-аккаунт)
+     (с блокирующим update-prompt — нет Play Store)
+  2. E24 Privacy onboarding (требуется ДО публикации — 152-ФЗ)
+  3. E25 Crash reporting (Sentry .NET / sentry-maui)
+  4. E23 Локальные напоминания (WorkManager, без FCM)
 
 ---------------------------------------------------------------------
 E22. Версионность, feature flags, подписка (mobile)
@@ -7374,10 +7472,17 @@ ViewModels + Pages:
 
 [ ] `App.OnStart` (или AppShell.OnAppearing): сразу после Splash —
     `GetVersionAsync`. Если `currentVersion < minSupportedVersion` →
-    `BlockingUpdatePage` (модальная страница с ссылкой на
-    DownloadUrl, кнопка "Обновить", без "Назад"). Иначе если
-    `currentVersion < latestVersion` → soft banner на главной
-    "Доступна новая версия — обновитесь в Play Market".
+    `BlockingUpdatePage` (модальная страница с описанием изменений
+    и кнопкой "Скачать обновление" → `Launcher.OpenAsync(DownloadUrl)`,
+    открывающая страницу на gdeoni.ru с APK; без "Назад", без
+    "Пропустить"). Иначе если `currentVersion < latestVersion` →
+    soft banner на главной "Доступна новая версия — скачайте
+    обновление на сайте".
+    Решение 2026-05-19: распространение через сайт (не Play Store),
+    поэтому юзер скачивает APK вручную с gdeoni.ru/download. В
+    BlockingUpdatePage добавляем краткую инструкцию "Разрешите
+    установку из неизвестных источников" (для пользователей,
+    которые делают это в первый раз).
 [ ] `IFeatureFlagService` (mobile-side cache): после логина зовёт
     `GetFeaturesAsync`, кеширует на сессию. Используется в App-shell
     для решения "показывать paywall на старте или нет".
@@ -7438,12 +7543,16 @@ Backend по-прежнему делает гейт — это единстве�
 
 Что НЕ делаем в этой итерации:
 
-- In-app purchases (Google Play Billing) — это отдельная история и
-  Google берёт 15-30% комиссии. С YooKassa мы платим юр-лицу
-  напрямую, без посредника. Если Google потребует обязательно
-  Google Play Billing — переключимся; пока YooKassa.
+- In-app purchases (Google Play Billing) — приложение не в Play
+  Store, поэтому Google Play Billing неприменим в принципе.
+  Платежи только через YooKassa CheckoutUrl + WebView/Launcher.
+  Если когда-то решим публиковаться в Play — придётся либо
+  переходить на Google Play Billing (комиссия 15-30%), либо
+  делать "сайт-only" версию + "Play" версию с IAP отдельно.
 - Restore Purchases UI (нет IAP).
-- Trial-период UI.
+- Trial-период UI как отдельный экран — Trial показывается тем же
+  блоком "Подписка" на ProfilePage с лейблом "Пробный период"
+  + DaysUntilExpiry.
 
 Tests:
 
@@ -7451,37 +7560,104 @@ Tests:
 [ ] VM-тесты — отложены до полноценной mock-инфры (см. E17 закр).
 
 ---------------------------------------------------------------------
-E23. Push-уведомления (mobile)
+E23. Локальные напоминания о годовщинах (mobile)
 ---------------------------------------------------------------------
 
-Закрывает D18 на стороне клиента. Делаем ПОСЛЕДНИМ — требует FCM-
-аккаунта и google-services.json.
+Закрывает D18 на стороне клиента. Полностью локальная фича — без
+FCM, без google-services.json, без серверных пушей. Клиент сам
+планирует уведомления через Android WorkManager.
 
-[ ] Подключить пакет `Plugin.Firebase.CloudMessaging` (или
-    нативный AndroidX через `Microsoft.Maui.Controls` + Java
-    binding — TBD при реализации).
-[ ] Получение FCM-токена при первом запуске → `PUT
-    /api/users/me/notification-preferences { fcmToken }`.
-[ ] Обработка пришедшего push'а — открытие карточки умершего:
-    payload `{ deceasedId, kind: "birthAnniversary"|"deathAnniversary" }`.
-[ ] UI: тогл "Получать уведомления" в SubscriptionPage / ProfilePage
-    (если premium-required — гейт через E22).
-[ ] При logout — DELETE /me/notification-preferences (чистим токен
-    на сервере; локально токен переподтянется при следующем логине
-    другим юзером).
+Зачем WorkManager, а не AlarmManager:
+- WorkManager в .NET MAUI работает через `Java.Lang.IRunnable` +
+  `androidx.work.WorkManager` — пакет `Xamarin.AndroidX.Work.Runtime`
+  уже есть в MAUI workload'е.
+- Переживает перезагрузку устройства (AlarmManager — нет без
+  BOOT_COMPLETED handler'а; WorkManager сам это умеет).
+- Doze-mode дружелюбен (Android 6+).
+- Уведомления отображаются стандартным `NotificationManager`.
+
+Архитектура (kроссплатформенно, реализация только Android):
+
+[ ] `Shared/Notifications/ILocalNotificationScheduler.cs` —
+    интерфейс:
+    ```
+    Task ScheduleAnniversaryAsync(AnniversaryReminder reminder, ct);
+    Task CancelAsync(Guid deceasedId, AnniversaryKind kind, ct);
+    Task CancelAllForDeceasedAsync(Guid deceasedId, ct);
+    ```
+[ ] `Shared/Notifications/AnniversaryReminder.cs` — record:
+    `(Guid DeceasedId, string FullName, DateTime EventDate,
+       AnniversaryKind Kind)`. Kind = Birth / Death.
+[ ] `Platforms/Android/Notifications/WorkManagerScheduler.cs` —
+    Android-реализация. WorkManager.GetInstance(context).Enqueue(
+    OneTimeWorkRequest на следующую годовщину). Tag-формат:
+    `"anniv-{deceasedId}-{kind}"` — для idempotency и cancel.
+[ ] `Platforms/iOS/...` — заготовка `IosLocalNotificationScheduler`
+    через `UNUserNotificationCenter`, пустой stub пока iOS не
+    делаем (см. H4).
+[ ] `Platforms/Android/Notifications/AnniversaryNotificationWorker.cs` —
+    `androidx.work.Worker` подкласс. `DoWork()` → создаёт
+    `NotificationCompat.Builder`, кладёт intent открытия
+    DeceasedDetailsPage, после показа сразу планирует следующий
+    год (рекуррентность через self-reschedule, а не через
+    `PeriodicWorkRequest` — точные даты, не интервалы).
+
+Интеграция с TrackedDeceased flow:
+
+[ ] При первой загрузке `/api/users/me/tracked-deceased` после
+    логина — пройти по всем элементам и для каждого с
+    `NotifyOnBirthAnniversary=true` / `NotifyOnDeathAnniversary=true`
+    вызвать `ScheduleAnniversaryAsync`. WorkManager сам дедуплицирует
+    по tag, повторный вызов перезапишет ранее запланированное.
+[ ] При `Subscribe` (добавление в tracked) — сразу планируем
+    напоминания, если флаги включены.
+[ ] При `UpdateTrackedDeceased` (toggle тоггла Notify*Anniversary):
+    - выключили → `CancelAsync(deceasedId, kind)`;
+    - включили → `ScheduleAnniversaryAsync(reminder)`.
+[ ] При `Unsubscribe` — `CancelAllForDeceasedAsync(deceasedId)`.
+[ ] При изменении даты смерти/рождения на бэке (через
+    UpdateDeceasedMainInfo) — `Sync` подтянет свежие данные;
+    `ScheduleAnniversaryAsync` с тем же tag перезапишет
+    предыдущую запись.
 
 Permission:
 
-[ ] Android 13+ требует `POST_NOTIFICATIONS` permission. Запрос
-    при первом включении тоггла.
+[ ] Android 13+ требует `POST_NOTIFICATIONS` permission. Запрашиваем
+    при первом включении тоггла или при первом подписке — не на
+    splash'е (Google рекомендует контекстный запрос).
 
-Tests: VM-тесты на toggle (mock api).
+UI:
+
+[ ] Тогл "Уведомлять о годовщинах" в `TrackedDeceasedDetailsPage`
+    с двумя чекбоксами:
+    - Годовщина рождения;
+    - Годовщина смерти.
+    Дефолт обоих = true при подписке.
+[ ] В `ProfilePage` (или Settings) — мастер-toggle "Локальные
+    уведомления" с описанием "Напоминания о годовщинах будут
+    показываться даже без интернета. Сервер их не отправляет."
+
+Что НЕ делаем сейчас:
+
+- Серверные событийные пуши (нужны FCM-аккаунт).
+- iOS-реализация (есть только interface + Android-class).
+- Кастомные звуки / цвета / категории.
+- Уведомления "за день до годовщины" — пока ровно в день.
+
+Tests:
+
+[ ] VM-тест на toggle: вкл/выкл вызывает Scheduler.Schedule/Cancel
+    с правильными аргументами (через mock).
+[ ] Unit-тест на WorkManagerScheduler не пишем — требует Android
+    runtime context'а, дешевле проверить руками + Crashlytics-ом
+    в проде.
 
 ---------------------------------------------------------------------
 E24. Privacy / Terms onboarding (mobile)
 ---------------------------------------------------------------------
 
-Закрывает D19. Обязательно ДО публикации в Google Play.
+Закрывает D19. Обязательно ДО публичного релиза (152-ФЗ).
+Google Play не задействован — раздаём APK с gdeoni.ru.
 
 [ ] На `LoginPage` и `RegisterPage` — чекбоксы "Я принимаю
     Privacy Policy и Terms of Use" с inline-ссылками на тексты.
@@ -7502,13 +7678,26 @@ E25. Crash reporting (mobile)
 
 Закрывает D21 на клиенте.
 
-[ ] Подключить `Plugin.Firebase.Crashlytics` (или AppCenter,
-    решим по бюджету / удобству Console). Crashlytics бесплатен.
-[ ] `google-services.json` в `Platforms/Android` (gitignored).
-[ ] В MauiProgram.CreateMauiApp() — `FirebaseCrashlytics.SetUserId
-    (currentUserId.ToString())` после логина.
-[ ] Try/catch в ключевых VM (Submit, Save, Upload) — кроме
-    user-facing error message, ещё `Crashlytics.RecordException(ex)`.
+Решение 2026-05-19: используем Sentry (`Sentry.Maui` NuGet), не
+Firebase Crashlytics. Причины:
+- Не публикуемся в Play Store — нет смысла тянуть
+  google-services.json + Google Play Services dependency.
+- Backend уже на Sentry (D21) — один dashboard для backend и
+  mobile событий, один аккаунт.
+- `Sentry.Maui` поддерживает Android и iOS — облегчит iOS-заготовку
+  на будущее (см. H4).
+
+[ ] NuGet `Sentry.Maui`. DSN через `appsettings.json` (mobile-side
+    через `MauiProgramBuilder.Configuration` + Resources/Raw)
+    или прямо в `MauiProgram.cs`.
+[ ] `MauiProgram.CreateMauiApp()` →
+    `builder.UseSentry(options => { ... })`.
+[ ] После логина → `SentrySdk.ConfigureScope(s =>
+    s.User = new User { Id = userId.ToString() });` — БЕЗ email
+    (privacy-by-default).
+[ ] Try/catch в ключевых VM (Submit, Save, Upload) →
+    `SentrySdk.CaptureException(ex)` после user-facing error.
+[ ] При logout → `SentrySdk.ConfigureScope(s => s.User = null);`.
 
 Tests: нет (внешний SDK).
 
@@ -9176,23 +9365,25 @@ Tests (Vitest):
 F23. Web push (PWA, опционально)
 ---------------------------------------------------------------------
 
-Web push — отдельная история от FCM mobile push'ей. Используем
-`PushManager` API + VAPID-ключи + Service Worker. **Этот раздел
-отложен до факта реальной потребности** (на web юзеры обычно не
-держат вкладку открытой → push'и не доходят).
+Web push — отдельная история. На mobile уведомлений-от-сервера
+нет вообще (D18: только локальные WorkManager). Если на web
+понадобятся годовщины — придётся либо делать через PWA
++ `PushManager` API + Service Worker + VAPID-ключи (сервер шлёт
+push на регистрационный endpoint браузера), либо вообще не
+делать (на web юзеры редко держат вкладку открытой).
 
-Что нужно если делаем:
+**Решение для MVP: F23 не делаем.** Уведомления годовщин
+доступны только в mobile-приложении (E23 — локально через
+WorkManager).
+
+Что нужно если когда-то решим:
 
 [ ] `manifest.json` для PWA.
 [ ] `service-worker.ts` с обработкой `push` event.
-[ ] Регистрация подписки на стороне браузера → `PUT
-    /api/users/me/notification-preferences` с web-push subscription
-    JSON вместо FCM-токена. Backend нужно расширить — это уже
-    отдельный D-пункт (для web нужен `web-push` пакет на сервере,
-    а не FCM SDK).
-
-Решение для MVP: **F23 не делаем**. Уведомления только в mobile
-(E23) — там они работают надёжно.
+[ ] Регистрация web-push subscription → новый эндпоинт
+    `PUT /api/users/me/web-push-subscription`. Backend нужно
+    расширить пакетом `WebPush.NET` (VAPID + signed payload).
+    Это отдельный D-пункт, в текущем D18 не предусмотрено.
 
 ---------------------------------------------------------------------
 F24. Privacy / Terms onboarding (web)
@@ -9304,13 +9495,38 @@ H3. YooKassa юр-лицо:
 
 H4. Распространение приложения:
 
-[ ] Google Play Console аккаунт ($25 разово). Без него только
-    sideload APK.
-[ ] iOS — делаем или нет? Если да — AppStore Connect ($99/год)
-    и переписывание MAUI-кода на iOS-таргет. Решение влияет на
-    архитектуру D18 (нужен ещё APNs наряду с FCM).
-[ ] RuStore / Huawei AppGallery — отдельные публикации (Google в
-    РФ ограничен).
+Решено 2026-05-19: распространяем Android-приложение через
+собственный сайт gdeoni.ru — sideload APK. Не публикуемся в
+Google Play. Причины:
+- В РФ Google Play частично ограничен (платежи, ряд аккаунтов).
+- YooKassa дешевле, чем Google Play Billing (15-30% комиссии).
+- Свобода обновлений без Play Console review.
+- $25 Play Console аккаунт не требуется.
+
+Минусы (закрываем D17.2 force-update flow):
+- Нет автообновления → нужен blocking-update prompt в приложении
+  (см. E22 BlockingUpdatePage).
+- Юзер должен разрешить "Установка из неизвестных источников" —
+  одноразово, через системные настройки. Описать в FAQ на сайте.
+- Нет Play Store discovery → продвижение через сайт, SEO,
+  таргетированную рекламу.
+
+Заготовки на будущее (НЕ делаем сейчас):
+[ ] iOS клиент — отложен. AppStore Connect ($99/год), Mac
+    для билда, отдельный APNs-канал если когда-то понадобится
+    серверный push. Сейчас оставляем только interface
+    `ILocalNotificationScheduler` + Android-реализацию; iOS
+    stub-классы добавим при первом iOS-билде (см. I8).
+[ ] RuStore / Huawei AppGallery — публикация туда возможна и
+    рекомендуется после стабилизации сайта (RuStore теперь
+    обязателен для ряда российских вендоров). Откроем после
+    набора первой 1000 юзеров через сайт. Сейчас нужно учесть
+    только: чтобы APK не зависел от Google Play Services
+    runtime (FCM не используется — это уже выполнено в D18).
+[ ] Google Play Console — отложено. Если когда-то решим
+    публиковаться: придётся переходить на Google Play Billing
+    (комиссия 15-30%) либо делать "сайт"+"Play" в виде разных
+    билдов с feature-флагом.
 
 H5. Хостинг backend:
 
@@ -9576,13 +9792,24 @@ I1. OCR фото памятника.
 
 ---------------------------------------------------------------------
 
-I2. Push notifications.
+I2. Серверные push-уведомления (FCM/APNs/Web Push).
 
 Почему не сейчас:
 
-Сначала нужно реализовать базовый сценарий.
-Push-уведомления требуют отдельной инфраструктуры
-(FCM на Android отдельным этапом после E16).
+Решение 2026-05-19: в MVP на mobile уведомления о годовщинах
+планируются ЛОКАЛЬНО через WorkManager (см. D18 / E23). Это
+не "Push notifications" в традиционном понимании — сервер
+ничего не отправляет, клиент сам помнит даты годовщин.
+
+Полноценные серверные push'и (FCM на Android, APNs на iOS,
+Web Push на web) потребуются если/когда добавим событийные
+уведомления — "кто-то добавил воспоминание", "новая фотография
+на отслеживаемой карточке". На текущей стадии это излишне —
+сначала надо набрать аудиторию через сайт.
+
+Когда понадобится: добавим `IPushSender` + одну таблицу
+`device_tokens` + один эндпоинт регистрации устройства; одного
+дня реализации хватит.
 
 ---------------------------------------------------------------------
 
@@ -9643,8 +9870,29 @@ I8. iOS-сборка приложения.
 
 На старте мобильного клиента (раздел E) делаем только
 net10.0-android. iOS требует Mac, Apple Developer аккаунта
-и отдельного цикла публикации. Откроем после стабилизации
-Android-версии и появления спроса.
+($99/год) и отдельного цикла публикации в App Store.
+Откроем после стабилизации Android-версии и появления спроса.
+
+Решение 2026-05-19: код пишем кросс-платформенно (общий
+.NET MAUI shared проект + Android-only platform implementations).
+Для будущего iOS-билда сейчас оставляем заготовки:
+- `ILocalNotificationScheduler` (D18/E23) — интерфейс уже
+  кросс-платформенный; iOS-реализация (`UNUserNotificationCenter`)
+  добавится отдельным файлом без правок shared-кода.
+- `Sentry.Maui` (E25) — Sentry SDK поддерживает iOS из коробки,
+  тот же `UseSentry()` сработает.
+- Refit API-клиенты — кросс-платформенны, ничего менять не нужно.
+
+Что точно потребуется при включении iOS:
+- AppStore Connect аккаунт ($99/год).
+- Mac для билда (можно облачный — MacInCloud / MacStadium).
+- Privacy descriptions в Info.plist (NSLocationWhenInUseUsageDescription,
+  NSPhotoLibraryUsageDescription, NSCameraUsageDescription).
+- Apple Sign-In опционально (для уменьшения friction).
+- Решение про IAP: Apple требует in-app purchases для цифровых
+  подписок (комиссия 15-30%). YooKassa внешним браузером
+  технически возможна, но Apple может отклонить. Это блокирует
+  iOS-релиз до решения.
 
 ---------------------------------------------------------------------
 
