@@ -34,10 +34,10 @@ public sealed class GetDeceasedByIdUseCase(
         if (deceased is null)
             return Errors.General.NotFound("deceased", query.Id);
 
-        var canSeeAllMemories = currentUserService.IsAdmin()
-            || deceased.CreatedByUserId == currentUserIdResult.Value;
-
+        // D14: модерация воспоминаний отключена — все воспоминания видны
+        // всем. Параметр canSeeAllMemories оставлен в Result для
+        // совместимости с mapper'ом, всегда true.
         return Result.Success<GetDeceasedByIdResult, Error>(
-            new GetDeceasedByIdResult(deceased, canSeeAllMemories));
+            new GetDeceasedByIdResult(deceased, CanSeeAllMemories: true));
     }
 }

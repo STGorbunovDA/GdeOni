@@ -56,6 +56,19 @@ public sealed class UpdateMemoryUseCase(
         if (editTextResult.IsFailure)
             return editTextResult.Error;
 
+        // D14: модерация воспоминаний отключена. EditText в Domain ставит
+        // запись обратно в Pending при фактической правке (по дизайну —
+        // защита от подмены содержимого после Approve). Здесь явно
+        // возвращаем Approved, чтобы воспоминание оставалось видимым
+        // всем сразу. Если текст не менялся (no-op guard), статус уже
+        // Approved — пропускаем, чтобы не получить AlreadyApproved.
+        if (memory.ModerationStatus != ModerationStatus.Approved)
+        {
+            var approveResult = memory.Approve();
+            if (approveResult.IsFailure)
+                return approveResult.Error;
+        }
+
         await deceasedRepository.Save(cancellationToken);
 
         return Result.Success<UpdateMemoryResponse, Error>(

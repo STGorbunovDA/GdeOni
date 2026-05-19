@@ -1,5 +1,6 @@
 ﻿using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.DeceasedRecords.Queries.GetAll.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.Model;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
 using Microsoft.EntityFrameworkCore;
@@ -158,6 +159,30 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
                 (x.Name.MiddleName != null && EF.Functions.ILike(x.Name.MiddleName, $"%{search}%")));
         }
 
+        // E17.5: отдельные поля для имени/фамилии/отчества. Каждое
+        // — ILike substring. Между собой AND'ятся, т.е. передал
+        // firstName=Дмитрий + lastName=Клусевич → ищет именно такого
+        // человека, а не "хоть какого-то Дмитрия или хоть какого-то Клусевича".
+        if (!string.IsNullOrWhiteSpace(query.FirstName))
+        {
+            var firstName = $"%{query.FirstName.Trim()}%";
+            dbQuery = dbQuery.Where(x => EF.Functions.ILike(x.Name.FirstName, firstName));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.LastName))
+        {
+            var lastName = $"%{query.LastName.Trim()}%";
+            dbQuery = dbQuery.Where(x => EF.Functions.ILike(x.Name.LastName, lastName));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.MiddleName))
+        {
+            var middleName = $"%{query.MiddleName.Trim()}%";
+            dbQuery = dbQuery.Where(x =>
+                x.Name.MiddleName != null &&
+                EF.Functions.ILike(x.Name.MiddleName, middleName));
+        }
+
         if (!string.IsNullOrWhiteSpace(query.Country))
         {
             // Substring-семантика, как у Search ниже (D11.9.1): иначе
@@ -194,6 +219,19 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
             dbQuery = dbQuery.Where(x => x.CreatedAtUtc <= query.CreatedTo.Value);
         }
 
+        // Фильтры по датам жизни — точное совпадение. BirthDate в
+        // LifePeriod nullable, поэтому если в фильтре есть значение,
+        // мы исключаем карточки с null BirthDate. DeathDate всегда есть.
+        if (query.BirthDate.HasValue)
+        {
+            dbQuery = dbQuery.Where(x => x.LifePeriod.BirthDate == query.BirthDate.Value);
+        }
+
+        if (query.DeathDate.HasValue)
+        {
+            dbQuery = dbQuery.Where(x => x.LifePeriod.DeathDate == query.DeathDate.Value);
+        }
+
         var totalCount = await dbQuery.CountAsync(cancellationToken);
 
         var items = await dbQuery
@@ -203,6 +241,78 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
             .ToListAsync(cancellationToken);
 
         return (items, totalCount);
+    }
+
+    public async Task<(List<NearbyDeceasedRow> Items, int TotalCount)> GetNearby(
+        GetNearbyDeceasedQuery query,
+        CancellationToken cancellationToken)
+    {
+        // Подход: bounding box → точное haversine в памяти → радиус-фильтр.
+        //
+        // Bounding box в градусах для радиуса R метров вокруг (lat, lon):
+        //   latDelta = R / 111320                       (1° lat = ~111.32 км)
+        //   lonDelta = R / (111320 * cos(lat))          (1° lon зависит от широты)
+        //
+        // Это сужает SQL-результат до маленькой коробки → планировщик может
+        // использовать индекс на (latitude, longitude). Точное расстояние
+        // (с учётом сферы) дальше считаем в памяти через BurialLocation.
+        // DistanceTo — на отфильтрованных bbox-выборкой записях это
+        // дёшево даже без spatial-индекса.
+        //
+        // Граничные кейсы:
+        // - lat близко к полюсам (±90°): cos(lat) → 0, lonDelta → бесконечность.
+        //   Защита: clamp lonDelta до 180° — при таком радиусе нам по сути
+        //   нужна вся "линия широты", и bbox всё равно даст узкий результат.
+        // - lon ±180° (антимеридиан): bbox может "переходить" через -180/+180.
+        //   В простой версии (текущей) мы это игнорируем — карточек на
+        //   антимеридиане в обозримом будущем не будет. При необходимости
+        //   добавить OR-условие через раздел диапазона.
+        const double MetersPerDegreeLat = 111320.0;
+        var latRadians = query.Latitude * Math.PI / 180.0;
+        var cosLat = Math.Cos(latRadians);
+
+        var latDelta = query.RadiusMeters / MetersPerDegreeLat;
+        // Подстраховка от cos~0 у полюсов: минимум cosLat 0.001 → lonDelta
+        // около 90° максимум для радиуса 100м, что нас полностью устраивает.
+        var safeCosLat = Math.Max(Math.Abs(cosLat), 0.001);
+        var lonDelta = query.RadiusMeters / (MetersPerDegreeLat * safeCosLat);
+
+        var minLat = query.Latitude - latDelta;
+        var maxLat = query.Latitude + latDelta;
+        var minLon = query.Longitude - lonDelta;
+        var maxLon = query.Longitude + lonDelta;
+
+        // BurialLocation owned-тип, EF умеет фильтровать по его полям.
+        // Карточки без BurialLocation отсекаются автоматически — Latitude
+        // в owned == null означает, что owner-сторона тоже null.
+        var bboxItems = await dbContext.DeceasedRecords
+            .AsNoTracking()
+            .Where(x => x.BurialLocation != null &&
+                        x.BurialLocation.Latitude >= minLat &&
+                        x.BurialLocation.Latitude <= maxLat &&
+                        x.BurialLocation.Longitude >= minLon &&
+                        x.BurialLocation.Longitude <= maxLon)
+            .ToListAsync(cancellationToken);
+
+        var ranked = bboxItems
+            .Select(x => new
+            {
+                Deceased = x,
+                DistanceKm = x.BurialLocation!.DistanceTo(query.Latitude, query.Longitude),
+            })
+            .Where(x => x.DistanceKm * 1000.0 <= query.RadiusMeters)
+            .OrderBy(x => x.DistanceKm)
+            .ToList();
+
+        var totalCount = ranked.Count;
+
+        var page = ranked
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(x => new NearbyDeceasedRow(x.Deceased, x.DistanceKm * 1000.0))
+            .ToList();
+
+        return (page, totalCount);
     }
 
     public Task<bool> ExistsBySearchKey(string searchKey, CancellationToken cancellationToken)

@@ -72,8 +72,10 @@ public sealed class AdminIntegrationTests
     }
 
     /// <summary>
-    /// PUT /memories/{id}/approve — happy path. Pending memory →
-    /// admin одобряет → 200, ModerationStatus=Approved.
+    /// PUT /memories/{id}/approve — happy path. После D14 memory создаётся
+    /// сразу Approved, поэтому Approve "из коробки" даёт 409 AlreadyApproved.
+    /// Чтобы протестировать happy path endpoint'а — admin сначала Reject'ит
+    /// (Approved → Rejected), затем Approve (Rejected → Approved) → 200.
     /// </summary>
     [Fact]
     public async Task ApproveMemory_Admin_Returns200()
@@ -84,6 +86,12 @@ public sealed class AdminIntegrationTests
         var memoryId = await AddMemoryAsync(user.Client, deceasedId);
 
         var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
+
+        var reject = await admin.Client.PutAsJsonAsync(
+            $"/api/deceased-records/{deceasedId}/memories/{memoryId}/reject",
+            new { });
+        reject.StatusCode.Should().Be(HttpStatusCode.OK);
+
         var approve = await admin.Client.PutAsJsonAsync(
             $"/api/deceased-records/{deceasedId}/memories/{memoryId}/approve",
             new { });
@@ -92,8 +100,8 @@ public sealed class AdminIntegrationTests
     }
 
     /// <summary>
-    /// PUT /memories/{id}/reject — happy path. Pending memory →
-    /// admin отклоняет → 200, ModerationStatus=Rejected.
+    /// PUT /memories/{id}/reject — happy path. После D14 memory сразу
+    /// Approved, admin Reject'ит → 200, ModerationStatus=Rejected.
     /// </summary>
     [Fact]
     public async Task RejectMemory_Admin_Returns200()
@@ -113,7 +121,9 @@ public sealed class AdminIntegrationTests
 
     /// <summary>
     /// PUT /media/{id}/approve admin → 204 (FromUnitResult).
-    /// Pending media → Approved.
+    /// После D13 media автора карточки сразу Approved, поэтому повторный
+    /// Approve "из коробки" даст 409 AlreadyApproved. Сначала admin Reject'ит
+    /// (Approved → Rejected), затем Approve (Rejected → Approved) → 204.
     /// </summary>
     [Fact]
     public async Task ApproveMedia_Admin_Returns204()
@@ -123,6 +133,12 @@ public sealed class AdminIntegrationTests
         var mediaId = await TestSeed.UploadPhotoAsync(user.Client, deceasedId);
 
         var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
+
+        var reject = await admin.Client.PutAsJsonAsync(
+            $"/api/deceased-records/{deceasedId}/media/{mediaId}/reject",
+            new { });
+        reject.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
         var approve = await admin.Client.PutAsJsonAsync(
             $"/api/deceased-records/{deceasedId}/media/{mediaId}/approve",
             new { });

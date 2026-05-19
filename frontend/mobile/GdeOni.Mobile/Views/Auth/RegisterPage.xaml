@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Auth.RegisterPage"
+             x:DataType="vm:RegisterViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.5"
+                 WidthRequest="240"
+                 HeightRequest="130"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="80" />
+        <Ellipse Fill="White"
+                 Opacity="0.35"
+                 WidthRequest="220"
+                 HeightRequest="120"
+                 HorizontalOptions="Start"
+                 VerticalOptions="End"
+                 TranslationX="-50"
+                 TranslationY="40" />
+
+        <ScrollView>
+            <VerticalStackLayout Padding="24,60,24,40" Spacing="24">
+
+                <Label Text="Регистрация"
+                       Style="{StaticResource TitleLabel}"
+                       HorizontalOptions="Center" />
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="14">
+                        <Entry Placeholder="Email"
+                               Style="{StaticResource FormEntry}"
+                               Keyboard="Email"
+                               Text="{Binding Email}" />
+
+                        <Entry Placeholder="Имя пользователя (необязательно)"
+                               Style="{StaticResource FormEntry}"
+                               Text="{Binding UserName}" />
+
+                        <Entry Placeholder="Полное имя (необязательно)"
+                               Style="{StaticResource FormEntry}"
+                               Text="{Binding FullName}" />
+
+                        <Entry Placeholder="Пароль"
+                               Style="{StaticResource FormEntry}"
+                               IsPassword="True"
+                               Text="{Binding Password}" />
+
+                        <Entry Placeholder="Повторите пароль"
+                               Style="{StaticResource FormEntry}"
+                               IsPassword="True"
+                               Text="{Binding PasswordConfirm}" />
+
+                        <Label Text="{Binding ErrorMessage}"
+                               IsVisible="{Binding HasError}"
+                               TextColor="#C0392B"
+                               FontSize="13" />
+
+                        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                           IsVisible="{Binding IsBusy}"
+                                           Color="{StaticResource Azure}" />
+
+                        <Button Text="Зарегистрироваться"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding RegisterCommand}"
+                                IsEnabled="{Binding IsNotBusy}" />
+
+                        <Button Text="Назад ко входу"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding BackToLoginCommand}"
+                                IsEnabled="{Binding IsNotBusy}" />
+                    </VerticalStackLayout>
+                </Border>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

@@ -480,6 +480,9 @@ namespace GdeOni.Infrastructure.Migrations
 
                             b1.HasKey("DeceasedId");
 
+                            b1.HasIndex("Latitude", "Longitude")
+                                .HasDatabaseName("ix_deceased_burial_lat_lon");
+
                             b1.ToTable("deceased_records");
 
                             b1.WithOwner()

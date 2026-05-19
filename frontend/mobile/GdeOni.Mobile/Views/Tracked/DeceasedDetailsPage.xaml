@@ -1,0 +1,434 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:models="clr-namespace:GdeOni.Mobile.Services.Api.Models"
+             x:Name="Page"
+             x:Class="GdeOni.Mobile.Views.Tracked.DeceasedDetailsPage"
+             x:DataType="vm:DeceasedDetailsViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Карточка умершего">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.5"
+                 WidthRequest="240"
+                 HeightRequest="130"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="40" />
+
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="20">
+
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8"
+                        FontSize="14" />
+
+                <!-- Loader / error -->
+                <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                   IsVisible="{Binding IsBusy}"
+                                   Color="{StaticResource Azure}" />
+
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding HasError}">
+                    <Label Text="{Binding ErrorMessage}"
+                           TextColor="#C0392B"
+                           FontSize="14" />
+                </Border>
+
+                <!-- HERO -->
+                <VerticalStackLayout IsVisible="{Binding HasData}" Spacing="20">
+
+                    <VerticalStackLayout Spacing="6" HorizontalOptions="Center">
+                        <Border StrokeThickness="0"
+                                WidthRequest="96"
+                                HeightRequest="96"
+                                HorizontalOptions="Center"
+                                Margin="0,0,0,8">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="48" />
+                            </Border.StrokeShape>
+                            <Grid>
+                                <BoxView Color="{StaticResource Sky}"
+                                         IsVisible="{Binding HasNoMainPhoto}" />
+                                <Label Text="🕊"
+                                       FontSize="44"
+                                       IsVisible="{Binding HasNoMainPhoto}"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center" />
+                                <Image Source="{Binding MainPhotoUrl}"
+                                       Aspect="AspectFill"
+                                       IsVisible="{Binding HasMainPhoto}" />
+                            </Grid>
+                        </Border>
+
+                        <Label Text="{Binding FullName}"
+                               Style="{StaticResource TitleLabel}"
+                               FontSize="26"
+                               HorizontalTextAlignment="Center" />
+
+                        <Label Text="{Binding LifePeriod}"
+                               Style="{StaticResource BodyLabel}"
+                               HorizontalTextAlignment="Center"
+                               TextColor="{StaticResource AzureDeep}" />
+
+                        <Label IsVisible="{Binding IsVerified}"
+                               Text="✓ Карточка верифицирована"
+                               Style="{StaticResource CaptionLabel}"
+                               TextColor="{StaticResource Azure}"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+
+                    <!-- Короткое описание -->
+                    <Border Style="{StaticResource CloudCard}"
+                            IsVisible="{Binding HasShortDescription}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Кратко"
+                                   Style="{StaticResource SubTitleLabel}" />
+                            <Label Text="{Binding ShortDescription}"
+                                   Style="{StaticResource BodyLabel}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Биография -->
+                    <Border Style="{StaticResource CloudCard}"
+                            IsVisible="{Binding HasBiography}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Биография"
+                                   Style="{StaticResource SubTitleLabel}" />
+                            <Label Text="{Binding Biography}"
+                                   Style="{StaticResource BodyLabel}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Место захоронения -->
+                    <Border Style="{StaticResource CloudCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Место захоронения"
+                                   Style="{StaticResource SubTitleLabel}" />
+                            <Label Text="{Binding LocationText}"
+                                   Style="{StaticResource BodyLabel}" />
+                            <Label IsVisible="{Binding HasPlotInfo}"
+                                   Text="{Binding PlotInfo}"
+                                   Style="{StaticResource CaptionLabel}" />
+                            <Label Text="{Binding CoordinatesText}"
+                                   Style="{StaticResource CaptionLabel}" />
+
+                            <Button Text="Построить маршрут"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Command="{Binding BuildRouteCommand}"
+                                    IsEnabled="{Binding HasBurialLocation}"
+                                    HorizontalOptions="Fill"
+                                    Margin="0,8,0,0" />
+
+                            <Button Text="Поправить координаты"
+                                    Style="{StaticResource GhostButton}"
+                                    Command="{Binding EditCoordinatesCommand}"
+                                    HorizontalOptions="Fill" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Ваше отслеживание -->
+                    <Border Style="{StaticResource CloudCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Вы отслеживаете"
+                                   Style="{StaticResource SubTitleLabel}" />
+
+                            <Grid ColumnDefinitions="Auto,*"
+                                  ColumnSpacing="12"
+                                  RowDefinitions="Auto,Auto"
+                                  RowSpacing="4">
+                                <Label Grid.Row="0" Grid.Column="0"
+                                       Text="Отношение:"
+                                       Style="{StaticResource CaptionLabel}" />
+                                <Label Grid.Row="0" Grid.Column="1"
+                                       Text="{Binding RelationshipText}"
+                                       Style="{StaticResource BodyLabel}" />
+
+                                <Label Grid.Row="1" Grid.Column="0"
+                                       Text="Напоминания:"
+                                       Style="{StaticResource CaptionLabel}" />
+                                <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="2">
+                                    <Label IsVisible="{Binding NotifyOnDeathAnniversary}"
+                                           Text="• в день смерти"
+                                           Style="{StaticResource BodyLabel}" />
+                                    <Label IsVisible="{Binding NotifyOnBirthAnniversary}"
+                                           Text="• в день рождения"
+                                           Style="{StaticResource BodyLabel}" />
+                                </VerticalStackLayout>
+                            </Grid>
+
+                            <Border IsVisible="{Binding HasPersonalNotes}"
+                                    BackgroundColor="{StaticResource Sky}"
+                                    StrokeThickness="0"
+                                    Padding="12"
+                                    Margin="0,8,0,0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="10" />
+                                </Border.StrokeShape>
+                                <Label Text="{Binding PersonalNotes}"
+                                       Style="{StaticResource BodyLabel}" />
+                            </Border>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Воспоминания -->
+                    <Border Style="{StaticResource CloudCard}">
+                        <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Grid.Column="0"
+                                       Text="Воспоминания"
+                                       Style="{StaticResource SubTitleLabel}"
+                                       VerticalOptions="Center" />
+                                <Button Grid.Column="1"
+                                        Text="＋"
+                                        Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding AddMemoryCommand}"
+                                        Padding="14,6"
+                                        FontSize="18"
+                                        HeightRequest="36" />
+                            </Grid>
+
+                            <Label IsVisible="{Binding HasNoMemories}"
+                                   Text="Пока нет воспоминаний. Нажмите ＋, чтобы поделиться первым."
+                                   Style="{StaticResource CaptionLabel}" />
+
+                            <CollectionView ItemsSource="{Binding Memories}"
+                                            SelectionMode="None"
+                                            HeightRequest="{OnIdiom Phone=400, Desktop=600}"
+                                            IsVisible="{Binding HasMemories}">
+                                <CollectionView.ItemsLayout>
+                                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
+                                </CollectionView.ItemsLayout>
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:MemoryItemViewModel">
+                                        <SwipeView>
+                                            <SwipeView.RightItems>
+                                                <SwipeItems Mode="Reveal">
+                                                    <SwipeItem Text="Редактировать"
+                                                               BackgroundColor="{StaticResource Azure}"
+                                                               IsVisible="{Binding CanEdit}"
+                                                               Command="{Binding Source={x:Reference Page}, Path=BindingContext.EditMemoryCommand}"
+                                                               CommandParameter="{Binding .}" />
+                                                    <SwipeItem Text="Удалить"
+                                                               BackgroundColor="#C0392B"
+                                                               IsVisible="{Binding CanEdit}"
+                                                               Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteMemoryCommand}"
+                                                               CommandParameter="{Binding .}" />
+                                                </SwipeItems>
+                                            </SwipeView.RightItems>
+
+                                            <Border BackgroundColor="{StaticResource Sky}"
+                                                    StrokeThickness="0"
+                                                    Padding="12">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="10" />
+                                                </Border.StrokeShape>
+                                                <VerticalStackLayout Spacing="6">
+                                                    <Label Text="{Binding Text}"
+                                                           Style="{StaticResource BodyLabel}" />
+                                                    <Label Text="{Binding CreatedAtUtc, StringFormat='{0:dd.MM.yyyy}'}"
+                                                           Style="{StaticResource CaptionLabel}" />
+                                                    <Label IsVisible="{Binding CanEdit}"
+                                                           Text="Свайп влево — редактировать / удалить"
+                                                           FontSize="10"
+                                                           TextColor="{StaticResource AzureDeep}"
+                                                           Opacity="0.6" />
+                                                </VerticalStackLayout>
+                                            </Border>
+                                        </SwipeView>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Фото умершего -->
+                    <Border Style="{StaticResource CloudCard}"
+                            IsVisible="{Binding HasDeceasedPhotos}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Фото умершего"
+                                   Style="{StaticResource SubTitleLabel}" />
+                            <Label Text="Тап по фото — сделать главным или удалить."
+                                   Style="{StaticResource CaptionLabel}" />
+                            <CollectionView ItemsSource="{Binding DeceasedPhotos}"
+                                            SelectionMode="None"
+                                            HeightRequest="120">
+                                <CollectionView.ItemsLayout>
+                                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
+                                </CollectionView.ItemsLayout>
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="models:MediaListItem">
+                                        <Grid WidthRequest="100" HeightRequest="100">
+                                            <Border StrokeThickness="0">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="12" />
+                                                </Border.StrokeShape>
+                                                <Border.GestureRecognizers>
+                                                    <TapGestureRecognizer
+                                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.PhotoTappedCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                </Border.GestureRecognizers>
+                                                <Image Source="{Binding Url}"
+                                                       Aspect="AspectFill" />
+                                            </Border>
+                                            <!-- Звёздочка-маркер главного фото в правом верхнем углу. -->
+                                            <Border IsVisible="{Binding IsMainPhoto}"
+                                                    BackgroundColor="{StaticResource Azure}"
+                                                    StrokeThickness="0"
+                                                    WidthRequest="26"
+                                                    HeightRequest="26"
+                                                    HorizontalOptions="End"
+                                                    VerticalOptions="Start"
+                                                    Margin="0,6,6,0">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="13" />
+                                                </Border.StrokeShape>
+                                                <Label Text="★"
+                                                       TextColor="White"
+                                                       FontSize="14"
+                                                       HorizontalOptions="Center"
+                                                       VerticalOptions="Center" />
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Фото могилы -->
+                    <Border Style="{StaticResource CloudCard}"
+                            IsVisible="{Binding HasGravePhotos}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Фото могилы"
+                                   Style="{StaticResource SubTitleLabel}" />
+                            <Label Text="Тап по фото — удалить."
+                                   Style="{StaticResource CaptionLabel}" />
+                            <CollectionView ItemsSource="{Binding GravePhotos}"
+                                            SelectionMode="None"
+                                            HeightRequest="120">
+                                <CollectionView.ItemsLayout>
+                                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
+                                </CollectionView.ItemsLayout>
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="models:MediaListItem">
+                                        <Border StrokeThickness="0"
+                                                WidthRequest="100"
+                                                HeightRequest="100">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="12" />
+                                            </Border.StrokeShape>
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.PhotoTappedCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Border.GestureRecognizers>
+                                            <Image Source="{Binding Url}"
+                                                   Aspect="AspectFill" />
+                                        </Border>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Документы -->
+                    <Border Style="{StaticResource CloudCard}"
+                            IsVisible="{Binding HasDocuments}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Документы"
+                                   Style="{StaticResource SubTitleLabel}" />
+                            <CollectionView ItemsSource="{Binding Documents}"
+                                            SelectionMode="None">
+                                <CollectionView.ItemsLayout>
+                                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
+                                </CollectionView.ItemsLayout>
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="models:MediaListItem">
+                                        <Border BackgroundColor="{StaticResource Sky}"
+                                                StrokeThickness="0"
+                                                Padding="12">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="10" />
+                                            </Border.StrokeShape>
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.PhotoTappedCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Border.GestureRecognizers>
+                                            <Grid ColumnDefinitions="Auto,*"
+                                                  ColumnSpacing="10">
+                                                <Label Grid.Column="0"
+                                                       Text="📄"
+                                                       FontSize="22"
+                                                       VerticalOptions="Center" />
+                                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                                    <Label Text="{Binding OriginalFileName}"
+                                                           Style="{StaticResource BodyLabel}"
+                                                           LineBreakMode="TailTruncation" />
+                                                    <Label Text="{Binding ModerationStatus}"
+                                                           Style="{StaticResource CaptionLabel}" />
+                                                </VerticalStackLayout>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Действия -->
+                    <ActivityIndicator IsRunning="{Binding IsUploading}"
+                                       IsVisible="{Binding IsUploading}"
+                                       Color="{StaticResource Azure}" />
+
+                    <Button Text="Загрузить фото / документ"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding UploadFileCommand}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            HorizontalOptions="Fill" />
+
+                    <!-- Архивирование (для активной карточки). -->
+                    <Button Text="В архив"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding ArchiveCommand}"
+                            IsVisible="{Binding IsActive}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            HorizontalOptions="Fill" />
+
+                    <!-- Восстановление (для архивной карточки). -->
+                    <Border IsVisible="{Binding IsArchived}"
+                            BackgroundColor="#FFF4E0"
+                            Stroke="#E0B070"
+                            StrokeThickness="1"
+                            Padding="14">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12" />
+                        </Border.StrokeShape>
+                        <Label Text="Эта карточка в архиве. Можно вернуть в активный список."
+                               TextColor="#7A5200"
+                               FontSize="13" />
+                    </Border>
+
+                    <Button Text="Вернуть из архива"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding RestoreCommand}"
+                            IsVisible="{Binding IsArchived}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            HorizontalOptions="Fill" />
+
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

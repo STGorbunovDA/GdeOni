@@ -17,6 +17,8 @@ using GdeOni.Application.DeceasedRecords.Commands.Update.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetAll.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetById.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetById.UseCase;
+using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -78,14 +80,14 @@ public sealed class DeceasedRecordsController : ApiControllerBase
 
     /// <summary>
     /// Возвращает список всех карточек умерших с пагинацией и фильтрацией.
-    /// Доступно только администраторам.
+    /// D15: доступно всем авторизованным (используется для поиска перед
+    /// добавлением, чтобы не плодить дубликаты).
     /// </summary>
     [HttpGet]
-    [Authorize(Roles = "SuperAdmin,Admin")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<PagedResponse<GetAllDeceasedItemResponse>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAll(
         [FromQuery] GetAllDeceasedRequest request,
         [FromServices] IGetAllDeceasedUseCase getAllDeceasedUseCase,
@@ -93,6 +95,29 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     {
         var query = request.ToQuery();
         var result = await getAllDeceasedUseCase.Execute(query, cancellationToken);
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// E21. Возвращает карточки умерших в радиусе RadiusMeters от
+    /// точки (Latitude, Longitude). Авторизованные пользователи —
+    /// сценарий "стою на кладбище, хочу понять, кто рядом". Результат
+    /// отсортирован по возрастанию расстояния, каждая запись содержит
+    /// DistanceMeters до точки поиска.
+    /// </summary>
+    [HttpGet("nearby")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<PagedResponse<NearbyDeceasedItemResponse>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetNearby(
+        [FromQuery] GetNearbyDeceasedRequest request,
+        [FromServices] IGetNearbyDeceasedUseCase getNearbyDeceasedUseCase,
+        CancellationToken cancellationToken)
+    {
+        var query = request.ToQuery();
+        var result = await getNearbyDeceasedUseCase.Execute(query, cancellationToken);
 
         return FromResult(result);
     }

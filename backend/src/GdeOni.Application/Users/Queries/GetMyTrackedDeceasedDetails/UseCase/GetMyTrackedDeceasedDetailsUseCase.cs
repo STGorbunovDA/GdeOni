@@ -35,8 +35,13 @@ public sealed class GetMyTrackedDeceasedDetailsUseCase(
         if (user is null)
             return Errors.General.NotFound("user", currentUserIdResult.Value);
 
+        // E9.1 (mobile): архивный tracking больше не маскируем под NotTracked —
+        // мобильный UI открывает архивные карточки, чтобы их можно было
+        // восстановить через PATCH Status=Active. Скрытие архива от чужих
+        // пользователей всё равно работает: GetTracking ищет только в
+        // коллекции текущего user-а, чужие записи сюда не попадают.
         var tracking = user.GetTracking(query.DeceasedId);
-        if (tracking is null || tracking.IsArchived())
+        if (tracking is null)
             return Errors.Tracking.NotTracked();
 
         // D8.10: query-use-case → AsNoTracking-вариант.
@@ -44,10 +49,10 @@ public sealed class GetMyTrackedDeceasedDetailsUseCase(
         if (deceased is null)
             return Errors.General.NotFound("deceased", query.DeceasedId);
 
-        var canSeeAllMemories = currentUserService.IsAdmin()
-            || deceased.CreatedByUserId == currentUserIdResult.Value;
-
+        // D14: модерация воспоминаний отключена — все воспоминания видны
+        // всем. Параметр canSeeAllMemories в Result оставлен (используется
+        // mapper'ом для совместимости), просто всегда true.
         return Result.Success<GetMyTrackedDeceasedDetailsResult, Error>(
-            new GetMyTrackedDeceasedDetailsResult(deceased, tracking, canSeeAllMemories));
+            new GetMyTrackedDeceasedDetailsResult(deceased, tracking, CanSeeAllMemories: true));
     }
 }

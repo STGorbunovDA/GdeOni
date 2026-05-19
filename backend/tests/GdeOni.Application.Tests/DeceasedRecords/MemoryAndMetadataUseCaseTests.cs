@@ -30,10 +30,13 @@ public sealed class MemoryAndMetadataUseCaseTests
 
     /// <summary>
     /// UpdateMemory автором memory → success, текст обновлён, статус
-    /// сброшен в Pending (anti-bypass через EditMemory).
+    /// остаётся Approved.
+    /// D14: модерация воспоминаний отключена — EditText в Domain ставит
+    /// Pending при правке (защита от подмены), use case сразу
+    /// возвращает Approved.
     /// </summary>
     [Fact]
-    public async Task UpdateMemory_Author_ResetsToPendingAndSaves()
+    public async Task UpdateMemory_Author_KeepsApprovedAndSaves()
     {
         var deceased = MakeDeceased();
         var memory = deceased.AddMemory("Старый текст", MemoryAuthorId).Value;
@@ -56,7 +59,7 @@ public sealed class MemoryAndMetadataUseCaseTests
 
         result.IsSuccess.Should().BeTrue();
         memory.Text.Should().Be("Новый текст");
-        memory.ModerationStatus.Should().Be(ModerationStatus.Pending);
+        memory.ModerationStatus.Should().Be(ModerationStatus.Approved);
         deceasedRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Once);
     }
 

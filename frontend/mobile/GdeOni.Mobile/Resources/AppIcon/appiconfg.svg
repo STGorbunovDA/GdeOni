@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="456" height="456" viewBox="0 0 456 456" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <!-- Лёгкая тень под облаком, чтобы был объём. -->
+    <ellipse cx="228" cy="318" rx="120" ry="14" fill="#1E3A5F" opacity="0.18" />
+
+    <!-- Облако: набор белых эллипсов в зоне безопасности (≈центральные 66% от 456). -->
+    <g fill="#FFFFFF">
+        <ellipse cx="228" cy="248" rx="112" ry="54" />
+        <ellipse cx="160" cy="270" rx="64" ry="40" />
+        <ellipse cx="296" cy="270" rx="64" ry="40" />
+        <ellipse cx="196" cy="216" rx="56" ry="38" />
+        <ellipse cx="262" cy="216" rx="56" ry="38" />
+        <ellipse cx="228" cy="200" rx="40" ry="28" />
+    </g>
+</svg>

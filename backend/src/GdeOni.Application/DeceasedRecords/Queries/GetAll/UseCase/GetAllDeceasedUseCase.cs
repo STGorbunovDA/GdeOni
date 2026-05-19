@@ -29,9 +29,15 @@ public sealed class GetAllDeceasedUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        if (!currentUserService.IsAdmin())
-            return Errors.Deceased.InsufficientPermissionsToViewAllDeceased();
-        
+        // D15: GetAll открыт всем авторизованным пользователям. Это нужно
+        // для функции "поиск существующего умершего перед созданием новой
+        // карточки" (E16 на mobile): юзер у могилы сначала ищет, может
+        // её уже добавил кто-то другой → подписаться, не плодя дубликаты.
+        // Verify/Unverify админский endpoint оставлен (IsVerified — это
+        // информер "проверено редакцией", не gate). Errors.Deceased.
+        // InsufficientPermissionsToViewAllDeceased оставлен в Errors на
+        // случай если ещё где-то понадобится — но в GetAll больше не зовётся.
+
         var (items, totalCount) = await deceasedRepository.GetPaged(query, cancellationToken);
 
         var response = new PagedResponse<GetAllDeceasedItemResponse>

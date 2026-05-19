@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Auth.LoginPage"
+             x:DataType="vm:LoginViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.55"
+                 WidthRequest="260"
+                 HeightRequest="140"
+                 HorizontalOptions="Start"
+                 VerticalOptions="Start"
+                 TranslationX="-80"
+                 TranslationY="40" />
+        <Ellipse Fill="White"
+                 Opacity="0.4"
+                 WidthRequest="200"
+                 HeightRequest="120"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="200" />
+        <Ellipse Fill="White"
+                 Opacity="0.35"
+                 WidthRequest="280"
+                 HeightRequest="150"
+                 HorizontalOptions="Center"
+                 VerticalOptions="End"
+                 TranslationY="60" />
+
+        <ScrollView>
+            <VerticalStackLayout Padding="24,80,24,40" Spacing="24">
+
+                <VerticalStackLayout Spacing="6" HorizontalOptions="Center">
+                    <Label Text="Где Они"
+                           FontSize="44"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource InkBlue}"
+                           HorizontalOptions="Center" />
+                    <Label Text="помним. находим. бережём."
+                           Style="{StaticResource CaptionLabel}"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="16">
+                        <Label Text="Вход в аккаунт"
+                               Style="{StaticResource SubTitleLabel}" />
+
+                        <Entry Placeholder="Email"
+                               Style="{StaticResource FormEntry}"
+                               Keyboard="Email"
+                               Text="{Binding Email}" />
+
+                        <Entry Placeholder="Пароль"
+                               Style="{StaticResource FormEntry}"
+                               IsPassword="True"
+                               Text="{Binding Password}" />
+
+                        <Label Text="{Binding ErrorMessage}"
+                               IsVisible="{Binding HasError}"
+                               TextColor="#C0392B"
+                               FontSize="13" />
+
+                        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                           IsVisible="{Binding IsBusy}"
+                                           Color="{StaticResource Azure}" />
+
+                        <Button Text="Войти"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding LoginCommand}"
+                                IsEnabled="{Binding IsNotBusy}" />
+
+                        <Button Text="Создать аккаунт"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding GoToRegisterCommand}"
+                                IsEnabled="{Binding IsNotBusy}" />
+                    </VerticalStackLayout>
+                </Border>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

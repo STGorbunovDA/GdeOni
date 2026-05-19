@@ -69,6 +69,58 @@ internal static class TestSeed
     }
 
     /// <summary>
+    /// E21 helper: создаёт at-grave карточку с указанными lat/lon — нужно
+    /// чтобы интеграционно проверять поиск рядом, размещая несколько
+    /// карточек в разных точках.
+    /// </summary>
+    public static async Task<Guid> CreateAtGraveAtCoordsAsync(
+        HttpClient client,
+        double latitude,
+        double longitude,
+        string? lastName = null)
+    {
+        var response = await client.PostAsJsonAsync("/api/deceased-records/at-grave", new
+        {
+            firstName = "Иван",
+            lastName = lastName ?? $"Фам{Guid.NewGuid():N}",
+            middleName = (string?)null,
+            birthDate = (DateOnly?)null,
+            deathDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-10)),
+            shortDescription = (string?)null,
+            biography = (string?)null,
+            graveLocation = new
+            {
+                latitude,
+                longitude,
+                accuracyMeters = (double?)null,
+                country = "Россия",
+                city = "Москва",
+                cemeteryName = "Test cemetery",
+                plotNumber = (string?)null,
+                graveNumber = (string?)null
+            },
+            tracking = new
+            {
+                relationshipType = nameof(RelationshipType.Friend),
+                personalNotes = (string?)null,
+                notifyOnDeathAnniversary = false,
+                notifyOnBirthAnniversary = false
+            }
+        });
+
+        if (response.StatusCode != HttpStatusCode.Created)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new Xunit.Sdk.XunitException(
+                $"at-grave-coords failed: {(int)response.StatusCode}. Body: {body}");
+        }
+
+        var payload = await response.Content
+            .ReadFromJsonAsync<ApiResultDto<AtGraveResultDto>>(JsonOptions);
+        return payload!.Result!.DeceasedId;
+    }
+
+    /// <summary>
     /// POST /api/deceased-records (без at-grave) — создаёт Deceased
     /// без BurialLocation. Используется в сценарии "route → 409 если
     /// нет координат" и "DELETE burial-location → 409 если уже null".

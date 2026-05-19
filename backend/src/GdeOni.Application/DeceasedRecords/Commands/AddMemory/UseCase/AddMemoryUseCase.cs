@@ -33,12 +33,18 @@ public sealed class AddMemoryUseCase(
             return Errors.General.NotFound("deceased", command.DeceasedId);
 
         // Любой авторизованный пользователь может оставить воспоминание —
-        // это соц-фича. Контент уйдёт в Pending и попадёт публично только
-        // после Approve (D7.21). Авторство фиксируется AuthorUserId.
+        // это соц-фича. Авторство фиксируется AuthorUserId.
+        // D14: модерация воспоминаний отключена — Auto-approve сразу
+        // после AddMemory. Инфраструктура (Approve/Reject, админ-endpoint'ы)
+        // оставлена для возможного будущего антиспама.
         var memoryResult = deceased.AddMemory(command.Text, currentUserIdResult.Value);
 
         if (memoryResult.IsFailure)
             return memoryResult.Error;
+
+        var approveResult = memoryResult.Value.Approve();
+        if (approveResult.IsFailure)
+            return approveResult.Error;
 
         await deceasedRepository.Save(cancellationToken);
 

@@ -119,6 +119,14 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
                 .HasColumnName("location_accuracy")
                 .HasConversion<int>()
                 .IsRequired();
+
+            // E21: композитный B-tree индекс по (latitude, longitude) для
+            // bounding-box pre-filter в GetNearby. Postgres-планировщик
+            // умеет использовать его для range-фильтров на оба поля.
+            // Не GIST/PostGIS — наша нагрузка (несколько 10K записей)
+            // не оправдывает добавление расширения.
+            location.HasIndex(x => new { x.Latitude, x.Longitude })
+                .HasDatabaseName("ix_deceased_burial_lat_lon");
         });
 
         builder.OwnsOne(x => x.Metadata, metadata =>

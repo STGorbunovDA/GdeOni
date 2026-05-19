@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:models="clr-namespace:GdeOni.Mobile.Services.Api.Models"
+             xmlns:shared="clr-namespace:GdeOni.Mobile.Views.Shared"
+             x:Name="Page"
+             x:Class="GdeOni.Mobile.Views.Tracked.TrackedListPage"
+             x:DataType="vm:TrackedListViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Title="{Binding Title}">
+
+    <Grid RowDefinitions="*,Auto">
+        <!-- Декоративные облака на фоне -->
+        <Ellipse Grid.Row="0"
+                 Fill="White"
+                 Opacity="0.55"
+                 WidthRequest="220"
+                 HeightRequest="120"
+                 HorizontalOptions="Start"
+                 VerticalOptions="Start"
+                 TranslationX="-60"
+                 TranslationY="60" />
+        <Ellipse Grid.Row="0"
+                 Fill="White"
+                 Opacity="0.4"
+                 WidthRequest="180"
+                 HeightRequest="100"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="40"
+                 TranslationY="180" />
+
+        <RefreshView Grid.Row="0"
+                     IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}"
+                     Command="{Binding RefreshCommand}"
+                     RefreshColor="{StaticResource Azure}">
+
+            <CollectionView ItemsSource="{Binding Items}"
+                            SelectionMode="None"
+                            ItemSizingStrategy="MeasureFirstItem">
+
+                <!-- Header -->
+                <CollectionView.Header>
+                    <VerticalStackLayout Padding="24,40,24,8" Spacing="16">
+                        <Label Text="Отслеживаемые"
+                               Style="{StaticResource TitleLabel}" />
+                        <Label Text="Здесь карточки умерших, за которыми вы следите."
+                               Style="{StaticResource BodyLabel}" />
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Button Grid.Column="0"
+                                    Text="Добавить умершего"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Command="{Binding AddDeceasedCommand}"
+                                    HorizontalOptions="Fill" />
+                            <Button Grid.Column="1"
+                                    Text="Архив"
+                                    Style="{StaticResource GhostButton}"
+                                    Command="{Binding OpenArchiveCommand}"
+                                    Padding="20,14"
+                                    FontSize="14" />
+                        </Grid>
+
+                        <!-- E21: найти умерших в радиусе 100м от текущей точки.
+                             Полезно когда юзер на кладбище и хочет понять,
+                             кто здесь рядом, перед подпиской/маршрутом. -->
+                        <Button Text="📍 Найти рядом"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding OpenNearbySearchCommand}"
+                                HorizontalOptions="Fill" />
+
+                        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                           IsVisible="{Binding IsBusy}"
+                                           Color="{StaticResource Azure}" />
+
+                        <Label Text="{Binding ErrorMessage}"
+                               IsVisible="{Binding HasError}"
+                               TextColor="#C0392B"
+                               FontSize="13" />
+                    </VerticalStackLayout>
+                </CollectionView.Header>
+
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="12" />
+                </CollectionView.ItemsLayout>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:TrackedDeceasedListItem">
+                        <Border Style="{StaticResource CloudCard}"
+                                Margin="24,0">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenItemCommand}"
+                                    CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+
+                            <Grid ColumnDefinitions="Auto,*,Auto"
+                                  ColumnSpacing="14"
+                                  RowDefinitions="Auto,Auto"
+                                  RowSpacing="4">
+
+                                <!-- Аватар: main-photo если есть, иначе 🕊 на голубом. -->
+                                <Border Grid.Column="0" Grid.RowSpan="2"
+                                        StrokeThickness="0"
+                                        WidthRequest="56"
+                                        HeightRequest="56"
+                                        VerticalOptions="Center">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="28" />
+                                    </Border.StrokeShape>
+                                    <Grid>
+                                        <BoxView Color="{StaticResource Sky}" />
+                                        <Label Text="🕊"
+                                               FontSize="24"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center" />
+                                        <Image Source="{Binding MainPhotoUrl}"
+                                               Aspect="AspectFill" />
+                                    </Grid>
+                                </Border>
+
+                                <Label Grid.Row="0" Grid.Column="1"
+                                       Text="{Binding FullName}"
+                                       Style="{StaticResource SubTitleLabel}"
+                                       FontSize="16"
+                                       LineBreakMode="TailTruncation" />
+
+                                <Label Grid.Row="1" Grid.Column="1"
+                                       Style="{StaticResource CaptionLabel}"
+                                       LineBreakMode="TailTruncation">
+                                    <Label.FormattedText>
+                                        <FormattedString>
+                                            <Span Text="{Binding RelationshipType, Converter={StaticResource RelationshipDisplay}}" />
+                                            <Span Text=" · " />
+                                            <Span Text="{Binding DeathDate, StringFormat='†&#160;{0:dd.MM.yyyy}'}" />
+                                        </FormattedString>
+                                    </Label.FormattedText>
+                                </Label>
+
+                                <Label Grid.Column="2" Grid.RowSpan="2"
+                                       Text="›"
+                                       FontSize="28"
+                                       TextColor="{StaticResource Azure}"
+                                       VerticalOptions="Center"
+                                       Margin="8,0,0,0" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+                <!-- Footer: пустое состояние и заполнение пространства снизу -->
+                <CollectionView.Footer>
+                    <VerticalStackLayout Padding="24,20,24,80" Spacing="12">
+                        <Border Style="{StaticResource CloudCard}"
+                                IsVisible="{Binding ShowEmptyState}">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="Пока никого не отслеживаете"
+                                       Style="{StaticResource SubTitleLabel}" />
+                                <Label Text="Нажмите «Добавить умершего» вверху, чтобы создать первую карточку у могилы."
+                                       Style="{StaticResource BodyLabel}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                </CollectionView.Footer>
+            </CollectionView>
+        </RefreshView>
+
+        <shared:AppBottomBar Grid.Row="1" SelectedTab="tracked" />
+    </Grid>
+
+</ContentPage>

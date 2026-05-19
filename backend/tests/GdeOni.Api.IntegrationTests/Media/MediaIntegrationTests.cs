@@ -180,23 +180,32 @@ public sealed class MediaIntegrationTests
 
     /// <summary>
     /// PATCH /media/{mediaId}/main-photo:
-    /// — Pending фото (только что загружено, ещё не Approved) → 409
-    ///   (Errors.DeceasedMedia.MainPhotoMustBeApproved);
+    /// — Rejected фото → 409 (Errors.DeceasedMedia.MainPhotoMustBeApproved);
     /// — GravePhoto kind → 409 (Errors.DeceasedMedia.OnlyDeceasedPhotoCanBeMain);
     /// — Approved DeceasedPhoto → 204.
+    /// D13 (auto-approve для автора карточки) убрал ветку "Pending = 409"
+    /// в обычном flow, поэтому проверяем 409 через явно Rejected media.
     /// </summary>
     [Fact]
-    public async Task SetMainPhoto_PendingAndGraveAndApproved()
+    public async Task SetMainPhoto_RejectedAndGraveAndApproved()
     {
         var user = await _factory.RegisterAndLoginAsync();
         var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
 
-        // Pending DeceasedPhoto: только что загружено, статус ModerationStatus.Pending.
-        var pendingPhotoId = await TestSeed.UploadPhotoAsync(user.Client, deceasedId);
-        var pendingResp = await user.Client.PatchAsync(
-            $"/api/deceased-records/{deceasedId}/media/{pendingPhotoId}/main-photo",
+        // Свежезагруженное DeceasedPhoto — Approved (D13). Чтобы получить
+        // ветку 409 MainPhotoMustBeApproved, admin его явно Reject'нёт.
+        var photoId = await TestSeed.UploadPhotoAsync(user.Client, deceasedId);
+        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(Domain.Shared.UserRole.Admin);
+
+        var rejectResp = await admin.Client.PutAsJsonAsync(
+            $"/api/deceased-records/{deceasedId}/media/{photoId}/reject",
+            new { });
+        rejectResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var rejectedMainResp = await user.Client.PatchAsync(
+            $"/api/deceased-records/{deceasedId}/media/{photoId}/main-photo",
             content: null);
-        pendingResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        rejectedMainResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
         // GravePhoto kind: главное фото может быть только DeceasedPhoto.
         var gravePhotoId = await TestSeed.UploadPhotoAsync(user.Client, deceasedId, MediaKind.GravePhoto);
@@ -205,15 +214,14 @@ public sealed class MediaIntegrationTests
             content: null);
         graveResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-        // Approve через admin, потом SetMainPhoto → 204.
-        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(Domain.Shared.UserRole.Admin);
+        // Approve обратно, потом SetMainPhoto → 204.
         var approveResp = await admin.Client.PutAsJsonAsync(
-            $"/api/deceased-records/{deceasedId}/media/{pendingPhotoId}/approve",
+            $"/api/deceased-records/{deceasedId}/media/{photoId}/approve",
             new { });
         approveResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         var mainResp = await user.Client.PatchAsync(
-            $"/api/deceased-records/{deceasedId}/media/{pendingPhotoId}/main-photo",
+            $"/api/deceased-records/{deceasedId}/media/{photoId}/main-photo",
             content: null);
         mainResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }

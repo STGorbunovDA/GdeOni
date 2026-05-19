@@ -26,11 +26,12 @@ public sealed class MemoryUseCaseTests
 
     /// <summary>
     /// AddMemory: любой авторизованный → memory создан со статусом
-    /// Pending, AuthorUserId = currentUserId, Save вызван.
-    /// Контент попадёт в публичный URL только после Approve (D7.21).
+    /// Approved, AuthorUserId = currentUserId, Save вызван.
+    /// D14: модерация воспоминаний отключена — use case сразу
+    /// вызывает Approve() после AddMemory.
     /// </summary>
     [Fact]
-    public async Task AddMemory_AnyAuthenticated_AddsAsPending()
+    public async Task AddMemory_AnyAuthenticated_AddsAsApproved()
     {
         // Arrange
         var deceased = Deceased.Create(
@@ -63,7 +64,7 @@ public sealed class MemoryUseCaseTests
         var memory = deceased.Memories.Single();
         memory.Text.Should().Be("Хороший человек был");
         memory.AuthorUserId.Should().Be(MemoryAuthorId);
-        memory.ModerationStatus.Should().Be(ModerationStatus.Pending);
+        memory.ModerationStatus.Should().Be(ModerationStatus.Approved);
         deceasedRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Once);
     }
 

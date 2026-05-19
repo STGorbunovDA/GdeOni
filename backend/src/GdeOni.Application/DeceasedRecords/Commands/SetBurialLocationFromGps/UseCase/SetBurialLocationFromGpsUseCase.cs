@@ -39,10 +39,23 @@ public sealed class SetBurialLocationFromGpsUseCase(
         if (!isAdmin && deceased.CreatedByUserId != currentUserId)
             return Errors.Deceased.SetBurialLocationForbidden();
 
-        var burialLocationResult = BurialLocation.CreateFromGps(
-            command.Latitude,
-            command.Longitude,
-            command.AccuracyMeters);
+        // Сохраняем адресные поля от существующего BurialLocation, если
+        // оно есть — этим эндпойнтом теперь пользуется не только сценарий
+        // "у могилы впервые задаём GPS", но и "поправить координаты"
+        // (E20). Без preserve адреса при правке координат пользователь
+        // терял бы Country/City/CemeteryName/PlotNumber/GraveNumber.
+        var existing = deceased.BurialLocation;
+        var burialLocationResult = BurialLocation.Create(
+            latitude: command.Latitude,
+            longitude: command.Longitude,
+            country: existing?.Country,
+            region: existing?.Region,
+            city: existing?.City,
+            cemeteryName: existing?.CemeteryName,
+            plotNumber: existing?.PlotNumber,
+            graveNumber: existing?.GraveNumber,
+            accuracy: LocationAccuracy.Exact,
+            accuracyMeters: command.AccuracyMeters);
 
         if (burialLocationResult.IsFailure)
             return burialLocationResult.Error;

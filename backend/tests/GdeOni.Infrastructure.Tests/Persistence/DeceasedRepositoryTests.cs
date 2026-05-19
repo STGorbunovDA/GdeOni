@@ -34,17 +34,17 @@ public sealed class DeceasedRepositoryTests
         await dbContext.SaveChangesAsync();
 
         var byLastName = await repo.GetPaged(
-            new GetAllDeceasedQuery("ивановуникальный1", null, null, null, null, null, 1, 10),
+            new GetAllDeceasedQuery("ивановуникальный1", null, null, null, null, null, null, null, null, null, null, 1, 10),
             CancellationToken.None);
         byLastName.Items.Should().ContainSingle(x => x.Id == ivanov.Id);
 
         var byFirstName = await repo.GetPaged(
-            new GetAllDeceasedQuery("ПетрУникальный1", null, null, null, null, null, 1, 10),
+            new GetAllDeceasedQuery("ПетрУникальный1", null, null, null, null, null, null, null, null, null, null, 1, 10),
             CancellationToken.None);
         byFirstName.Items.Should().ContainSingle(x => x.Id == petrov.Id);
 
         var byMiddleName = await repo.GetPaged(
-            new GetAllDeceasedQuery("ОсобоеОтчество1", null, null, null, null, null, 1, 10),
+            new GetAllDeceasedQuery("ОсобоеОтчество1", null, null, null, null, null, null, null, null, null, null, 1, 10),
             CancellationToken.None);
         byMiddleName.Items.Should().ContainSingle(x => x.Id == sidorov.Id);
     }
@@ -66,12 +66,12 @@ public sealed class DeceasedRepositoryTests
         await dbContext.SaveChangesAsync();
 
         var byCountry = await repo.GetPaged(
-            new GetAllDeceasedQuery(null, "RussiaUniq1", null, null, null, null, 1, 10),
+            new GetAllDeceasedQuery(null, null, null, null, "RussiaUniq1", null, null, null, null, null, null, 1, 10),
             CancellationToken.None);
         byCountry.Items.Should().ContainSingle(x => x.Id == ru.Id);
 
         var byCity = await repo.GetPaged(
-            new GetAllDeceasedQuery(null, null, "BerlinUniq1", null, null, null, 1, 10),
+            new GetAllDeceasedQuery(null, null, null, null, null, "BerlinUniq1", null, null, null, null, null, 1, 10),
             CancellationToken.None);
         byCity.Items.Should().ContainSingle(x => x.Id == de.Id);
     }
@@ -92,12 +92,12 @@ public sealed class DeceasedRepositoryTests
         await dbContext.SaveChangesAsync();
 
         var verifiedPage = await repo.GetPaged(
-            new GetAllDeceasedQuery("ФамилияV", null, null, true, null, null, 1, 10),
+            new GetAllDeceasedQuery("ФамилияV", null, null, null, null, null, true, null, null, null, null, 1, 10),
             CancellationToken.None);
         verifiedPage.Items.Should().ContainSingle(x => x.Id == verified.Id);
 
         var unverifiedPage = await repo.GetPaged(
-            new GetAllDeceasedQuery("ФамилияV", null, null, false, null, null, 1, 10),
+            new GetAllDeceasedQuery("ФамилияV", null, null, null, null, null, false, null, null, null, null, 1, 10),
             CancellationToken.None);
         unverifiedPage.Items.Should().ContainSingle(x => x.Id == unverified.Id);
     }
@@ -118,18 +118,22 @@ public sealed class DeceasedRepositoryTests
 
         var inRange = await repo.GetPaged(
             new GetAllDeceasedQuery(
-                marker, null, null, null,
+                marker, null, null, null, null, null, null,
                 CreatedFrom: d.CreatedAtUtc.AddMinutes(-1),
                 CreatedTo: d.CreatedAtUtc.AddMinutes(1),
+                BirthDate: null,
+                DeathDate: null,
                 1, 10),
             CancellationToken.None);
         inRange.Items.Should().ContainSingle(x => x.Id == d.Id);
 
         var outOfRange = await repo.GetPaged(
             new GetAllDeceasedQuery(
-                marker, null, null, null,
+                marker, null, null, null, null, null, null,
                 CreatedFrom: d.CreatedAtUtc.AddMinutes(10),
                 CreatedTo: d.CreatedAtUtc.AddMinutes(20),
+                BirthDate: null,
+                DeathDate: null,
                 1, 10),
             CancellationToken.None);
         outOfRange.Items.Should().BeEmpty();

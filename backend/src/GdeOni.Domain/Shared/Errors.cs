@@ -426,6 +426,12 @@ public static class Errors
             Error.Validation("pagination.page_size.invalid", $"PageSize must be between {min} and {max}");
     }
 
+    public static class NearbySearch
+    {
+        public static Error RadiusOutOfRange(int min, int max) =>
+            Error.Validation("nearby_search.radius.invalid", $"RadiusMeters must be between {min} and {max}");
+    }
+
     public static class UniqueConstraint
     {
         public static Error FromName(string? constraintName) =>

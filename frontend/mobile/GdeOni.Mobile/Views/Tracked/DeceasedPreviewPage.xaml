@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Tracked.DeceasedPreviewPage"
+             x:DataType="vm:DeceasedPreviewViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Карточка">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.45"
+                 WidthRequest="220"
+                 HeightRequest="120"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="40" />
+
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="16">
+
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8"
+                        FontSize="14" />
+
+                <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                   IsVisible="{Binding IsBusy}"
+                                   Color="{StaticResource Azure}" />
+
+                <Label IsVisible="{Binding HasError}"
+                       Text="{Binding ErrorMessage}"
+                       TextColor="#C0392B"
+                       FontSize="13" />
+
+                <VerticalStackLayout IsVisible="{Binding HasData}" Spacing="16">
+
+                    <!-- Hero: фото или 🕊-плейсхолдер -->
+                    <Border StrokeThickness="0"
+                            WidthRequest="140"
+                            HeightRequest="140"
+                            HorizontalOptions="Center">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="70" />
+                        </Border.StrokeShape>
+                        <Grid>
+                            <BoxView Color="{StaticResource Sky}" />
+                            <Label IsVisible="{Binding HasNoMainPhoto}"
+                                   Text="🕊"
+                                   FontSize="56"
+                                   Opacity="0.6"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center" />
+                            <Image IsVisible="{Binding HasMainPhoto}"
+                                   Source="{Binding MainPhotoUrl}"
+                                   Aspect="AspectFill" />
+                        </Grid>
+                    </Border>
+
+                    <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
+                        <Label Text="{Binding FullName}"
+                               Style="{StaticResource TitleLabel}"
+                               FontSize="22"
+                               HorizontalTextAlignment="Center" />
+                        <Label Text="{Binding LifePeriod}"
+                               Style="{StaticResource CaptionLabel}"
+                               HorizontalTextAlignment="Center" />
+                        <Border IsVisible="{Binding IsVerified}"
+                                BackgroundColor="{StaticResource Mist}"
+                                StrokeThickness="0"
+                                Padding="10,3"
+                                HorizontalOptions="Center">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="10" />
+                            </Border.StrokeShape>
+                            <Label Text="✓ проверено"
+                                   FontSize="12"
+                                   TextColor="{StaticResource AzureDeep}" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <Border Style="{StaticResource CloudCard}"
+                            IsVisible="{Binding HasShortDescription}">
+                        <Label Text="{Binding ShortDescription}"
+                               Style="{StaticResource BodyLabel}" />
+                    </Border>
+
+                    <Border Style="{StaticResource CloudCard}"
+                            IsVisible="{Binding HasBiography}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Биография"
+                                   Style="{StaticResource SubTitleLabel}" />
+                            <Label Text="{Binding Biography}"
+                                   Style="{StaticResource BodyLabel}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Style="{StaticResource CloudCard}"
+                            IsVisible="{Binding HasBurialLocation}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Место захоронения"
+                                   Style="{StaticResource SubTitleLabel}" />
+                            <Label Text="{Binding LocationText}"
+                                   Style="{StaticResource BodyLabel}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Подсказка над кнопкой -->
+                    <Label Text="Это нужный вам человек? Если да — нажмите кнопку ниже, чтобы добавить его в отслеживание."
+                           Style="{StaticResource CaptionLabel}"
+                           HorizontalTextAlignment="Center" />
+
+                    <Button Text="{Binding ActionButtonText}"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding PrimaryActionCommand}"
+                            HorizontalOptions="Fill" />
+
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

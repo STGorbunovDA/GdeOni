@@ -121,6 +121,44 @@ public sealed class BurialLocationAndMetadataTests
     }
 
     /// <summary>
+    /// E20: PUT /burial-location/from-gps НЕ обнуляет адресные поля
+    /// (Country / City / CemeteryName / PlotNumber / GraveNumber).
+    /// Регрессионный тест: до фикса 2026-05-13 повторный вызов
+    /// затирал заполненный при at-grave адрес, потому что use case
+    /// использовал BurialLocation.CreateFromGps (всё в null).
+    /// </summary>
+    [Fact]
+    public async Task SetFromGps_PreservesExistingAddressFields()
+    {
+        var user = await _factory.RegisterAndLoginAsync();
+        var deceasedId = await CreateAtGraveAsync(user.Client);
+        // CreateAtGraveAsync ставит City=Москва, Cemetery=Test cemetery,
+        // Country=Россия.
+
+        var setResp = await user.Client.PutAsJsonAsync(
+            $"/api/deceased-records/{deceasedId}/burial-location/from-gps",
+            new { latitude = 50.0, longitude = 40.0, accuracyMeters = 5.0 });
+        setResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var getResp = await user.Client.GetAsync($"/api/deceased-records/{deceasedId}");
+        getResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await getResp.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(body);
+        var deceased = doc.RootElement.GetProperty("result");
+
+        // Координаты обновились.
+        deceased.GetProperty("latitude").GetDouble().Should().BeApproximately(50.0, 0.0001);
+        deceased.GetProperty("longitude").GetDouble().Should().BeApproximately(40.0, 0.0001);
+        deceased.GetProperty("accuracyMeters").GetDouble().Should().BeApproximately(5.0, 0.0001);
+
+        // Адресные поля сохранились — главный инвариант фикса E20.
+        deceased.GetProperty("country").GetString().Should().Be("Россия");
+        deceased.GetProperty("city").GetString().Should().Be("Москва");
+        deceased.GetProperty("cemeteryName").GetString().Should().Be("Test cemetery");
+    }
+
+    /// <summary>
     /// D11.12.1: GET /api/deceased-records/{id} возвращает accuracy
     /// строкой ("Exact"), а не магическим int. Симметрия с
     /// CreateDeceasedRequest, где Accuracy уже строкой принимается

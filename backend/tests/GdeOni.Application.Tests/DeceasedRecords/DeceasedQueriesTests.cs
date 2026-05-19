@@ -13,6 +13,9 @@ using GdeOni.Application.DeceasedRecords.Queries.GetById.Validation;
 using GdeOni.Application.DeceasedRecords.Queries.GetDistance.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetDistance.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetDistance.Validation;
+using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.UseCase;
+using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.Validation;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.Model;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.Validation;
@@ -23,35 +26,42 @@ using GdeOni.Domain.Shared;
 namespace GdeOni.Application.Tests.DeceasedRecords;
 
 /// <summary>
-/// Тесты Deceased query use case'ов: GetAll (admin only), GetById (admin
-/// видит все memories), GetDistance, GetAgeAtDeath, HasMemories.
+/// Тесты Deceased query use case'ов: GetAll (открыт всем для поиска,
+/// D15), GetById, GetDistance, GetAgeAtDeath, HasMemories.
 /// </summary>
 public sealed class DeceasedQueriesTests
 {
     private static readonly Guid CardAuthorId = Guid.NewGuid();
 
     /// <summary>
-    /// GetAll не-admin → InsufficientPermissionsToViewAllDeceased.
+    /// GetAll любой авторизованный → success + GetPaged вызван.
+    /// D15: GetAll открыт всем для функции поиска перед добавлением
+    /// (E16 на mobile). Ранее был admin-only.
     /// </summary>
     [Fact]
-    public async Task GetAll_NotAdmin_ReturnsForbidden()
+    public async Task GetAll_AnyAuthenticated_ReturnsPaged()
     {
         var deceasedRepo = new Mock<IDeceasedRepository>();
         var currentUser = new Mock<ICurrentUserService>();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
         currentUser.Setup(x => x.IsAdmin()).Returns(false);
+        deceasedRepo
+            .Setup(x => x.GetPaged(It.IsAny<GetAllDeceasedQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<Deceased>(), 0));
 
         var useCase = new GetAllDeceasedUseCase(
             deceasedRepo.Object, currentUser.Object,
             TestExecutor.With<GetAllDeceasedQuery, GetAllDeceasedQueryValidator>());
 
         var result = await useCase.Execute(
-            new GetAllDeceasedQuery(null, null, null, null, null, null, 1, 10),
+            new GetAllDeceasedQuery("Иван", null, null, null, null, null, null, null, null, null, null, 1, 10),
             CancellationToken.None);
 
-        result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be("deceased.insufficient_permissions.view_all");
+        result.IsSuccess.Should().BeTrue();
+        deceasedRepo.Verify(
+            x => x.GetPaged(It.IsAny<GetAllDeceasedQuery>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     /// <summary>
@@ -74,7 +84,7 @@ public sealed class DeceasedQueriesTests
             TestExecutor.With<GetAllDeceasedQuery, GetAllDeceasedQueryValidator>());
 
         var result = await useCase.Execute(
-            new GetAllDeceasedQuery(null, null, null, null, null, null, 1, 10),
+            new GetAllDeceasedQuery(null, null, null, null, null, null, null, null, null, null, null, 1, 10),
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -114,10 +124,13 @@ public sealed class DeceasedQueriesTests
     }
 
     /// <summary>
-    /// GetById outsider (не admin, не автор) → CanSeeAllMemories=false.
+    /// GetById outsider → CanSeeAllMemories=true.
+    /// D14: модерация воспоминаний отключена — фильтрация по
+    /// canSeeAllMemories снята, все воспоминания видны всем.
+    /// Параметр в Result оставлен для совместимости с mapper'ом.
     /// </summary>
     [Fact]
-    public async Task GetById_Outsider_CanNotSeeAllMemories()
+    public async Task GetById_Outsider_CanSeeAllMemories()
     {
         var deceased = MakeDeceased();
 
@@ -139,7 +152,7 @@ public sealed class DeceasedQueriesTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.CanSeeAllMemories.Should().BeFalse();
+        result.Value.CanSeeAllMemories.Should().BeTrue();
     }
 
     /// <summary>
@@ -298,6 +311,151 @@ public sealed class DeceasedQueriesTests
             new HasMemoriesQuery(pendingOnly.Id), CancellationToken.None);
         withPending.IsSuccess.Should().BeTrue();
         withPending.Value.HasMemories.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// E21: GetNearby happy — repo вызвался, use case вернул PagedResponse.
+    /// Точная фильтрация по bbox + haversine тестируется в integration-тестах
+    /// (нужна реальная БД, чтобы убедиться, что EF-перевод bounding-box
+    /// предиката работает). Здесь — только что use case оркеструет вызов.
+    /// </summary>
+    [Fact]
+    public async Task GetNearby_Authenticated_ReturnsPaged()
+    {
+        var deceasedRepo = new Mock<IDeceasedRepository>();
+        var currentUser = new Mock<ICurrentUserService>();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
+
+        deceasedRepo
+            .Setup(x => x.GetNearby(It.IsAny<GetNearbyDeceasedQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<NearbyDeceasedRow>(), 0));
+
+        var useCase = new GetNearbyDeceasedUseCase(
+            deceasedRepo.Object, currentUser.Object,
+            TestExecutor.With<GetNearbyDeceasedQuery, GetNearbyDeceasedQueryValidator>());
+
+        var result = await useCase.Execute(
+            new GetNearbyDeceasedQuery(55.7558, 37.6173, RadiusMeters: 100, Page: 1, PageSize: 20),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Items.Should().BeEmpty();
+        result.Value.Page.Should().Be(1);
+        result.Value.PageSize.Should().Be(20);
+        deceasedRepo.Verify(
+            x => x.GetNearby(It.IsAny<GetNearbyDeceasedQuery>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    /// <summary>
+    /// E21: радиус за пределами [10, 5000] → Validation error,
+    /// repo НЕ вызывается. Защита от случайных "поиск по всей планете".
+    /// </summary>
+    [Theory]
+    [InlineData(5)]      // ниже минимума 10
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(5001)]   // выше максимума 5000
+    [InlineData(50000)]
+    public async Task GetNearby_RadiusOutOfRange_ReturnsValidationError(int radius)
+    {
+        var deceasedRepo = new Mock<IDeceasedRepository>();
+        var currentUser = new Mock<ICurrentUserService>();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
+
+        var useCase = new GetNearbyDeceasedUseCase(
+            deceasedRepo.Object, currentUser.Object,
+            TestExecutor.With<GetNearbyDeceasedQuery, GetNearbyDeceasedQueryValidator>());
+
+        var result = await useCase.Execute(
+            new GetNearbyDeceasedQuery(55.0, 37.0, radius, 1, 20),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Type.Should().Be(ErrorType.Validation);
+        deceasedRepo.Verify(
+            x => x.GetNearby(It.IsAny<GetNearbyDeceasedQuery>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// E21: некорректная широта/долгота → Validation. Repo не вызывается.
+    /// </summary>
+    [Theory]
+    [InlineData(91.0, 37.0)]    // lat > 90
+    [InlineData(-91.0, 37.0)]   // lat < -90
+    [InlineData(55.0, 181.0)]   // lon > 180
+    [InlineData(55.0, -181.0)]  // lon < -180
+    public async Task GetNearby_OutOfRangeCoords_ReturnsValidation(double lat, double lon)
+    {
+        var deceasedRepo = new Mock<IDeceasedRepository>();
+        var currentUser = new Mock<ICurrentUserService>();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
+
+        var useCase = new GetNearbyDeceasedUseCase(
+            deceasedRepo.Object, currentUser.Object,
+            TestExecutor.With<GetNearbyDeceasedQuery, GetNearbyDeceasedQueryValidator>());
+
+        var result = await useCase.Execute(
+            new GetNearbyDeceasedQuery(lat, lon, 100, 1, 20),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Type.Should().Be(ErrorType.Validation);
+    }
+
+    /// <summary>
+    /// E21: маппинг row → response сохраняет DistanceMeters (округлённо)
+    /// и адресные поля. Round trip 123.6м → 124 (округление к ближайшему).
+    /// </summary>
+    [Fact]
+    public async Task GetNearby_MapsDistanceAndAddressFields()
+    {
+        var deceased = MakeDeceasedWithCoords(55.7560, 37.6175, city: "Москва", cemetery: "Test");
+
+        var deceasedRepo = new Mock<IDeceasedRepository>();
+        var currentUser = new Mock<ICurrentUserService>();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
+
+        deceasedRepo
+            .Setup(x => x.GetNearby(It.IsAny<GetNearbyDeceasedQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<NearbyDeceasedRow> { new(deceased, 123.6) }, 1));
+
+        var useCase = new GetNearbyDeceasedUseCase(
+            deceasedRepo.Object, currentUser.Object,
+            TestExecutor.With<GetNearbyDeceasedQuery, GetNearbyDeceasedQueryValidator>());
+
+        var result = await useCase.Execute(
+            new GetNearbyDeceasedQuery(55.7558, 37.6173, 100, 1, 20),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var item = result.Value.Items.Single();
+        item.DistanceMeters.Should().Be(124);
+        item.City.Should().Be("Москва");
+        item.CemeteryName.Should().Be("Test");
+        item.Latitude.Should().BeApproximately(55.7560, 0.000001);
+    }
+
+    private static Deceased MakeDeceasedWithCoords(
+        double lat, double lon, string? city = null, string? cemetery = null)
+    {
+        var burial = BurialLocation.Create(
+            latitude: lat,
+            longitude: lon,
+            city: city,
+            cemeteryName: cemetery,
+            accuracy: LocationAccuracy.Exact).Value;
+
+        return Deceased.Create(
+            "Иван", "Иванов", null, null,
+            DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-5)),
+            burial,
+            CardAuthorId).Value;
     }
 
     private static Deceased MakeDeceased() =>

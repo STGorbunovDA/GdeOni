@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Tracked.MemoryEditorPage"
+             x:DataType="vm:MemoryEditorViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="{Binding Title}">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.45"
+                 WidthRequest="240"
+                 HeightRequest="130"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="40" />
+
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="16">
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding CancelCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8"
+                        FontSize="14" />
+
+                <Label Text="{Binding Title}"
+                       Style="{StaticResource TitleLabel}" />
+
+                <Label Text="Расскажите что-то о человеке. После публикации запись пройдёт модерацию — её увидят остальные после одобрения."
+                       Style="{StaticResource BodyLabel}" />
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Editor Text="{Binding Text, Mode=TwoWay}"
+                                AutoSize="TextChanges"
+                                MinimumHeightRequest="180"
+                                Placeholder="Воспоминание..."
+                                MaxLength="5000" />
+
+                        <Label Text="{Binding CharCountText}"
+                               Style="{StaticResource CaptionLabel}"
+                               HorizontalOptions="End" />
+
+                        <Label IsVisible="{Binding IsTooLong}"
+                               Text="Слишком длинный текст — максимум 5000 символов."
+                               TextColor="#C0392B"
+                               FontSize="12" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label IsVisible="{Binding HasError}"
+                       Text="{Binding ErrorMessage}"
+                       TextColor="#C0392B"
+                       FontSize="13" />
+
+                <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                   IsVisible="{Binding IsBusy}"
+                                   Color="{StaticResource Azure}" />
+
+                <Button Text="{Binding SaveButtonText}"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding SaveCommand}"
+                        IsEnabled="{Binding CanSave}" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

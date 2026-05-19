@@ -30,6 +30,7 @@ using GdeOni.Application.DeceasedRecords.Queries.GetById.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetDistance.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.UseCase;
+using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.UseCase;
 using GdeOni.Application.Routing.Queries.GetRouteToGrave.UseCase;
 using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
@@ -79,6 +80,7 @@ public static class DependencyInjection
         services.AddScoped<ICreateDeceasedUseCase, CreateDeceasedUseCase>();
         services.AddScoped<IAddDeceasedAtGraveUseCase, AddDeceasedAtGraveUseCase>();
         services.AddScoped<IGetAllDeceasedUseCase, GetAllDeceasedUseCase>();
+        services.AddScoped<IGetNearbyDeceasedUseCase, GetNearbyDeceasedUseCase>();
         services.AddScoped<IGetDeceasedByIdUseCase, GetDeceasedByIdUseCase>();
         services.AddScoped<IUpdateDeceasedUseCase, UpdateDeceasedUseCase>();
         services.AddScoped<ISetBurialLocationFromGpsUseCase, SetBurialLocationFromGpsUseCase>();
