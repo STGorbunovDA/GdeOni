@@ -6451,12 +6451,20 @@ D21. Crash reporting / Observability в production
 
 Backend:
 
-[ ] Добавить Sentry .NET integration. SentryOptions из appsettings
-    (DSN, Environment, Release). Захват exceptions из
-    ExceptionMiddleware → Sentry.CaptureException перед
-    возвратом 500. Скоп — userId из CurrentUserService.
-[ ] Health-check endpoint `GET /health` (AllowAnonymous) — Db +
-    MinIO ping + статус миграций.
+[x] Добавлен Sentry.AspNetCore 4.13.0. SentryOptions
+    (`Dsn` / `Environment` / `Release` / `TracesSampleRate`)
+    биндится из секции `Sentry` в appsettings. Без DSN Sentry
+    не инициализируется — удобно для local-dev и integration-
+    тестов (no fake DSN required).
+[x] ExceptionMiddleware → SentrySdk.CaptureException для
+    необработанных exception'ов (UniqueConstraintException —
+    бизнес-flow, в Sentry не идёт). ConfigureScope добавляет
+    userId из ClaimTypes.NameIdentifier и trace_id; email и
+    другие PII не отправляются (SendDefaultPii=false).
+[x] Health-check endpoint `GET /health` [AllowAnonymous]:
+    PostgreSQL CanConnectAsync + MinIO ListBucketsAsync.
+    JSON-ответ с детализацией по каждой проверке. 200 если всё
+    Healthy, 503 если хотя бы один Unhealthy.
 [ ] OpenTelemetry export (опционально, отложим до факта prod-
     мониторинга).
 
@@ -6481,7 +6489,77 @@ Web:
 
 Tests:
 
-Тестов нет (это инфра-обвязки, юнит-тестируется только в самом SDK).
+[x] Backend integration: /health → 200 + Healthy, содержит проверки
+    "postgresql" и "minio", не требует auth (не гейтится
+    DefaultPolicy=RequireActiveSubscription).
+- Mobile Sentry — тестов нет, инфра-обвязка SDK.
+
+---------------------------------------------------------------------
+D21.1. D21 backend реализовано — 2026-05-19
+---------------------------------------------------------------------
+
+Закрыт пунктами D21.1 ÷ D21.5. Mobile часть (Sentry.Maui) остаётся
+на E25, реализуется когда начнём mobile-фронт.
+
+D21.1 Sentry DI:
+[x] NuGet Sentry.AspNetCore 4.13.0 (последняя 4.x — 5.x требует .NET 9+).
+[x] `Observability/SentryOptions.cs` — SectionName="Sentry",
+    Dsn / Environment / Release / TracesSampleRate.
+    `Enabled = !string.IsNullOrWhiteSpace(Dsn)`.
+[x] `Observability/SentryRegistration.cs` — `AddCustomSentry`
+    extension на WebApplicationBuilder. No-op без DSN, иначе
+    UseSentry с SendDefaultPii=false, AttachStacktrace=true,
+    MinimumEventLevel=Error.
+[x] Program.cs: `builder.AddCustomSentry()` сразу после
+    Serilog-конфига.
+
+D21.2 ExceptionMiddleware:
+[x] При unhandled exception (не UniqueConstraintException) —
+    SentrySdk.ConfigureScope: tag trace_id, user.Id из
+    ClaimTypes.NameIdentifier (без email/имени — PII guard).
+[x] SentrySdk.CaptureException(ex) перед формированием 500-го
+    ответа. Если SentrySdk.IsEnabled=false, операции — no-op
+    (без сетевых вызовов).
+
+D21.3 Health checks:
+[x] `HealthChecks/PostgresHealthCheck.cs` — IHealthCheck,
+    AppDbContext.Database.CanConnectAsync (cheap pool ping).
+[x] `HealthChecks/MinioHealthCheck.cs` — IHealthCheck,
+    IMinioClient.ListBucketsAsync (ловит DNS + auth ошибки).
+[x] Program.cs: AddHealthChecks() с двумя проверками, tags
+    `["db", "ready"]` / `["storage", "ready"]` для будущего
+    разделения liveness vs readiness.
+[x] `app.MapHealthChecks("/health", ...).AllowAnonymous()` —
+    кастомный ResponseWriter возвращает JSON со статусом
+    каждой проверки + длительность; exception stack trace
+    наружу не отдаётся (info-disclosure guard).
+
+D21.4 Tests:
+[x] `HealthEndpointTests` (3 теста):
+    - 200 + status Healthy на свежем Testcontainers-стенде;
+    - в ответе есть оба check'а (postgresql + minio);
+    - /health не возвращает 401/403 — анонимен под
+      DefaultPolicy=RequireActiveSubscription.
+
+D21.5 Test counter после реализации:
+[x] Полный прогон: 449/449 passed (Domain 146, Application 153,
+    Infrastructure 44, Integration 106).
+
+Что отложено:
+- OpenTelemetry export (traces / metrics) — пока что Sentry
+  TracesSampleRate=0 для бэка. Добавим если/когда понадобится
+  Grafana/Jaeger.
+- Sentry на mobile (Sentry.Maui) — это E25, после старта
+  mobile-фронта.
+- Negative-case health-check тест (Postgres down → 503) — требует
+  остановки контейнера прямо из теста, что усложняет setup;
+  пропускаем, валидируем вручную при первом инциденте.
+- Liveness vs readiness разделение (`/health/live` для k8s
+  liveness, `/health/ready` для readiness) — добавим перед
+  деплоем в kubernetes/managed cloud (H5 не выбран).
+- Performance / slow-query alerting — это уже Sentry tracing
+  + Performance, нужны deployment-наблюдения для калибровки
+  TracesSampleRate.
 
 =====================================================================
 КОНЕЦ БЛОКА D-PROD
