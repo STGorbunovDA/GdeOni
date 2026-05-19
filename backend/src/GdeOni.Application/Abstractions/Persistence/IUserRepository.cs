@@ -11,6 +11,15 @@ public interface IUserRepository
     Task<User?> GetByIdWithTrackingByDeceasedId(Guid userId, Guid deceasedId, CancellationToken cancellationToken);
     Task<(User User, int TrackingCount)?> GetByIdWithTrackingCount(Guid userId, CancellationToken cancellationToken);
     Task<User?> GetByEmail(string email, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// D16. Поиск пользователя по <c>Subscription.LastPaymentId</c>.
+    /// Используется <c>ProcessPaymentWebhookUseCase</c> чтобы найти,
+    /// кого активировать после webhook YooKassa. Возвращает null
+    /// если paymentId не известен (например, webhook от устаревшего
+    /// или подделанного платежа).
+    /// </summary>
+    Task<User?> GetBySubscriptionPaymentId(string externalPaymentId, CancellationToken cancellationToken);
     Task<(List<(User User, int TrackingCount)> Items, int TotalCount)> GetPaged(
         GetAllUsersQuery query,
         CancellationToken cancellationToken);

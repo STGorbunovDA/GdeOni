@@ -432,6 +432,59 @@ public static class Errors
             Error.Validation("nearby_search.radius.invalid", $"RadiusMeters must be between {min} and {max}");
     }
 
+    public static class Subscription
+    {
+        public static Error SubscriptionRequired() =>
+            Error.Forbidden(
+                "subscription.required",
+                "Active subscription is required to access this resource.");
+
+        public static Error AlreadyActive() =>
+            Error.Conflict(
+                "subscription.already.active",
+                "Subscription is already active. Wait until the current period ends or cancel it first.");
+
+        public static Error PaymentNotFound() =>
+            Error.NotFound(
+                "subscription.payment.not_found",
+                "Payment was not found for any user.");
+
+        public static Error InvalidPaymentSignature() =>
+            Error.Unauthorized(
+                "subscription.payment.invalid_signature",
+                "Payment webhook signature is invalid.");
+
+        public static Error PlanInvalid() =>
+            Error.Validation(
+                "subscription.plan.invalid",
+                "Subscription plan is invalid.");
+
+        public static Error PaymentIdRequired() =>
+            Error.Validation(
+                "subscription.payment_id.required",
+                "Payment id is required.");
+
+        public static Error PaymentIdTooLong(int maxLength) =>
+            Error.Validation(
+                "subscription.payment_id.too_long",
+                $"Payment id must be at most {maxLength} characters.");
+
+        public static Error ExpiresAtInPast() =>
+            Error.Validation(
+                "subscription.expires_at.in_past",
+                "Subscription ExpiresAtUtc must be in the future.");
+
+        public static Error TrialDurationInvalid() =>
+            Error.Validation(
+                "subscription.trial_duration.invalid",
+                "Trial duration must be positive.");
+
+        public static Error NotCancellable() =>
+            Error.Conflict(
+                "subscription.not_cancellable",
+                "Subscription cannot be cancelled from the current state.");
+    }
+
     public static class UniqueConstraint
     {
         public static Error FromName(string? constraintName) =>

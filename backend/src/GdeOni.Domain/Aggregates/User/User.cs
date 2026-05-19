@@ -41,6 +41,14 @@ public sealed class User : Entity<Guid>
     /// </summary>
     public Guid SecurityStamp { get; private set; }
 
+    /// <summary>
+    /// D16. Owned VO с состоянием подписки. У свежезарегистрированного
+    /// юзера = <see cref="Subscription.Initial"/> (Status=None); после
+    /// <c>RegisterUserUseCase</c> сразу вызывает <see cref="StartTrial"/>
+    /// — переход в Status=Trial с ExpiresAtUtc = now + 30d.
+    /// </summary>
+    public Subscription Subscription { get; private set; } = Subscription.Initial();
+
     private readonly List<TrackedDeceased> _trackedDeceasedItems = new();
     public IReadOnlyCollection<TrackedDeceased> TrackedDeceasedItems => _trackedDeceasedItems.AsReadOnly();
 
@@ -71,6 +79,7 @@ public sealed class User : Entity<Guid>
         Role = role;
         RegisteredAtUtc = registeredAtUtc;
         SecurityStamp = Guid.NewGuid();
+        Subscription = Subscription.Initial();
     }
 
     public static Result<User, Error> Register(
@@ -225,6 +234,133 @@ public sealed class User : Entity<Guid>
         LastLoginAtUtc = loggedInAtUtc ?? DateTime.UtcNow;
         Touch();
     }
+
+    /// <summary>
+    /// D16. Стартует пробный период. Вызывается из
+    /// <c>RegisterUserUseCase</c> сразу после <see cref="Register"/>.
+    /// Idempotent: если подписка уже не в Initial-состоянии — no-op
+    /// (защита от повторных вызовов / миграционных сценариев).
+    /// </summary>
+    public UnitResult<Error> StartTrial(DateTime nowUtc, TimeSpan trialDuration)
+    {
+        if (trialDuration <= TimeSpan.Zero)
+            return Errors.Subscription.TrialDurationInvalid();
+
+        if (Subscription.Status != SubscriptionStatus.None)
+            return UnitResult.Success<Error>();
+
+        Subscription = Subscription.WithTrial(nowUtc, trialDuration);
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D16. Помечает, что пользователь инициировал оплату — webhook
+    /// от YooKassa может прийти спустя несколько секунд/минут. Хранит
+    /// externalPaymentId, по которому потом найдём этого юзера в
+    /// <c>ProcessPaymentWebhook</c>.
+    /// </summary>
+    public UnitResult<Error> RequestSubscriptionPayment(SubscriptionPlan plan, string paymentId)
+    {
+        if (!Enum.IsDefined(typeof(SubscriptionPlan), plan))
+            return Errors.Subscription.PlanInvalid();
+
+        if (string.IsNullOrWhiteSpace(paymentId))
+            return Errors.Subscription.PaymentIdRequired();
+
+        if (paymentId.Length > Subscription.MaxPaymentIdLength)
+            return Errors.Subscription.PaymentIdTooLong(Subscription.MaxPaymentIdLength);
+
+        // Защита от случайной двойной оплаты на Active без отмены —
+        // фронту лучше показать "Подписка уже активна" вместо двойного
+        // списания.
+        if (Subscription.Status == SubscriptionStatus.Active)
+            return Errors.Subscription.AlreadyActive();
+
+        Subscription = Subscription.WithPendingPayment(plan, paymentId);
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D16. Активирует подписку после успешного webhook'а YooKassa.
+    /// Idempotent: если уже Active с тем же или более поздним
+    /// ExpiresAtUtc — no-op. Если новый ExpiresAtUtc позже текущего —
+    /// продлеваем.
+    /// </summary>
+    public UnitResult<Error> ActivateSubscription(
+        SubscriptionPlan plan,
+        DateTime nowUtc,
+        DateTime expiresAtUtc,
+        string paymentId)
+    {
+        if (!Enum.IsDefined(typeof(SubscriptionPlan), plan))
+            return Errors.Subscription.PlanInvalid();
+
+        if (string.IsNullOrWhiteSpace(paymentId))
+            return Errors.Subscription.PaymentIdRequired();
+
+        if (paymentId.Length > Subscription.MaxPaymentIdLength)
+            return Errors.Subscription.PaymentIdTooLong(Subscription.MaxPaymentIdLength);
+
+        if (expiresAtUtc <= nowUtc)
+            return Errors.Subscription.ExpiresAtInPast();
+
+        // Идемпотентность для retry webhook: тот же payment, не двигает
+        // ExpiresAtUtc вперёд → no-op. Это закрывает кейс "webhook
+        // YooKassa пришёл дважды".
+        if (Subscription.Status == SubscriptionStatus.Active
+            && Subscription.LastPaymentId == paymentId
+            && Subscription.ExpiresAtUtc is { } currentExpiry
+            && expiresAtUtc <= currentExpiry)
+        {
+            return UnitResult.Success<Error>();
+        }
+
+        var currentPeriodStart = Subscription.Status == SubscriptionStatus.Active
+            && Subscription.CurrentPeriodStartedAtUtc is { } existing
+                ? existing
+                : nowUtc;
+
+        Subscription = Subscription.WithActive(plan, currentPeriodStart, expiresAtUtc, paymentId);
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D16. Отмена подписки пользователем. ExpiresAtUtc сохраняется —
+    /// доступ дорабатывает до конца paid-period.
+    /// </summary>
+    public UnitResult<Error> CancelSubscription(DateTime nowUtc)
+    {
+        // Отменить можно только то, что сейчас даёт доступ — Trial
+        // или Active. Остальные статусы — no-op для безопасности.
+        if (Subscription.Status is not SubscriptionStatus.Trial
+            and not SubscriptionStatus.Active)
+        {
+            return Errors.Subscription.NotCancellable();
+        }
+
+        Subscription = Subscription.WithCancelled(nowUtc);
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D16. Главный гейт-метод: пускать ли пользователя на endpoint'ы,
+    /// требующие активной подписки. Учитывает Trial / Active /
+    /// Cancelled (последний — пока ExpiresAtUtc не наступил).
+    /// gracePeriodDays добавляется к ExpiresAtUtc — на случай задержки
+    /// webhook YooKassa при автосписании.
+    /// </summary>
+    public bool HasActiveSubscription(DateTime nowUtc, int gracePeriodDays = 0) =>
+        Subscription.IsActive(nowUtc, gracePeriodDays);
+
+    /// <summary>
+    /// D16. true только если сейчас Trial. Используется UI для показа
+    /// баннера "Пробный период до DD.MM.YYYY".
+    /// </summary>
+    public bool IsOnTrial(DateTime nowUtc) => Subscription.IsOnTrial(nowUtc);
 
     private void Touch()
     {

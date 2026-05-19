@@ -1,10 +1,13 @@
 ﻿using GdeOni.Application.Abstractions.Features;
+using GdeOni.Application.Abstractions.Payments;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Routing;
 using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Common.Security;
+using GdeOni.Application.Subscriptions;
 using GdeOni.Infrastructure.Data;
 using GdeOni.Infrastructure.Features;
+using GdeOni.Infrastructure.Payments;
 using GdeOni.Infrastructure.Persistence;
 using GdeOni.Infrastructure.Persistence.Cleanup;
 using GdeOni.Infrastructure.Persistence.Repositories;
@@ -72,6 +75,14 @@ public static class DependencyInjection
         services.Configure<FeatureFlagsOptions>(
             configuration.GetSection(FeatureFlagsOptions.SectionName));
         services.AddSingleton<IFeatureFlagService, OptionsFeatureFlagService>();
+
+        // D16. Subscription opts + платёжный провайдер. Реальный
+        // YooKassaPaymentProvider подключается в D16.3 при наличии
+        // секции YooKassa в appsettings; сейчас — FakePaymentProvider
+        // как дефолт для dev / integration-тестов.
+        services.Configure<SubscriptionOptions>(
+            configuration.GetSection(SubscriptionOptions.SectionName));
+        services.AddSingleton<IPaymentProvider, FakePaymentProvider>();
 
         services.AddSingleton<IMinioClient>(sp =>
         {

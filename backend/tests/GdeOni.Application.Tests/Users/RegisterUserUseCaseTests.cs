@@ -93,10 +93,15 @@ public sealed class RegisterUserUseCaseTests
     {
         var userRepo = new Mock<IUserRepository>();
         var hasher = new Mock<IPasswordHasher>();
+        // D16: RegisterUserUseCase теперь дёргает StartTrial и читает
+        // длительность из SubscriptionOptions через IOptions.
+        var subscriptionOptions = Microsoft.Extensions.Options.Options.Create(
+            new GdeOni.Application.Subscriptions.SubscriptionOptions());
         var useCase = new RegisterUserUseCase(
             userRepo.Object,
             hasher.Object,
-            TestExecutor.With<RegisterUserCommand, RegisterUserCommandValidator>());
+            TestExecutor.With<RegisterUserCommand, RegisterUserCommandValidator>(),
+            subscriptionOptions);
         return (userRepo, hasher, useCase);
     }
 }

@@ -77,8 +77,12 @@ public sealed class NearbyDeceasedTests
             alice.Client, latitude: 55.7558 + 0.05, longitude: 37.6173,
             lastName: farMarker);
 
+        // pageSize=100: тесты в коллекции набивают карточки с теми же
+        // координатами Москвы → дефолт pageSize=20 рискует не попасть
+        // в недавно созданную nearId. radiusMeters=100 ловит только
+        // близкие, но их может быть >20 от прошлых прогонов.
         var response = await alice.Client.GetAsync(
-            "/api/deceased-records/nearby?latitude=55.7558&longitude=37.6173&radiusMeters=100");
+            "/api/deceased-records/nearby?latitude=55.7558&longitude=37.6173&radiusMeters=100&pageSize=100");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var body = await response.Content.ReadAsStringAsync();
@@ -105,8 +109,12 @@ public sealed class NearbyDeceasedTests
         var fartherId = await TestSeed.CreateAtGraveAtCoordsAsync(
             alice.Client, 55.7558 + 0.00072, 37.6173, fartherMarker);
 
+        // pageSize=100 — другие тесты в коллекции CreateAtGraveAsync
+        // сеют записи с теми же координатами Москвы (55.7, 37.6),
+        // и при дефолтном pageSize=20 наша farther-карточка может
+        // уйти на 2-ю страницу. Явно увеличиваем.
         var response = await alice.Client.GetAsync(
-            "/api/deceased-records/nearby?latitude=55.7558&longitude=37.6173&radiusMeters=200");
+            "/api/deceased-records/nearby?latitude=55.7558&longitude=37.6173&radiusMeters=200&pageSize=100");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var body = await response.Content.ReadAsStringAsync();

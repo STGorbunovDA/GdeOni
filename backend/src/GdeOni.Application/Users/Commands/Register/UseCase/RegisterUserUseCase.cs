@@ -2,16 +2,19 @@
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
+using GdeOni.Application.Subscriptions;
 using GdeOni.Application.Users.Commands.Register.Model;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
+using Microsoft.Extensions.Options;
 
 namespace GdeOni.Application.Users.Commands.Register.UseCase;
 
 public sealed class RegisterUserUseCase(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
-    IValidatedUseCaseExecutor validatedUseCaseExecutor)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    IOptions<SubscriptionOptions> subscriptionOptions)
     : IRegisterUserUseCase
 {
     public Task<Result<RegisterUserResponse, Error>> Execute(
@@ -54,9 +57,18 @@ public sealed class RegisterUserUseCase(
 
         var user = userResult.Value;
 
+        // D16. Каждый новый пользователь сразу получает Trial-период
+        // на длительность из SubscriptionOptions (30 дней по дефолту).
+        // Решение 2026-05-14: первый месяц бесплатно. StartTrial
+        // idempotent — повторный вызов на не-None ничего не сделает.
+        var trialResult = user.StartTrial(
+            DateTime.UtcNow,
+            subscriptionOptions.Value.TrialDuration);
+        if (trialResult.IsFailure)
+            return trialResult.Error;
+
         await userRepository.Add(user, cancellationToken);
         await userRepository.Save(cancellationToken);
         return Result.Success<RegisterUserResponse, Error>(new RegisterUserResponse(user.Id));
-        
     }
 }

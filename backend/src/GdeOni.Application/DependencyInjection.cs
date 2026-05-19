@@ -33,6 +33,10 @@ using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.UseCase;
 using GdeOni.Application.Routing.Queries.GetRouteToGrave.UseCase;
+using GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
+using GdeOni.Application.Subscriptions.Commands.CreatePayment.UseCase;
+using GdeOni.Application.Subscriptions.Commands.ProcessPaymentWebhook.UseCase;
+using GdeOni.Application.Subscriptions.Queries.GetMySubscription.UseCase;
 using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
 using GdeOni.Application.Users.Commands.ChangePassword.UseCase;
 using GdeOni.Application.Users.Commands.ChangeRole.UseCase;
@@ -114,6 +118,12 @@ public static class DependencyInjection
         services.AddScoped<IRemoveTrackingUseCase, RemoveTrackingUseCase>();
 
         services.AddScoped<IGetRouteToGraveUseCase, GetRouteToGraveUseCase>();
+
+        // D16. Subscription use cases.
+        services.AddScoped<IGetMySubscriptionUseCase, GetMySubscriptionUseCase>();
+        services.AddScoped<ICreatePaymentUseCase, CreatePaymentUseCase>();
+        services.AddScoped<ICancelSubscriptionUseCase, CancelSubscriptionUseCase>();
+        services.AddScoped<IProcessPaymentWebhookUseCase, ProcessPaymentWebhookUseCase>();
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;

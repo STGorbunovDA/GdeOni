@@ -74,6 +74,21 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
     }
 
+    public Task<User?> GetBySubscriptionPaymentId(
+        string externalPaymentId,
+        CancellationToken cancellationToken)
+    {
+        // D16. Поиск по subscription.last_payment_id для
+        // ProcessPaymentWebhookUseCase. Tracked — use case будет
+        // вызывать ActivateSubscription, нужен change-tracker.
+        // Индекс ix_users_subscription_last_payment_id обеспечивает
+        // SELECT по одному значению без full-scan.
+        return UsersQuery()
+            .FirstOrDefaultAsync(
+                x => x.Subscription.LastPaymentId == externalPaymentId,
+                cancellationToken);
+    }
+
     public Task<bool> ExistsById(Guid userId, CancellationToken cancellationToken)
     {
         // D8.13: AsNoTracking — EXISTS-only, материализация и change-tracker

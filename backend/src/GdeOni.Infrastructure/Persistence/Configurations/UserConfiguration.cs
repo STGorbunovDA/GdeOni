@@ -61,6 +61,48 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("security_stamp")
             .IsRequired();
 
+        builder.OwnsOne(x => x.Subscription, subscription =>
+        {
+            subscription.Property(x => x.Status)
+                .HasColumnName("subscription_status")
+                .HasConversion<string>()
+                .HasMaxLength(50)
+                .IsRequired();
+
+            subscription.Property(x => x.Plan)
+                .HasColumnName("subscription_plan")
+                .HasConversion<string?>()
+                .HasMaxLength(50);
+
+            subscription.Property(x => x.CurrentPeriodStartedAtUtc)
+                .HasColumnName("subscription_current_period_started_at_utc");
+
+            subscription.Property(x => x.ExpiresAtUtc)
+                .HasColumnName("subscription_expires_at_utc");
+
+            subscription.Property(x => x.LastPaymentId)
+                .HasColumnName("subscription_last_payment_id")
+                .HasMaxLength(Domain.Aggregates.User.Subscription.MaxPaymentIdLength);
+
+            subscription.Property(x => x.CancelledAtUtc)
+                .HasColumnName("subscription_cancelled_at_utc");
+
+            // D16. Индекс по ExpiresAtUtc нужен для будущей фоновой job'ы
+            // "expired marking" и для аналитических запросов типа "сколько
+            // юзеров истечёт за ближайшие 7 дней". Для гейта (handler
+            // фильтрует уже загруженного юзера) индекс не критичен.
+            subscription.HasIndex(x => x.ExpiresAtUtc)
+                .HasDatabaseName("ix_users_subscription_expires_at_utc");
+
+            // D16. Поиск юзера по externalPaymentId для
+            // ProcessPaymentWebhook — без индекса full scan на каждом
+            // webhook'е. Не уникальный: возможен retry с тем же payment id.
+            subscription.HasIndex(x => x.LastPaymentId)
+                .HasDatabaseName("ix_users_subscription_last_payment_id");
+        });
+
+        builder.Navigation(x => x.Subscription).IsRequired();
+
         builder.HasMany(x => x.TrackedDeceasedItems)
             .WithOne()
             .HasForeignKey("user_id")
