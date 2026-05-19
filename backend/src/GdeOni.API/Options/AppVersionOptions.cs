@@ -25,9 +25,11 @@ public sealed class AppVersionOptions
     public string LatestVersion { get; set; } = "1.0.0";
 
     /// <summary>
-    /// URL для скачивания. Mobile откроет в браузере / Google Play;
-    /// web — для текста "обновитесь по ссылке" (на web обычно reload
-    /// страницы достаточно).
+    /// URL для скачивания APK. По решению 2026-05-19 распространяем
+    /// Android-приложение через сайт (sideload), не через Play Store —
+    /// поэтому здесь ссылка на gdeoni.ru/download. Web использует
+    /// этот же URL для текста "обновитесь по ссылке" (на web обычно
+    /// reload страницы достаточно).
     /// </summary>
     public string? DownloadUrl { get; set; }
 

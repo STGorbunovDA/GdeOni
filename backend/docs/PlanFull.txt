@@ -7649,8 +7649,7 @@ Tests:
 [ ] VM-тест на toggle: вкл/выкл вызывает Scheduler.Schedule/Cancel
     с правильными аргументами (через mock).
 [ ] Unit-тест на WorkManagerScheduler не пишем — требует Android
-    runtime context'а, дешевле проверить руками + Crashlytics-ом
-    в проде.
+    runtime context'а, дешевле проверить руками + Sentry-ом в проде.
 
 ---------------------------------------------------------------------
 E24. Privacy / Terms onboarding (mobile)
