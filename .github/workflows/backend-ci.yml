@@ -1,0 +1,88 @@
+# D20.1. Backend CI — build + test на каждый push и PR.
+#
+# Integration-тесты (GdeOni.Api.IntegrationTests, GdeOni.Infrastructure.Tests)
+# поднимают PostgreSQL и MinIO через Testcontainers. На ubuntu-latest
+# runner'е Docker предустановлен и работает из коробки, поэтому никакой
+# дополнительной service-конфигурации в jobs не требуется — Testcontainers
+# сам поднимет нужные образы.
+#
+# Если когда-то понадобится Windows-runner — там Testcontainers требует
+# отдельной настройки (Docker Desktop в headless-режиме), и проще
+# поднимать docker-сервис вручную через `services:` секцию.
+
+name: backend-ci
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+# Отменяем устаревшие прогоны для одной и той же ветки/PR — экономия
+# минут на free-tier и быстрая обратная связь по последнему пушу.
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: build + test (Release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # NuGet-кеш ускоряет повторные прогоны: без него каждый run тянет
+      # все пакеты заново (≈ 30+ сек). Ключ собирается из всех .csproj —
+      # любое изменение зависимостей инвалидирует кеш.
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore
+        working-directory: backend
+        run: dotnet restore backend.sln
+
+      - name: Build (Release, no restore)
+        working-directory: backend
+        run: dotnet build backend.sln --configuration Release --no-restore
+
+      # `--no-build` гарантирует что мы тестируем тот же binary, который
+      # собрали выше — без неявной пересборки в Debug.
+      - name: Test
+        working-directory: backend
+        run: |
+          dotnet test backend.sln \
+            --configuration Release \
+            --no-build \
+            --logger "trx;LogFileName=test-results.trx" \
+            --logger "console;verbosity=normal"
+        env:
+          # Testcontainers иногда падает на raw-режиме на ubuntu-runner'е —
+          # форсируем стандартный TCP-socket для Docker daemon.
+          DOCKER_HOST: unix:///var/run/docker.sock
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: '**/TestResults/*.trx'
+          retention-days: 14

@@ -6329,38 +6329,63 @@ GitHub Actions (или GitLab CI — какой удобнее держать).
 
 Backend (`.github/workflows/backend-ci.yml`):
 
-[ ] On `push` / `pull_request` в main:
-    1. checkout, setup-dotnet 10.
-    2. `dotnet restore backend/backend.sln`.
-    3. `dotnet build backend/backend.sln --no-restore -c Release`.
-    4. `dotnet test backend/backend.sln --no-build -c Release`.
-       Integration-тесты подымают PostgreSQL + MinIO через
-       Testcontainers — внутри GHA это работает с docker-сервисом
-       (ubuntu-latest), на Windows-runner'е нужны special-настройки.
-    5. На теге `vX.Y.Z` — публикация Docker image
-       `ghcr.io/<owner>/gdeoni-api:X.Y.Z`.
+[x] On `push` / `pull_request` в main/dev (фильтр paths по
+    `backend/**`):
+    1. checkout, setup-dotnet 8.0.x (backend целиком на net8.0).
+    2. NuGet-кеш через actions/cache (ключ от хеша всех .csproj).
+    3. `dotnet restore backend/backend.sln`.
+    4. `dotnet build backend/backend.sln --no-restore -c Release`.
+    5. `dotnet test backend/backend.sln --no-build -c Release`
+       с `trx` логгером. Integration-тесты подымают PostgreSQL +
+       MinIO через Testcontainers — на ubuntu-latest Docker
+       предустановлен, дополнительной сервис-конфигурации не нужно.
+    6. Upload test results как artifact (`backend-test-results`,
+       retention 14 дней).
+    7. `concurrency` group отменяет устаревшие прогоны на
+       одну ветку/PR.
 
-Mobile (`.github/workflows/mobile-ci.yml`):
+Backend release (`.github/workflows/backend-release.yml`):
 
-[ ] On `push` / `pull_request`:
-    1. checkout, setup-dotnet 10 + Android workload.
-    2. `dotnet test frontend/mobile/GdeOni.Mobile.Tests --no-restore`.
-[ ] On `push` tag `mobile-vX.Y.Z`:
-    3. `dotnet publish frontend/mobile/GdeOni.Mobile -c Release
-        -f net10.0-android` → собирает signed APK
-        (`AndroidSigningKeyStore` + `AndroidSigningKeyPass`
-        из GitHub Secrets).
-    4. `gh release create mobile-vX.Y.Z app-release.apk` —
-        прикрепляем APK как artefact GitHub Release.
-    5. (Опционально) Upload APK на gdeoni.ru через SCP /
-        S3-совместимое API; обновить ссылку `latest.apk` →
-        новый файл. На сайте раздел `/download` отдаёт всегда
-        `latest.apk` + список предыдущих версий.
-    6. Параллельно обновить `appsettings.json` на бэке
-        (AppVersion:LatestVersion → новая версия) и задеплоить
-        конфиг — клиенты в течение часа подтянут soft-баннер.
-        При мажорном breaking change — также бампнуть
-        MinSupportedVersion для force-update.
+[x] On `push` tag `backend-vX.Y.Z` — публикация Docker image
+    `ghcr.io/<owner>/gdeoni-api:X.Y.Z` через
+    docker/build-push-action + docker/metadata-action. Авторизация
+    в GHCR через GITHUB_TOKEN (permissions: packages: write).
+    Теги генерируются автоматически: точная версия, major.minor,
+    latest. Без SSH-deploy на сервер — добавим когда выберем
+    хостинг (H5).
+
+Mobile CI (`.github/workflows/mobile-ci.yml`):
+
+[x] On `push` / `pull_request` в main/dev (фильтр paths по
+    `frontend/mobile/**`):
+    1. setup-dotnet через `global-json-file` =
+       `frontend/mobile/global.json` (SDK 10.0.203).
+    2. Restore + build + test для `GdeOni.Mobile.Tests.csproj`
+       (net10.0, без -android). Android workload НЕ ставится —
+       тестовый и Shared проекты cross-platform.
+    3. Upload `mobile-test-results.trx`.
+
+Mobile release (`.github/workflows/mobile-release.yml`):
+
+[x] On `push` tag `mobile-vX.Y.Z`:
+    1. JDK 17 + setup-dotnet 10.0.x.
+    2. `dotnet workload install maui-android` — нужен для
+       публикации в net10.0-android.
+    3. Декодирование keystore из base64 (`ANDROID_KEYSTORE_BASE64`)
+       во временный файл; `if: always()` cleanup в конце.
+    4. `dotnet publish GdeOni.Mobile.csproj -c Release -f
+       net10.0-android` с `-p:AndroidSigningKeyStore=...`
+       и password/alias из секретов.
+    5. Поиск `-Signed.apk` через find, fallback на любой .apk.
+    6. `softprops/action-gh-release@v2` создаёт GitHub Release
+       и прикрепляет APK.
+
+Требуемые secrets (Settings → Secrets and variables → Actions):
+- `ANDROID_KEYSTORE_BASE64` — keystore.jks в base64;
+- `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+Без них mobile-release.yml упадёт на шаге `Build signed APK` —
+сознательно, чтобы случайно не выкатить unsigned APK на сайт
+(разные подписи = старая версия не обновится поверх новой).
 
 Решение 2026-05-19: распространение через собственный сайт,
 не через Google Play. Никаких `gradle-play-publisher` /
@@ -6372,6 +6397,50 @@ Mobile (`.github/workflows/mobile-ci.yml`):
 - Production-deploy backend (нет prod-инфры).
 - Web pipeline (web ещё не начат, F-секция).
 - Coverage reporting.
+
+---------------------------------------------------------------------
+D20.1. D20 реализовано — 2026-05-19
+---------------------------------------------------------------------
+
+Закрыт 4 workflow-файлами в `.github/workflows/`:
+
+- `backend-ci.yml` — build + test на push/PR в main/dev.
+  Triggers фильтруются paths `backend/**` чтобы не тратить минуты на
+  правки plan'а или mobile. NuGet cache по hashFiles всех .csproj.
+  Test-results аплоадятся как trx-artifact (retention 14 дней).
+- `backend-release.yml` — Docker image на тег `backend-v*`.
+  docker/metadata-action генерирует точную версию + major.minor +
+  latest. Авторизация в GHCR — через GITHUB_TOKEN, секретов не
+  нужно. build-push-action использует кеш `type=gha,mode=max`.
+- `mobile-ci.yml` — тесты `GdeOni.Mobile.Tests` (net10.0, без
+  -android) на push/PR. SDK через global.json (10.0.203). Android
+  workload НЕ ставится — тестовый проект cross-platform.
+- `mobile-release.yml` — signed APK на тег `mobile-v*`. JDK 17 +
+  maui-android workload + декодирование keystore из base64. APK
+  прикрепляется к GitHub Release через softprops/action-gh-release.
+
+Дополнительно:
+- Все workflow используют `concurrency.cancel-in-progress` чтобы
+  не тратить minutes на устаревшие прогоны после нового пуша.
+- `timeout-minutes` явно задан для каждого job'а (20/30/15/60).
+- YAML провалидирован через PyYAML локально перед коммитом.
+
+Что отложено:
+- SSH-deploy backend'а на сервер — добавим когда определимся
+  с хостингом (H5: VPS vs managed PostgreSQL, выбор провайдера).
+- Upload APK на gdeoni.ru через SCP/S3 — нужно когда сайт
+  заработает, сейчас GitHub Release достаточен для теста flow.
+- Update appsettings.json (AppVersion:LatestVersion) после
+  mobile-release — пока что вручную; автоматизация после
+  выбора deployment-стратегии.
+- Coverage reporting — отдельная задача, требует выбора инструмента
+  (Codecov / Coveralls / self-hosted).
+
+Требуемые GitHub Secrets перед первым тегом `mobile-v*`:
+[ ] ANDROID_KEYSTORE_BASE64
+[ ] ANDROID_KEYSTORE_PASSWORD
+[ ] ANDROID_KEY_ALIAS
+[ ] ANDROID_KEY_PASSWORD
 
 ---------------------------------------------------------------------
 D21. Crash reporting / Observability в production
