@@ -1,3 +1,4 @@
+using GdeOni.API.Authorization;
 using GdeOni.API.Mappers;
 using GdeOni.API.Models.Auth;
 using GdeOni.API.Models.Users;
@@ -64,7 +65,7 @@ public sealed class AuthController : ApiControllerBase
     /// 204 без ошибки (одинаковый ответ скрывает существование чужих токенов).
     /// </summary>
     [HttpPost("logout")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]

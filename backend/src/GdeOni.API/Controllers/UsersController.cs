@@ -1,3 +1,4 @@
+using GdeOni.API.Authorization;
 using GdeOni.API.Extensions;
 using GdeOni.API.Mappers;
 using GdeOni.API.Models.Users;
@@ -60,7 +61,7 @@ public sealed class UsersController : ApiControllerBase
     /// Идентификатор пользователя берётся только из JWT.
     /// </summary>
     [HttpGet("me")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
     [ProducesResponseType(typeof(ApiResponse<GetCurrentUserResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -118,7 +119,7 @@ public sealed class UsersController : ApiControllerBase
     /// Доступен текущему пользователю или администратору.
     /// </summary>
     [HttpPatch("{id:guid}")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
     [ProducesResponseType(typeof(ApiResponse<UpdateUserProfileResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
@@ -140,7 +141,7 @@ public sealed class UsersController : ApiControllerBase
     /// Доступен текущему пользователю или администратору.
     /// </summary>
     [HttpPut("{id:guid}/password")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
     [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
     [ProducesResponseType(typeof(ApiResponse<ChangePasswordResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
@@ -163,7 +164,7 @@ public sealed class UsersController : ApiControllerBase
     /// Доступен текущему пользователю или администратору.
     /// </summary>
     [HttpPut("{id:guid}/email")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
     [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
     [ProducesResponseType(typeof(ApiResponse<ChangeEmailResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]

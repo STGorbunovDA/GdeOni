@@ -1,3 +1,4 @@
+using GdeOni.API.Authorization;
 using GdeOni.API.Mappers;
 using GdeOni.API.Models.Subscriptions;
 using GdeOni.API.Response;
@@ -23,7 +24,7 @@ namespace GdeOni.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/users/me/subscription")]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
 public sealed class SubscriptionsController : ApiControllerBase
 {
     /// <summary>

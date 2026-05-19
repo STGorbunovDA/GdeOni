@@ -1,3 +1,4 @@
+using GdeOni.API.Authorization;
 using GdeOni.API.Extensions;
 using GdeOni.API.Models.App;
 using GdeOni.API.Options;
@@ -46,7 +47,7 @@ public sealed class AppController : ControllerBase
     /// коммерциализации и т.п.).
     /// </summary>
     [HttpGet("features")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
     [ProducesResponseType(typeof(ApiResponse<AppFeaturesResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     public IActionResult GetFeatures(

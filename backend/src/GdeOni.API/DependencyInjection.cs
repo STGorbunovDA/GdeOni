@@ -1,9 +1,11 @@
 ﻿using System.Security.Claims;
 using System.Text;
+using GdeOni.API.Authorization;
 using GdeOni.API.Security;
 using GdeOni.Application.Common.Security;
 using GdeOni.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -143,7 +145,26 @@ public static class DependencyInjection
                 };
             });
 
-        services.AddAuthorization();
+        // D16. Default-политика = аутентификация + активная подписка.
+        // Применяется ко всем [Authorize] без указания policy.
+        // Whitelist'овые эндпоинты помечаются
+        // [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)] —
+        // только аутентификация без подписки.
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy(AuthorizationPolicies.BasicAuthenticated, policy =>
+                policy.RequireAuthenticatedUser());
+
+            options.AddPolicy(AuthorizationPolicies.RequireActiveSubscription, policy =>
+                policy.RequireAuthenticatedUser()
+                      .AddRequirements(new ActiveSubscriptionRequirement()));
+
+            options.DefaultPolicy = options.GetPolicy(
+                AuthorizationPolicies.RequireActiveSubscription)!;
+        });
+        services.AddSingleton<IAuthorizationHandler, ActiveSubscriptionAuthorizationHandler>();
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler, SubscriptionAwareAuthorizationResultHandler>();
+
         services.AddHttpContextAccessor();
         services.AddMemoryCache();
         services.AddScoped<IJwtProvider, JwtProvider>();

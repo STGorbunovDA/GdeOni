@@ -5764,50 +5764,152 @@ Subscription gate (единый, на всё приложение):
 
 Migration:
 
-[ ] AddSubscriptionToUsers — колонки
+[x] AddSubscriptionToUsers — колонки
     `subscription_status`, `subscription_plan`, `subscription_expires_at_utc`,
     `subscription_current_period_started_at_utc`, `subscription_last_payment_id`,
     `subscription_cancelled_at_utc`. EF owned value-object конфиг в
-    `UserConfiguration`.
+    `UserConfiguration`. Миграция
+    20260519182340_D16_AddSubscriptionToUsers применена.
 
 Tests:
 
-[ ] Domain: `User.StartTrial` выставляет Status=Trial и
+[x] Domain: `User.StartTrial` выставляет Status=Trial и
     ExpiresAtUtc = nowUtc + 30 дней; повторный вызов на не-None →
     no-op.
-[ ] Domain: `HasActiveSubscription` true при Status=Trial и
+[x] Domain: `HasActiveSubscription` true при Status=Trial и
     ExpiresAtUtc > now; false когда Trial истёк.
-[ ] Domain: `IsOnTrial` true только для Trial-статуса.
-[ ] Domain: `User.ActivateSubscription` после Trial — Status=Active,
+[x] Domain: `IsOnTrial` true только для Trial-статуса.
+[x] Domain: `User.ActivateSubscription` после Trial — Status=Active,
     Trial overrides (один платёж переводит trial → paid).
-[ ] Domain: `User.ActivateSubscription` продлевает, если ExpiresAtUtc
+[x] Domain: `User.ActivateSubscription` продлевает, если ExpiresAtUtc
     в будущем; idempotent при повторном вызове.
-[ ] Domain: `HasActiveSubscription` ложно при Status=Cancelled даже
-    если ExpiresAtUtc > now (то есть `Cancelled` всё равно даёт
-    paid-period, но HasActive дальше учитывает Status — спорное
-    решение, тест зафиксирует выбор; уточнить).
-[ ] Application: `RegisterUserUseCase` стартует Trial у нового юзера
+[x] Domain: `HasActiveSubscription` пускает Cancelled пока ExpiresAtUtc
+    в будущем (paid-period дорабатывает); falsy после истечения.
+    Уточнение: `Cancelled` входит в IsActive-список статусов; гейт
+    закрывается через ExpiresAtUtc.
+[x] Application: `RegisterUserUseCase` стартует Trial у нового юзера
     (проверить через GetMySubscription после register → IsOnTrial=true).
-[ ] Application: `ActiveSubscriptionAuthorizationHandler` пускает
+[x] Application: `ActiveSubscriptionAuthorizationHandler` пускает
     юзера в течение Trial-периода (200 на запросы, требующие подписки).
-[ ] Application: после Trial-окончания тот же юзер получает 403 +
+[x] Application: после Trial-окончания тот же юзер получает 403 +
     code "subscription.required".
-[ ] Application: ProcessPaymentWebhookUseCase активирует юзера по
-    externalPaymentId; повторный webhook → no-op.
-[ ] Application: CreatePaymentUseCase у юзера с Active → AlreadyActive
-    (если до конца периода далеко).
-[ ] Integration: GET /api/users/me/subscription для нового юзера →
-    Status=None, IsActiveNow=false.
-[ ] Integration: webhook с невалидной подписью → 400 / 401 (TBD).
+[x] Application: ProcessPaymentWebhookUseCase активирует юзера по
+    externalPaymentId; повторный webhook → no-op (через доменную
+    идемпотентность `ActivateSubscription`).
+[x] Application: CreatePaymentUseCase у юзера с Active → AlreadyActive.
+[x] Integration: GET /api/users/me/subscription для нового юзера →
+    Status=Trial, IsActiveNow=true (Trial стартует в Register).
+[x] Integration: webhook с невалидной подписью → 401
+    (PaymentVerification.Failure → ProcessPaymentWebhook возвращает
+    Error.Unauthorized).
 
 Что НЕ делаем в этой итерации:
 
 - Promo-коды / скидки;
 - Рефанды через API;
-- Множественные тарифные планы (только Monthly/Yearly);
+- Множественные тарифные планы (только Monthly за 49 ₽);
 - Семейная подписка / sharing;
-- Trial-периоды (можно добавить через "первый месяц бесплатно" —
-  отдельная фича).
+- Trial-период РЕАЛИЗОВАН: первый месяц бесплатно при регистрации
+  (см. RegisterUserUseCase.StartTrial и SubscriptionOptions.TrialDuration).
+
+---------------------------------------------------------------------
+D16.7. D16 реализовано (2026-05-19)
+---------------------------------------------------------------------
+
+D16.1 Domain + миграция:
+[x] enum SubscriptionStatus (None / Trial / PendingPayment / Active /
+    Cancelled / Expired).
+[x] enum SubscriptionPlan (Monthly — Yearly зарезервировано).
+[x] Owned VO Subscription на User: 6 свойств, immutable через
+    приватные factory-методы (Initial / WithTrial / WithPendingPayment
+    / WithActive / WithCancelled).
+[x] User.StartTrial / RequestSubscriptionPayment / ActivateSubscription
+    / CancelSubscription / HasActiveSubscription(grace) / IsOnTrial.
+[x] Subscription.IsActive — Trial/PendingPayment/Active/Cancelled пока
+    ExpiresAtUtc+grace > now. PendingPayment включён сознательно —
+    юзер на Trial, нажавший "Оплатить", сохраняет доступ.
+[x] Subscription.DaysUntilExpiry — округление вверх.
+[x] Errors.Subscription: SubscriptionRequired / AlreadyActive /
+    PaymentNotFound / InvalidPaymentSignature / PlanInvalid /
+    PaymentIdRequired / PaymentIdTooLong / ExpiresAtInPast /
+    TrialDurationInvalid / NotCancellable.
+[x] OwnsOne(Subscription) с 6 snake_case колонками + индексы
+    ix_users_subscription_expires_at_utc и
+    ix_users_subscription_last_payment_id.
+[x] Domain.Tests: 15 unit-тестов (StartTrial idempotency,
+    HasActiveSubscription для всех статусов с grace, Activate
+    idempotency, Cancel preserves paid-period, DaysUntilExpiry rounding).
+
+D16.2 Application:
+[x] Abstractions/Payments: IPaymentProvider (CreateAsync /
+    VerifyWebhookAsync / CancelRecurringAsync) + DTO PaymentCreated /
+    PaymentVerification / enum PaymentStatus.
+[x] SubscriptionOptions: MonthlyPriceRub=49, TrialDurationDays=30,
+    MonthlyDurationDays=30, ReturnUrl.
+[x] Use case'ы: GetMySubscription (query), CreatePayment (с
+    fail-safe — провайдер ДО мутации User), CancelSubscription,
+    ProcessPaymentWebhook (verify → find by paymentId → Activate,
+    Pending игнор, Cancelled silent).
+[x] RegisterUserUseCase интеграция: StartTrial(now, TrialDuration)
+    сразу после User.Register.
+[x] FakePaymentProvider — дефолтная реализация для dev/integration-тестов.
+[x] Application.Tests: 13 unit (GetMySubscription 4, CreatePayment 3,
+    CancelSubscription 2, ProcessPaymentWebhook 4).
+
+D16.3 Infrastructure (YooKassa):
+[x] YooKassaOptions (ShopId / SecretKey / BaseUrl + IsConfigured).
+[x] YooKassaPaymentProvider: POST /v3/payments с Basic Auth +
+    Idempotence-Key. VerifyWebhookAsync через pull-проверку GET
+    /v3/payments/{id} (надёжнее HMAC, который у YooKassa
+    опционален).
+[x] DI deferred resolution: factory AddScoped<IPaymentProvider>
+    смотрит IOptions<YooKassaOptions>.Value.IsConfigured на момент
+    resolve. Важно для WebApplicationFactory, где
+    ConfigureAppConfiguration выполняется после AddInfrastructure.
+[x] Microsoft.Extensions.Http 8.0.1 + AddHttpClient<YooKassaPaymentProvider>.
+[x] Infrastructure.Tests: 10 unit через StubHttpMessageHandler
+    (happy-path / 400 / webhook → Succeeded / malformed → invalid_signature
+    / 404 → payment_not_found / Theory MapStatus 5 кейсов).
+
+D16.4 API:
+[x] CreatePaymentRequest DTO + SubscriptionsMapping.ToCommand.
+[x] SubscriptionsController [Route("api/users/me/subscription")]:
+    GET / POST create-payment / POST cancel.
+[x] PaymentsController [Route("api/payments")] с
+    POST /yookassa/webhook [AllowAnonymous] — auth через pull-verify.
+    Читает raw body через Request.EnableBuffering.
+[x] Api.IntegrationTests: 8 e2e (anonymous→401, fresh→Trial,
+    CreatePayment→PendingPayment, full flow register→pay→webhook→Active,
+    webhook invalid/unknown, Cancel→Cancelled).
+
+D16.5 AuthorizationPolicy (главное место!):
+[x] AuthorizationPolicies.RequireActiveSubscription /
+    BasicAuthenticated — константы имён политик.
+[x] ActiveSubscriptionRequirement + ActiveSubscriptionAuthorizationHandler.
+    Логика: SubscriptionEnabled=false → Succeed; Admin/SuperAdmin
+    claim → Succeed; иначе HasActiveSubscription(now, grace).
+[x] SubscriptionAwareAuthorizationResultHandler:
+    IAuthorizationMiddlewareResultHandler — отдаёт 403 + ApiResponse
+    с errorCode "subscription.required" если завалился именно
+    Subscription requirement.
+[x] DefaultPolicy = RequireActiveSubscription — применяется ко всем
+    [Authorize] без указания policy. [Authorize(Roles=...)] заменяет
+    policy, потому admin-эндпоинты не гейтятся.
+[x] Whitelist (помечен [Authorize(Policy=BasicAuthenticated)]):
+    SubscriptionsController (целиком), AuthController.Logout,
+    UsersController.GetCurrent / UpdateProfile / ChangePassword /
+    ChangeEmail, AppController.GetFeatures.
+[x] Api.IntegrationTests: 5 gate-тестов через WithWebHostBuilder
+    override (SubscriptionEnabled=true): Trial→200, expired→403+code,
+    whitelist→200, Admin bypass, SubscriptionEnabled=false→200.
+
+Финальный прогон: 423/423 passed
+(Domain 136 + Application 147 + Infrastructure 44 + Integration 96).
+
+Что отложено:
+- D16.6 как отдельный шаг — не нужен. Full-flow e2e уже покрыт
+  SubscriptionsControllerTests.FullFlow_Register_CreatePayment_Webhook_BecomesActive
+  и 5 gate-тестами.
 
 ---------------------------------------------------------------------
 D17. Версионность приложения + feature flags
