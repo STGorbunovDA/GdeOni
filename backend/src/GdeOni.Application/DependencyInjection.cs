@@ -32,6 +32,8 @@ using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.UseCase;
+using GdeOni.Application.Legal.Commands.AcceptLegal.UseCase;
+using GdeOni.Application.Legal.Queries.GetLegalDocument.UseCase;
 using GdeOni.Application.Routing.Queries.GetRouteToGrave.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CreatePayment.UseCase;
@@ -124,6 +126,10 @@ public static class DependencyInjection
         services.AddScoped<ICreatePaymentUseCase, CreatePaymentUseCase>();
         services.AddScoped<ICancelSubscriptionUseCase, CancelSubscriptionUseCase>();
         services.AddScoped<IProcessPaymentWebhookUseCase, ProcessPaymentWebhookUseCase>();
+
+        // D19. Legal use cases (Privacy / Terms / 152-ФЗ).
+        services.AddScoped<IAcceptLegalUseCase, AcceptLegalUseCase>();
+        services.AddScoped<IGetLegalDocumentUseCase, GetLegalDocumentUseCase>();
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;

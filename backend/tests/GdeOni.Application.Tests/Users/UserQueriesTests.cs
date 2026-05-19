@@ -152,7 +152,10 @@ public sealed class UserQueriesTests
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Failure<Guid, Error>(Errors.General.Unauthorized()));
 
-        var useCase = new GetCurrentUserUseCase(userRepo.Object, currentUser.Object);
+        var useCase = new GetCurrentUserUseCase(
+            userRepo.Object,
+            currentUser.Object,
+            Microsoft.Extensions.Options.Options.Create(new GdeOni.Application.Legal.LegalOptions()));
 
         var result = await useCase.Execute(CancellationToken.None);
 
@@ -176,7 +179,10 @@ public sealed class UserQueriesTests
             .Setup(x => x.GetByIdReadOnly(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        var useCase = new GetCurrentUserUseCase(userRepo.Object, currentUser.Object);
+        var useCase = new GetCurrentUserUseCase(
+            userRepo.Object,
+            currentUser.Object,
+            Microsoft.Extensions.Options.Options.Create(new GdeOni.Application.Legal.LegalOptions()));
 
         var result = await useCase.Execute(CancellationToken.None);
 

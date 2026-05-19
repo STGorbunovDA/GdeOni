@@ -6198,22 +6198,128 @@ API:
 
 Migration:
 
-[ ] AddLegalAcceptanceToUsers — privacy_policy_accepted_at_utc,
-    terms_accepted_at_utc, privacy_policy_version.
+[x] AddLegalAcceptanceToUsers — privacy_policy_accepted_at_utc,
+    terms_accepted_at_utc, privacy_policy_version, terms_version.
 
 Tests:
 
-[ ] Регистрация без acceptedFlags → Validation error.
-[ ] POST /accept-legal обновляет таймстампы.
-[ ] HasOutdatedAcceptance (опционально, для будущего) — возвращает
-    true если PrivacyPolicyVersion < ConfiguredVersion.
+[x] Регистрация без acceptedFlags → Validation error.
+[x] POST /accept-legal обновляет таймстампы (+ 204 для current /
+    400 для invalid / 401 для anonymous).
+[x] HasOutdatedLegalAcceptance — true если PrivacyPolicyVersion
+    или TermsVersion меньше серверной. Отдаётся через /me.
 
 Контент:
 
-[ ] Текст Privacy Policy — отдельный документ
+[x] Текст Privacy Policy — отдельный документ
     `backend/docs/legal/privacy-policy-v1.md`. На web/mobile —
-    статическая страница со встроенным markdown.
-[ ] Текст Terms of Use — `legal/terms-of-use-v1.md`.
+    статическая страница со встроенным markdown. Шаблон под
+    юр-вычитку.
+[x] Текст Terms of Use — `legal/terms-of-use-v1.md`. Шаблон.
+
+---------------------------------------------------------------------
+D19.1. D19 реализовано — 2026-05-19
+---------------------------------------------------------------------
+
+Закрыт пунктами D19.1 ÷ D19.8. Тестовый прогон после реализации —
+446/446 passed (Domain 146 + Application 153 + Infrastructure 44 +
+Integration 103).
+
+D19.1 Domain:
+[x] User расширен 4 свойствами: PrivacyPolicyAcceptedAtUtc,
+    TermsAcceptedAtUtc, PrivacyPolicyVersion (int, default 0),
+    TermsVersion (int, default 0).
+[x] User.AcceptLegal(privacyVersion, termsVersion, nowUtc) →
+    UnitResult<Error>. Валидирует positive int, no-op guard при
+    тех же версиях (не сбивает таймстамп / не дёргает Touch).
+[x] User.HasOutdatedLegalAcceptance(currentPrivacy, currentTerms) →
+    bool — true если хоть одна из принятых версий меньше текущей
+    серверной.
+[x] Errors.Legal: PrivacyPolicyNotAccepted, TermsNotAccepted,
+    PrivacyPolicyVersionInvalid, TermsVersionInvalid, DocumentNotFound,
+    VersionOutdated.
+
+D19.2 Migration:
+[x] `20260519201216_D19_AddLegalAcceptanceToUsers` — 4 колонки:
+    privacy_policy_accepted_at_utc / terms_accepted_at_utc
+    (nullable timestamps), privacy_policy_version / terms_version
+    (NOT NULL, default 0).
+[x] UserConfiguration маппит все 4 поля; OwnsOne(Subscription)
+    остался без изменений.
+
+D19.3 Application:
+[x] `Application/Legal/LegalOptions.cs` — SectionName="Legal".
+    CurrentPrivacyPolicyVersion=1, CurrentTermsVersion=1,
+    PrivacyPolicyUrl, TermsUrl.
+[x] `Legal/Commands/AcceptLegal/` — Model + UseCase + Validator
+    (PrivacyPolicyVersion ≥ 1, TermsVersion ≥ 1).
+[x] AcceptLegalUseCase: userId из JWT, проверка OutdatedVersion
+    (если клиент шлёт < серверной — Errors.Legal.VersionOutdated),
+    вызов User.AcceptLegal, Save. Не ротирует SecurityStamp — это
+    не security-операция.
+[x] `Legal/Queries/GetLegalDocument/` — Model (record +
+    enum LegalDocumentKey) + UseCase. Возвращает URL+version,
+    BodyMarkdown=null (текст хостится на gdeoni.ru).
+[x] DI: AddScoped<IAcceptLegalUseCase, ...> + IGetLegalDocumentUseCase
+    в Application/DependencyInjection.cs. Configure<LegalOptions>
+    в Infrastructure/DependencyInjection.cs.
+
+D19.4 Register flow:
+[x] RegisterUserCommand расширен полями PrivacyPolicyAccepted (bool),
+    TermsAccepted (bool).
+[x] RegisterUserCommandValidator: оба поля .Equal(true) с
+    Errors.Legal.PrivacyPolicyNotAccepted / TermsNotAccepted.
+[x] RegisterUserUseCase: после User.Register и StartTrial зовёт
+    user.AcceptLegal(CurrentPrivacyPolicyVersion, CurrentTermsVersion,
+    nowUtc). 152-ФЗ guard.
+[x] RegisterUserRequest + UsersMapping расширены аналогично.
+
+D19.5 API:
+[x] LegalController [Route("api/legal")]:
+    - GET /privacy-policy [AllowAnonymous] — отдаёт версию+URL;
+    - GET /terms-of-use [AllowAnonymous] — то же.
+[x] UsersController.AcceptLegal: POST /me/accept-legal
+    [Authorize(Policy=BasicAuthenticated)] — whitelist'нуто от
+    subscription-гейта (юзер с истёкшей подпиской обязан принять
+    обновлённые правила без paywall'а).
+[x] GetCurrentUserResponse расширен PrivacyPolicyVersion / TermsVersion /
+    HasOutdatedLegalAcceptance. Клиент через /me решает, показывать
+    ли модалку "Документы обновились".
+
+D19.6 Контент:
+[x] backend/docs/legal/privacy-policy-v1.md — шаблон для 152-ФЗ
+    (9 разделов, реквизиты Оператора в `[плейсхолдерах]`, нужна
+    юристская вычитка перед публичным релизом).
+[x] backend/docs/legal/terms-of-use-v1.md — пользовательское
+    соглашение, договор присоединения (ст. 428 ГК РФ).
+
+D19.7 Tests:
+[x] Domain: 10 unit'ов (LegalAcceptanceTests) — initial state,
+    AcceptLegal happy/invalid/no-op/bump, HasOutdatedLegalAcceptance.
+[x] Application: 6 unit'ов:
+    - AcceptLegalUseCaseTests (4): happy, outdated→Conflict,
+      user not found→Forbidden, invalid version→Validation;
+    - GetLegalDocumentUseCaseTests (2): privacy / terms.
+[x] Integration: 7 endpoint-тестов (LegalIntegrationTests):
+    GET privacy/terms anonymous, Register без флагов → 400 + 2
+    legal-кода, /me содержит версии после регистрации, AcceptLegal
+    current/invalid/anonymous (204/400/401).
+
+D19.8 Test counter после реализации:
+[x] Полный прогон: 446/446 passed (Domain 146, Application 153,
+    Infrastructure 44, Integration 103).
+
+Что отложено:
+- Серверная отдача body markdown через API (BodyMarkdown=null) —
+  клиент ходит по URL за текстом. Можно добавить позже через
+  ILegalDocumentSource в Application абстракциях + filesystem-
+  реализацию в Infrastructure.
+- HasOutdatedAcceptance enforcement на API-уровне (через 412
+  Precondition Required или подобный) — пока что просто флаг в /me,
+  клиент сам принимает решение блокировать UI.
+- Юр-вычитка privacy-policy-v1.md и terms-of-use-v1.md — текст
+  составлен как шаблон; перед публичным релизом нужна работа с
+  юристом и заполнение реквизитов Оператора.
 
 ---------------------------------------------------------------------
 D20. CI/CD pipelines

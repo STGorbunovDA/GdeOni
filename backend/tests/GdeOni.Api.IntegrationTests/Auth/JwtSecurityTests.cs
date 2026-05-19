@@ -64,7 +64,9 @@ public sealed class JwtSecurityTests
         await _client.PostAsJsonAsync("/api/users", new
         {
             email,
-            password = "Password123!"
+            password = "Password123!",
+            privacyPolicyAccepted = true,
+            termsAccepted = true
         });
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
         {

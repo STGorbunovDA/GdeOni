@@ -485,6 +485,39 @@ public static class Errors
                 "Subscription cannot be cancelled from the current state.");
     }
 
+    public static class Legal
+    {
+        public static Error PrivacyPolicyNotAccepted() =>
+            Error.Validation(
+                "legal.privacy_policy.not_accepted",
+                "You must accept the Privacy Policy to register.");
+
+        public static Error TermsNotAccepted() =>
+            Error.Validation(
+                "legal.terms.not_accepted",
+                "You must accept the Terms of Use to register.");
+
+        public static Error PrivacyPolicyVersionInvalid() =>
+            Error.Validation(
+                "legal.privacy_policy.version.invalid",
+                "Privacy Policy version must be a positive integer.");
+
+        public static Error TermsVersionInvalid() =>
+            Error.Validation(
+                "legal.terms.version.invalid",
+                "Terms of Use version must be a positive integer.");
+
+        public static Error DocumentNotFound(string documentKey) =>
+            Error.NotFound(
+                "legal.document.not_found",
+                $"Legal document '{documentKey}' was not found on the server.");
+
+        public static Error VersionOutdated() =>
+            Error.Conflict(
+                "legal.version.outdated",
+                "The submitted Privacy Policy or Terms version is older than the current one. Reload the documents and accept the latest versions.");
+    }
+
     public static class UniqueConstraint
     {
         public static Error FromName(string? constraintName) =>

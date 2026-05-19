@@ -5,6 +5,8 @@ using GdeOni.API.Models.Users;
 using GdeOni.API.RateLimiting;
 using GdeOni.API.Response;
 using GdeOni.Application.Common.Shared;
+using GdeOni.Application.Legal.Commands.AcceptLegal.Model;
+using GdeOni.Application.Legal.Commands.AcceptLegal.UseCase;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
 using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
 using GdeOni.Application.Users.Commands.ChangePassword.Model;
@@ -202,6 +204,28 @@ public sealed class UsersController : ApiControllerBase
     {
         var result = await changeRoleUseCase.Execute(request.ToCommand(id), cancellationToken);
         return FromResult(result);
+    }
+
+    /// <summary>
+    /// D19. Принятие текущих версий Privacy Policy и Terms of Use
+    /// текущим пользователем. Whitelist'нуто от subscription-гейта —
+    /// иначе юзер, у которого истекла подписка, не смог бы принять
+    /// обновлённые документы.
+    /// </summary>
+    [HttpPost("me/accept-legal")]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AcceptLegal(
+        [FromBody] AcceptLegalRequest request,
+        [FromServices] IAcceptLegalUseCase acceptLegalUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await acceptLegalUseCase.Execute(request.ToCommand(), cancellationToken);
+        return FromUnitResult(result);
     }
 
     /// <summary>

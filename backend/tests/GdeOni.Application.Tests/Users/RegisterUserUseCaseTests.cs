@@ -27,7 +27,7 @@ public sealed class RegisterUserUseCaseTests
             .ReturnsAsync(true);
 
         var result = await useCase.Execute(
-            new RegisterUserCommand("john@example.com", null, null, "Password123!"),
+            new RegisterUserCommand("john@example.com", null, null, "Password123!", true, true),
             CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
@@ -52,7 +52,7 @@ public sealed class RegisterUserUseCaseTests
             .ReturnsAsync(true);
 
         var result = await useCase.Execute(
-            new RegisterUserCommand("alice@example.com", "alice", null, "Password123!"),
+            new RegisterUserCommand("alice@example.com", "alice", null, "Password123!", true, true),
             CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
@@ -76,7 +76,7 @@ public sealed class RegisterUserUseCaseTests
         hasher.Setup(x => x.Hash("Password123!")).Returns("hash-bcrypt");
 
         var result = await useCase.Execute(
-            new RegisterUserCommand("new@example.com", "newuser", "Иван Иванов", "Password123!"),
+            new RegisterUserCommand("new@example.com", "newuser", "Иван Иванов", "Password123!", true, true),
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -97,11 +97,16 @@ public sealed class RegisterUserUseCaseTests
         // длительность из SubscriptionOptions через IOptions.
         var subscriptionOptions = Microsoft.Extensions.Options.Options.Create(
             new GdeOni.Application.Subscriptions.SubscriptionOptions());
+        // D19: RegisterUserUseCase также читает текущие версии Privacy/Terms
+        // из LegalOptions и вызывает User.AcceptLegal.
+        var legalOptions = Microsoft.Extensions.Options.Options.Create(
+            new GdeOni.Application.Legal.LegalOptions());
         var useCase = new RegisterUserUseCase(
             userRepo.Object,
             hasher.Object,
             TestExecutor.With<RegisterUserCommand, RegisterUserCommandValidator>(),
-            subscriptionOptions);
+            subscriptionOptions,
+            legalOptions);
         return (userRepo, hasher, useCase);
     }
 }

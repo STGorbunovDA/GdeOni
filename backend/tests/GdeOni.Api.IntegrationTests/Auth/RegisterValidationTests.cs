@@ -37,7 +37,9 @@ public sealed class RegisterValidationTests
         var response = await _client.PostAsJsonAsync("/api/users", new
         {
             email = "not-an-email",
-            password = "Password123!"
+            password = "Password123!",
+            privacyPolicyAccepted = true,
+            termsAccepted = true
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -55,7 +57,9 @@ public sealed class RegisterValidationTests
         var response = await _client.PostAsJsonAsync("/api/users", new
         {
             email = $"int-{Guid.NewGuid():N}@example.com",
-            password = "abc" // короче MinPasswordLength.
+            password = "abc", // короче MinPasswordLength.
+            privacyPolicyAccepted = true,
+            termsAccepted = true
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -73,7 +77,9 @@ public sealed class RegisterValidationTests
         var response = await _client.PostAsJsonAsync("/api/users", new
         {
             email = $"int-{Guid.NewGuid():N}@example.com",
-            password = new string('a', 1000) // > MaxPasswordLength.
+            password = new string('a', 1000), // > MaxPasswordLength.
+            privacyPolicyAccepted = true,
+            termsAccepted = true
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -94,7 +100,9 @@ public sealed class RegisterValidationTests
         var first = await _client.PostAsJsonAsync("/api/users", new
         {
             email,
-            password = "Password123!"
+            password = "Password123!",
+            privacyPolicyAccepted = true,
+            termsAccepted = true
         });
         first.StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -102,7 +110,9 @@ public sealed class RegisterValidationTests
         var second = await _client.PostAsJsonAsync("/api/users", new
         {
             email,
-            password = "OtherPassword123!"
+            password = "OtherPassword123!",
+            privacyPolicyAccepted = true,
+            termsAccepted = true
         });
 
         second.StatusCode.Should().Be(HttpStatusCode.Conflict);

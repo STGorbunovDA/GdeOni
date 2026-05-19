@@ -49,7 +49,10 @@ internal static class TestAuth
         {
             email,
             userName,
-            password
+            password,
+            // D19: 152-ФЗ — Register обязывает согласие с Privacy + Terms.
+            privacyPolicyAccepted = true,
+            termsAccepted = true
         });
         response.EnsureSuccessStatusCode();
 

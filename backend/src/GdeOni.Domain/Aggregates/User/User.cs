@@ -49,6 +49,32 @@ public sealed class User : Entity<Guid>
     /// </summary>
     public Subscription Subscription { get; private set; } = Subscription.Initial();
 
+    /// <summary>
+    /// D19. Момент принятия Privacy Policy. null = не принято
+    /// (пользователь зарегистрировался ещё до введения 152-ФЗ guard'а
+    /// или процедуру намеренно обходили; в проде такого быть не должно).
+    /// </summary>
+    public DateTime? PrivacyPolicyAcceptedAtUtc { get; private set; }
+
+    /// <summary>
+    /// D19. Момент принятия Terms of Use. null = не принято.
+    /// </summary>
+    public DateTime? TermsAcceptedAtUtc { get; private set; }
+
+    /// <summary>
+    /// D19. Версия Privacy Policy, принятая пользователем. 0 = не принято.
+    /// Сравнивается с актуальной <c>LegalOptions.CurrentPrivacyPolicyVersion</c> —
+    /// если меньше, клиент должен показать "Политика обновлена, примите снова".
+    /// </summary>
+    public int PrivacyPolicyVersion { get; private set; }
+
+    /// <summary>
+    /// D19. Версия Terms of Use, принятая пользователем. 0 = не принято.
+    /// Сравнивается с <c>LegalOptions.CurrentTermsVersion</c> аналогично
+    /// <see cref="PrivacyPolicyVersion"/>.
+    /// </summary>
+    public int TermsVersion { get; private set; }
+
     private readonly List<TrackedDeceased> _trackedDeceasedItems = new();
     public IReadOnlyCollection<TrackedDeceased> TrackedDeceasedItems => _trackedDeceasedItems.AsReadOnly();
 
@@ -361,6 +387,53 @@ public sealed class User : Entity<Guid>
     /// баннера "Пробный период до DD.MM.YYYY".
     /// </summary>
     public bool IsOnTrial(DateTime nowUtc) => Subscription.IsOnTrial(nowUtc);
+
+    /// <summary>
+    /// D19. Фиксирует согласие с Privacy Policy и Terms of Use на
+    /// указанных версиях. Вызывается из <c>RegisterUserUseCase</c>
+    /// сразу после <see cref="Register"/>, а также из
+    /// <c>AcceptLegalUseCase</c> когда юзер пере-принимает обновлённую
+    /// версию документов.
+    ///
+    /// No-op guard: если те же версии уже приняты, ничего не делает —
+    /// не сбивает таймстамп и не дёргает <c>Touch()</c>. Это защищает
+    /// от лишних UPDATE при повторных запросах с клиента, который не
+    /// обнаружил что версия не изменилась.
+    /// </summary>
+    public UnitResult<Error> AcceptLegal(
+        int privacyPolicyVersion,
+        int termsVersion,
+        DateTime nowUtc)
+    {
+        if (privacyPolicyVersion < 1)
+            return Errors.Legal.PrivacyPolicyVersionInvalid();
+
+        if (termsVersion < 1)
+            return Errors.Legal.TermsVersionInvalid();
+
+        if (PrivacyPolicyVersion == privacyPolicyVersion
+            && TermsVersion == termsVersion)
+        {
+            return UnitResult.Success<Error>();
+        }
+
+        PrivacyPolicyAcceptedAtUtc = nowUtc;
+        TermsAcceptedAtUtc = nowUtc;
+        PrivacyPolicyVersion = privacyPolicyVersion;
+        TermsVersion = termsVersion;
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D19. true если у пользователя принятая версия Privacy Policy
+    /// или Terms старше текущей конфигурируемой. Используется
+    /// frontend'ом (через DTO в /me) для показа модалки "Документы
+    /// обновлены, прочитайте и подтвердите".
+    /// </summary>
+    public bool HasOutdatedLegalAcceptance(int currentPrivacyVersion, int currentTermsVersion) =>
+        PrivacyPolicyVersion < currentPrivacyVersion
+        || TermsVersion < currentTermsVersion;
 
     private void Touch()
     {

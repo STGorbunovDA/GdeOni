@@ -61,6 +61,25 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("security_stamp")
             .IsRequired();
 
+        // D19. Legal acceptance: четыре колонки, заполняются единым
+        // методом User.AcceptLegal в одной транзакции — допускаем
+        // NULL timestamps для исторических юзеров до миграции D19.
+        builder.Property(x => x.PrivacyPolicyAcceptedAtUtc)
+            .HasColumnName("privacy_policy_accepted_at_utc");
+
+        builder.Property(x => x.TermsAcceptedAtUtc)
+            .HasColumnName("terms_accepted_at_utc");
+
+        builder.Property(x => x.PrivacyPolicyVersion)
+            .HasColumnName("privacy_policy_version")
+            .HasDefaultValue(0)
+            .IsRequired();
+
+        builder.Property(x => x.TermsVersion)
+            .HasColumnName("terms_version")
+            .HasDefaultValue(0)
+            .IsRequired();
+
         builder.OwnsOne(x => x.Subscription, subscription =>
         {
             subscription.Property(x => x.Status)

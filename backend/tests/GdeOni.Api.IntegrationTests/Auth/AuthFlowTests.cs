@@ -68,7 +68,9 @@ public sealed class AuthFlowTests
         var register = await _client.PostAsJsonAsync("/api/users", new
         {
             email,
-            password
+            password,
+            privacyPolicyAccepted = true,
+            termsAccepted = true
         });
         register.StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -110,7 +112,13 @@ public sealed class AuthFlowTests
         var email = $"int-{Guid.NewGuid():N}@example.com";
         const string password = "Password123!";
 
-        await _client.PostAsJsonAsync("/api/users", new { email, password });
+        await _client.PostAsJsonAsync("/api/users", new
+        {
+            email,
+            password,
+            privacyPolicyAccepted = true,
+            termsAccepted = true
+        });
         var login = await _client.PostAsJsonAsync("/api/auth/login", new { email, password });
         var loginPayload = await login.Content.ReadFromJsonAsync<ApiResponseDto<LoginResultDto>>(JsonOptions);
         var firstRefresh = loginPayload!.Result!.RefreshToken;

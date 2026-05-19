@@ -4,6 +4,7 @@ using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Routing;
 using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Common.Security;
+using GdeOni.Application.Legal;
 using GdeOni.Application.Subscriptions;
 using GdeOni.Infrastructure.Data;
 using GdeOni.Infrastructure.Features;
@@ -81,6 +82,11 @@ public static class DependencyInjection
             configuration.GetSection(SubscriptionOptions.SectionName));
         services.Configure<YooKassaOptions>(
             configuration.GetSection(YooKassaOptions.SectionName));
+
+        // D19. Legal opts — версии и URL'ы Privacy/Terms. Биндим без
+        // дополнительной обвязки: use case'ы читают IOptions<LegalOptions>.
+        services.Configure<LegalOptions>(
+            configuration.GetSection(LegalOptions.SectionName));
 
         // Выбор провайдера откладываем до resolution: на момент вызова
         // AddInfrastructure() configuration может быть ещё не полностью

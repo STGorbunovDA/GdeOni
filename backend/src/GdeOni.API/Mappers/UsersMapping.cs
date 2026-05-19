@@ -1,4 +1,5 @@
 using GdeOni.API.Models.Users;
+using GdeOni.Application.Legal.Commands.AcceptLegal.Model;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
 using GdeOni.Application.Users.Commands.ChangePassword.Model;
 using GdeOni.Application.Users.Commands.ChangeRole.Model;
@@ -19,7 +20,9 @@ public static class UsersMapping
             request.Email,
             request.UserName,
             request.FullName,
-            request.Password);
+            request.Password,
+            request.PrivacyPolicyAccepted,
+            request.TermsAccepted);
     }
 
     public static GetAllUsersQuery ToQuery(this GetAllUsersRequest request)
@@ -61,4 +64,12 @@ public static class UsersMapping
     }
 
     public static DeleteUserCommand ToDeleteCommand(Guid id) => new(id);
+
+    public static AcceptLegalCommand ToCommand(this AcceptLegalRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return new AcceptLegalCommand(
+            request.PrivacyPolicyVersion,
+            request.TermsVersion);
+    }
 }
