@@ -150,6 +150,35 @@ public static class MauiProgram
             .AddHttpMessageHandler<AuthTokenHandler>()
             .AddHttpMessageHandler<RefreshTokenHandler>()
             .AddPolicyHandler(BuildRetryPolicy());
+
+        // E22. IAppApi: /api/app/version (AllowAnonymous, дёргаем на
+        // старте до логина) + /api/app/features (Authorize, после логина).
+        // AuthTokenHandler пропускает запрос без Authorization если токена
+        // нет — для GetVersion это ожидаемо.
+        services.AddRefitClient<IAppApi>(refitSettings)
+            .ConfigureHttpClient((sp, c) =>
+            {
+                var config = sp.GetRequiredService<AppConfig>();
+                c.BaseAddress = new Uri(config.Api.BaseUrl);
+                c.Timeout = TimeSpan.FromSeconds(config.Api.TimeoutSeconds);
+            })
+            .AddHttpMessageHandler<AuthTokenHandler>()
+            .AddHttpMessageHandler<RefreshTokenHandler>()
+            .AddPolicyHandler(BuildRetryPolicy());
+
+        // E22. ISubscriptionsApi: get/create-payment/cancel — все Authorize
+        // и в whitelist (BasicAuthenticated), доступны даже без активной
+        // подписки.
+        services.AddRefitClient<ISubscriptionsApi>(refitSettings)
+            .ConfigureHttpClient((sp, c) =>
+            {
+                var config = sp.GetRequiredService<AppConfig>();
+                c.BaseAddress = new Uri(config.Api.BaseUrl);
+                c.Timeout = TimeSpan.FromSeconds(config.Api.TimeoutSeconds);
+            })
+            .AddHttpMessageHandler<AuthTokenHandler>()
+            .AddHttpMessageHandler<RefreshTokenHandler>()
+            .AddPolicyHandler(BuildRetryPolicy());
     }
 
     /// <summary>
