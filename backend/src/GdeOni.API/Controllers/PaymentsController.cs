@@ -10,10 +10,15 @@ namespace GdeOni.API.Controllers;
 /// D16. Эндпоинт для входящих webhook'ов от платёжных провайдеров.
 /// AllowAnonymous: запросы приходят от YooKassa, не от юзера. Auth
 /// делается через pull-проверку статуса платежа в самом провайдере
-/// (см. <see cref="GdeOni.Infrastructure.Payments.YooKassaPaymentProvider.VerifyWebhookAsync"/>).
+/// (см. <see cref="GdeOni.Infrastructure.Payments.YooKassaPaymentProvider.VerifyWebhookAsync"/>),
+/// что закрывает основной риск forgery: невозможно подделать ответ
+/// YooKassa без доступа к её API.
 ///
-/// TODO D16.5: добавить middleware с IP-whitelist YooKassa
-/// (185.71.76.0/27, 185.71.77.0/27, 77.75.153.0/25, ...).
+/// Defense-in-depth (отложено, см. PlanFull.txt раздел "Отложено по
+/// D16/D21"): добавить middleware с IP-whitelist YooKassa
+/// (185.71.76.0/27, 185.71.77.0/27, 77.75.153.0/25, плюс актуальный
+/// список из их документации). Это лишний слой защиты от мусорного
+/// трафика на webhook-endpoint.
 /// </summary>
 [ApiController]
 [Route("api/payments")]

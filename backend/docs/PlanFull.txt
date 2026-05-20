@@ -6561,6 +6561,40 @@ D21.5 Test counter после реализации:
   + Performance, нужны deployment-наблюдения для калибровки
   TracesSampleRate.
 
+---------------------------------------------------------------------
+D-PROD post-audit (2026-05-20)
+---------------------------------------------------------------------
+
+Аудит после закрытия D21 нашёл и закрыл следующие мелочи:
+
+[x] `backend/src/GdeOni.API/appsettings.example.json` — шаблон со
+    всеми 16 секциями (ConnectionStrings, Seed, Jwt, BCrypt, Minio,
+    AppVersion, FeatureFlags, Subscription, YooKassa, Legal, Sentry,
+    Cors, Hosting, RateLimiting, RefreshTokensCleanup, Seq +
+    Logging/Serilog). Каждая секция содержит `_comment` с
+    объяснением назначения и сценариев. Реальные секреты остаются
+    в gitignored `appsettings.json` / `appsettings.Development.json`,
+    а template коммитится — новому разработчику / новому окружению
+    есть от чего отталкиваться.
+
+[x] `README.md` — раньше содержал только заголовок. Заполнен:
+    структура проекта, quick start backend, тесты, configuration-
+    таблица со всеми секциями, ссылка на deploy.md, CI/CD теги.
+
+[x] `PaymentsController` XML-doc — TODO про IP-whitelist YooKassa
+    переписан как осознанное defense-in-depth решение со ссылкой
+    на этот раздел плана. Pull-verify уже закрывает основной риск
+    forgery, IP-фильтр — defense-in-depth, не блокер для прода.
+
+Отложено по D16 / D21 (известно, не критично для MVP):
+- IP-whitelist YooKassa в middleware на webhook-endpoint
+  (185.71.76.0/27 и др.) — defense-in-depth поверх pull-verify.
+  Добавим если увидим мусорный трафик на /api/payments/yookassa/webhook
+  или для соответствия security-audit checklist клиента.
+- OpenTelemetry export (Sentry уже частично покрывает observability).
+- Liveness vs readiness разделение `/health/live` vs `/health/ready`
+  для k8s — пока выбираем хостинг (H5).
+
 =====================================================================
 КОНЕЦ БЛОКА D-PROD
 =====================================================================
