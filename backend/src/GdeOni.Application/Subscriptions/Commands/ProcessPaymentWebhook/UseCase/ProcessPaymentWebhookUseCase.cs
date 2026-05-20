@@ -9,6 +9,7 @@ namespace GdeOni.Application.Subscriptions.Commands.ProcessPaymentWebhook.UseCas
 
 public sealed class ProcessPaymentWebhookUseCase(
     IUserRepository userRepository,
+    ISubscriptionPaymentRepository paymentRepository,
     IPaymentProvider paymentProvider,
     IOptions<SubscriptionOptions> subscriptionOptions)
     : IProcessPaymentWebhookUseCase
@@ -29,44 +30,57 @@ public sealed class ProcessPaymentWebhookUseCase(
 
         var verification = verificationResult.Value;
 
-        // Шаг 2: поиск юзера по externalPaymentId. Pending / Cancelled
-        // тоже могут прилететь — но мы ничего не делаем кроме лога.
-        // Если юзер не найден — 404; webhook от неизвестного платежа
-        // считаем подделкой (или старый, уже почищенный платёж).
-        var user = await userRepository.GetBySubscriptionPaymentId(
-            verification.ExternalPaymentId,
-            cancellationToken);
-        if (user is null)
+        // D23. Шаг 2: поиск платежа в субscription_payments. Раньше
+        // искали через User.Subscription.LastPaymentId, но он
+        // перезаписывался при каждом CreatePayment — multi-tap ломал
+        // привязку. Теперь источник истины — отдельная запись с
+        // unique-индексом по external_payment_id.
+        var payment = await paymentRepository.GetByExternalPaymentId(
+            verification.ExternalPaymentId, cancellationToken);
+        if (payment is null)
             return Errors.Subscription.PaymentNotFound();
 
-        // Шаг 3: реакция на статус.
+        // Pending от YooKassa — финальный статус ещё не известен.
+        // Ничего не меняем; YooKassa пришлёт ещё один webhook позже.
+        if (verification.Status == PaymentStatus.Pending)
+            return UnitResult.Success<Error>();
+
+        // Шаг 3: грузим юзера. Tracked-вариант — будем мутить
+        // Subscription и saveChanges.
+        var user = await userRepository.GetById(payment.UserId, cancellationToken);
+        if (user is null)
+            return Errors.General.NotFound("user", payment.UserId);
+
+        var nowUtc = DateTime.UtcNow;
+
         switch (verification.Status)
         {
             case PaymentStatus.Succeeded:
-                var nowUtc = DateTime.UtcNow;
                 var expiresAt = nowUtc + subscriptionOptions.Value.MonthlyDuration;
-                var plan = user.Subscription.Plan ?? Domain.Shared.SubscriptionPlan.Monthly;
 
                 var activateResult = user.ActivateSubscription(
-                    plan, nowUtc, expiresAt, verification.ExternalPaymentId);
+                    payment.Plan, nowUtc, expiresAt, verification.ExternalPaymentId);
                 if (activateResult.IsFailure)
                     return activateResult.Error;
+
+                var markSucceededResult = payment.MarkSucceeded(nowUtc, expiresAt, nowUtc);
+                if (markSucceededResult.IsFailure)
+                    return markSucceededResult.Error;
                 break;
 
             case PaymentStatus.Cancelled:
                 // Платёж отменился на стороне YooKassa — Subscription
-                // остаётся в PendingPayment / Trial. UI при следующем
-                // GET /me/subscription увидит Status и решит, что
-                // делать. Никакой автокатки до прежнего статуса —
-                // юзер всегда может сделать новый CreatePayment.
+                // остаётся в PendingPayment / Trial. Юзер всегда может
+                // сделать новый CreatePayment. Запись помечается
+                // Cancelled — UI и админка увидят историю.
+                var markCancelledResult = payment.MarkCancelled(nowUtc);
+                if (markCancelledResult.IsFailure)
+                    return markCancelledResult.Error;
                 break;
-
-            case PaymentStatus.Pending:
-                // Промежуточный статус — игнорируем. YooKassa пришлёт
-                // ещё один webhook позже с финальным.
-                return UnitResult.Success<Error>();
         }
 
+        // Один DbContext — Save фиксирует и User, и SubscriptionPayment
+        // в одной транзакции.
         await userRepository.Save(cancellationToken);
         return UnitResult.Success<Error>();
     }

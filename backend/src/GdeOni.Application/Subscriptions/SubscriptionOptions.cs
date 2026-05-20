@@ -47,4 +47,15 @@ public sealed class SubscriptionOptions
     /// Helper: <see cref="MonthlyDurationDays"/> как TimeSpan.
     /// </summary>
     public TimeSpan MonthlyDuration => TimeSpan.FromDays(MonthlyDurationDays);
+
+    /// <summary>
+    /// D23. Сколько Pending-платёж юзера считается актуальным —
+    /// в это окно повторный <c>CreatePayment</c> возвращает существующий
+    /// CheckoutUrl вместо нового. Зеркало YooKassa
+    /// confirmation_url-таймаута (обычно 10 минут).
+    /// </summary>
+    public int PendingPaymentReuseMinutes { get; set; } = 10;
+
+    public TimeSpan PendingPaymentReuseTimeout =>
+        TimeSpan.FromMinutes(PendingPaymentReuseMinutes);
 }

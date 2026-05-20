@@ -7,6 +7,7 @@ using GdeOni.Application.Subscriptions.Commands.CreatePayment.Model;
 using GdeOni.Application.Subscriptions.Commands.CreatePayment.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CreatePayment.Validation;
 using GdeOni.Application.Tests.TestSupport;
+using GdeOni.Domain.Aggregates.Subscriptions;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
 using Microsoft.Extensions.Options;
@@ -22,7 +23,7 @@ public sealed class CreatePaymentUseCaseTests
     [Fact]
     public async Task Execute_HappyPath_CreatesPaymentAndSavesPendingPayment()
     {
-        var (userRepo, currentUser, paymentProvider, useCase) = BuildHarness();
+        var (userRepo, currentUser, paymentProvider, paymentRepo, useCase) = BuildHarness();
         var user = User.Register("ivan@example.com", "hash$hash$hash$hash").Value;
         user.StartTrial(DateTime.UtcNow, TimeSpan.FromDays(30));
         currentUser.Setup(x => x.GetCurrentUserId())
@@ -53,7 +54,7 @@ public sealed class CreatePaymentUseCaseTests
     [Fact]
     public async Task Execute_PaymentProviderFails_NoSaveCalled()
     {
-        var (userRepo, currentUser, paymentProvider, useCase) = BuildHarness();
+        var (userRepo, currentUser, paymentProvider, paymentRepo, useCase) = BuildHarness();
         var user = User.Register("ivan@example.com", "hash$hash$hash$hash").Value;
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(user.Id));
@@ -80,7 +81,7 @@ public sealed class CreatePaymentUseCaseTests
     [Fact]
     public async Task Execute_UserAlreadyActive_ReturnsAlreadyActive()
     {
-        var (userRepo, currentUser, paymentProvider, useCase) = BuildHarness();
+        var (userRepo, currentUser, paymentProvider, paymentRepo, useCase) = BuildHarness();
         var user = User.Register("ivan@example.com", "hash$hash$hash$hash").Value;
         user.ActivateSubscription(
             SubscriptionPlan.Monthly,
@@ -109,22 +110,98 @@ public sealed class CreatePaymentUseCaseTests
         result.Error.Code.Should().Be("subscription.already.active");
     }
 
+    [Fact]
+    public async Task Execute_ActivePendingExists_ReturnsExistingCheckoutUrl_NoProviderCall()
+    {
+        // D23. Multi-tap защита: если есть свежий PendingPayment с
+        // CheckoutUrl, возвращаем его и НЕ дёргаем YooKassa повторно.
+        var (userRepo, currentUser, paymentProvider, paymentRepo, useCase) = BuildHarness();
+        var user = User.Register("ivan@example.com", "hash$hash$hash$hash").Value;
+        user.StartTrial(DateTime.UtcNow, TimeSpan.FromDays(30));
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(user.Id));
+        userRepo.Setup(x => x.GetById(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var existing = SubscriptionPayment.Create(
+            user.Id, "pay-existing", SubscriptionPlan.Monthly, 49m,
+            "https://yk/checkout/pay-existing", DateTime.UtcNow.AddMinutes(-2)).Value;
+        paymentRepo
+            .Setup(x => x.GetActivePendingForUser(
+                user.Id, It.IsAny<TimeSpan>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existing);
+
+        var result = await useCase.Execute(
+            new CreatePaymentCommand(SubscriptionPlan.Monthly), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.ExternalPaymentId.Should().Be("pay-existing");
+        result.Value.CheckoutUrl.Should().Be("https://yk/checkout/pay-existing");
+        paymentProvider.Verify(
+            x => x.CreateAsync(
+                It.IsAny<Guid>(), It.IsAny<decimal>(),
+                It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+        // Save тоже не вызывается — ничего нового не создавали.
+        userRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Execute_HappyPath_RecordsPaymentInHistory()
+    {
+        // D23. Новый платёж записывается в subscription_payments через
+        // ISubscriptionPaymentRepository.Add.
+        var (userRepo, currentUser, paymentProvider, paymentRepo, useCase) = BuildHarness();
+        var user = User.Register("ivan@example.com", "hash$hash$hash$hash").Value;
+        user.StartTrial(DateTime.UtcNow, TimeSpan.FromDays(30));
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(user.Id));
+        userRepo.Setup(x => x.GetById(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        paymentProvider
+            .Setup(x => x.CreateAsync(
+                user.Id, It.IsAny<decimal>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success<PaymentCreated, Error>(
+                new PaymentCreated("pay-new", "https://yk/checkout/pay-new")));
+
+        SubscriptionPayment? captured = null;
+        paymentRepo
+            .Setup(x => x.Add(It.IsAny<SubscriptionPayment>(), It.IsAny<CancellationToken>()))
+            .Callback<SubscriptionPayment, CancellationToken>((p, _) => captured = p)
+            .Returns(Task.CompletedTask);
+
+        var result = await useCase.Execute(
+            new CreatePaymentCommand(SubscriptionPlan.Monthly), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        captured.Should().NotBeNull();
+        captured!.UserId.Should().Be(user.Id);
+        captured.ExternalPaymentId.Should().Be("pay-new");
+        captured.CheckoutUrl.Should().Be("https://yk/checkout/pay-new");
+        captured.Status.Should().Be(PaymentRecordStatus.Pending);
+    }
+
     private static (
         Mock<IUserRepository> UserRepo,
         Mock<ICurrentUserService> CurrentUser,
         Mock<IPaymentProvider> PaymentProvider,
+        Mock<ISubscriptionPaymentRepository> PaymentRepo,
         CreatePaymentUseCase UseCase) BuildHarness()
     {
         var userRepo = new Mock<IUserRepository>();
         var currentUser = new Mock<ICurrentUserService>();
         var paymentProvider = new Mock<IPaymentProvider>();
+        var paymentRepo = new Mock<ISubscriptionPaymentRepository>();
         var options = Options.Create(new SubscriptionOptions());
         var useCase = new CreatePaymentUseCase(
             userRepo.Object,
+            paymentRepo.Object,
             currentUser.Object,
             paymentProvider.Object,
             options,
             TestExecutor.With<CreatePaymentCommand, CreatePaymentCommandValidator>());
-        return (userRepo, currentUser, paymentProvider, useCase);
+        return (userRepo, currentUser, paymentProvider, paymentRepo, useCase);
     }
 }
