@@ -518,6 +518,44 @@ public static class Errors
                 "The submitted Privacy Policy or Terms version is older than the current one. Reload the documents and accept the latest versions.");
     }
 
+    public static class Payment
+    {
+        public static Error ExternalPaymentIdRequired() =>
+            Error.Validation(
+                "payment.external_id.required",
+                "External payment id is required.");
+
+        public static Error ExternalPaymentIdTooLong(int maxLength) =>
+            Error.Validation(
+                "payment.external_id.too_long",
+                $"External payment id must be at most {maxLength} characters.");
+
+        public static Error CheckoutUrlTooLong(int maxLength) =>
+            Error.Validation(
+                "payment.checkout_url.too_long",
+                $"Checkout URL must be at most {maxLength} characters.");
+
+        public static Error AmountInvalid() =>
+            Error.Validation(
+                "payment.amount.invalid",
+                "Payment amount must be a positive number.");
+
+        public static Error AlreadyProcessed() =>
+            Error.Conflict(
+                "payment.already_processed",
+                "Payment is already in a final state and cannot be modified.");
+
+        public static Error PeriodInvalid() =>
+            Error.Validation(
+                "payment.period.invalid",
+                "Payment period end must be later than period start.");
+
+        public static Error NotFound(string externalPaymentId) =>
+            Error.NotFound(
+                "payment.not_found",
+                $"Payment with external id '{externalPaymentId}' was not found.");
+    }
+
     public static class Complimentary
     {
         public static Error AdminIdRequired() =>
