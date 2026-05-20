@@ -175,7 +175,7 @@ Hot-reload: меняешь значение в JSON → `IOptionsMonitor` под
 
 ---
 
-## Subscription (D16)
+## Subscription (D16 + D23)
 
 ```json
 "Subscription": {
@@ -183,7 +183,8 @@ Hot-reload: меняешь значение в JSON → `IOptionsMonitor` под
   "MonthlyDurationDays": 30,
   "TrialDurationDays": 30,
   "ProductDescription": "Подписка «Где Они» — 1 месяц",
-  "ReturnUrl": "https://gdeoni.ru/payment/return"
+  "ReturnUrl": "https://gdeoni.ru/payment/return",
+  "PendingPaymentReuseMinutes": 10
 }
 ```
 
@@ -191,7 +192,8 @@ Hot-reload: меняешь значение в JSON → `IOptionsMonitor` под
 - **`MonthlyDurationDays`** — длительность одного платежа. 30 дней ≈ календарный месяц.
 - **`TrialDurationDays`** — пробный период при регистрации (бесплатно). 30 дней всем новым юзерам. Записывается автоматически в `RegisterUserUseCase` через `User.StartTrial`.
 - **`ProductDescription`** — описание товара в платёжном чеке. **Обязательно** для 54-ФЗ (Закон о ККТ): юзер должен видеть в чеке что именно он купил.
-- **`ReturnUrl`** — куда YooKassa вернёт юзера после оплаты. Mobile: deep-link типа `gdeoni://payment-return`. Web: страница на сайте, которая делает pull-to-refresh подписки.
+- **`ReturnUrl`** — куда YooKassa вернёт юзера после оплаты. Mobile: deep-link типа `gdeoni://payment/return` (E22.7). Web: страница на сайте, которая делает pull-to-refresh подписки.
+- **`PendingPaymentReuseMinutes`** (D23, default 10) — окно дедупликации платежей. Если юзер тапнул «Оформить подписку» N раз подряд, `CreatePaymentUseCase` в этот промежуток вернёт существующий `CheckoutUrl` вместо создания нового платежа в YooKassa. Это закрывает кейс «оплатил не последний платёж → webhook 404». Подбирать вровень с YooKassa confirmation_url-таймаутом (обычно 10 минут). Уменьшать только если у юзеров часто истекает payment-link до оплаты; увеличивать — если webhook у YooKassa приходит с большой задержкой.
 
 ---
 
