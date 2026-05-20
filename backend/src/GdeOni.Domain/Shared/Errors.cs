@@ -518,6 +518,34 @@ public static class Errors
                 "The submitted Privacy Policy or Terms version is older than the current one. Reload the documents and accept the latest versions.");
     }
 
+    public static class Complimentary
+    {
+        public static Error AdminIdRequired() =>
+            Error.Validation(
+                "complimentary.admin_id.required",
+                "AdminId is required to grant complimentary access.");
+
+        public static Error UntilDateInPast() =>
+            Error.Validation(
+                "complimentary.until.in_past",
+                "Complimentary access UntilUtc must be in the future or null for unlimited access.");
+
+        public static Error NoteTooLong(int maxLength) =>
+            Error.Validation(
+                "complimentary.note.too_long",
+                $"Complimentary access note must be at most {maxLength} characters.");
+
+        public static Error GrantToSelfForbidden() =>
+            Error.Forbidden(
+                "complimentary.grant.self.forbidden",
+                "An administrator cannot grant complimentary access to themselves.");
+
+        public static Error ManageSuperAdminForbidden() =>
+            Error.Forbidden(
+                "complimentary.manage.super_admin.forbidden",
+                "Only a SuperAdmin can grant or revoke complimentary access for another SuperAdmin.");
+    }
+
     public static class UniqueConstraint
     {
         public static Error FromName(string? constraintName) =>

@@ -15,6 +15,8 @@ namespace GdeOni.API.Authorization;
 ///   = false — Succeed (коммерциализация выключена, всем доступно).</item>
 ///   <item>Если в claim'ах роль Admin / SuperAdmin — Succeed (админы
 ///   освобождены от оплаты, решение 2026-05-14).</item>
+///   <item>D22: если у юзера активен complimentary access (granted by
+///   admin) — Succeed без проверки подписки.</item>
 ///   <item>Иначе грузим User по claim'у и проверяем
 ///   <c>HasActiveSubscription</c> с учётом GracePeriodDaysAfterExpiry.</item>
 /// </list>
@@ -70,7 +72,16 @@ public sealed class ActiveSubscriptionAuthorizationHandler(
         if (user is null)
             return;
 
-        if (user.HasActiveSubscription(DateTime.UtcNow, featureFlags.GracePeriodDaysAfterExpiry))
+        var now = DateTime.UtcNow;
+
+        // D22. Complimentary access перебивает проверку подписки.
+        if (user.HasComplimentaryAccess(now))
+        {
+            context.Succeed(requirement);
+            return;
+        }
+
+        if (user.HasActiveSubscription(now, featureFlags.GracePeriodDaysAfterExpiry))
         {
             context.Succeed(requirement);
         }

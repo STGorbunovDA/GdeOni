@@ -11,6 +11,7 @@ public sealed class User : Entity<Guid>
     public const int MaxFullNameLength = 300;
     public const int MaxRole = 50;
     public const int MaxPasswordHash = 1000;
+    public const int MaxComplimentaryNoteLength = 500;
     public string Email { get; private set; }
 
     /// <summary>
@@ -74,6 +75,32 @@ public sealed class User : Entity<Guid>
     /// <see cref="PrivacyPolicyVersion"/>.
     /// </summary>
     public int TermsVersion { get; private set; }
+
+    /// <summary>
+    /// D22. Момент выдачи бесплатного доступа админом. null = не выдан
+    /// (или отозван). Наличие значения = "complimentary активен" (с
+    /// учётом UntilUtc).
+    /// </summary>
+    public DateTime? ComplimentaryAccessGrantedAtUtc { get; private set; }
+
+    /// <summary>
+    /// D22. До какого момента действует бесплатный доступ. null при
+    /// <see cref="ComplimentaryAccessGrantedAtUtc"/> != null →
+    /// бессрочный доступ. Конкретная дата → доступ до этого момента.
+    /// </summary>
+    public DateTime? ComplimentaryAccessUntilUtc { get; private set; }
+
+    /// <summary>
+    /// D22. Id админа, выдавшего бесплатный доступ. Для аудита.
+    /// </summary>
+    public Guid? ComplimentaryAccessGrantedByAdminId { get; private set; }
+
+    /// <summary>
+    /// D22. Опциональная заметка ("друг основателя", "support ticket 42"),
+    /// показывается юзеру в SubscriptionPage. Max
+    /// <see cref="MaxComplimentaryNoteLength"/> символов.
+    /// </summary>
+    public string? ComplimentaryAccessNote { get; private set; }
 
     private readonly List<TrackedDeceased> _trackedDeceasedItems = new();
     public IReadOnlyCollection<TrackedDeceased> TrackedDeceasedItems => _trackedDeceasedItems.AsReadOnly();
@@ -434,6 +461,84 @@ public sealed class User : Entity<Guid>
     public bool HasOutdatedLegalAcceptance(int currentPrivacyVersion, int currentTermsVersion) =>
         PrivacyPolicyVersion < currentPrivacyVersion
         || TermsVersion < currentTermsVersion;
+
+    /// <summary>
+    /// D22. Выдаёт бесплатный доступ ко всему приложению независимо от
+    /// подписки. <paramref name="untilUtc"/> = null → бессрочно;
+    /// иначе доступ до этого момента (должен быть в будущем).
+    ///
+    /// No-op guard: если те же значения уже выставлены, ничего не делает.
+    /// SecurityStamp НЕ ротируется — это admin-action, юзер не должен
+    /// принудительно перелогиниться при выдаче доступа.
+    /// </summary>
+    public UnitResult<Error> GrantComplimentaryAccess(
+        Guid adminId,
+        DateTime? untilUtc,
+        string? note,
+        DateTime nowUtc)
+    {
+        if (adminId == Guid.Empty)
+            return Errors.Complimentary.AdminIdRequired();
+
+        if (untilUtc.HasValue && untilUtc.Value <= nowUtc)
+            return Errors.Complimentary.UntilDateInPast();
+
+        var normalizedNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        if (normalizedNote is not null && normalizedNote.Length > MaxComplimentaryNoteLength)
+            return Errors.Complimentary.NoteTooLong(MaxComplimentaryNoteLength);
+
+        // No-op guard (см. D11.14): те же untilUtc + note → не двигаем
+        // GrantedAtUtc и не дёргаем Touch. GrantedByAdminId намеренно
+        // не входит в сравнение — если кнопку нажал тот же админ
+        // повторно, это полная no-op; если другой админ с теми же
+        // параметрами — тоже no-op (последний "автор" не важен).
+        if (ComplimentaryAccessGrantedAtUtc.HasValue
+            && ComplimentaryAccessUntilUtc == untilUtc
+            && ComplimentaryAccessNote == normalizedNote)
+        {
+            return UnitResult.Success<Error>();
+        }
+
+        ComplimentaryAccessGrantedAtUtc = nowUtc;
+        ComplimentaryAccessUntilUtc = untilUtc;
+        ComplimentaryAccessGrantedByAdminId = adminId;
+        ComplimentaryAccessNote = normalizedNote;
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D22. Отзывает бесплатный доступ — обнуляет 4 поля. Если доступа
+    /// не было — no-op без Touch.
+    /// </summary>
+    public UnitResult<Error> RevokeComplimentaryAccess()
+    {
+        if (!ComplimentaryAccessGrantedAtUtc.HasValue)
+            return UnitResult.Success<Error>();
+
+        ComplimentaryAccessGrantedAtUtc = null;
+        ComplimentaryAccessUntilUtc = null;
+        ComplimentaryAccessGrantedByAdminId = null;
+        ComplimentaryAccessNote = null;
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D22. true если юзеру выдан бесплатный доступ и он ещё действует.
+    /// Три ветки: не выдан → false; UntilUtc=null → бессрочно (true);
+    /// UntilUtc &gt; nowUtc → true; иначе → false (истёк).
+    /// </summary>
+    public bool HasComplimentaryAccess(DateTime nowUtc)
+    {
+        if (!ComplimentaryAccessGrantedAtUtc.HasValue)
+            return false;
+
+        if (!ComplimentaryAccessUntilUtc.HasValue)
+            return true;
+
+        return ComplimentaryAccessUntilUtc.Value > nowUtc;
+    }
 
     private void Touch()
     {

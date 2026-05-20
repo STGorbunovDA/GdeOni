@@ -80,6 +80,23 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasDefaultValue(0)
             .IsRequired();
 
+        // D22. Complimentary access (бесплатный доступ от админа).
+        // Четыре nullable-колонки, заполняются и обнуляются единым
+        // методом User.Grant/RevokeComplimentaryAccess в одной
+        // транзакции — нет смысла делать owned VO ради 4 примитивов.
+        builder.Property(x => x.ComplimentaryAccessGrantedAtUtc)
+            .HasColumnName("complimentary_access_granted_at_utc");
+
+        builder.Property(x => x.ComplimentaryAccessUntilUtc)
+            .HasColumnName("complimentary_access_until_utc");
+
+        builder.Property(x => x.ComplimentaryAccessGrantedByAdminId)
+            .HasColumnName("complimentary_access_granted_by_admin_id");
+
+        builder.Property(x => x.ComplimentaryAccessNote)
+            .HasColumnName("complimentary_access_note")
+            .HasMaxLength(User.MaxComplimentaryNoteLength);
+
         builder.OwnsOne(x => x.Subscription, subscription =>
         {
             subscription.Property(x => x.Status)

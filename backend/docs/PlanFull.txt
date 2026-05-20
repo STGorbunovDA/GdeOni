@@ -5531,10 +5531,10 @@ D15 закрыт когда:
 [x] Docs: эта запись.
 
 =====================================================================
-D-PROD. PRODUCTION & MONETIZATION FOUNDATION (D16-D21)
+D-PROD. PRODUCTION & MONETIZATION FOUNDATION (D16-D22)
 =====================================================================
 
-Блок D16-D21 — заготовки под выход в production и платную модель.
+Блок D16-D22 — заготовки под выход в production и платную модель.
 Цель: сделать так, чтобы каждая фича подключалась небольшим коммитом
 (новый IPaymentProvider, новый push-провайдер, новый feature flag),
 без переписывания доменной модели.
@@ -5548,6 +5548,8 @@ D-PROD. PRODUCTION & MONETIZATION FOUNDATION (D16-D21)
   6. D21 Crash reporting (Sentry)      → видимость прод-падений;
   7. D18 Локальные напоминания         → клиент сам планирует через WorkManager;
                                           бэк ничего не шлёт, FCM не нужен.
+  8. D22 Complimentary access by admin → бесплатный доступ "вручную" от
+                                          админа (промо / поддержка / друзья).
 
 Решение 2026-05-19: распространение Android-приложения через
 собственный сайт (sideload APK), без Google Play Console. Это
@@ -6594,6 +6596,230 @@ D-PROD post-audit (2026-05-20)
 - OpenTelemetry export (Sentry уже частично покрывает observability).
 - Liveness vs readiness разделение `/health/live` vs `/health/ready`
   для k8s — пока выбираем хостинг (H5).
+
+---------------------------------------------------------------------
+D22. Complimentary access by admin (бесплатный доступ "вручную")
+---------------------------------------------------------------------
+
+Цель: дать админу инструмент выдать конкретному юзеру бесплатный
+доступ ко всему приложению — без оплаты подписки. Сценарии:
+  - друзья / семья основателя;
+  - промо ("первые 100 пользователей бесплатно навсегда");
+  - саппорт-кейс (юзер пожаловался, админ решил компенсировать);
+  - тестировщики / внутренние юзеры.
+
+Принципиальное отличие от Trial: Trial выдаётся автоматически на
+30 дней при регистрации и истекает; complimentary — выдаётся
+вручную, может быть бессрочным или ограниченным датой, отзывается
+тоже вручную. Это **независимое от Subscription** измерение —
+у юзера может одновременно быть и Trial/Active, и complimentary;
+гейт пускает по принципу OR: complimentary || HasActiveSubscription.
+
+Domain:
+
+Опция 1 (проще): четыре nullable-поля на агрегат `User`:
+  - `ComplimentaryAccessGrantedAtUtc` (DateTime?) — момент выдачи.
+    Наличие значения = "complimentary выдан".
+  - `ComplimentaryAccessUntilUtc` (DateTime?) — до какого момента
+    действует. null при `GrantedAtUtc != null` → бессрочно.
+  - `ComplimentaryAccessGrantedByAdminId` (Guid?) — кто выдал
+    (для аудита).
+  - `ComplimentaryAccessNote` (string?, ≤500 символов) —
+    необязательная заметка ("друг основателя", "support ticket 42").
+
+Опция 2 (чище семантически): owned value-object `ComplimentaryAccess`
+с теми же 4 полями + private factory `Granted(...)` / `Revoked()`.
+Выбрать при реализации — обе валидны. Если по ходу станет много
+методов на complimentary — выгоднее VO; для CRUD-уровня хватит
+полей.
+
+Доменные методы (на User, возвращают UnitResult<Error>):
+  - `User.GrantComplimentaryAccess(adminId, untilUtc?, note?, nowUtc)`:
+    - валидация: adminId != Guid.Empty, untilUtc (если задано) > nowUtc,
+      note.Length ≤ 500.
+    - идемпотентен: если значения совпадают (untilUtc + note) —
+      no-op без Touch (no-op guard как у других мутаций — D11.14).
+    - **НЕ** ротирует SecurityStamp: это admin-action, юзер
+      не должен принудительно перелогиниться.
+  - `User.RevokeComplimentaryAccess(nowUtc)`:
+    - обнуляет 4 поля.
+    - если уже null (никогда не выдавали) — no-op.
+  - `User.HasComplimentaryAccess(nowUtc)` → bool:
+    - если `ComplimentaryAccessGrantedAtUtc == null` → false;
+    - если `ComplimentaryAccessUntilUtc == null` → true (бессрочно);
+    - иначе → `ComplimentaryAccessUntilUtc > nowUtc`.
+
+Errors.Complimentary:
+  - `AlreadyGranted()` — попытка выдать с теми же параметрами
+    (мягкая ошибка, используется когда use-case явно запрещает no-op,
+    не для доменной мутации).
+  - `UntilDateInPast()` — `untilUtc <= nowUtc`.
+  - `NoteTooLong()` — > 500 символов.
+  - `AdminIdRequired()` — Guid.Empty.
+
+Application:
+
+Структура: `Application/Complimentary/Commands/<UseCase>/`.
+
+  - `GrantComplimentaryAccess` — body `{ userId, untilUtc?: DateTime,
+    note?: string }`. UseCase:
+    - получает adminId из ICurrentUserService (берёт из JWT);
+    - находит юзера по userId;
+    - зовёт `user.GrantComplimentaryAccess(adminId, untilUtc, note, _clock.UtcNow)`;
+    - Save().
+  - `RevokeComplimentaryAccess` — body `{ userId }`. UseCase:
+    - находит юзера;
+    - зовёт `user.RevokeComplimentaryAccess(_clock.UtcNow)`;
+    - Save().
+
+Расширение существующего `GetMySubscription`:
+  - В `MySubscriptionResponse` добавить поля:
+    - `HasComplimentaryAccess` (bool);
+    - `ComplimentaryAccessUntilUtc` (DateTime?) — null = бессрочно
+      когда HasComplimentaryAccess=true;
+    - `ComplimentaryAccessNote` (string?) — для UI ("Доступ
+      предоставлен администратором: {note}").
+  - `IsActiveNow` теперь учитывает complimentary: возвращает true
+    если `HasActiveSubscription || HasComplimentaryAccess`.
+
+Расширение `ActiveSubscriptionAuthorizationHandler` (D16.5):
+  - После проверки `IsAdmin()` добавляется ветка:
+    ```
+    var user = await _userRepo.GetByIdAsync(...);
+    if (user.HasComplimentaryAccess(_clock.UtcNow)) { Succeed; return; }
+    if (user.HasActiveSubscription(_clock.UtcNow, grace)) { Succeed; return; }
+    ```
+  - Ветки идут именно в этом порядке: complimentary дешевле проверять,
+    и она "сильнее" (если есть — подписка не важна).
+
+API:
+
+  - `[Authorize(Roles = "SuperAdmin,Admin")] POST /api/admin/users/{userId}/complimentary-access`
+    → body `{ untilUtc?: DateTime, note?: string }`. Выдаёт доступ.
+  - `[Authorize(Roles = "SuperAdmin,Admin")] DELETE /api/admin/users/{userId}/complimentary-access`
+    → отзывает.
+  - Расширить `[Authorize] GET /api/users/me/subscription` —
+    включает 3 новых поля (см. выше).
+  - **Защита от себя**: SuperAdmin сам себе complimentary не
+    выдаёт (бессмысленно, он и так в whitelist по IsAdmin). Если
+    `userId == currentAdminId` — Errors.General.OperationNotAllowed.
+  - **Admin не отзывает у SuperAdmin**: если целевой юзер
+    SuperAdmin, а текущий — Admin → Forbidden. SuperAdmin может
+    выдавать/отзывать кому угодно (включая других Admin).
+
+Whitelist (политика BasicAuthenticated):
+  - admin-эндпоинты автоматически вне политики RequireActiveSubscription
+    через `[Authorize(Roles=...)]` (см. D16.5 — Roles перебивает Policy).
+  - GET /api/users/me/subscription уже в whitelist (D16.5).
+
+Migration:
+
+  - `AddComplimentaryAccessToUsers` — 4 nullable-колонки:
+    `complimentary_access_granted_at_utc` (timestamp),
+    `complimentary_access_until_utc` (timestamp),
+    `complimentary_access_granted_by_admin_id` (uuid),
+    `complimentary_access_note` (varchar(500)).
+  - Индекс: ix_users_complimentary_access_granted_at_utc — для
+    админ-выборки "кому когда выдавали" (если понадобится). Опционально.
+
+Tests:
+
+  - Domain: Grant выставляет 4 поля + Touch; повторный Grant с теми же
+    значениями — no-op.
+  - Domain: Grant с untilUtc=null → бессрочно (HasComplimentaryAccess
+    true даже через 10 лет).
+  - Domain: Grant с untilUtc < now → Errors.Complimentary.UntilDateInPast.
+  - Domain: Revoke обнуляет, повторный Revoke — no-op.
+  - Domain: HasComplimentaryAccess корректно по 3 веткам (не выдан /
+    бессрочно / по дате).
+  - Application: GrantComplimentaryAccess проверяет права через
+    ICurrentUserService (только admin/superadmin); user → NotFound.
+  - Application: Admin не может revoke у SuperAdmin (Forbidden).
+  - Application: SuperAdmin не выдаёт сам себе (OperationNotAllowed).
+  - Application: GetMySubscription отдаёт HasComplimentaryAccess=true +
+    Until для юзера с complimentary; IsActiveNow=true даже при
+    отсутствии Subscription.
+  - Integration: e2e — Trial-юзер с истёкшим триалом → admin выдаёт
+    complimentary → юзер снова получает 200 на authorized
+    эндпоинтах (handler пускает).
+  - Integration: после revoke юзер опять получает 403 (если нет
+    подписки и Trial кончился).
+  - Integration: non-admin → 403 на POST/DELETE complimentary.
+
+---------------------------------------------------------------------
+D22.1. D22 реализовано (2026-05-20)
+---------------------------------------------------------------------
+
+D22.1 Domain:
+[x] 4 nullable-поля на агрегате User: ComplimentaryAccessGrantedAtUtc /
+    UntilUtc / GrantedByAdminId / Note (выбрана опция 1 — без owned VO,
+    т.к. поля заполняются единым методом и нет логики поверх них).
+[x] User.MaxComplimentaryNoteLength = 500.
+[x] User.GrantComplimentaryAccess(adminId, untilUtc?, note?, nowUtc):
+    валидация (adminId != Empty, untilUtc > nowUtc, note ≤ 500),
+    no-op guard (untilUtc + note совпали → не двигаем GrantedAt),
+    trim/normalize note к null если пустой. НЕ ротирует SecurityStamp.
+[x] User.RevokeComplimentaryAccess(): обнуляет 4 поля, no-op если
+    не был выдан.
+[x] User.HasComplimentaryAccess(nowUtc): 3 ветки (не выдан / бессрочно
+    / по дате).
+[x] Errors.Complimentary: AdminIdRequired / UntilDateInPast /
+    NoteTooLong / GrantToSelfForbidden / ManageSuperAdminForbidden.
+[x] Domain.Tests: 16 unit (выдача бессрочно/до даты, валидация
+    adminId/until/note, no-op на повторе, изменение untilUtc двигает
+    GrantedAt, revoke очищает и no-op, HasComplimentaryAccess по
+    3 веткам, trim/null whitespace note).
+
+D22.2 Infrastructure:
+[x] UserConfiguration: 4 nullable-колонки snake_case (включая
+    complimentary_access_note varchar(500)).
+[x] Миграция 20260520061647_D22_AddComplimentaryAccessToUsers применена
+    через dotnet ef migrations add.
+
+D22.3 Application:
+[x] Complimentary/Commands/Grant и /Revoke по структуре Model/UseCase/Validation.
+[x] GrantComplimentaryAccessUseCase: проверка IsAdmin / GetCurrentUserId,
+    self-grant запрещён, Admin не управляет SuperAdmin (по claim'у
+    IsInRole("SuperAdmin")), доменный вызов, Save.
+[x] RevokeComplimentaryAccessUseCase: те же admin-проверки + домен +
+    Save.
+[x] Validators FluentValidation: TargetUserId != Empty, Note ≤ 500.
+[x] MySubscriptionResponse расширен 3 полями
+    (HasComplimentaryAccess / ComplimentaryAccessUntilUtc / ComplimentaryAccessNote).
+[x] GetMySubscriptionUseCase: IsActiveNow теперь
+    `subscription.IsActive(now) || hasComplimentary`. Note/Until
+    отдаются только когда HasComplimentaryAccess=true (защита от
+    показа стейл-данных после revoke).
+[x] DependencyInjection: оба use case'а зарегистрированы Scoped.
+[x] Application.Tests: 10 unit (Grant 6 + Revoke 3 + GetMySubscription
+    с complimentary 1).
+
+D22.4 Authorization:
+[x] ActiveSubscriptionAuthorizationHandler: после Admin/SuperAdmin
+    добавлена ветка `if (user.HasComplimentaryAccess(now)) Succeed`
+    перед проверкой подписки.
+
+D22.5 API:
+[x] GrantComplimentaryAccessRequest DTO (untilUtc? + note?).
+[x] AdminComplimentaryAccessController [Route("api/admin/users/{userId:guid}/complimentary-access")]
+    [Authorize(Roles="SuperAdmin,Admin")]: POST Grant / DELETE Revoke.
+[x] Api.IntegrationTests: 3 e2e (Granted bypasses paywall +
+    GET /me/subscription отдаёт complimentary fields; Revoke
+    возвращает 403; non-admin → 403). Требуют Docker — прогнать
+    локально перед merge.
+
+Финальный прогон (без Docker): Domain 162/162 + Application 163/163.
+Integration требует Docker, пробежать перед PR.
+
+---------------------------------------------------------------------
+  - Историю всех выдач/отзывов в отдельной таблице — хранится
+    только последнее состояние (4 поля). Если понадобится audit
+    log — отдельным D-блоком, в той же модели подписок.
+  - Bulk-grant ("выдать всем юзерам зарегистрировавшимся до DD.MM") —
+    разовое действие, делается SQL-скриптом / админкой по одному.
+  - Уведомление юзеру на email/push о выдаче complimentary —
+    юзер увидит сам в Subscription-блоке профиля при следующем
+    запуске. Email-канал ещё не настроен (см. H-блок).
 
 =====================================================================
 КОНЕЦ БЛОКА D-PROD
@@ -7743,9 +7969,15 @@ DTO:
     — точная зеркальная копия серверного DTO.
 [ ] `MySubscriptionResponse(string Status, string? Plan,
     DateTime? ExpiresAtUtc, DateTime? CancelledAtUtc, bool IsActiveNow,
-    bool IsOnTrial, int DaysUntilExpiry)` — поля для отображения
+    bool IsOnTrial, int DaysUntilExpiry,
+    bool HasComplimentaryAccess, DateTime? ComplimentaryAccessUntilUtc,
+    string? ComplimentaryAccessNote)` — поля для отображения
     на ProfilePage статуса и оставшихся дней (для Trial и для
-    оплаченной подписки одинаково).
+    оплаченной подписки одинаково). Три последних поля — D22:
+    бесплатный доступ от админа (см. D22). Когда
+    HasComplimentaryAccess=true → IsActiveNow=true даже без
+    подписки; UI показывает блок "Бесплатный доступ от
+    администратора" вместо стандартного блока подписки.
 [ ] `CreatePaymentRequest(string Plan) → CreatePaymentResponse(string CheckoutUrl)`.
 
 Shared:
@@ -7791,13 +8023,31 @@ ViewModels + Pages:
 [ ] `Views/Profile/SubscriptionPage.xaml(.cs)` — в Profile-flow,
     кнопка "Подписка" в ProfilePage.
 [ ] `ProfilePage` (E5) расширить блоком "Подписка":
+    - HasComplimentaryAccess=true → "Бесплатный доступ от
+      администратора" + если ComplimentaryAccessUntilUtc != null,
+      то "до DD.MM.YYYY (N дней)", иначе "бессрочно". Если есть
+      Note — подзаголовком "Причина: {note}". Кнопок "Оформить" /
+      "Отменить" нет — это admin-grant, юзер на него не влияет
+      (см. D22).
     - Trial → "Пробный период до DD.MM.YYYY (N дней)";
     - Active → "Подписка ({Plan}) до DD.MM.YYYY (N дней)";
     - Cancelled → "Отменена, доступ до DD.MM.YYYY";
     - Expired → "Подписка истекла"; кнопка "Продлить".
+    Приоритет показа: complimentary > Trial/Active/Cancelled/Expired —
+    если у юзера есть complimentary, остальные статусы не показываем
+    (чтобы не путать). При revoke complimentary юзер при следующем
+    запуске увидит свой реальный статус подписки.
     Решение 2026-05-14: дни до списания / окончания видны прямо на
     ProfilePage без перехода на SubscriptionPage. DTO уже отдаёт
     DaysUntilExpiry (см. D16 GetMySubscription).
+
+[ ] `ProfilePage` отображает версию приложения внизу
+    (мелким серым текстом): "Версия 1.0.0 (build 1)".
+    Источник — `Microsoft.Maui.ApplicationModel.AppInfo.Current`
+    (`VersionString` + `BuildString`). Это даёт юзеру и саппорту
+    быстрый ответ "какая у тебя версия" без копания в настройках
+    Android — особенно важно при sideload-распространении
+    (см. D17.2), когда нет автообновления.
 
 Глобальный paywall (единый для всего приложения):
 
@@ -7816,6 +8066,10 @@ ViewModels + Pages:
        Shell.Current.GoToAsync("main");
     Решение (2026-05-14): админы paywall не видят — они освобождены
     от подписки на бэке (см. D16 handler), UI повторяет это же.
+    D22: юзер с complimentary access тоже paywall не видит —
+    `subscription.IsActiveNow` уже учитывает HasComplimentaryAccess
+    на бэке (см. D22). UI достаточно проверять только IsActiveNow,
+    отдельной проверки HasComplimentaryAccess в AppShell не надо.
 [ ] `SubscriptionRequiredPage` — paywall с описанием подписки,
     кнопки Monthly / Yearly → `SubscriptionPage` flow. Кнопка "Выйти"
     и пункт "Удалить аккаунт" в углу.
@@ -9446,7 +9700,41 @@ PUT /api/users/{id}/role доступен только админу — нече
 других до Admin через /api/users/{id}/role.
 
 ---------------------------------------------------------------------
-F17.6. Что НЕ делаем в админке
+F17.6. Управление бесплатным доступом (D22)
+---------------------------------------------------------------------
+
+UI для D22 — выдача / отзыв complimentary access юзеру.
+
+[ ] На странице юзера (нужен сначала endpoint
+    `GET /api/admin/users?email=...` для поиска — отдельный D-пункт)
+    блок "Доступ и подписка":
+    - текущий статус Subscription (Trial / Active / Cancelled /
+      Expired);
+    - наличие complimentary access (Granted at / Until / GrantedBy /
+      Note);
+    - кнопка "Выдать бесплатный доступ" → modal с радио:
+        ○ Бессрочно
+        ○ До даты — DatePicker;
+      + textarea "Причина (необязательно)" maxLength=500;
+      → POST /api/admin/users/{id}/complimentary-access.
+    - кнопка "Отозвать" (видна если уже выдан) → confirm →
+      DELETE /api/admin/users/{id}/complimentary-access.
+
+[ ] Простейший временный вариант (пока нет user-search-страницы):
+    форма "Email юзера → кнопка Найти → блок управления complimentary".
+    Backend по email находит userId, дальше — обычные POST/DELETE.
+
+[ ] Ограничения UI:
+    - SuperAdmin не может выдать себе (кнопка disabled с tooltip);
+    - Admin не видит кнопок управления для SuperAdmin'а (backend
+      всё равно отдаст 403).
+
+[ ] В таблице F17.1 (все карточки) — не добавляем колонку
+    complimentary. Это атрибут юзера, не карточки. Видно только
+    в user-flow (см. выше).
+
+---------------------------------------------------------------------
+F17.7. Что НЕ делаем в админке
 ---------------------------------------------------------------------
 
 Убрано после D13/D14/D15:

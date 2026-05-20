@@ -81,6 +81,29 @@ public sealed class GetMySubscriptionUseCaseTests
         result.Value.IsActiveNow.Should().BeFalse();
         result.Value.IsOnTrial.Should().BeFalse();
         result.Value.DaysUntilExpiry.Should().Be(0);
+        result.Value.HasComplimentaryAccess.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Execute_UserWithComplimentaryAccess_ReturnsActiveAndComplimentaryFields()
+    {
+        var (userRepo, currentUser, useCase) = BuildHarness();
+        var user = User.Register("complimentary@example.com", "hash$hash$hash$hash").Value;
+        // Никакого Trial — только complimentary.
+        user.GrantComplimentaryAccess(Guid.NewGuid(), untilUtc: null, note: "founder friend", DateTime.UtcNow);
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(user.Id));
+        userRepo.Setup(x => x.GetByIdReadOnly(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var result = await useCase.Execute(CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Status.Should().Be("None");
+        result.Value.IsActiveNow.Should().BeTrue("complimentary access делает IsActiveNow=true");
+        result.Value.HasComplimentaryAccess.Should().BeTrue();
+        result.Value.ComplimentaryAccessUntilUtc.Should().BeNull("бессрочно");
+        result.Value.ComplimentaryAccessNote.Should().Be("founder friend");
     }
 
     private static User BuildUserWithTrial()

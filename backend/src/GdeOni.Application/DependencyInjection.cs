@@ -3,6 +3,8 @@ using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Auth.Login.UseCase;
 using GdeOni.Application.Auth.Logout.UseCase;
 using GdeOni.Application.Auth.Refresh.UseCase;
+using GdeOni.Application.Complimentary.Commands.Grant.UseCase;
+using GdeOni.Application.Complimentary.Commands.Revoke.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.UseCase;
@@ -130,6 +132,10 @@ public static class DependencyInjection
         // D19. Legal use cases (Privacy / Terms / 152-ФЗ).
         services.AddScoped<IAcceptLegalUseCase, AcceptLegalUseCase>();
         services.AddScoped<IGetLegalDocumentUseCase, GetLegalDocumentUseCase>();
+
+        // D22. Complimentary access (admin granted free access).
+        services.AddScoped<IGrantComplimentaryAccessUseCase, GrantComplimentaryAccessUseCase>();
+        services.AddScoped<IRevokeComplimentaryAccessUseCase, RevokeComplimentaryAccessUseCase>();
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;
