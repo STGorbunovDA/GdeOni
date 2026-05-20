@@ -5,6 +5,7 @@ using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
 using GdeOni.Mobile.Services.Geolocation;
 using GdeOni.Mobile.Services.Network;
+using GdeOni.Mobile.Shared.Notifications;
 using GdeOni.Mobile.Shared.Utils;
 using Refit;
 
@@ -13,7 +14,8 @@ namespace GdeOni.Mobile.ViewModels;
 public partial class AtGraveViewModel(
     IDeceasedRecordsApi api,
     IGeolocationService geo,
-    INetworkInfoService network) : ObservableObject
+    INetworkInfoService network,
+    ILocalNotificationScheduler notificationScheduler) : ObservableObject
 {
     [ObservableProperty]
     private bool _isVpnActive;
@@ -209,6 +211,46 @@ public partial class AtGraveViewModel(
             {
                 ErrorMessage = $"Не удалось создать карточку: {envelope.ErrorCode} — {envelope.ErrorMessage}";
                 return;
+            }
+
+            // E23. Если юзер включил хотя бы один тоггл — запрашиваем
+            // permission и планируем уведомления. Сначала Birth (если
+            // BirthDate задана и тоггл включён), затем Death (DeathDate
+            // обязательна, тоггл проверяем). Failures глотаем — это
+            // не блокер навигации на DeceasedDetailsPage.
+            if (NotifyOnDeathAnniversary || (NotifyOnBirthAnniversary && BirthDate.HasValue))
+            {
+                try
+                {
+                    if (await notificationScheduler.EnsureNotificationPermissionAsync())
+                    {
+                        var fullName = $"{LastName.Trim()} {FirstName.Trim()}".Trim();
+                        if (NotifyOnBirthAnniversary && BirthDate.HasValue)
+                        {
+                            await notificationScheduler.ScheduleAnniversaryAsync(
+                                new AnniversaryReminder(
+                                    envelope.Result.DeceasedId,
+                                    fullName,
+                                    DateOnly.FromDateTime(BirthDate.Value),
+                                    AnniversaryKind.Birth));
+                        }
+                        if (NotifyOnDeathAnniversary)
+                        {
+                            await notificationScheduler.ScheduleAnniversaryAsync(
+                                new AnniversaryReminder(
+                                    envelope.Result.DeceasedId,
+                                    fullName,
+                                    DateOnly.FromDateTime(DeathDate),
+                                    AnniversaryKind.Death));
+                        }
+                    }
+                }
+                catch
+                {
+                    // Notification scheduling — best-effort. Не валим
+                    // основной flow добавления карточки из-за permission
+                    // denied или платформенной ошибки.
+                }
             }
 
             await Shell.Current.GoToAsync($"../deceased-details?deceasedId={envelope.Result.DeceasedId}");

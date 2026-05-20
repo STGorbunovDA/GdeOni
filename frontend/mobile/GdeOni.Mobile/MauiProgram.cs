@@ -93,11 +93,15 @@ public static class MauiProgram
         // Login/Logout. Stateless, безопасен как Singleton.
         services.AddSingleton<ISentryScopeService, SentryScopeService>();
         // E23. Локальные уведомления о годовщинах. На Android —
-        // AlarmManager-реализация; iOS/Windows — пока stub (NotImplemented
-        // отдадим как fallback в Hookup-точках).
+        // AlarmManager-реализация; на остальных платформах NoOp-stub,
+        // чтобы DI-контракт всегда резолвился (ViewModel'и не пишут
+        // if-ы про платформу).
 #if ANDROID
         services.AddSingleton<ILocalNotificationScheduler,
             Platforms.Android.Notifications.AndroidAlarmScheduler>();
+#else
+        services.AddSingleton<ILocalNotificationScheduler,
+            Services.Notifications.NoOpLocalNotificationScheduler>();
 #endif
         // E22.6. Paywall-checker (на старте) и DelegatingHandler (в
         // середине сессии).
