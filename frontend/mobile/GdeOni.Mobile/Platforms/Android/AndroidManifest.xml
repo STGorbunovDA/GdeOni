@@ -23,4 +23,12 @@
 	<!-- Для устройств с Android 12 и ниже, где нет READ_MEDIA_*. -->
 	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
 		android:maxSdkVersion="32" />
+
+	<!-- E23. Локальные уведомления о годовщинах через AlarmManager.
+	     POST_NOTIFICATIONS — Android 13+ runtime permission, запрашиваем
+	     контекстно при включении тоггла anniversary. USE_EXACT_ALARM —
+	     для setExactAndAllowWhileIdle на Android 14+ (пользовательская
+	     категория calendar reminder, не требует runtime prompt). -->
+	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+	<uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 </manifest>

@@ -9,6 +9,7 @@ using GdeOni.Mobile.Services.Routing;
 using GdeOni.Mobile.Services.Storage;
 using GdeOni.Mobile.Services.Subscriptions;
 using GdeOni.Mobile.Services.Versioning;
+using GdeOni.Mobile.Shared.Notifications;
 using GdeOni.Mobile.ViewModels;
 using GdeOni.Mobile.Views.Auth;
 using GdeOni.Mobile.Views.Profile;
@@ -91,6 +92,13 @@ public static class MauiProgram
         // E25. Sentry scope service — управление SentryUser после
         // Login/Logout. Stateless, безопасен как Singleton.
         services.AddSingleton<ISentryScopeService, SentryScopeService>();
+        // E23. Локальные уведомления о годовщинах. На Android —
+        // AlarmManager-реализация; iOS/Windows — пока stub (NotImplemented
+        // отдадим как fallback в Hookup-точках).
+#if ANDROID
+        services.AddSingleton<ILocalNotificationScheduler,
+            Platforms.Android.Notifications.AndroidAlarmScheduler>();
+#endif
         // E22.6. Paywall-checker (на старте) и DelegatingHandler (в
         // середине сессии).
         services.AddSingleton<IPaywallChecker, PaywallChecker>();
