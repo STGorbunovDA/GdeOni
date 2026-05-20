@@ -62,8 +62,11 @@ Infrastructure и Integration требуют Docker.
 
 ## Configuration
 
-Полный шаблон конфигурации с пояснениями к каждой секции —
-[backend/src/GdeOni.API/appsettings.example.json](backend/src/GdeOni.API/appsettings.example.json).
+- Шаблон конфигурации (чистый JSON, можно `cp` и запускать):
+  [backend/src/GdeOni.API/appsettings.example.json](backend/src/GdeOni.API/appsettings.example.json)
+- Подробное описание каждой секции (что делает, когда менять):
+  [backend/docs/appsettings.md](backend/docs/appsettings.md)
+
 Файл `appsettings.json` и `appsettings.Development.json` в `.gitignore` —
 не коммитьте секреты.
 
