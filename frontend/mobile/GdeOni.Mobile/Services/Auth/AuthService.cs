@@ -53,8 +53,17 @@ public sealed class AuthService(
     {
         try
         {
+            // E24 ещё не реализован: чекбоксов согласия в UI нет, шлём
+            // оба флага true имплицитно. Это техдолг до proper onboarding
+            // (см. E24 в PlanFull.txt) — для 152-ФЗ нужен явный consent.
             var registerEnv = await usersApi.RegisterAsync(
-                new RegisterUserRequest(email, userName, fullName, password), ct);
+                new RegisterUserRequest(
+                    email,
+                    userName,
+                    fullName,
+                    password,
+                    PrivacyPolicyAccepted: true,
+                    TermsAccepted: true), ct);
             if (registerEnv.Result is null)
                 return new AuthResult(false, registerEnv.ErrorCode, registerEnv.ErrorMessage ?? "Регистрация не удалась.");
 

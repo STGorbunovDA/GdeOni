@@ -27,7 +27,9 @@ public sealed record RegisterUserRequest(
     string Email,
     string? UserName,
     string? FullName,
-    string Password);
+    string Password,
+    bool PrivacyPolicyAccepted,
+    bool TermsAccepted);
 
 public sealed record RegisterUserResponse(Guid Id);
 

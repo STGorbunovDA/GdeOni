@@ -6821,6 +6821,116 @@ Integration требует Docker, пробежать перед PR.
     юзер увидит сам в Subscription-блоке профиля при следующем
     запуске. Email-канал ещё не настроен (см. H-блок).
 
+---------------------------------------------------------------------
+D23. История платежей — таблица subscription_payments + админка
+---------------------------------------------------------------------
+
+Проблема, всплывшая при ручном тестировании 2026-05-20:
+  - У <c>User</c> сейчас только одно поле <c>LastPaymentId</c> для
+    привязки webhook → юзер. Юзер тапает "Оформить" несколько раз —
+    каждый клик создаёт новый payment в YooKassa и перезаписывает
+    <c>LastPaymentId</c>. Если юзер оплачивает НЕ последний клик —
+    webhook приходит с id, которого в БД нет, и backend возвращает
+    <c>404 subscription.payment.not_found</c>. Пришлось руками
+    UPDATE'ить колонку, чтобы прокатить оплату.
+  - Истории платежей не существует. Аудит ("когда что списали с этого
+    юзера") возможен только через админ-панель YooKassa или Seq-логи.
+    Юзер просит таблицу платежей и админ-UI с фильтрами.
+
+Решение — отдельный агрегат / таблица <c>subscription_payments</c>:
+
+Domain:
+
+[ ] Новая сущность <c>SubscriptionPayment</c> (или <c>Payment</c>):
+    - <c>Id</c> (Guid PK),
+    - <c>UserId</c> (FK на users),
+    - <c>ExternalPaymentId</c> (string, YooKassa id),
+    - <c>Plan</c> (SubscriptionPlan enum),
+    - <c>AmountRub</c> (decimal),
+    - <c>Status</c> (PaymentRecordStatus enum:
+      Pending / Succeeded / Cancelled / Failed),
+    - <c>CreatedAtUtc</c>, <c>UpdatedAtUtc</c>,
+    - <c>PeriodStartUtc</c>, <c>PeriodEndUtc</c> — границы оплаченного
+      периода (для Active).
+[ ] Errors.Payment: NotFound, AlreadyProcessed, AmountMismatch.
+
+Application:
+
+[ ] <c>CreatePaymentUseCase</c> теперь:
+    - проверяет: нет ли у юзера PendingPayment моложе N минут
+      (по умолчанию 10) — если есть, возвращает существующий
+      CheckoutUrl вместо нового. Это закрывает кейс multi-tap.
+    - создаёт запись <c>SubscriptionPayment</c> со Status=Pending
+      ДО вызова <c>IPaymentProvider.CreateAsync</c>; если провайдер
+      упадёт — запись помечается Failed.
+    - НЕ перезаписывает <c>User.Subscription.LastPaymentId</c>
+      (можно оставить для совместимости или дропнуть колонку
+      отдельной миграцией — после ProcessPaymentWebhook миграции).
+
+[ ] <c>ProcessPaymentWebhookUseCase</c>:
+    - <b>ищет юзера через</c> <c>subscription_payments</c> по
+      <c>ExternalPaymentId</c>, а не по <c>users.LastPaymentId</c>.
+      Это решает проблему многократных кликов: каждый payment
+      записан со своим UserId.
+    - дополнительный safety: <c>YooKassaPaymentProvider</c> уже
+      передаёт <c>metadata: {userId, plan}</c> при CreatePayment;
+      pull-verify возвращает их обратно, можно сверять UserId
+      из metadata с UserId из subscription_payments как
+      defence-in-depth.
+    - обновляет запись Status → Succeeded / Cancelled / Failed.
+    - вызывает <c>User.ActivateSubscription(...)</c> как сейчас.
+    - идемпотентность: повторный webhook с тем же ExternalPaymentId
+      → no-op (Status уже Succeeded).
+
+[ ] <c>GetPaymentsUseCase</c> (для админки):
+    - параметры: <c>userId?</c> (фильтр по юзеру), <c>status?</c>,
+      <c>from</c>/<c>to</c> (по CreatedAtUtc), пагинация.
+    - возвращает <c>PaymentRecordResponse</c> (Id, UserEmail,
+      ExternalPaymentId, Plan, Amount, Status, CreatedAt,
+      PeriodStart/End).
+
+[ ] <c>GetUserPaymentsUseCase</c> (для будущего "история моих
+    платежей" в Profile mobile):
+    - <c>[Authorize]</c> по текущему юзеру, возвращает список его
+      платежей. Не используется в текущей итерации mobile UI,
+      но эндпоинт делаем сразу.
+
+Migration:
+
+[ ] <c>AddSubscriptionPaymentsTable</c>:
+    <c>subscription_payments</c> с колонками выше,
+    индексы: <c>ux_subscription_payments_external_payment_id</c>
+    (unique), <c>ix_subscription_payments_user_id</c>,
+    <c>ix_subscription_payments_status</c>,
+    <c>ix_subscription_payments_created_at_utc</c> (desc для
+    админ-выборки последних).
+
+API:
+
+[ ] <c>[Authorize(Roles="SuperAdmin,Admin")]
+    GET /api/admin/payments?userId&amp;status&amp;from&amp;to&amp;page&amp;pageSize</c>
+    — пагинированный список платежей для админки. Возвращает
+    UserEmail+UserName, чтобы админ не дёргал отдельно <c>/users/{id}</c>.
+
+[ ] <c>[Authorize] GET /api/users/me/payments</c> — история своих
+    платежей (для возможного будущего раздела в Profile mobile).
+
+Что НЕ делаем сейчас:
+  - Чарджбэки / рефанды через API — YooKassa умеет, но UI и
+    бизнес-процесса нет. Если придёт чарджбэк — обрабатывается
+    вручную через YooKassa-админку, у нас в БД ставим Failed/Refunded
+    отдельной миграцией поля.
+  - Email-уведомления "платёж прошёл" — нет email-канала (H-блок).
+  - Group-by-month отчёты — добавим если понадобится бизнесу.
+
+Связь с F-блоком (web админка):
+
+[ ] F17.8 (новая подсекция, добавлю при имплементации D23): страница
+    <c>/admin/payments</c> с Mantine Table — те же фильтры что
+    в API (UserEmail / Status / DateRange) + ссылка на конкретного
+    юзера. Деталь по платежу — modal или /admin/payments/{id}
+    со ссылкой на YooKassa-админку (по externalPaymentId).
+
 =====================================================================
 КОНЕЦ БЛОКА D-PROD
 =====================================================================

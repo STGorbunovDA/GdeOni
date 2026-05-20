@@ -24,6 +24,18 @@ public partial class ProfileViewModel(
     private string? _fullName;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSubscriptionBlock))]
+    private string? _role;
+
+    /// <summary>
+    /// Admin / SuperAdmin не платят подписку (см. D16.5 — бэк их пускает
+    /// без подписки), поэтому блок "Подписка" в Profile им не показываем.
+    /// </summary>
+    public bool IsAdmin =>
+        string.Equals(Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(Role, "Admin", StringComparison.OrdinalIgnoreCase);
+
+    [ObservableProperty]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -35,9 +47,16 @@ public partial class ProfileViewModel(
     [NotifyPropertyChangedFor(nameof(SubscriptionSummary))]
     [NotifyPropertyChangedFor(nameof(SubscriptionDetail))]
     [NotifyPropertyChangedFor(nameof(HasSubscriptionData))]
+    [NotifyPropertyChangedFor(nameof(ShowSubscriptionBlock))]
     private MySubscriptionResponse? _subscription;
 
     public bool HasSubscriptionData => Subscription is not null;
+
+    /// <summary>
+    /// Показываем блок только обычным юзерам — админам подписка
+    /// не нужна (бэк их освобождает в гейте, см. D16.5).
+    /// </summary>
+    public bool ShowSubscriptionBlock => HasSubscriptionData && !IsAdmin;
 
     /// <summary>
     /// Краткое название состояния — большим текстом в карточке.
@@ -121,16 +140,26 @@ public partial class ProfileViewModel(
             UserName = me.UserName;
             Email = me.Email;
             FullName = me.FullName;
+            Role = me.Role;
 
-            // Подписка — best-effort. Если упадёт (нет сети, бэк лёг) —
-            // не ломаем весь экран профиля, просто оставляем "Загрузка…".
-            try
+            // Админам блок подписки в UI скрыт — нет смысла дёргать /me/subscription
+            // (и тратить запрос, и нагружать бэк).
+            if (!IsAdmin)
             {
-                var subEnvelope = await subscriptionsApi.GetMyAsync();
-                Subscription = subEnvelope.Result;
+                // Подписка — best-effort. Если упадёт (нет сети, бэк лёг) —
+                // не ломаем весь экран профиля, просто оставляем "Загрузка…".
+                try
+                {
+                    var subEnvelope = await subscriptionsApi.GetMyAsync();
+                    Subscription = subEnvelope.Result;
+                }
+                catch (ApiException) { }
+                catch (HttpRequestException) { }
             }
-            catch (ApiException) { }
-            catch (HttpRequestException) { }
+            else
+            {
+                Subscription = null;
+            }
         }
         finally
         {

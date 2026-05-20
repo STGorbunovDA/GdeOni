@@ -77,7 +77,7 @@
                 </Border>
 
                 <Border Style="{StaticResource CloudCard}"
-                        IsVisible="{Binding HasSubscriptionData}">
+                        IsVisible="{Binding ShowSubscriptionBlock}">
                     <VerticalStackLayout Spacing="8">
                         <Label Text="Подписка"
                                Style="{StaticResource SubTitleLabel}" />
