@@ -49,21 +49,23 @@ public sealed class AuthService(
         string? userName,
         string? fullName,
         string password,
+        bool privacyPolicyAccepted,
+        bool termsAccepted,
         CancellationToken ct = default)
     {
         try
         {
-            // E24 ещё не реализован: чекбоксов согласия в UI нет, шлём
-            // оба флага true имплицитно. Это техдолг до proper onboarding
-            // (см. E24 в PlanFull.txt) — для 152-ФЗ нужен явный consent.
+            // E24: чекбоксы 152-ФЗ показываются в RegisterPage; сюда
+            // приходят реальные значения. Бэк-валидатор отвергнет
+            // регистрацию если хоть один false (D19).
             var registerEnv = await usersApi.RegisterAsync(
                 new RegisterUserRequest(
                     email,
                     userName,
                     fullName,
                     password,
-                    PrivacyPolicyAccepted: true,
-                    TermsAccepted: true), ct);
+                    privacyPolicyAccepted,
+                    termsAccepted), ct);
             if (registerEnv.Result is null)
                 return new AuthResult(false, registerEnv.ErrorCode, registerEnv.ErrorMessage ?? "Регистрация не удалась.");
 

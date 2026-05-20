@@ -9,6 +9,13 @@ public partial class RegisterViewModel(
     IAuthService authService,
     IPaywallChecker paywallChecker) : ObservableObject
 {
+    // E24. URL юридических документов. На MVP захардкожены — должны
+    // совпадать с серверным appsettings.Legal.PrivacyPolicyUrl/TermsUrl.
+    // Когда добавим ILegalApi — будем подтягивать с бэка через
+    // GET /api/legal/privacy-policy (там Url возвращается в DTO).
+    private const string PrivacyPolicyUrl = "https://gdeoni.ru/legal/privacy";
+    private const string TermsOfUseUrl = "https://gdeoni.ru/legal/terms";
+
     [ObservableProperty]
     private string _email = "";
 
@@ -24,8 +31,23 @@ public partial class RegisterViewModel(
     [ObservableProperty]
     private string _passwordConfirm = "";
 
+    /// <summary>
+    /// E24. Чекбокс "Принимаю Privacy Policy" — обязателен для 152-ФЗ.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSubmit))]
+    private bool _privacyAccepted;
+
+    /// <summary>
+    /// E24. Чекбокс "Принимаю Terms of Use".
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSubmit))]
+    private bool _termsAccepted;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
+    [NotifyPropertyChangedFor(nameof(CanSubmit))]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -34,6 +56,13 @@ public partial class RegisterViewModel(
 
     public bool IsNotBusy => !IsBusy;
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+
+    /// <summary>
+    /// Кнопка "Зарегистрироваться" включается только когда оба чекбокса
+    /// отмечены и идёт не-фоновое состояние. 152-ФЗ требует явного
+    /// согласия — поэтому без них submit заблокирован.
+    /// </summary>
+    public bool CanSubmit => PrivacyAccepted && TermsAccepted && IsNotBusy;
 
     [RelayCommand]
     private async Task RegisterAsync()
@@ -50,6 +79,14 @@ public partial class RegisterViewModel(
             return;
         }
 
+        if (!PrivacyAccepted || !TermsAccepted)
+        {
+            // На уровне UI кнопка disabled (CanSubmit), но дублируем на
+            // случай, если команда дёрнется программно.
+            ErrorMessage = "Чтобы зарегистрироваться, примите Privacy Policy и Terms of Use.";
+            return;
+        }
+
         try
         {
             IsBusy = true;
@@ -59,7 +96,9 @@ public partial class RegisterViewModel(
                 Email.Trim(),
                 string.IsNullOrWhiteSpace(UserName) ? null : UserName.Trim(),
                 string.IsNullOrWhiteSpace(FullName) ? null : FullName.Trim(),
-                Password);
+                Password,
+                PrivacyAccepted,
+                TermsAccepted);
 
             if (!result.Success)
             {
@@ -82,6 +121,31 @@ public partial class RegisterViewModel(
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenPrivacyPolicyAsync()
+    {
+        try
+        {
+            await Launcher.Default.OpenAsync(new Uri(PrivacyPolicyUrl));
+        }
+        catch
+        {
+            // URI hardcoded — кидать может только при отсутствии браузера.
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenTermsOfUseAsync()
+    {
+        try
+        {
+            await Launcher.Default.OpenAsync(new Uri(TermsOfUseUrl));
+        }
+        catch
+        {
         }
     }
 

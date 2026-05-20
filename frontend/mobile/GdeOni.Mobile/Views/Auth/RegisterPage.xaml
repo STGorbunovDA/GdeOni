@@ -58,6 +58,54 @@
                                IsPassword="True"
                                Text="{Binding PasswordConfirm}" />
 
+                        <!-- E24. Согласие на обработку ПД (152-ФЗ).
+                             Регистрация заблокирована пока оба не отмечены. -->
+                        <HorizontalStackLayout Spacing="8" Margin="0,4,0,0">
+                            <CheckBox IsChecked="{Binding PrivacyAccepted, Mode=TwoWay}"
+                                      VerticalOptions="Center"
+                                      Color="{StaticResource Azure}" />
+                            <Label VerticalOptions="Center"
+                                   LineBreakMode="WordWrap"
+                                   HorizontalOptions="FillAndExpand">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="Я принимаю " FontSize="13" />
+                                        <Span Text="Privacy Policy"
+                                              FontSize="13"
+                                              TextColor="{StaticResource Azure}"
+                                              TextDecorations="Underline">
+                                            <Span.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding OpenPrivacyPolicyCommand}" />
+                                            </Span.GestureRecognizers>
+                                        </Span>
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                        </HorizontalStackLayout>
+
+                        <HorizontalStackLayout Spacing="8">
+                            <CheckBox IsChecked="{Binding TermsAccepted, Mode=TwoWay}"
+                                      VerticalOptions="Center"
+                                      Color="{StaticResource Azure}" />
+                            <Label VerticalOptions="Center"
+                                   LineBreakMode="WordWrap"
+                                   HorizontalOptions="FillAndExpand">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="Я принимаю " FontSize="13" />
+                                        <Span Text="Terms of Use"
+                                              FontSize="13"
+                                              TextColor="{StaticResource Azure}"
+                                              TextDecorations="Underline">
+                                            <Span.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding OpenTermsOfUseCommand}" />
+                                            </Span.GestureRecognizers>
+                                        </Span>
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                        </HorizontalStackLayout>
+
                         <Label Text="{Binding ErrorMessage}"
                                IsVisible="{Binding HasError}"
                                TextColor="#C0392B"
@@ -70,7 +118,7 @@
                         <Button Text="Зарегистрироваться"
                                 Style="{StaticResource PrimaryButton}"
                                 Command="{Binding RegisterCommand}"
-                                IsEnabled="{Binding IsNotBusy}" />
+                                IsEnabled="{Binding CanSubmit}" />
 
                         <Button Text="Назад ко входу"
                                 Style="{StaticResource GhostButton}"
