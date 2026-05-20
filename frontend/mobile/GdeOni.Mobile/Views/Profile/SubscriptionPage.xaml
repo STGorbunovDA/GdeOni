@@ -38,6 +38,21 @@
                                        IsVisible="{Binding IsBusy}"
                                        Color="{StaticResource Azure}" />
 
+                    <Border Style="{StaticResource CloudCard}"
+                            IsVisible="{Binding IsPollingPayment}"
+                            BackgroundColor="#E6F4FB">
+                        <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                            <ActivityIndicator IsRunning="True"
+                                               Color="{StaticResource Azure}"
+                                               WidthRequest="20"
+                                               HeightRequest="20" />
+                            <Label Text="Подтверждаем оплату — обычно занимает до 30 секунд…"
+                                   FontSize="13"
+                                   VerticalOptions="Center"
+                                   LineBreakMode="WordWrap" />
+                        </HorizontalStackLayout>
+                    </Border>
+
                     <Border Style="{StaticResource CloudCard}">
                         <VerticalStackLayout Spacing="8">
                             <Label Text="{Binding StatusTitle}"

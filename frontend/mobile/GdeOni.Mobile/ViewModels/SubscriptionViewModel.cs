@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
+using GdeOni.Mobile.Services.Subscriptions;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
@@ -32,6 +33,18 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
     private string? _errorMessage;
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+
+    /// <summary>
+    /// E22.7. Активный поллинг "ждём подтверждения оплаты": показываем
+    /// ActivityIndicator и подсказку, пока статус не сменится с
+    /// PendingPayment на Active (или истечёт окно поллинга).
+    /// </summary>
+    [ObservableProperty]
+    private bool _isPollingPayment;
+
+    private CancellationTokenSource? _pollingCts;
+    private const int PollingIntervalMs = 3000;
+    private const int PollingMaxAttempts = 10; // 10 × 3s = 30 секунд
 
     // ───────── Текущее состояние из API ─────────
 
@@ -137,6 +150,57 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// E22.7. Запуск поллинга если статус PendingPayment. Дёргаем
+    /// /me/subscription каждые 3 секунды до 10 раз; останавливаемся
+    /// как только статус сменился (webhook от YooKassa дошёл) или
+    /// истекло окно. Если уже не Pending — no-op.
+    ///
+    /// Вызывается из <c>SubscriptionPage.OnAppearing</c> когда юзер
+    /// вернулся через deep link (см. <see cref="PaymentReturnState"/>).
+    /// </summary>
+    public async Task StartPollingIfPendingAsync()
+    {
+        // Отменяем предыдущий поллинг (если юзер быстро ушёл-вернулся).
+        _pollingCts?.Cancel();
+        _pollingCts = new CancellationTokenSource();
+        var ct = _pollingCts.Token;
+
+        // Первая загрузка — синхронно. Если уже Active — поллить нечего.
+        await LoadAsync();
+        if (Current is null || Current.Status != "PendingPayment")
+            return;
+
+        IsPollingPayment = true;
+        try
+        {
+            for (var attempt = 0; attempt < PollingMaxAttempts; attempt++)
+            {
+                try
+                {
+                    await Task.Delay(PollingIntervalMs, ct);
+                }
+                catch (TaskCanceledException)
+                {
+                    return;
+                }
+
+                if (ct.IsCancellationRequested) return;
+
+                await LoadAsync();
+                if (Current?.Status != "PendingPayment")
+                    return;
+            }
+            // Окно истекло, статус всё ещё Pending — webhook задерживается.
+            // Подсказка юзеру: можно сделать pull-to-refresh вручную.
+            ErrorMessage = "Подтверждение оплаты задерживается. Потяните вниз для обновления через минуту.";
+        }
+        finally
+        {
+            IsPollingPayment = false;
         }
     }
 
