@@ -6931,6 +6931,99 @@ API:
     юзера. Деталь по платежу — modal или /admin/payments/{id}
     со ссылкой на YooKassa-админку (по externalPaymentId).
 
+---------------------------------------------------------------------
+D23.1. D23 реализовано (2026-05-20)
+---------------------------------------------------------------------
+
+D23.1 Domain:
+[x] PaymentRecordStatus enum (Pending / Succeeded / Cancelled / Failed).
+[x] SubscriptionPayment entity (Aggregates/Subscriptions/):
+    Id / UserId / ExternalPaymentId / Plan / AmountRub / Status /
+    CheckoutUrl? / CreatedAtUtc / UpdatedAtUtc? / PeriodStartUtc? /
+    PeriodEndUtc?.
+[x] Factory Create() с валидацией. MarkSucceeded/Cancelled/Failed —
+    idempotent на собственный статус, AlreadyProcessed на финальных.
+    Все переходы обнуляют CheckoutUrl. PeriodInvalid на end <= start.
+[x] IsActivePending(now, timeout) — true если Pending && в окне &&
+    CheckoutUrl непустой. Используется для multi-tap-дедупликации.
+[x] Errors.Payment: ExternalPaymentIdRequired/TooLong, CheckoutUrlTooLong,
+    AmountInvalid, AlreadyProcessed, PeriodInvalid, NotFound.
+[x] Domain.Tests: 17 unit-тестов (factory + transitions + idempotency
+    + IsActivePending). Итого Domain 179/179.
+
+D23.2 Infrastructure:
+[x] SubscriptionPaymentConfiguration: snake_case колонки, decimal(18,2)
+    на amount, индексы — ux_external_payment_id (unique),
+    ix_user_id / ix_status / ix_created_at_utc (desc).
+[x] AppDbContext.SubscriptionPayments DbSet.
+[x] ISubscriptionPaymentRepository (Application/Abstractions): Add /
+    Save / GetByExternalPaymentId / GetActivePendingForUser /
+    GetPagedForAdmin (с join на users для email) / GetPagedForUser.
+[x] SubscriptionPaymentRepository реализация. Save с UniqueConstraintException
+    на 23505 (как у других репо).
+[x] DI: AddScoped&lt;ISubscriptionPaymentRepository&gt;.
+[x] Миграция 20260520165732_D23_AddSubscriptionPaymentsTable
+    применена на dev БД.
+
+D23.3 Application:
+[x] SubscriptionOptions.PendingPaymentReuseMinutes (default 10) +
+    PendingPaymentReuseTimeout helper.
+[x] CreatePaymentUseCase:
+    - GetActivePendingForUser → если есть pending в окне, возврат
+      существующего CheckoutUrl без вызова YooKassa и без Save;
+    - иначе CreateAsync у провайдера → SubscriptionPayment.Create →
+      paymentRepo.Add → user.RequestSubscriptionPayment (LastPaymentId
+      оставлен для backward-compat) → один Save.
+[x] ProcessPaymentWebhookUseCase: lookup через paymentRepo
+    (GetByExternalPaymentId), не User.LastPaymentId. Multi-tap
+    больше не ломает webhook. На Succeeded — ActivateSubscription +
+    MarkSucceeded; на Cancelled — MarkCancelled; Pending — no-op
+    без Save.
+[x] GetMyPaymentsUseCase / GetAdminPaymentsUseCase + DTO
+    PaymentRecordResponse / PagedPaymentsResponse. GetAdmin требует
+    IsAdmin (defence-in-depth поверх [Authorize(Roles=...)]).
+[x] DI: оба use case'а зарегистрированы.
+[x] Application.Tests: переписаны старые ProcessPaymentWebhookTests
+    под новый lookup; +2 теста в CreatePayment (re-use, history record);
+    +6 тестов в PaymentsHistoryUseCaseTests. Итого 173/173.
+
+D23.4 API:
+[x] UserPaymentsController [Route("api/users/me/payments")]
+    [Authorize(Policy=BasicAuthenticated)] — whitelist'овый (юзер
+    с истёкшей подпиской видит свою историю).
+[x] AdminPaymentsController [Route("api/admin/payments")]
+    [Authorize(Roles="SuperAdmin,Admin")] — фильтры в query
+    (userId / status / createdFromUtc / createdToUtc / page / pageSize).
+
+D23.5 Integration tests: ОТЛОЖЕНО (Docker не был запущен в момент
+правки). Покрытие через unit + manual smoke. Нужно прогнать перед
+PR / production-релизом.
+
+Finальный прогон: Domain 179/179 + Application 173/173 = 352 теста.
+
+D23.6 Backfill: одноразовая ручная миграция для существующих
+платежей в проде. Сейчас в таблице нет записей старее D23 (она
+только что создана). Если есть юзеры с непустым
+<c>users.subscription_last_payment_id</c>, для них SQL-скрипт:
+
+    INSERT INTO subscription_payments (id, user_id, external_payment_id,
+        plan, amount_rub, status, created_at_utc, period_start_utc, period_end_utc)
+    SELECT gen_random_uuid(), id, subscription_last_payment_id,
+        COALESCE(subscription_plan, 'Monthly'), 49,
+        CASE subscription_status
+            WHEN 'Active' THEN 'Succeeded'
+            WHEN 'Cancelled' THEN 'Succeeded'
+            WHEN 'PendingPayment' THEN 'Pending'
+            ELSE 'Failed' END,
+        COALESCE(subscription_current_period_started_at_utc, registered_at_utc),
+        subscription_current_period_started_at_utc,
+        subscription_expires_at_utc
+    FROM users
+    WHERE subscription_last_payment_id IS NOT NULL;
+
+Запускать вручную через psql / db tooling один раз. В тестах не
+автоматизируем — это разовая операция.
+
 =====================================================================
 КОНЕЦ БЛОКА D-PROD
 =====================================================================
