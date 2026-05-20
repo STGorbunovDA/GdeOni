@@ -24,6 +24,14 @@ public partial class ProfileViewModel(IAuthService authService) : ObservableObje
     [ObservableProperty]
     private string? _errorMessage;
 
+    /// <summary>
+    /// E22. Версия приложения для отображения внизу профиля. Особенно
+    /// важна при sideload-распространении (D17.2) — без автообновления
+    /// пользователь и саппорт должны видеть, какая версия установлена.
+    /// </summary>
+    public string AppVersion { get; } =
+        $"Версия {AppInfo.Current.VersionString} (build {AppInfo.Current.BuildString})";
+
     [RelayCommand]
     public async Task LoadAsync()
     {

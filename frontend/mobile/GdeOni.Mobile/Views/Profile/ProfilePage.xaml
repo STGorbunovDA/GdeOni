@@ -85,6 +85,12 @@
                         Style="{StaticResource PrimaryButton}"
                         Command="{Binding LogoutCommand}"
                         HorizontalOptions="Fill" />
+
+                <Label Text="{Binding AppVersion}"
+                       FontSize="11"
+                       TextColor="#7F8C8D"
+                       HorizontalOptions="Center"
+                       Margin="0,8,0,0" />
             </VerticalStackLayout>
         </ScrollView>
 
