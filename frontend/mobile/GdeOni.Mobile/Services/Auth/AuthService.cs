@@ -1,5 +1,6 @@
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
+using GdeOni.Mobile.Services.Observability;
 using GdeOni.Mobile.Services.Storage;
 using Refit;
 
@@ -8,7 +9,8 @@ namespace GdeOni.Mobile.Services.Auth;
 public sealed class AuthService(
     IAuthApi authApi,
     IUsersApi usersApi,
-    ITokenStore tokenStore) : IAuthService
+    ITokenStore tokenStore,
+    ISentryScopeService sentryScope) : IAuthService
 {
     public async Task<bool> HasSessionAsync()
     {
@@ -28,6 +30,9 @@ public sealed class AuthService(
                 return new AuthResult(false, envelope.ErrorCode, envelope.ErrorMessage ?? "Неизвестная ошибка backend.");
 
             await tokenStore.SaveAsync(envelope.Result.AccessToken, envelope.Result.RefreshToken);
+            // E25. Привязываем crash-репорты к userId (без email — 152-ФЗ
+            // privacy-by-default).
+            sentryScope.SetUser(envelope.Result.Id);
             return new AuthResult(true);
         }
         catch (ApiException apiEx)
@@ -88,6 +93,10 @@ public sealed class AuthService(
 
     public async Task LogoutAsync(CancellationToken ct = default)
     {
+        // E25. Сбрасываем Sentry-scope СНАЧАЛА — даже если backend logout
+        // упадёт, дальнейшие crash'и не будут привязаны к ушедшему юзеру.
+        sentryScope.ClearUser();
+
         var refresh = await tokenStore.GetRefreshTokenAsync();
         if (!string.IsNullOrEmpty(refresh))
         {

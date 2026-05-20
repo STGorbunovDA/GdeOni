@@ -4,6 +4,7 @@ using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Auth;
 using GdeOni.Mobile.Services.Geolocation;
 using GdeOni.Mobile.Services.Network;
+using GdeOni.Mobile.Services.Observability;
 using GdeOni.Mobile.Services.Routing;
 using GdeOni.Mobile.Services.Storage;
 using GdeOni.Mobile.Services.Subscriptions;
@@ -28,6 +29,29 @@ public static class MauiProgram
     public static MauiApp CreateMauiApp()
     {
         var builder = MauiApp.CreateBuilder();
+
+        // E25. Подключаем Sentry до UseMauiApp, чтобы перехватить crash'и
+        // в инициализации тоже. AppConfig читается синхронно один раз для
+        // вытаскивания DSN; если DSN null/empty — UseSentry no-op (SDK
+        // ничего не отправляет, никаких накладных).
+        var appConfig = AppConfigLoader.Load();
+        if (!string.IsNullOrWhiteSpace(appConfig.Sentry?.Dsn))
+        {
+            builder.UseSentry(options =>
+            {
+                options.Dsn = appConfig.Sentry.Dsn;
+                options.Environment = appConfig.Sentry.Environment ?? appConfig.Environment;
+                options.Release = appConfig.Sentry.Release;
+                options.TracesSampleRate = appConfig.Sentry.TracesSampleRate;
+                // 152-ФЗ: не отправляем PII по умолчанию. User-Id ставим
+                // вручную после Login (см. SentryScopeService).
+                options.SendDefaultPii = false;
+                options.AttachStacktrace = true;
+                options.MinimumBreadcrumbLevel = LogLevel.Information;
+                options.MinimumEventLevel = LogLevel.Error;
+            });
+        }
+
         builder
             .UseMauiApp<App>()
             .UseMauiCommunityToolkit()
@@ -38,10 +62,9 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
-        // AppConfig — lazy singleton: реально читается при первом обращении
-        // (например, при первой настройке HttpClient'а в фоне). Так старт
-        // приложения не блокируется чтением asset'а на main-потоке.
-        builder.Services.AddSingleton(_ => AppConfigLoader.Load());
+        // AppConfig — singleton: уже загрузили выше для Sentry. Реюзаем
+        // тот же инстанс, не читаем asset повторно.
+        builder.Services.AddSingleton(appConfig);
 
         RegisterStorage(builder.Services);
         RegisterHttpStack(builder.Services);
@@ -65,6 +88,9 @@ public static class MauiProgram
         // расширении (кеш на сессию) состояние переживало переходы между
         // страницами.
         services.AddSingleton<IAppVersionCheckService, AppVersionCheckService>();
+        // E25. Sentry scope service — управление SentryUser после
+        // Login/Logout. Stateless, безопасен как Singleton.
+        services.AddSingleton<ISentryScopeService, SentryScopeService>();
         // E22.6. Paywall-checker (на старте) и DelegatingHandler (в
         // середине сессии).
         services.AddSingleton<IPaywallChecker, PaywallChecker>();
