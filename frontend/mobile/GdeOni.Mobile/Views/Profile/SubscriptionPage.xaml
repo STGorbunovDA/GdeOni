@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Profile.SubscriptionPage"
+             x:DataType="vm:SubscriptionViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Подписка">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.45"
+                 WidthRequest="240"
+                 HeightRequest="130"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="40" />
+
+        <RefreshView IsRefreshing="{Binding IsBusy}"
+                     Command="{Binding LoadCommand}">
+            <ScrollView>
+                <VerticalStackLayout Padding="24,40,24,40" Spacing="16">
+
+                    <Button Text="‹ Назад"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding GoBackCommand}"
+                            HorizontalOptions="Start"
+                            Padding="16,8"
+                            FontSize="14" />
+
+                    <Label Text="Подписка"
+                           Style="{StaticResource TitleLabel}" />
+
+                    <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                       IsVisible="{Binding IsBusy}"
+                                       Color="{StaticResource Azure}" />
+
+                    <Border Style="{StaticResource CloudCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="{Binding StatusTitle}"
+                                   Style="{StaticResource SubTitleLabel}" />
+                            <Label Text="{Binding StatusDescription}"
+                                   Style="{StaticResource BodyLabel}"
+                                   LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Label IsVisible="{Binding ShowComplimentaryBlock}"
+                           Text="Кнопок управления подпиской нет — бесплатный доступ предоставлен администратором и снимается тоже только админом."
+                           FontSize="12"
+                           TextColor="#5D7282"
+                           LineBreakMode="WordWrap" />
+
+                    <Label IsVisible="{Binding HasError}"
+                           Text="{Binding ErrorMessage}"
+                           TextColor="#C0392B"
+                           FontSize="13" />
+
+                    <Button Text="{Binding SubscribeButtonText}"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding SubscribeCommand}"
+                            IsVisible="{Binding ShowSubscribeButton}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            HorizontalOptions="Fill" />
+
+                    <Button Text="Отменить подписку"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding CancelSubscriptionCommand}"
+                            IsVisible="{Binding ShowCancelButton}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            HorizontalOptions="Fill" />
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+
+</ContentPage>

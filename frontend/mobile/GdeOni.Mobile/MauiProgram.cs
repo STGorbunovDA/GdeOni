@@ -217,6 +217,7 @@ public static class MauiProgram
         services.AddTransient<BurialLocationEditorViewModel>();
         services.AddTransient<NearbySearchViewModel>();
         services.AddTransient<BlockingUpdateViewModel>();
+        services.AddTransient<SubscriptionViewModel>();
 
         services.AddTransient<LoginPage>();
         services.AddTransient<RegisterPage>();
@@ -233,5 +234,6 @@ public static class MauiProgram
         services.AddTransient<BurialLocationEditorPage>();
         services.AddTransient<NearbySearchPage>();
         services.AddTransient<BlockingUpdatePage>();
+        services.AddTransient<SubscriptionPage>();
     }
 }

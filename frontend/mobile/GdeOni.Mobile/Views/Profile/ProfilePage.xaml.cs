@@ -16,9 +16,9 @@ public partial class ProfilePage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        // Подтягиваем профиль каждый раз, когда возвращаемся на вкладку —
-        // токен мог обновиться, имя пользователя могло измениться.
-        if (string.IsNullOrEmpty(_viewModel.UserName))
-            await _viewModel.LoadCommand.ExecuteAsync(null);
+        // E22: подтягиваем профиль и подписку всегда — при возврате с
+        // SubscriptionPage юзер мог отменить подписку / оформить новую,
+        // нужно показать актуальный статус.
+        await _viewModel.LoadCommand.ExecuteAsync(null);
     }
 }

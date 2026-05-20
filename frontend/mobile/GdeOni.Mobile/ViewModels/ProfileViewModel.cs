@@ -1,10 +1,15 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GdeOni.Mobile.Services.Api;
+using GdeOni.Mobile.Services.Api.Models;
 using GdeOni.Mobile.Services.Auth;
+using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
 
-public partial class ProfileViewModel(IAuthService authService) : ObservableObject
+public partial class ProfileViewModel(
+    IAuthService authService,
+    ISubscriptionsApi subscriptionsApi) : ObservableObject
 {
     [ObservableProperty]
     private string _title = "Профиль";
@@ -23,6 +28,73 @@ public partial class ProfileViewModel(IAuthService authService) : ObservableObje
 
     [ObservableProperty]
     private string? _errorMessage;
+
+    // ───────── E22. Subscription block ─────────
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SubscriptionSummary))]
+    [NotifyPropertyChangedFor(nameof(SubscriptionDetail))]
+    [NotifyPropertyChangedFor(nameof(HasSubscriptionData))]
+    private MySubscriptionResponse? _subscription;
+
+    public bool HasSubscriptionData => Subscription is not null;
+
+    /// <summary>
+    /// Краткое название состояния — большим текстом в карточке.
+    /// </summary>
+    public string SubscriptionSummary
+    {
+        get
+        {
+            if (Subscription is null) return "Загрузка…";
+            if (Subscription.HasComplimentaryAccess)
+                return "Бесплатный доступ от администратора";
+
+            return Subscription.Status switch
+            {
+                "Trial" => "Пробный период",
+                "Active" => "Подписка активна",
+                "Cancelled" => "Подписка отменена",
+                "Expired" => "Подписка истекла",
+                _ => "Подписка не оформлена",
+            };
+        }
+    }
+
+    /// <summary>
+    /// Подробности — мелким серым: даты, дни, причина (для complimentary).
+    /// </summary>
+    public string SubscriptionDetail
+    {
+        get
+        {
+            if (Subscription is null) return string.Empty;
+
+            if (Subscription.HasComplimentaryAccess)
+            {
+                if (Subscription.ComplimentaryAccessUntilUtc is { } until)
+                {
+                    var localUntil = until.ToLocalTime();
+                    var note = string.IsNullOrWhiteSpace(Subscription.ComplimentaryAccessNote)
+                        ? string.Empty
+                        : $"\nПричина: {Subscription.ComplimentaryAccessNote}";
+                    return $"До {localUntil:dd.MM.yyyy} ({Subscription.DaysUntilExpiry} дн.)" + note;
+                }
+
+                return string.IsNullOrWhiteSpace(Subscription.ComplimentaryAccessNote)
+                    ? "Бессрочно"
+                    : $"Бессрочно\nПричина: {Subscription.ComplimentaryAccessNote}";
+            }
+
+            return Subscription.Status switch
+            {
+                "Trial" or "Active" or "Cancelled" when Subscription.ExpiresAtUtc is { } expiry =>
+                    $"До {expiry.ToLocalTime():dd.MM.yyyy} ({Subscription.DaysUntilExpiry} дн.)",
+                "Expired" => "Срок подписки закончился.",
+                _ => "Доступ возможен только с активной подпиской.",
+            };
+        }
+    }
 
     /// <summary>
     /// E22. Версия приложения для отображения внизу профиля. Особенно
@@ -49,6 +121,16 @@ public partial class ProfileViewModel(IAuthService authService) : ObservableObje
             UserName = me.UserName;
             Email = me.Email;
             FullName = me.FullName;
+
+            // Подписка — best-effort. Если упадёт (нет сети, бэк лёг) —
+            // не ломаем весь экран профиля, просто оставляем "Загрузка…".
+            try
+            {
+                var subEnvelope = await subscriptionsApi.GetMyAsync();
+                Subscription = subEnvelope.Result;
+            }
+            catch (ApiException) { }
+            catch (HttpRequestException) { }
         }
         finally
         {
@@ -60,6 +142,12 @@ public partial class ProfileViewModel(IAuthService authService) : ObservableObje
     private async Task ChangePasswordAsync()
     {
         await Shell.Current.GoToAsync("change-password");
+    }
+
+    [RelayCommand]
+    private async Task ManageSubscriptionAsync()
+    {
+        await Shell.Current.GoToAsync("subscription");
     }
 
     [RelayCommand]
@@ -75,6 +163,7 @@ public partial class ProfileViewModel(IAuthService authService) : ObservableObje
             UserName = null;
             Email = null;
             FullName = null;
+            Subscription = null;
             ErrorMessage = null;
 
             await Shell.Current.GoToAsync("//login");

@@ -76,6 +76,25 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding HasSubscriptionData}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Подписка"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="{Binding SubscriptionSummary}"
+                               Style="{StaticResource BodyLabel}" />
+                        <Label Text="{Binding SubscriptionDetail}"
+                               FontSize="12"
+                               TextColor="#5D7282"
+                               LineBreakMode="WordWrap" />
+                        <Button Text="Управление подпиской"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding ManageSubscriptionCommand}"
+                                HorizontalOptions="Fill"
+                                Margin="0,8,0,0" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <Button Text="Сменить пароль"
                         Style="{StaticResource GhostButton}"
                         Command="{Binding ChangePasswordCommand}"

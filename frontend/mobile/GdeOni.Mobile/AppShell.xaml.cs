@@ -38,6 +38,9 @@ public partial class AppShell : Shell
 
         // Profile flow: change-password — модальный push поверх профиля.
         Routing.RegisterRoute("change-password", typeof(ChangePasswordPage));
+
+        // E22. Subscription flow — открывается из ProfilePage.
+        Routing.RegisterRoute("subscription", typeof(SubscriptionPage));
     }
 
     protected override async void OnAppearing()

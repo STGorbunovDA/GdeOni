@@ -1,0 +1,226 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using GdeOni.Mobile.Services.Api;
+using GdeOni.Mobile.Services.Api.Models;
+using Refit;
+
+namespace GdeOni.Mobile.ViewModels;
+
+/// <summary>
+/// E22. Страница "Подписка": отображает текущий статус + кнопки
+/// "Оформить" / "Отменить" / открытие checkout-URL.
+///
+/// Состояния (взаимоисключающие, проверяются в порядке):
+///   1) HasComplimentaryAccess — блок "Бесплатный доступ от админа",
+///      кнопок нет (D22 — управляется только админом).
+///   2) Status=Active — paid-подписка, кнопка "Отменить".
+///   3) Status=Trial — пробный период, кнопка "Оформить подписку".
+///   4) Status=Cancelled & ExpiresAt&gt;now — paid-period дорабатывает,
+///      кнопка "Оформить снова".
+///   5) Иначе (Expired/None) — кнопка "Оформить подписку".
+/// </summary>
+public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) : ObservableObject
+{
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNotBusy))]
+    private bool _isBusy;
+
+    public bool IsNotBusy => !IsBusy;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasError))]
+    private string? _errorMessage;
+
+    public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+
+    // ───────── Текущее состояние из API ─────────
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusTitle))]
+    [NotifyPropertyChangedFor(nameof(StatusDescription))]
+    [NotifyPropertyChangedFor(nameof(ShowComplimentaryBlock))]
+    [NotifyPropertyChangedFor(nameof(ShowSubscribeButton))]
+    [NotifyPropertyChangedFor(nameof(ShowCancelButton))]
+    [NotifyPropertyChangedFor(nameof(SubscribeButtonText))]
+    private MySubscriptionResponse? _current;
+
+    public bool ShowComplimentaryBlock => Current?.HasComplimentaryAccess == true;
+
+    public bool ShowCancelButton =>
+        Current is { HasComplimentaryAccess: false, Status: "Active" or "Trial" };
+
+    public bool ShowSubscribeButton =>
+        Current is { HasComplimentaryAccess: false }
+        && Current.Status is not "Active";
+
+    public string SubscribeButtonText => Current?.Status switch
+    {
+        "Trial" => "Оформить подписку",
+        "Cancelled" => "Оформить снова",
+        _ => "Оформить подписку",
+    };
+
+    public string StatusTitle
+    {
+        get
+        {
+            if (Current is null) return string.Empty;
+            if (Current.HasComplimentaryAccess)
+                return "Бесплатный доступ от администратора";
+
+            return Current.Status switch
+            {
+                "Trial" => "Пробный период",
+                "Active" => "Подписка активна",
+                "Cancelled" => "Подписка отменена",
+                "Expired" => "Подписка истекла",
+                _ => "Подписка не активна",
+            };
+        }
+    }
+
+    public string StatusDescription
+    {
+        get
+        {
+            if (Current is null) return string.Empty;
+
+            if (Current.HasComplimentaryAccess)
+            {
+                var noteSuffix = string.IsNullOrWhiteSpace(Current.ComplimentaryAccessNote)
+                    ? string.Empty
+                    : $"\nПричина: {Current.ComplimentaryAccessNote}";
+
+                if (Current.ComplimentaryAccessUntilUtc is null)
+                    return "Доступ предоставлен бессрочно." + noteSuffix;
+
+                var localUntil = Current.ComplimentaryAccessUntilUtc.Value.ToLocalTime();
+                return $"Действует до {localUntil:dd.MM.yyyy} ({Current.DaysUntilExpiry} дн.)" + noteSuffix;
+            }
+
+            return Current.Status switch
+            {
+                "Trial" or "Active" or "Cancelled" when Current.ExpiresAtUtc is { } expiry =>
+                    $"До {expiry.ToLocalTime():dd.MM.yyyy} ({Current.DaysUntilExpiry} дн.)",
+                "Expired" => "Срок подписки закончился. Оформите снова, чтобы продолжить пользоваться приложением.",
+                _ => "Оформите подписку для полного доступа.",
+            };
+        }
+    }
+
+    // ───────── Команды ─────────
+
+    [RelayCommand]
+    public async Task LoadAsync()
+    {
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = null;
+            var envelope = await subscriptionsApi.GetMyAsync();
+            Current = envelope.Result;
+            if (envelope.Result is null)
+                ErrorMessage = envelope.ErrorMessage ?? "Не удалось загрузить данные подписки.";
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (HttpRequestException httpEx)
+        {
+            ErrorMessage = $"Сетевая ошибка: {httpEx.Message}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SubscribeAsync()
+    {
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = null;
+            var envelope = await subscriptionsApi.CreatePaymentAsync(new CreatePaymentRequest("Monthly"));
+            if (envelope.Result is null || string.IsNullOrWhiteSpace(envelope.Result.CheckoutUrl))
+            {
+                ErrorMessage = envelope.ErrorMessage ?? "Не удалось создать платёж.";
+                return;
+            }
+
+            // Открываем YooKassa checkout во внешнем браузере. После оплаты
+            // юзер вручную вернётся в приложение и нажмёт "Обновить" —
+            // backend webhook к этому моменту уже активирует подписку.
+            await Launcher.Default.OpenAsync(new Uri(envelope.Result.CheckoutUrl));
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (HttpRequestException httpEx)
+        {
+            ErrorMessage = $"Сетевая ошибка: {httpEx.Message}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CancelSubscriptionAsync()
+    {
+        var page = Shell.Current?.CurrentPage;
+        if (page is not null)
+        {
+            var confirmed = await page.DisplayAlertAsync(
+                "Отменить подписку?",
+                "Доступ сохранится до конца текущего оплаченного периода. " +
+                "Автопродления не будет — после окончания нужно будет оформить снова.",
+                "Отменить подписку",
+                "Не отменять");
+            if (!confirmed) return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = null;
+            await subscriptionsApi.CancelAsync();
+            // Перечитаем актуальный статус (Status=Cancelled).
+            await LoadAsync();
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (HttpRequestException httpEx)
+        {
+            ErrorMessage = $"Сетевая ошибка: {httpEx.Message}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task GoBackAsync()
+    {
+        await Shell.Current.GoToAsync("..");
+    }
+}
