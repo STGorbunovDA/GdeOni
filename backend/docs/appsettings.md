@@ -183,7 +183,7 @@ Hot-reload: меняешь значение в JSON → `IOptionsMonitor` под
   "MonthlyDurationDays": 30,
   "TrialDurationDays": 30,
   "ProductDescription": "Подписка «Где Они» — 1 месяц",
-  "ReturnUrl": "https://gdeoni.ru/payment/return",
+  "ReturnUrl": "gdeoni://payment/return",
   "PendingPaymentReuseMinutes": 10
 }
 ```
