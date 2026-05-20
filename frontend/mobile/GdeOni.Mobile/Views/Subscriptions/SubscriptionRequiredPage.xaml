@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Subscriptions.SubscriptionRequiredPage"
+             x:DataType="vm:SubscriptionRequiredViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Подписка">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.5"
+                 WidthRequest="240"
+                 HeightRequest="130"
+                 HorizontalOptions="Start"
+                 VerticalOptions="Start"
+                 TranslationX="-70"
+                 TranslationY="40" />
+
+        <ScrollView>
+            <VerticalStackLayout Padding="24,80,24,24" Spacing="24">
+                <Label Text="{Binding Title}"
+                       Style="{StaticResource TitleLabel}"
+                       HorizontalOptions="Center" />
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="16">
+                        <Label Text="{Binding Message}"
+                               Style="{StaticResource BodyLabel}"
+                               LineBreakMode="WordWrap" />
+
+                        <Label Text="После оплаты вы автоматически вернётесь в приложение и сможете продолжить."
+                               FontSize="13"
+                               TextColor="#5D7282"
+                               LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                   IsVisible="{Binding IsBusy}"
+                                   Color="{StaticResource Azure}" />
+
+                <Button Text="Оформить подписку"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding SubscribeCommand}"
+                        HorizontalOptions="Fill" />
+
+                <Button Text="Выйти из аккаунта"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding LogoutCommand}"
+                        HorizontalOptions="Fill" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

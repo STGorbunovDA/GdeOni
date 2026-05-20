@@ -6,11 +6,13 @@ using GdeOni.Mobile.Services.Geolocation;
 using GdeOni.Mobile.Services.Network;
 using GdeOni.Mobile.Services.Routing;
 using GdeOni.Mobile.Services.Storage;
+using GdeOni.Mobile.Services.Subscriptions;
 using GdeOni.Mobile.Services.Versioning;
 using GdeOni.Mobile.ViewModels;
 using GdeOni.Mobile.Views.Auth;
 using GdeOni.Mobile.Views.Profile;
 using GdeOni.Mobile.Views.Route;
+using GdeOni.Mobile.Views.Subscriptions;
 using GdeOni.Mobile.Views.Tracked;
 using GdeOni.Mobile.Views.Updates;
 using Microsoft.Extensions.Logging;
@@ -63,12 +65,18 @@ public static class MauiProgram
         // расширении (кеш на сессию) состояние переживало переходы между
         // страницами.
         services.AddSingleton<IAppVersionCheckService, AppVersionCheckService>();
+        // E22.6. Paywall-checker (на старте) и DelegatingHandler (в
+        // середине сессии).
+        services.AddSingleton<IPaywallChecker, PaywallChecker>();
     }
 
     private static void RegisterHttpStack(IServiceCollection services)
     {
         services.AddTransient<AuthTokenHandler>();
         services.AddTransient<RefreshTokenHandler>();
+        // E22.6. Перехват 403 subscription.required — добавляется только
+        // в gated клиенты ниже (не whitelist'овые auth/users/app/subscriptions).
+        services.AddTransient<SubscriptionGateHandler>();
         services.AddSingleton<IRefreshHttpClientProvider, RefreshHttpClientProvider>();
 
         var refitSettings = new RefitSettings
@@ -119,6 +127,7 @@ public static class MauiProgram
             })
             .AddHttpMessageHandler<AuthTokenHandler>()
             .AddHttpMessageHandler<RefreshTokenHandler>()
+            .AddHttpMessageHandler<SubscriptionGateHandler>()
             .AddPolicyHandler(BuildRetryPolicy());
 
         services.AddRefitClient<ITrackedDeceasedApi>(refitSettings)
@@ -130,6 +139,7 @@ public static class MauiProgram
             })
             .AddHttpMessageHandler<AuthTokenHandler>()
             .AddHttpMessageHandler<RefreshTokenHandler>()
+            .AddHttpMessageHandler<SubscriptionGateHandler>()
             .AddPolicyHandler(BuildRetryPolicy());
 
         services.AddRefitClient<IDeceasedMediaApi>(refitSettings)
@@ -141,7 +151,8 @@ public static class MauiProgram
                 c.Timeout = TimeSpan.FromSeconds(Math.Max(60, config.Api.TimeoutSeconds));
             })
             .AddHttpMessageHandler<AuthTokenHandler>()
-            .AddHttpMessageHandler<RefreshTokenHandler>();
+            .AddHttpMessageHandler<RefreshTokenHandler>()
+            .AddHttpMessageHandler<SubscriptionGateHandler>();
             // Polly retry на multipart не вешаем — повторная отправка большого
             // файла на сетевые ошибки опаснее, чем сообщить юзеру и дать
             // нажать "Загрузить" ещё раз.
@@ -155,6 +166,7 @@ public static class MauiProgram
             })
             .AddHttpMessageHandler<AuthTokenHandler>()
             .AddHttpMessageHandler<RefreshTokenHandler>()
+            .AddHttpMessageHandler<SubscriptionGateHandler>()
             .AddPolicyHandler(BuildRetryPolicy());
 
         // E22. IAppApi: /api/app/version (AllowAnonymous, дёргаем на
@@ -218,6 +230,7 @@ public static class MauiProgram
         services.AddTransient<NearbySearchViewModel>();
         services.AddTransient<BlockingUpdateViewModel>();
         services.AddTransient<SubscriptionViewModel>();
+        services.AddTransient<SubscriptionRequiredViewModel>();
 
         services.AddTransient<LoginPage>();
         services.AddTransient<RegisterPage>();
@@ -235,5 +248,6 @@ public static class MauiProgram
         services.AddTransient<NearbySearchPage>();
         services.AddTransient<BlockingUpdatePage>();
         services.AddTransient<SubscriptionPage>();
+        services.AddTransient<SubscriptionRequiredPage>();
     }
 }

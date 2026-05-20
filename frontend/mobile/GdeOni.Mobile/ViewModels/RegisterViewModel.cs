@@ -1,10 +1,13 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Auth;
+using GdeOni.Mobile.Services.Subscriptions;
 
 namespace GdeOni.Mobile.ViewModels;
 
-public partial class RegisterViewModel(IAuthService authService) : ObservableObject
+public partial class RegisterViewModel(
+    IAuthService authService,
+    IPaywallChecker paywallChecker) : ObservableObject
 {
     [ObservableProperty]
     private string _email = "";
@@ -65,9 +68,16 @@ public partial class RegisterViewModel(IAuthService authService) : ObservableObj
             }
 
             // RegisterAsync уже сделал auto-login и сохранил токены.
+            // Бэк стартует Trial на 30 дней при Register, так что paywall
+            // на новом юзере не должен сработать — но проверяем на всякий
+            // случай (если SubscriptionEnabled=true и Trial по какой-то
+            // причине не активировался).
             Password = "";
             PasswordConfirm = "";
-            await Shell.Current.GoToAsync("//main/tracked");
+            var target = await paywallChecker.ShouldShowPaywallAsync()
+                ? "//subscription-required"
+                : "//main/tracked";
+            await Shell.Current.GoToAsync(target);
         }
         finally
         {

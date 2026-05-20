@@ -1,4 +1,5 @@
 using GdeOni.Mobile.Services.Auth;
+using GdeOni.Mobile.Services.Subscriptions;
 using GdeOni.Mobile.Services.Versioning;
 using GdeOni.Mobile.Shared.Versioning;
 using GdeOni.Mobile.Views.Auth;
@@ -11,13 +12,18 @@ public partial class AppShell : Shell
 {
     private readonly IAuthService _authService;
     private readonly IAppVersionCheckService _versionCheck;
+    private readonly IPaywallChecker _paywallChecker;
     private bool _initialNavigationDone;
 
-    public AppShell(IAuthService authService, IAppVersionCheckService versionCheck)
+    public AppShell(
+        IAuthService authService,
+        IAppVersionCheckService versionCheck,
+        IPaywallChecker paywallChecker)
     {
         InitializeComponent();
         _authService = authService;
         _versionCheck = versionCheck;
+        _paywallChecker = paywallChecker;
 
         // Auth flow.
         Routing.RegisterRoute("register", typeof(RegisterPage));
@@ -69,9 +75,17 @@ public partial class AppShell : Shell
         // SoftUpdate пока не показываем — soft banner на главной приедет
         // отдельным коммитом (см. план E22).
 
-        // Если в SecureStorage есть access-токен — пускаем сразу на главный
-        // TabBar. RefreshTokenHandler сам разберётся, если токен протух.
-        if (await _authService.HasSessionAsync())
-            await GoToAsync("//main/tracked");
+        // Если в SecureStorage нет access-токена — остаёмся на login.
+        if (!await _authService.HasSessionAsync())
+            return;
+
+        // E22.6. После логина — проверяем нужен ли paywall.
+        if (await _paywallChecker.ShouldShowPaywallAsync())
+        {
+            await GoToAsync("//subscription-required");
+            return;
+        }
+
+        await GoToAsync("//main/tracked");
     }
 }

@@ -8,6 +8,7 @@
     xmlns:route="clr-namespace:GdeOni.Mobile.Views.Route"
     xmlns:profile="clr-namespace:GdeOni.Mobile.Views.Profile"
     xmlns:updates="clr-namespace:GdeOni.Mobile.Views.Updates"
+    xmlns:subs="clr-namespace:GdeOni.Mobile.Views.Subscriptions"
     Title="GdeOni"
     FlyoutBehavior="Disabled"
     Shell.NavBarIsVisible="False"
@@ -38,5 +39,13 @@
     <ShellContent
         Route="blocking-update"
         ContentTemplate="{DataTemplate updates:BlockingUpdatePage}" />
+
+    <!-- E22.6. Глобальный paywall. Юзер попадает сюда:
+         - после логина если SubscriptionEnabled && !IsActiveNow && !IsAdmin;
+         - в середине сессии когда backend ответил 403 subscription.required
+           (см. SubscriptionGateHandler). -->
+    <ShellContent
+        Route="subscription-required"
+        ContentTemplate="{DataTemplate subs:SubscriptionRequiredPage}" />
 
 </Shell>

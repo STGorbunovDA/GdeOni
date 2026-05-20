@@ -8097,8 +8097,82 @@ Backend по-прежнему делает гейт — это единстве�
 
 Tests:
 
-[ ] Shared.SemVer — парсинг и сравнение.
+[x] Shared.SemVer — парсинг и сравнение (25 тестов).
+[x] Shared.AppVersionGate — Evaluate (11 тестов, fail-open на невалидных).
+[x] Shared.PaywallEvaluator — ShouldShowPaywall (12 тестов).
 [ ] VM-тесты — отложены до полноценной mock-инфры (см. E17 закр).
+
+---------------------------------------------------------------------
+E22.1. E22 реализовано (2026-05-20)
+---------------------------------------------------------------------
+
+E22.1 Версия в Profile:
+[x] ProfileViewModel.AppVersion через AppInfo.Current.VersionString +
+    BuildString. Label мелким серым (#7F8C8D, 11pt) внизу ProfilePage.
+[x] csproj: ApplicationDisplayVersion 1.0 → 1.0.0 (формат SemVer для
+    парсинга в AppVersionGate).
+
+E22.2 Shared/Versioning:
+[x] SemVer record struct (Major.Minor.Patch), TryParse/Parse + IsAtLeast +
+    операторы <, >, <=, >=. Без pre-release суффиксов.
+
+E22.3 Refit-клиенты:
+[x] IAppApi (GET /version + /features).
+[x] ISubscriptionsApi (GetMy / CreatePayment / Cancel).
+[x] DTO: AppVersionResponse / AppFeaturesResponse / MySubscriptionResponse
+    (+3 D22-поля HasComplimentaryAccess / UntilUtc / Note) /
+    CreatePaymentRequest / Response.
+[x] Регистрация в MauiProgram: auth + refresh handlers + Polly retry.
+
+E22.4 BlockingUpdate:
+[x] AppVersionGate (чистая логика evaluate, fail-open на невалидных).
+[x] AppVersionCheckService — обёртка над IAppApi + AppInfo + Gate.
+    Fail-open catch на ApiException / HttpRequestException /
+    TaskCanceledException.
+[x] BlockingUpdateViewModel + BlockingUpdatePage (Shell.NavBarIsVisible=
+    False / TabBarIsVisible=False / OnBackButtonPressed→true).
+[x] Top-level Shell route 'blocking-update'.
+[x] AppShell.OnAppearing: проверка версии ДО HasSessionAsync. При
+    ForceUpdate → GoToAsync('//blocking-update') с params (downloadUrl /
+    message) через IQueryAttributable.
+[ ] Soft banner на главной — отложено отдельным коммитом.
+
+E22.5 SubscriptionPage + блок «Подписка» в ProfilePage:
+[x] SubscriptionViewModel: StatusTitle / StatusDescription /
+    ShowComplimentaryBlock / ShowSubscribeButton / ShowCancelButton.
+    Приоритет показа: complimentary > Trial/Active/Cancelled/Expired (D22).
+[x] Subscribe → POST /create-payment → Launcher.OpenAsync(CheckoutUrl).
+[x] CancelSubscription → DisplayAlert confirm → API + перечитка статуса.
+[x] SubscriptionPage с RefreshView (pull-to-refresh).
+[x] Регистрация Routing.RegisterRoute("subscription", ...).
+[x] ProfileViewModel расширен Subscription + computed Summary/Detail/
+    HasSubscriptionData. Блок «Подписка» в ProfilePage.xaml с кнопкой
+    "Управление подпиской".
+[x] ProfilePage.OnAppearing всегда LoadAsync (а не только при пустом
+    UserName) — чтобы статус обновлялся при возврате с SubscriptionPage.
+
+E22.6 Paywall:
+[x] PaywallEvaluator (чистая логика): OR на
+    SubscriptionEnabled=false / IsAdmin / IsActiveNow.
+[x] IPaywallChecker + PaywallChecker (обёртка): дёргает /api/app/features +
+    /me + /me/subscription, применяет PaywallEvaluator. Fail-open.
+[x] SubscriptionRequiredViewModel + SubscriptionRequiredPage (top-level
+    Shell route, без TabBar/Back). Кнопки "Оформить подписку" (→
+    subscription) и "Выйти из аккаунта".
+[x] SubscriptionGateHandler (DelegatingHandler): перехват 403 с
+    errorCode="subscription.required" → MainThread.BeginInvokeOnMainThread
+    → Shell.Current.GoToAsync('//subscription-required'). Восстанавливает
+    body после ReadAsStringAsync для дальнейшей Refit-десериализации.
+    Зарегистрирован только в gated клиентах: IDeceasedRecordsApi /
+    ITrackedDeceasedApi / IDeceasedMediaApi / IDeceasedMemoriesApi.
+[x] AppShell.OnAppearing: после HasSessionAsync вызывает
+    PaywallChecker; при ShouldShow → //subscription-required.
+[x] LoginViewModel + RegisterViewModel: после auto-login дёргают
+    PaywallChecker и идут либо на //main/tracked либо на
+    //subscription-required.
+
+Финальный прогон: Mobile.Tests 164/164.
+Backend (Domain 162 + Application 163) без изменений.
 
 ---------------------------------------------------------------------
 E23. Локальные напоминания о годовщинах (mobile)
