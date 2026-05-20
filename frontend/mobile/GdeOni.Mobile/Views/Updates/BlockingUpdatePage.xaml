@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Updates.BlockingUpdatePage"
+             x:DataType="vm:BlockingUpdateViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Shell.BackButtonBehavior="{x:Null}"
+             Title="Обновление">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.5"
+                 WidthRequest="240"
+                 HeightRequest="130"
+                 HorizontalOptions="Start"
+                 VerticalOptions="Start"
+                 TranslationX="-70"
+                 TranslationY="40" />
+
+        <ScrollView>
+            <VerticalStackLayout Padding="24,80,24,24" Spacing="24">
+                <Label Text="{Binding Title}"
+                       Style="{StaticResource TitleLabel}"
+                       HorizontalOptions="Center" />
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="16">
+                        <Label Text="{Binding Message}"
+                               Style="{StaticResource BodyLabel}"
+                               LineBreakMode="WordWrap" />
+
+                        <Label Text="{Binding InstallInstruction}"
+                               FontSize="13"
+                               TextColor="#5D7282"
+                               LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button Text="Скачать обновление"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding DownloadCommand}"
+                        IsEnabled="{Binding HasDownloadUrl}"
+                        HorizontalOptions="Fill" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

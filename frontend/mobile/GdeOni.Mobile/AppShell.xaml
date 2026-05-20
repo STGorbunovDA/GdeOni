@@ -7,6 +7,7 @@
     xmlns:tracked="clr-namespace:GdeOni.Mobile.Views.Tracked"
     xmlns:route="clr-namespace:GdeOni.Mobile.Views.Route"
     xmlns:profile="clr-namespace:GdeOni.Mobile.Views.Profile"
+    xmlns:updates="clr-namespace:GdeOni.Mobile.Views.Updates"
     Title="GdeOni"
     FlyoutBehavior="Disabled"
     Shell.NavBarIsVisible="False"
@@ -30,5 +31,12 @@
             Route="profile"
             ContentTemplate="{DataTemplate profile:ProfilePage}" />
     </TabBar>
+
+    <!-- E22. Top-level blocking-update page (без TabBar / Back).
+         AppShell.OnAppearing проверяет /api/app/version и при
+         ForceUpdate переводит сюда. -->
+    <ShellContent
+        Route="blocking-update"
+        ContentTemplate="{DataTemplate updates:BlockingUpdatePage}" />
 
 </Shell>

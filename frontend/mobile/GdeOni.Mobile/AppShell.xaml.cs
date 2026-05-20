@@ -1,4 +1,6 @@
 using GdeOni.Mobile.Services.Auth;
+using GdeOni.Mobile.Services.Versioning;
+using GdeOni.Mobile.Shared.Versioning;
 using GdeOni.Mobile.Views.Auth;
 using GdeOni.Mobile.Views.Profile;
 using GdeOni.Mobile.Views.Tracked;
@@ -8,12 +10,14 @@ namespace GdeOni.Mobile;
 public partial class AppShell : Shell
 {
     private readonly IAuthService _authService;
+    private readonly IAppVersionCheckService _versionCheck;
     private bool _initialNavigationDone;
 
-    public AppShell(IAuthService authService)
+    public AppShell(IAuthService authService, IAppVersionCheckService versionCheck)
     {
         InitializeComponent();
         _authService = authService;
+        _versionCheck = versionCheck;
 
         // Auth flow.
         Routing.RegisterRoute("register", typeof(RegisterPage));
@@ -43,6 +47,24 @@ public partial class AppShell : Shell
         if (_initialNavigationDone)
             return;
         _initialNavigationDone = true;
+
+        // E22. Сначала проверка версии — если клиент ниже MinSupportedVersion,
+        // отправляем на blocking-update без возможности уйти. На сетевой
+        // ошибке fail-open — пропускаем дальше.
+        var versionResult = await _versionCheck.CheckAsync();
+        if (versionResult.Outcome == VersionCheckOutcome.ForceUpdate)
+        {
+            var navParams = new Dictionary<string, object>
+            {
+                ["downloadUrl"] = versionResult.DownloadUrl ?? string.Empty,
+                ["message"] = versionResult.ForceUpdateMessage ?? string.Empty,
+            };
+            await GoToAsync("//blocking-update", navParams);
+            return;
+        }
+
+        // SoftUpdate пока не показываем — soft banner на главной приедет
+        // отдельным коммитом (см. план E22).
 
         // Если в SecureStorage есть access-токен — пускаем сразу на главный
         // TabBar. RefreshTokenHandler сам разберётся, если токен протух.

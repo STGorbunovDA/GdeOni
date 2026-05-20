@@ -6,11 +6,13 @@ using GdeOni.Mobile.Services.Geolocation;
 using GdeOni.Mobile.Services.Network;
 using GdeOni.Mobile.Services.Routing;
 using GdeOni.Mobile.Services.Storage;
+using GdeOni.Mobile.Services.Versioning;
 using GdeOni.Mobile.ViewModels;
 using GdeOni.Mobile.Views.Auth;
 using GdeOni.Mobile.Views.Profile;
 using GdeOni.Mobile.Views.Route;
 using GdeOni.Mobile.Views.Tracked;
+using GdeOni.Mobile.Views.Updates;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Controls.Hosting;
 using Polly;
@@ -57,6 +59,10 @@ public static class MauiProgram
         services.AddSingleton<IGeolocationService, GeolocationService>();
         services.AddSingleton<INetworkInfoService, NetworkInfoService>();
         services.AddSingleton<IExternalMapsService, ExternalMapsService>();
+        // E22. Version-gate сервис — Singleton, чтобы при future
+        // расширении (кеш на сессию) состояние переживало переходы между
+        // страницами.
+        services.AddSingleton<IAppVersionCheckService, AppVersionCheckService>();
     }
 
     private static void RegisterHttpStack(IServiceCollection services)
@@ -210,6 +216,7 @@ public static class MauiProgram
         services.AddTransient<ChangePasswordViewModel>();
         services.AddTransient<BurialLocationEditorViewModel>();
         services.AddTransient<NearbySearchViewModel>();
+        services.AddTransient<BlockingUpdateViewModel>();
 
         services.AddTransient<LoginPage>();
         services.AddTransient<RegisterPage>();
@@ -225,5 +232,6 @@ public static class MauiProgram
         services.AddTransient<ChangePasswordPage>();
         services.AddTransient<BurialLocationEditorPage>();
         services.AddTransient<NearbySearchPage>();
+        services.AddTransient<BlockingUpdatePage>();
     }
 }
