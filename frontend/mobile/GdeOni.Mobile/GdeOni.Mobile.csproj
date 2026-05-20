@@ -14,7 +14,13 @@
 
 		<ApplicationTitle>Где Они</ApplicationTitle>
 		<ApplicationId>com.gdeoni.mobile</ApplicationId>
-		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+		<!--
+		E22. ApplicationDisplayVersion — SemVer Major.Minor.Patch (бэк
+		сравнивает с MinSupportedVersion / LatestVersion из appsettings).
+		ApplicationVersion — целочисленный build-counter, инкрементить
+		при каждом релизе APK (Android требует монотонного роста).
+		-->
+		<ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
 
 		<SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
