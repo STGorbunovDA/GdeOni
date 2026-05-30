@@ -10,15 +10,30 @@ namespace GdeOni.Mobile.Shared.Notifications;
 public static class AnniversaryDateCalculator
 {
     /// <summary>
-    /// Считает ближайшую годовщину начиная с <paramref name="nowUtc"/>.
-    /// Возвращает локальную полночь нужного дня в UTC (тригер на 09:00
-    /// локальное — задача планировщика, не calculator'а).
+    /// Считает ближайшую годовщину начиная с <paramref name="today"/> включительно.
+    /// Используется при первичном scheduling — если дата сегодня и время
+    /// ещё не наступило, alarm выстрелит сегодня.
     /// </summary>
     public static DateOnly NextAnniversary(DateOnly eventDate, DateOnly today)
     {
         var thisYearAnniversary = ToValidDateInYear(eventDate, today.Year);
 
         return thisYearAnniversary >= today
+            ? thisYearAnniversary
+            : ToValidDateInYear(eventDate, today.Year + 1);
+    }
+
+    /// <summary>
+    /// Считает годовщину строго ПОСЛЕ <paramref name="today"/>. Используется
+    /// при self-rescheduling в receiver'е: после того как alarm выстрелил
+    /// сегодня, следующий должен быть на следующий год (а не снова сегодня —
+    /// иначе бесконечный цикл уведомлений).
+    /// </summary>
+    public static DateOnly NextAnniversaryAfter(DateOnly eventDate, DateOnly today)
+    {
+        var thisYearAnniversary = ToValidDateInYear(eventDate, today.Year);
+
+        return thisYearAnniversary > today
             ? thisYearAnniversary
             : ToValidDateInYear(eventDate, today.Year + 1);
     }

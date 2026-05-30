@@ -44,9 +44,10 @@ public sealed class AnniversaryAlarmReceiver : BroadcastReceiver
         EnsureChannelExists(context);
         ShowNotification(context, deceasedId, fullName!, kind);
 
-        // Self-reschedule на следующий год — даты вычисляются заново
-        // через AnniversaryDateCalculator, чтобы корректно обработать
-        // 29 февраля.
+        // Self-reschedule СТРОГО на следующий год: alarm только что выстрелил
+        // сегодня, без strictlyAfterToday получили бы бесконечный цикл
+        // (NextAnniversary вернёт сегодня → alarm в прошлом → SetExactAndAllowWhileIdle
+        // выстрелит сразу → receiver снова сюда → ...).
         if (DateOnly.TryParseExact(eventDateIso, "yyyy-MM-dd", out var eventDate))
         {
             AndroidAlarmScheduler.ReplaceAlarmStatic(
@@ -55,7 +56,8 @@ public sealed class AnniversaryAlarmReceiver : BroadcastReceiver
                     Guid.Parse(deceasedId!),
                     fullName!,
                     eventDate,
-                    kind));
+                    kind),
+                strictlyAfterToday: true);
         }
     }
 

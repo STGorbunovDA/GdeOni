@@ -38,6 +38,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("archive", typeof(ArchivePage));
         Routing.RegisterRoute("memory-editor", typeof(MemoryEditorPage));
         Routing.RegisterRoute("burial-location-editor", typeof(BurialLocationEditorPage));
+        // E26. Редактирование карточки умершего (трекающий или админ).
+        Routing.RegisterRoute("edit-deceased", typeof(EditDeceasedPage));
 
         // E21: поиск умерших в радиусе вокруг текущей точки пользователя.
         Routing.RegisterRoute("nearby-search", typeof(NearbySearchPage));

@@ -89,4 +89,29 @@ public sealed class AnniversaryDateCalculatorTests
         AnniversaryDateCalculator.NextAnniversary(birth, today)
             .Should().Be(new DateOnly(2028, 1, 1));
     }
+
+    [Fact]
+    public void NextAnniversaryAfter_EventDateToday_ReturnsNextYear()
+    {
+        // Защита от self-reschedule цикла: после срабатывания alarm'а сегодня
+        // следующая годовщина должна быть СТРОГО на следующий год, иначе
+        // AlarmManager.SetExactAndAllowWhileIdle с прошедшим timestamp
+        // выстрелит сразу → бесконечный цикл уведомлений.
+        var today = new DateOnly(2026, 8, 10);
+        var birth = new DateOnly(1980, 8, 10);
+
+        AnniversaryDateCalculator.NextAnniversaryAfter(birth, today)
+            .Should().Be(new DateOnly(2027, 8, 10));
+    }
+
+    [Fact]
+    public void NextAnniversaryAfter_EventDateInFutureThisYear_ReturnsThisYear()
+    {
+        // Если годовщина впереди — поведение совпадает с NextAnniversary.
+        var today = new DateOnly(2026, 5, 20);
+        var birth = new DateOnly(1980, 8, 10);
+
+        AnniversaryDateCalculator.NextAnniversaryAfter(birth, today)
+            .Should().Be(new DateOnly(2026, 8, 10));
+    }
 }

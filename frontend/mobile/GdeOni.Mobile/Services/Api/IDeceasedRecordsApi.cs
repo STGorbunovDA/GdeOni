@@ -72,4 +72,35 @@ public interface IDeceasedRecordsApi
         Guid deceasedId,
         [Body] SetBurialLocationRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D24. PATCH основных полей карточки (имя, даты, описание, биография).
+    /// Доступно отслеживающим эту карточку юзерам и админам — 403 если
+    /// юзер не трекает. Изменения попадают в audit log (deceased_edits).
+    /// </summary>
+    [Patch("/api/deceased-records/{deceasedId}/main-info")]
+    Task<HttpResponseMessage> UpdateMainInfoAsync(
+        Guid deceasedId,
+        [Body] UpdateMainInfoRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D24. PATCH метаданных (эпитафия, религия, источник, военная служба,
+    /// доп. инфо). Те же права что и main-info.
+    /// </summary>
+    [Patch("/api/deceased-records/{deceasedId}/metadata")]
+    Task<HttpResponseMessage> UpdateMetadataAsync(
+        Guid deceasedId,
+        [Body] UpdateMetadataRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D24. PATCH места захоронения (координаты + страна/город/кладбище/
+    /// участок/номер). Latitude/Longitude == null → координаты удаляются.
+    /// </summary>
+    [Patch("/api/deceased-records/{deceasedId}/burial-location")]
+    Task<HttpResponseMessage> UpdateBurialLocationAsync(
+        Guid deceasedId,
+        [Body] UpdateBurialLocationRequest request,
+        CancellationToken cancellationToken = default);
 }

@@ -3,11 +3,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
+using GdeOni.Mobile.Shared.Notifications;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
 
-public partial class ArchiveViewModel(ITrackedDeceasedApi api) : ObservableObject
+public partial class ArchiveViewModel(
+    ITrackedDeceasedApi api,
+    ILocalNotificationScheduler notificationScheduler) : ObservableObject
 {
     public ObservableCollection<TrackedDeceasedListItem> Items { get; } = new();
 
@@ -122,6 +125,12 @@ public partial class ArchiveViewModel(ITrackedDeceasedApi api) : ObservableObjec
                 ErrorMessage = $"Не удалось удалить (HTTP {(int)resp.StatusCode}).";
                 return;
             }
+
+            // Defense-in-depth: при архивации alarm уже отменён, но если
+            // запись попала в архив до этой правки — alarm ещё активен.
+            // Best-effort, не валим UI на ошибке планировщика.
+            try { await notificationScheduler.CancelAllForDeceasedAsync(item.DeceasedId); }
+            catch { }
 
             Items.Remove(item);
             OnPropertyChanged(nameof(ShowEmptyState));

@@ -64,13 +64,22 @@ public sealed class AndroidAlarmScheduler : ILocalNotificationScheduler
     /// <see cref="AnniversaryAlarmReceiver"/> для self-rescheduling
     /// (receiver не знает про DI).
     /// </summary>
-    internal static void ReplaceAlarmStatic(Context context, AnniversaryReminder reminder)
+    /// <param name="strictlyAfterToday">
+    /// true — self-reschedule после срабатывания alarm'а: следующая годовщина
+    /// должна быть СТРОГО ПОСЛЕ сегодня. Иначе бесконечный цикл уведомлений
+    /// (alarm выстрелил сегодня → reschedule на сегодня → снова выстрел).
+    /// false (default) — первичный scheduling: если eventDate=сегодня и
+    /// 09:00 ещё не наступило, alarm выстрелит сегодня.
+    /// </param>
+    internal static void ReplaceAlarmStatic(Context context, AnniversaryReminder reminder, bool strictlyAfterToday = false)
     {
         var manager = (AlarmManager?)context.GetSystemService(Context.AlarmService);
         if (manager is null) return;
 
         var today = DateOnly.FromDateTime(DateTime.Now);
-        var nextAnniversary = AnniversaryDateCalculator.NextAnniversary(reminder.EventDate, today);
+        var nextAnniversary = strictlyAfterToday
+            ? AnniversaryDateCalculator.NextAnniversaryAfter(reminder.EventDate, today)
+            : AnniversaryDateCalculator.NextAnniversary(reminder.EventDate, today);
 
         // Триггерим в 09:00 местного — днем юзер скорее активен.
         var triggerLocal = new DateTime(

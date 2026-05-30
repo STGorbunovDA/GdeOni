@@ -212,7 +212,8 @@
                                     IsToggled="{Binding NotifyOnDeathAnniversary}"
                                     OnColor="{StaticResource Azure}" />
                         </Grid>
-                        <Grid ColumnDefinitions="*,Auto" RowSpacing="6">
+                        <Grid ColumnDefinitions="*,Auto" RowSpacing="6"
+                              IsVisible="{Binding HasBirthDate}">
                             <Label Grid.Column="0"
                                    Text="Напоминать в день рождения"
                                    Style="{StaticResource BodyLabel}"

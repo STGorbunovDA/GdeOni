@@ -74,3 +74,38 @@ public static class RelationshipTypes
 // x:DataType="models:RelationshipOption" — оставляем тип в mobile-
 // namespace. Логика Display/All — в Shared (см. выше).
 public sealed record RelationshipOption(string Value, string Display);
+
+/// <summary>D24. Тело PATCH /api/deceased-records/{id}/main-info.</summary>
+public sealed record UpdateMainInfoRequest(
+    string FirstName,
+    string LastName,
+    string? MiddleName,
+    DateOnly? BirthDate,
+    DateOnly DeathDate,
+    string? ShortDescription,
+    string? Biography);
+
+/// <summary>D24. Тело PATCH /api/deceased-records/{id}/metadata.</summary>
+public sealed record UpdateMetadataRequest(
+    string? Epitaph,
+    string? Religion,
+    string? Source,
+    bool IsMilitaryService,
+    string? AdditionalInfo);
+
+/// <summary>
+/// D24. Тело PATCH /api/deceased-records/{id}/burial-location.
+/// Если Latitude/Longitude null — координаты удаляются.
+/// Accuracy = 0 (Exact) по умолчанию.
+/// </summary>
+public sealed record UpdateBurialLocationRequest(
+    double? Latitude,
+    double? Longitude,
+    double? AccuracyMeters,
+    string? Country,
+    string? Region,
+    string? City,
+    string? CemeteryName,
+    string? PlotNumber,
+    string? GraveNumber,
+    int Accuracy = 0);

@@ -50,7 +50,9 @@ public partial class AtGraveViewModel(
     [ObservableProperty] private string _firstName = "";
     [ObservableProperty] private string _lastName = "";
     [ObservableProperty] private string _middleName = "";
-    [ObservableProperty] private DateTime? _birthDate;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasBirthDate))]
+    private DateTime? _birthDate;
     [ObservableProperty] private DateTime _deathDate = DateTime.Today;
     [ObservableProperty] private string _shortDescription = "";
     [ObservableProperty] private string _biography = "";
@@ -67,6 +69,18 @@ public partial class AtGraveViewModel(
     [ObservableProperty] private string _personalNotes = "";
     [ObservableProperty] private bool _notifyOnDeathAnniversary;
     [ObservableProperty] private bool _notifyOnBirthAnniversary;
+
+    // E23. Без даты рождения тоггл бессмыслен (нечего планировать).
+    // XAML скрывает Switch + Label по этому флагу, а OnBirthDateChanged
+    // ниже сбрасывает _notifyOnBirthAnniversary в false, если юзер
+    // включил тоггл, а потом убрал дату.
+    public bool HasBirthDate => BirthDate.HasValue;
+
+    partial void OnBirthDateChanged(DateTime? value)
+    {
+        if (!value.HasValue)
+            NotifyOnBirthAnniversary = false;
+    }
 
     // ----- Состояние -----
     [ObservableProperty]

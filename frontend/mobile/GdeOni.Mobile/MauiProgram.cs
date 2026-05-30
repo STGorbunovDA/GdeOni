@@ -265,6 +265,7 @@ public static class MauiProgram
         services.AddTransient<DeceasedPreviewViewModel>();
         services.AddTransient<ChangePasswordViewModel>();
         services.AddTransient<BurialLocationEditorViewModel>();
+        services.AddTransient<EditDeceasedViewModel>();
         services.AddTransient<NearbySearchViewModel>();
         services.AddTransient<BlockingUpdateViewModel>();
         services.AddTransient<SubscriptionViewModel>();
@@ -283,6 +284,7 @@ public static class MauiProgram
         services.AddTransient<DeceasedPreviewPage>();
         services.AddTransient<ChangePasswordPage>();
         services.AddTransient<BurialLocationEditorPage>();
+        services.AddTransient<EditDeceasedPage>();
         services.AddTransient<NearbySearchPage>();
         services.AddTransient<BlockingUpdatePage>();
         services.AddTransient<SubscriptionPage>();

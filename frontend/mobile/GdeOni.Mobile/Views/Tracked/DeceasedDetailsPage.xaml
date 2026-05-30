@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
              xmlns:models="clr-namespace:GdeOni.Mobile.Services.Api.Models"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Name="Page"
              x:Class="GdeOni.Mobile.Views.Tracked.DeceasedDetailsPage"
              x:DataType="vm:DeceasedDetailsViewModel"
@@ -10,6 +11,10 @@
              Shell.NavBarIsVisible="False"
              Shell.TabBarIsVisible="False"
              Title="Карточка умершего">
+
+    <ContentPage.Resources>
+        <toolkit:InvertedBoolConverter x:Key="InvertedBool" />
+    </ContentPage.Resources>
 
     <Grid>
         <Ellipse Fill="White"
@@ -24,12 +29,27 @@
         <ScrollView>
             <VerticalStackLayout Padding="24,40,24,40" Spacing="20">
 
-                <Button Text="‹ Назад"
-                        Style="{StaticResource GhostButton}"
-                        Command="{Binding BackCommand}"
-                        HorizontalOptions="Start"
-                        Padding="16,8"
-                        FontSize="14" />
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Button Grid.Column="0"
+                            Text="‹ Назад"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding BackCommand}"
+                            HorizontalOptions="Start"
+                            Padding="16,8"
+                            FontSize="14" />
+
+                    <!-- E26. Кнопка перехода на EditDeceasedPage. Видимость
+                         не управляется тут — 403 от бэка обработает страница
+                         редактирования (см. ICanEditDeceasedPolicy на бэке). -->
+                    <Button Grid.Column="2"
+                            Text="Изменить"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding EditDeceasedCommand}"
+                            HorizontalOptions="End"
+                            Padding="16,8"
+                            FontSize="14"
+                            IsVisible="{Binding HasData}" />
+                </Grid>
 
                 <!-- Loader / error -->
                 <ActivityIndicator IsRunning="{Binding IsBusy}"
@@ -138,44 +158,101 @@
                     <!-- Ваше отслеживание -->
                     <Border Style="{StaticResource CloudCard}">
                         <VerticalStackLayout Spacing="8">
-                            <Label Text="Вы отслеживаете"
-                                   Style="{StaticResource SubTitleLabel}" />
-
-                            <Grid ColumnDefinitions="Auto,*"
-                                  ColumnSpacing="12"
-                                  RowDefinitions="Auto,Auto"
-                                  RowSpacing="4">
-                                <Label Grid.Row="0" Grid.Column="0"
-                                       Text="Отношение:"
-                                       Style="{StaticResource CaptionLabel}" />
-                                <Label Grid.Row="0" Grid.Column="1"
-                                       Text="{Binding RelationshipText}"
-                                       Style="{StaticResource BodyLabel}" />
-
-                                <Label Grid.Row="1" Grid.Column="0"
-                                       Text="Напоминания:"
-                                       Style="{StaticResource CaptionLabel}" />
-                                <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="2">
-                                    <Label IsVisible="{Binding NotifyOnDeathAnniversary}"
-                                           Text="• в день смерти"
-                                           Style="{StaticResource BodyLabel}" />
-                                    <Label IsVisible="{Binding NotifyOnBirthAnniversary}"
-                                           Text="• в день рождения"
-                                           Style="{StaticResource BodyLabel}" />
-                                </VerticalStackLayout>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Grid.Column="0"
+                                       Text="Вы отслеживаете"
+                                       Style="{StaticResource SubTitleLabel}"
+                                       VerticalOptions="Center" />
+                                <Button Grid.Column="1"
+                                        Text="Изменить"
+                                        Style="{StaticResource GhostButton}"
+                                        Padding="14,6"
+                                        FontSize="13"
+                                        Command="{Binding StartEditTrackingCommand}"
+                                        IsVisible="{Binding IsViewingTracking}" />
                             </Grid>
 
-                            <Border IsVisible="{Binding HasPersonalNotes}"
-                                    BackgroundColor="{StaticResource Sky}"
-                                    StrokeThickness="0"
-                                    Padding="12"
-                                    Margin="0,8,0,0">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="10" />
-                                </Border.StrokeShape>
-                                <Label Text="{Binding PersonalNotes}"
-                                       Style="{StaticResource BodyLabel}" />
-                            </Border>
+                            <!-- View-режим -->
+                            <VerticalStackLayout Spacing="8"
+                                                 IsVisible="{Binding IsViewingTracking}">
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="12"
+                                      RowDefinitions="Auto,Auto"
+                                      RowSpacing="4">
+                                    <Label Grid.Row="0" Grid.Column="0"
+                                           Text="Отношение:"
+                                           Style="{StaticResource CaptionLabel}" />
+                                    <Label Grid.Row="0" Grid.Column="1"
+                                           Text="{Binding RelationshipText}"
+                                           Style="{StaticResource BodyLabel}" />
+
+                                    <Label Grid.Row="1" Grid.Column="0"
+                                           Text="Напоминания:"
+                                           Style="{StaticResource CaptionLabel}" />
+                                    <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="2">
+                                        <Label IsVisible="{Binding NotifyOnDeathAnniversary}"
+                                               Text="• в день смерти"
+                                               Style="{StaticResource BodyLabel}" />
+                                        <Label IsVisible="{Binding NotifyOnBirthAnniversary}"
+                                               Text="• в день рождения"
+                                               Style="{StaticResource BodyLabel}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+
+                                <Border IsVisible="{Binding HasPersonalNotes}"
+                                        BackgroundColor="{StaticResource Sky}"
+                                        StrokeThickness="0"
+                                        Padding="12"
+                                        Margin="0,8,0,0">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="10" />
+                                    </Border.StrokeShape>
+                                    <Label Text="{Binding PersonalNotes}"
+                                           Style="{StaticResource BodyLabel}" />
+                                </Border>
+                            </VerticalStackLayout>
+
+                            <!-- Edit-режим -->
+                            <VerticalStackLayout Spacing="12"
+                                                 IsVisible="{Binding IsEditingTracking}">
+                                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                                    <CheckBox IsChecked="{Binding DraftNotifyOnDeath}"
+                                              VerticalOptions="Center" />
+                                    <Label Text="Уведомлять в годовщину смерти"
+                                           Style="{StaticResource BodyLabel}"
+                                           VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+
+                                <HorizontalStackLayout Spacing="8"
+                                                       VerticalOptions="Center"
+                                                       IsVisible="{Binding CanNotifyOnBirth}">
+                                    <CheckBox IsChecked="{Binding DraftNotifyOnBirth}"
+                                              VerticalOptions="Center" />
+                                    <Label Text="Уведомлять в годовщину рождения"
+                                           Style="{StaticResource BodyLabel}"
+                                           VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+                                <!-- Если BirthDate не указана — чекбокс рождения скрыт, показываем подсказку -->
+                                <Label Text="Годовщина рождения недоступна — дата рождения не указана в карточке."
+                                       Style="{StaticResource CaptionLabel}"
+                                       IsVisible="{Binding CanNotifyOnBirth, Converter={StaticResource InvertedBool}}" />
+
+                                <Label Text="Личные заметки"
+                                       Style="{StaticResource CaptionLabel}" />
+                                <Editor Text="{Binding DraftPersonalNotes}"
+                                        Placeholder="например, любимая бабушка"
+                                        AutoSize="TextChanges"
+                                        MinimumHeightRequest="80" />
+
+                                <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
+                                    <Button Text="Отмена"
+                                            Style="{StaticResource GhostButton}"
+                                            Command="{Binding CancelEditTrackingCommand}" />
+                                    <Button Text="Сохранить"
+                                            Style="{StaticResource PrimaryButton}"
+                                            Command="{Binding SaveTrackingCommand}" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
                     </Border>
 

@@ -6,6 +6,7 @@ using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
 using GdeOni.Mobile.Services.Auth;
 using GdeOni.Mobile.Services.Geolocation;
+using GdeOni.Mobile.Shared.Notifications;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
@@ -16,7 +17,8 @@ public partial class DeceasedDetailsViewModel(
     IDeceasedMediaApi mediaApi,
     IDeceasedMemoriesApi memoriesApi,
     IGeolocationService geolocationService,
-    IAuthService authService) : ObservableObject
+    IAuthService authService,
+    ILocalNotificationScheduler notificationScheduler) : ObservableObject
 {
     // Кешируем текущий userId на время жизни VM. Используется для вычисления
     // CanEdit у воспоминаний (см. MemoryItemViewModel.From).
@@ -116,6 +118,25 @@ public partial class DeceasedDetailsViewModel(
     public bool NotifyOnDeathAnniversary => Data?.Tracking.NotifyOnDeathAnniversary == true;
     public bool NotifyOnBirthAnniversary => Data?.Tracking.NotifyOnBirthAnniversary == true;
 
+    // E23 follow-up: edit-режим для tracking-настроек. Юзер открывает
+    // блок read-only, нажимает "Изменить" → DraftXxx-поля загружаются из
+    // текущего Data и редактируются → Save синхронизирует через PATCH
+    // и пере-планирует уведомления по разнице старого/нового состояния.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsViewingTracking))]
+    private bool _isEditingTracking;
+    public bool IsViewingTracking => !IsEditingTracking;
+
+    [ObservableProperty] private bool _draftNotifyOnDeath;
+    [ObservableProperty] private bool _draftNotifyOnBirth;
+    [ObservableProperty] private string _draftPersonalNotes = "";
+
+    /// <summary>
+    /// Нет смысла планировать "день рождения" без BirthDate — чекбокс
+    /// disabled в UI, чтобы юзер не выставил флаг впустую.
+    /// </summary>
+    public bool CanNotifyOnBirth => Data?.Deceased.BirthDate is not null;
+
     public bool IsVerified => Data?.Deceased.IsVerified == true;
 
     public bool IsArchived => Data?.Tracking.Status == TrackStatuses.Archived;
@@ -200,6 +221,7 @@ public partial class DeceasedDetailsViewModel(
             OnPropertyChanged(nameof(HasPersonalNotes));
             OnPropertyChanged(nameof(NotifyOnDeathAnniversary));
             OnPropertyChanged(nameof(NotifyOnBirthAnniversary));
+            OnPropertyChanged(nameof(CanNotifyOnBirth));
             OnPropertyChanged(nameof(IsVerified));
             OnPropertyChanged(nameof(IsArchived));
             OnPropertyChanged(nameof(IsActive));
@@ -291,9 +313,107 @@ public partial class DeceasedDetailsViewModel(
                 return;
             }
 
+            // Notifications: при архивации убираем все запланированные alarms
+            // по карточке. При восстановлении — заново планируем (если тоггл
+            // включён в tracking-настройках). Best-effort — failure не валит
+            // флоу смены статуса.
+            try
+            {
+                if (newStatus == TrackStatuses.Archived)
+                {
+                    await notificationScheduler.CancelAllForDeceasedAsync(id);
+                }
+                else if (newStatus == TrackStatuses.Active)
+                {
+                    await RescheduleAnniversariesAsync(id, t);
+                }
+            }
+            catch { /* best-effort, см. AtGraveViewModel */ }
+
             // После архивации — на главный список (где архивных нет).
             // После восстановления — наоборот, на главный список (теперь там виден).
             await Shell.Current!.GoToAsync("//main/tracked");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// E23 follow-up. Переключение блока tracking в режим редактирования:
+    /// копируем текущие значения в Draft-поля, чтобы Cancel мог их откатить
+    /// без перезагрузки с бэка.
+    /// </summary>
+    [RelayCommand]
+    private void StartEditTracking()
+    {
+        if (Data is null) return;
+        DraftNotifyOnDeath = Data.Tracking.NotifyOnDeathAnniversary;
+        DraftNotifyOnBirth = Data.Tracking.NotifyOnBirthAnniversary;
+        DraftPersonalNotes = Data.Tracking.PersonalNotes ?? "";
+        IsEditingTracking = true;
+    }
+
+    [RelayCommand]
+    private void CancelEditTracking() => IsEditingTracking = false;
+
+    /// <summary>
+    /// PATCH /api/users/me/tracked-deceased/{id} с новыми значениями
+    /// тогглов и заметки. После успеха — пере-планируем уведомления
+    /// по диффу старого/нового состояния (см. ApplyNotificationDiffAsync).
+    /// </summary>
+    [RelayCommand]
+    private async Task SaveTrackingAsync()
+    {
+        if (!Guid.TryParse(DeceasedId, out var id) || Data is null) return;
+
+        var t = Data.Tracking;
+        // Запоминаем "до" для диффа уведомлений после успешного PATCH.
+        var prevNotifyDeath = t.NotifyOnDeathAnniversary;
+        var prevNotifyBirth = t.NotifyOnBirthAnniversary;
+
+        // BirthDate отсутствует → флаг рождения принудительно false,
+        // чтобы не упасть в schedule на пустую дату.
+        var newNotifyBirth = CanNotifyOnBirth && DraftNotifyOnBirth;
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = null;
+
+            var request = new UpdateTrackingRequest(
+                RelationshipType: t.RelationshipType,
+                PersonalNotes: string.IsNullOrWhiteSpace(DraftPersonalNotes) ? null : DraftPersonalNotes.Trim(),
+                NotifyOnDeathAnniversary: DraftNotifyOnDeath,
+                NotifyOnBirthAnniversary: newNotifyBirth,
+                TrackStatus: t.Status);
+
+            var resp = await api.UpdateAsync(id, request);
+            if (!resp.IsSuccessStatusCode)
+            {
+                ErrorMessage = $"Не удалось сохранить (HTTP {(int)resp.StatusCode}).";
+                return;
+            }
+
+            IsEditingTracking = false;
+
+            // Сначала перезагружаем Data, потом дифф — иначе RescheduleAnniversariesAsync
+            // прочитает старый Data.Tracking.
+            await LoadAsync();
+
+            try
+            {
+                await ApplyNotificationDiffAsync(
+                    id,
+                    prevNotifyDeath, DraftNotifyOnDeath,
+                    prevNotifyBirth, newNotifyBirth);
+            }
+            catch { /* best-effort, см. AtGraveViewModel */ }
         }
         catch (Exception ex)
         {
@@ -716,6 +836,18 @@ public partial class DeceasedDetailsViewModel(
     }
 
     /// <summary>
+    /// E26. Открыть EditDeceasedPage для редактирования карточки.
+    /// Видимость кнопки в UI не ограничена — 403 (если юзер не трекает
+    /// и не админ) показывается уже на странице редактирования.
+    /// </summary>
+    [RelayCommand]
+    private async Task EditDeceasedAsync()
+    {
+        if (!Guid.TryParse(DeceasedId, out _)) return;
+        await Shell.Current.GoToAsync($"edit-deceased?deceasedId={DeceasedId}");
+    }
+
+    /// <summary>
     /// E20. Открыть редактор координат места захоронения с пред-заполнением
     /// текущих lat/lon/accuracy. Backend сохранит адресные поля при сохранении.
     /// Доступ ограничен 403'ом на backend (автор или админ).
@@ -799,6 +931,88 @@ public partial class DeceasedDetailsViewModel(
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// E23 follow-up. Применяет дифф уведомлений после редактирования
+    /// тогглов в edit-режиме: новые включения → schedule (после permission),
+    /// выключения → cancel конкретного kind. Чтобы не перепланировать заново
+    /// то, что уже было запланировано.
+    /// </summary>
+    private async Task ApplyNotificationDiffAsync(
+        Guid deceasedId,
+        bool prevDeath, bool newDeath,
+        bool prevBirth, bool newBirth)
+    {
+        if (Data is null) return;
+
+        var deathChanged = prevDeath != newDeath;
+        var birthChanged = prevBirth != newBirth;
+        if (!deathChanged && !birthChanged) return;
+
+        // Permission запрашиваем только если есть что планировать заново.
+        var needSchedule = (newDeath && !prevDeath) || (newBirth && !prevBirth);
+        if (needSchedule && !await notificationScheduler.EnsureNotificationPermissionAsync())
+        {
+            // Permission отказан — не планируем. Cancel'ы для выключенных
+            // тогглов всё равно делаем (на случай если они уже были в системе).
+        }
+
+        var fullName = Data.Deceased.FullName;
+
+        if (birthChanged)
+        {
+            if (newBirth && Data.Deceased.BirthDate is DateOnly birth)
+            {
+                await notificationScheduler.ScheduleAnniversaryAsync(
+                    new AnniversaryReminder(deceasedId, fullName, birth, AnniversaryKind.Birth));
+            }
+            else
+            {
+                await notificationScheduler.CancelAsync(deceasedId, AnniversaryKind.Birth);
+            }
+        }
+
+        if (deathChanged)
+        {
+            if (newDeath)
+            {
+                await notificationScheduler.ScheduleAnniversaryAsync(
+                    new AnniversaryReminder(deceasedId, fullName, Data.Deceased.DeathDate, AnniversaryKind.Death));
+            }
+            else
+            {
+                await notificationScheduler.CancelAsync(deceasedId, AnniversaryKind.Death);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Восстановление annivers-alarms по карточке: при restore из архива
+    /// заново планируем уведомления для тех тогглов, что были включены.
+    /// Permission запрашиваем только если есть что планировать.
+    /// </summary>
+    private async Task RescheduleAnniversariesAsync(Guid deceasedId, MyTrackingInfoResponse tracking)
+    {
+        if (Data is null) return;
+        if (!tracking.NotifyOnDeathAnniversary &&
+            !(tracking.NotifyOnBirthAnniversary && Data.Deceased.BirthDate.HasValue))
+            return;
+
+        if (!await notificationScheduler.EnsureNotificationPermissionAsync())
+            return;
+
+        var fullName = Data.Deceased.FullName;
+        if (tracking.NotifyOnBirthAnniversary && Data.Deceased.BirthDate is DateOnly birth)
+        {
+            await notificationScheduler.ScheduleAnniversaryAsync(
+                new AnniversaryReminder(deceasedId, fullName, birth, AnniversaryKind.Birth));
+        }
+        if (tracking.NotifyOnDeathAnniversary)
+        {
+            await notificationScheduler.ScheduleAnniversaryAsync(
+                new AnniversaryReminder(deceasedId, fullName, Data.Deceased.DeathDate, AnniversaryKind.Death));
         }
     }
 }

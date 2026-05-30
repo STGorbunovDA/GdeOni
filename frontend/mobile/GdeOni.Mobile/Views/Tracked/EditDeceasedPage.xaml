@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             x:Class="GdeOni.Mobile.Views.Tracked.EditDeceasedPage"
+             x:DataType="vm:EditDeceasedViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Редактирование">
+
+    <ContentPage.Resources>
+        <toolkit:InvertedBoolConverter x:Key="InvertedBool" />
+    </ContentPage.Resources>
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.45"
+                 WidthRequest="220"
+                 HeightRequest="120"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="40" />
+
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="20">
+
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8" />
+
+                <Label Text="{Binding PageTitle}"
+                       Style="{StaticResource TitleLabel}" />
+
+                <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                   IsVisible="{Binding IsLoading}"
+                                   Color="{StaticResource Azure}" />
+
+                <Label Text="{Binding StatusMessage}"
+                       IsVisible="{Binding HasStatus}"
+                       TextColor="#2E7D32"
+                       Style="{StaticResource BodyLabel}" />
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="#C0392B"
+                       Style="{StaticResource BodyLabel}" />
+
+                <!-- ========== Основное ========== -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Основное" Style="{StaticResource SubTitleLabel}" />
+
+                        <Entry Placeholder="Имя" Text="{Binding FirstName}" />
+                        <Entry Placeholder="Фамилия" Text="{Binding LastName}" />
+                        <Entry Placeholder="Отчество (необязательно)" Text="{Binding MiddleName}" />
+
+                        <Label Text="Дата рождения (необязательно)" Style="{StaticResource CaptionLabel}" />
+                        <DatePicker Date="{Binding BirthDate, FallbackValue={x:Null}, TargetNullValue={x:Null}}" />
+
+                        <Label Text="Дата смерти" Style="{StaticResource CaptionLabel}" />
+                        <DatePicker Date="{Binding DeathDate}" />
+
+                        <Editor Placeholder="Краткое описание (необязательно)"
+                                Text="{Binding ShortDescription}"
+                                AutoSize="TextChanges"
+                                BackgroundColor="{StaticResource Cloud}" />
+
+                        <Editor Placeholder="Биография (необязательно)"
+                                Text="{Binding Biography}"
+                                AutoSize="TextChanges"
+                                BackgroundColor="{StaticResource Cloud}" />
+
+                        <Button Text="Сохранить основное"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding SaveMainCommand}"
+                                IsEnabled="{Binding IsSavingMain, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ========== Дополнительно ========== -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Дополнительно" Style="{StaticResource SubTitleLabel}" />
+
+                        <Entry Placeholder="Эпитафия" Text="{Binding Epitaph}" />
+                        <Entry Placeholder="Религия" Text="{Binding Religion}" />
+                        <Entry Placeholder="Источник информации" Text="{Binding Source}" />
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Grid.Column="0"
+                                   Text="Военная служба"
+                                   Style="{StaticResource BodyLabel}"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding IsMilitaryService}"
+                                    OnColor="{StaticResource Azure}" />
+                        </Grid>
+
+                        <Editor Placeholder="Дополнительная информация"
+                                Text="{Binding AdditionalInfo}"
+                                AutoSize="TextChanges"
+                                BackgroundColor="{StaticResource Cloud}" />
+
+                        <Button Text="Сохранить дополнительно"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding SaveMetadataCommand}"
+                                IsEnabled="{Binding IsSavingMetadata, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ========== Место захоронения ========== -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Место захоронения" Style="{StaticResource SubTitleLabel}" />
+
+                        <Entry Placeholder="Широта" Text="{Binding LatitudeInput}" Keyboard="Numeric" />
+                        <Entry Placeholder="Долгота" Text="{Binding LongitudeInput}" Keyboard="Numeric" />
+                        <Entry Placeholder="Точность, м (необязательно)" Text="{Binding AccuracyInput}" Keyboard="Numeric" />
+
+                        <Button Text="Получить GPS"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding RequestGpsCommand}"
+                                IsEnabled="{Binding IsBusyGeo, Converter={StaticResource InvertedBool}}" />
+
+                        <Entry Placeholder="Страна" Text="{Binding Country}" />
+                        <Entry Placeholder="Регион" Text="{Binding Region}" />
+                        <Entry Placeholder="Город" Text="{Binding City}" />
+                        <Entry Placeholder="Кладбище" Text="{Binding CemeteryName}" />
+                        <Entry Placeholder="Участок" Text="{Binding PlotNumber}" />
+                        <Entry Placeholder="Номер могилы" Text="{Binding GraveNumber}" />
+
+                        <Label Text="Чтобы удалить место захоронения — очисти Широту и Долготу, потом «Сохранить место захоронения»."
+                               Style="{StaticResource CaptionLabel}" />
+
+                        <Button Text="Сохранить место захоронения"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding SaveLocationCommand}"
+                                IsEnabled="{Binding IsSavingLocation, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>
