@@ -322,6 +322,35 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
             .AnyAsync(x => x.SearchKey == searchKey, cancellationToken);
     }
 
+    public async Task<(List<DeceasedEditRow> Items, int TotalCount)> GetEditsPaged(
+        Guid deceasedId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        // LEFT JOIN на users: editor мог быть soft-deleted (FK SET NULL),
+        // но запись edit'а должна остаться видимой админу как "Удалённый
+        // пользователь".
+        var query = from edit in dbContext.Set<DeceasedEdit>().AsNoTracking()
+                    where edit.DeceasedId == deceasedId
+                    join user in dbContext.Set<GdeOni.Domain.Aggregates.User.User>().AsNoTracking()
+                        on edit.EditedByUserId equals user.Id into editorGrp
+                    from editor in editorGrp.DefaultIfEmpty()
+                    orderby edit.EditedAtUtc descending
+                    select new DeceasedEditRow(
+                        edit,
+                        editor != null ? editor.Email : null,
+                        editor != null ? (editor.FullName ?? editor.UserName) : null);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
     public void Delete(Deceased deceased)
     {
         dbContext.DeceasedRecords.Remove(deceased);

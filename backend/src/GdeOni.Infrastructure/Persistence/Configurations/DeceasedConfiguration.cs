@@ -176,6 +176,17 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
         builder.Navigation(x => x.Media)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        // D24. Audit log правок карточки. Cascade: если карточку физически
+        // удалят (только админ), история тоже уходит — иначе FK без ON DELETE
+        // блокирует удаление.
+        builder.HasMany(x => x.Edits)
+            .WithOne()
+            .HasForeignKey(x => x.DeceasedId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(x => x.Edits)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.Property(x => x.MainMediaId)
             .HasColumnName("main_media_id");
 

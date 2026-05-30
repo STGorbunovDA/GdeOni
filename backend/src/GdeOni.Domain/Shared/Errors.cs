@@ -246,6 +246,29 @@ public static class Errors
                 "You cannot delete a deceased person's metadata card on behalf of another user.");
     }
 
+    public static class DeceasedEdit
+    {
+        public static Error NotEditor() =>
+            Error.Forbidden(
+                "deceased_edit.editor.forbidden",
+                "Only users tracking this deceased and admins can edit the card.");
+
+        public static Error EditorIdRequired() =>
+            Error.Validation("deceased_edit.editor_id.required", "Editor user id is required.");
+
+        public static Error DeceasedIdRequired() =>
+            Error.Validation("deceased_edit.deceased_id.required", "Deceased id is required.");
+
+        public static Error NoChanges() =>
+            Error.Validation("deceased_edit.changes.empty",
+                "DeceasedEdit cannot be created without actual changes.");
+
+        public static Error ChangesJsonTooLarge(int maxBytes) =>
+            Error.Validation(
+                "deceased_edit.changes.too_large",
+                $"Changes payload exceeds {maxBytes} bytes.");
+    }
+
     public static class DeceasedMemory
     {
         public static Error TextRequired() =>

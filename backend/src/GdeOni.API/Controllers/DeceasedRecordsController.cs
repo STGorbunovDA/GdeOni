@@ -14,6 +14,12 @@ using GdeOni.Application.DeceasedRecords.Commands.Delete.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Delete.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Update.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateBurialLocationByEditor.Model;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateBurialLocationByEditor.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMainInfoByEditor.Model;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMainInfoByEditor.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadataByEditor.Model;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadataByEditor.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetAll.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetById.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetById.UseCase;
@@ -164,6 +170,106 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         var result = await updateDeceasedUseCase.Execute(command, cancellationToken);
 
         return FromResult(result);
+    }
+
+    /// <summary>
+    /// D24. Обновляет основные поля карточки (имя, даты, описание, биография).
+    /// Доступно отслеживающим карточку юзерам и админам. Изменения пишутся
+    /// в audit log (deceased_edits) с EditorUserId = текущий пользователь.
+    /// Последняя запись побеждает (last-write-wins) — конфликтов нет,
+    /// история всё покажет в админке.
+    /// </summary>
+    [HttpPatch("{id:guid}/main-info")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateMainInfoByEditor(
+        [FromRoute] Guid id,
+        [FromBody] UpdateMainInfoByEditorRequest request,
+        [FromServices] IUpdateMainInfoByEditorUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdateMainInfoByEditorCommand(
+            id,
+            request.FirstName,
+            request.LastName,
+            request.MiddleName,
+            request.BirthDate,
+            request.DeathDate,
+            request.ShortDescription,
+            request.Biography);
+
+        var result = await useCase.Execute(command, cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D24. Обновляет метаданные карточки (эпитафия, религия, источник, военная
+    /// служба, доп. инфо). Доступно отслеживающим и админам, аудит ведётся.
+    /// </summary>
+    [HttpPatch("{id:guid}/metadata")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateMetadataByEditor(
+        [FromRoute] Guid id,
+        [FromBody] UpdateMetadataByEditorRequest request,
+        [FromServices] IUpdateMetadataByEditorUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdateMetadataByEditorCommand(
+            id,
+            request.Epitaph,
+            request.Religion,
+            request.Source,
+            request.IsMilitaryService,
+            request.AdditionalInfo);
+
+        var result = await useCase.Execute(command, cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D24. Обновляет место захоронения (координаты + страна/город/кладбище/
+    /// участок/номер). Если Latitude/Longitude == null — координаты
+    /// удаляются (карточка теряет место захоронения). Доступно отслеживающим
+    /// и админам, аудит ведётся.
+    /// </summary>
+    [HttpPatch("{id:guid}/burial-location")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateBurialLocationByEditor(
+        [FromRoute] Guid id,
+        [FromBody] UpdateBurialLocationByEditorRequest request,
+        [FromServices] IUpdateBurialLocationByEditorUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdateBurialLocationByEditorCommand(
+            id,
+            request.Latitude,
+            request.Longitude,
+            request.AccuracyMeters,
+            request.Country,
+            request.Region,
+            request.City,
+            request.CemeteryName,
+            request.PlotNumber,
+            request.GraveNumber,
+            request.Accuracy);
+
+        var result = await useCase.Execute(command, cancellationToken);
+        return FromUnitResult(result);
     }
 
     /// <summary>

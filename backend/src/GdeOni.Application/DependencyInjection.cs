@@ -20,8 +20,12 @@ using GdeOni.Application.DeceasedRecords.Commands.RemoveMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.SetBurialLocationFromGps.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.SetMainMediaPhoto.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Unverified.UseCase;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Commands.Update.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateBurialLocationByEditor.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMainInfoByEditor.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMediaDescription.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadataByEditor.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.UploadMedia.UseCase;
@@ -33,6 +37,7 @@ using GdeOni.Application.DeceasedRecords.Queries.GetDistance.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.UseCase;
+using GdeOni.Application.DeceasedRecords.Queries.GetDeceasedEdits.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.UseCase;
 using GdeOni.Application.Legal.Commands.AcceptLegal.UseCase;
 using GdeOni.Application.Legal.Queries.GetLegalDocument.UseCase;
@@ -94,6 +99,13 @@ public static class DependencyInjection
         services.AddScoped<IGetDeceasedByIdUseCase, GetDeceasedByIdUseCase>();
         services.AddScoped<IUpdateDeceasedUseCase, UpdateDeceasedUseCase>();
         services.AddScoped<ISetBurialLocationFromGpsUseCase, SetBurialLocationFromGpsUseCase>();
+
+        // D24. Collaborative editing
+        services.AddScoped<ICanEditDeceasedPolicy, CanEditDeceasedPolicy>();
+        services.AddScoped<IUpdateMainInfoByEditorUseCase, UpdateMainInfoByEditorUseCase>();
+        services.AddScoped<IUpdateMetadataByEditorUseCase, UpdateMetadataByEditorUseCase>();
+        services.AddScoped<IUpdateBurialLocationByEditorUseCase, UpdateBurialLocationByEditorUseCase>();
+        services.AddScoped<IGetDeceasedEditsUseCase, GetDeceasedEditsUseCase>();
         services.AddScoped<IDeleteDeceasedUseCase, DeleteDeceasedUseCase>();
         services.AddScoped<IDeleteUserUseCase, DeleteUserUseCase>();
 

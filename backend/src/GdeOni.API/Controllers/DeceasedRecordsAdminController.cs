@@ -10,6 +10,8 @@ using GdeOni.Application.DeceasedRecords.Commands.Unverified.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Unverified.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Verify.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Verify.UseCase;
+using GdeOni.Application.DeceasedRecords.Queries.GetDeceasedEdits.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetDeceasedEdits.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -166,5 +168,32 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
         var result = await rejectMediaModerationUseCase.Execute(command, cancellationToken);
 
         return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D24/F17.9. История правок карточки умершего: кто и когда менял
+    /// основные поля, метаданные, место захоронения. Diff в jsonb.
+    /// Доступно только админам.
+    /// </summary>
+    [HttpGet("{id:guid}/edits")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(ApiResponse<GetDeceasedEditsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetEdits(
+        [FromRoute] Guid id,
+        [FromQuery] int page,
+        [FromQuery] int pageSize,
+        [FromServices] IGetDeceasedEditsUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetDeceasedEditsQuery(
+            id,
+            page <= 0 ? 1 : page,
+            pageSize <= 0 ? 50 : pageSize);
+
+        var result = await useCase.Execute(query, cancellationToken);
+        return FromResult(result);
     }
 }

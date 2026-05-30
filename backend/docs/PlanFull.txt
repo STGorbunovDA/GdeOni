@@ -7025,6 +7025,173 @@ D23.6 Backfill: одноразовая ручная миграция для су
 автоматизируем — это разовая операция.
 
 =====================================================================
+D24. Collaborative editing карточки умершего + audit log
+=====================================================================
+
+Цель: один юзер может создать карточку умершего "по минимуму", другой
+(который тоже отслеживает её) может дополнить. Все правки — основные
+поля, метаданные, координаты захоронения — пишутся в журнал, чтобы
+админ мог разбирать конфликты, вандализм и спорные правки.
+
+Не путать с воспоминаниями (memories): у них уже свой owner-based
+flow (автор memory может править свою, админ — любую). Здесь речь про
+поля самой карточки Deceased.
+
+D24.1. Доменная модель
+
+D24.1.1. Сущность DeceasedEdit (новая, в составе агрегата Deceased)
+В backend/src/GdeOni.Domain/Aggregates/DeceasedRecords/DeceasedEdit.cs:
+
+  public sealed class DeceasedEdit
+  {
+      public Guid Id { get; private set; }
+      public Guid DeceasedId { get; private set; }
+      public Guid EditedByUserId { get; private set; }
+      public DateTime EditedAtUtc { get; private set; }
+      public DeceasedEditKind Kind { get; private set; }
+      public string ChangesJson { get; private set; }
+      // ChangesJson — jsonb-словарь { "FirstName": { "old": "Иван", "new": "Иоанн" }, ... }
+      // Сериализация через System.Text.Json в фабрике.
+  }
+
+  public enum DeceasedEditKind
+  {
+      MainInfo = 1,        // FirstName/LastName/MiddleName/BirthDate/DeathDate/ShortDescription/Biography
+      Metadata = 2,        // Epitaph/Religion/Source/IsMilitaryService/AdditionalInfo
+      BurialLocation = 3,  // координаты + страна/город/кладбище/участок/номер
+  }
+
+D24.1.2. Изменения в Deceased
+Добавляем коллекцию _edits (private List<DeceasedEdit>) с публичным
+read-only представлением Edits.
+
+Существующие методы UpdateMainInfo / UpdateMetadata / ChangeBurialLocation
+получают новый параметр Guid editorUserId. Внутри:
+
+  - Сравниваем старое и новое значение по полям блока.
+  - Если изменений нет — возвращаем Success без записи edit'а (no-op
+    guard, как и сейчас в D11.4.5 / D11.9.2 / D11.10.2).
+  - Если есть — собираем diff в Dictionary<string, (string? old, string? new)>,
+    создаём DeceasedEdit и добавляем в _edits.
+  - Touch() как и раньше.
+
+Метод RecordEdit — private static factory внутри Deceased, чтобы
+никто извне не мог сфабриковать edit без реального изменения полей.
+
+D24.1.3. Errors.DeceasedEdit
+Новая группа в backend/src/GdeOni.Domain/Shared/Errors.cs:
+
+  - NotEditor() → Forbidden, "Только отслеживающие карточку и админы
+    могут её редактировать."
+  - EditorIdRequired() → Validation
+  - ChangesJsonTooLarge() → Validation (если diff > 8KB — защита от
+    DoS через гигантскую Biography)
+
+D24.2. Infrastructure
+
+D24.2.1. EF-config DeceasedEditConfiguration
+Маппинг на таблицу deceased_edits:
+
+  - id (uuid, PK)
+  - deceased_id (uuid, FK на deceased.id, ON DELETE CASCADE — если
+    карточку физически удаляют, история тоже уходит)
+  - edited_by_user_id (uuid, FK на users.id, ON DELETE SET NULL —
+    юзера могут удалить через soft delete, но edit остаётся)
+  - edited_at_utc (timestamp)
+  - kind (smallint)
+  - changes_json (jsonb)
+
+Индексы:
+  - ix_deceased_edits_deceased_id_edited_at_utc — для админ-листинга
+    "все правки этой карточки от свежих к старым"
+  - ix_deceased_edits_edited_by_user_id — для админа "что натворил
+    этот юзер" (для разбора жалоб)
+
+D24.2.2. Миграция D24_AddDeceasedEditsTable
+
+D24.3. Application
+
+D24.3.1. ICurrentUserCanEditDeceasedPolicy
+Новый сервис в Application/Abstractions/Security/.
+Метод: Task<Result<UnitResult, Error>> CheckAsync(Guid deceasedId, Guid userId, CancellationToken).
+
+Логика:
+  - Если userId — админ (SuperAdmin/Admin), Success.
+  - Если у юзера есть tracked_deceased с deceased_id = deceasedId
+    и status != Archived → Success.
+  - Иначе → Errors.DeceasedEdit.NotEditor().
+
+Архив сознательно исключаем — если юзер сам сказал "это не моё больше",
+он не должен влиять на содержимое карточки.
+
+D24.3.2. Use cases (3 штуки, единый паттерн)
+В Application/DeceasedRecords/Commands/:
+
+  - UpdateMainInfo/   — FirstName/LastName/MiddleName/BirthDate/DeathDate/ShortDescription/Biography
+  - UpdateMetadata/   — все 5 полей Metadata. Reuse ClearMetadata() если все поля null.
+  - UpdateBurialLocation/ — Latitude/Longitude/Accuracy/Country/City/CemeteryName/PlotNumber/GraveNumber
+
+Каждый юз-кейс:
+  1. CurrentUserService.GetCurrentUserId() → Result.
+  2. CanEditDeceasedPolicy.CheckAsync(deceasedId, userId).
+  3. DeceasedRepository.GetByIdAsync(deceasedId) → NotFound если нет.
+  4. deceased.Update{...}(command, editorUserId) на агрегате.
+  5. Если поменялся SearchKey (после UpdateMainInfo) — RebuildSearchKey
+     уже вызывается внутри агрегата (D11.4.5 pattern).
+  6. repository.Save(ct) — UniqueConstraint catch для search_key.
+
+D24.3.3. GetDeceasedEditsForAdmin query
+GET /api/admin/deceased/{id}/edits.
+
+  - Возвращает page+pageSize список edit'ов отсортированный по
+    EditedAtUtc desc.
+  - JOIN с users чтобы вывести email/displayName редактора.
+  - Только админ.
+
+D24.4. API
+
+D24.4.1. Контроллер DeceasedRecordsController (расширение)
+Три PATCH-эндпоинта на ресурсе карточки:
+
+  - PATCH /api/deceased/{id}/main-info
+  - PATCH /api/deceased/{id}/metadata
+  - PATCH /api/deceased/{id}/burial-location
+
+Все три [Authorize] + ActiveSubscriptionPolicy.
+
+D24.4.2. Контроллер DeceasedRecordsAdminController (расширение)
+  - GET /api/admin/deceased/{id}/edits?page=1&pageSize=50
+
+D24.4.3. DTO + мапперы
+Reuse существующих DTO из AtGrave там, где возможно (BurialLocation),
+плюс новые UpdateMainInfoRequest / UpdateMetadataRequest /
+UpdateBurialLocationRequest.
+
+DeceasedEditResponse — для админ-листинга:
+  Id, EditedAtUtc, EditedByUserId, EditedByEmail, EditedByDisplayName,
+  Kind (string), Changes (Dictionary<string, ChangePair>).
+  ChangePair: { OldValue, NewValue } — обе строки (для дат — ISO format).
+
+D24.5. Тесты
+
+D24.5.1. Domain:
+  - UpdateMainInfo с реальным изменением → создаётся edit с правильным diff.
+  - UpdateMainInfo с теми же значениями → no-op, edit не создан.
+  - ChangeBurialLocation: меняет координаты и пишет diff.
+  - DeceasedEditKind правильный по типу метода.
+
+D24.5.2. Application:
+  - UpdateMainInfoUseCase: trackающий юзер → Success.
+  - UpdateMainInfoUseCase: чужой юзер не в трекерах → Forbidden.
+  - UpdateMainInfoUseCase: Archive-статус трекинга → Forbidden.
+  - UpdateMetadataUseCase: админ редактирует любую карточку → Success.
+
+D24.5.3. API integration:
+  - Полный flow: создать карточку (юзер A), затем PATCH main-info
+    юзером B (трекающим эту же карточку через AddExisting).
+  - GET /admin/deceased/{id}/edits возвращает запись.
+
+=====================================================================
 КОНЕЦ БЛОКА D-PROD
 =====================================================================
 
@@ -8519,7 +8686,68 @@ Firebase Crashlytics. Причины:
 Tests: нет (внешний SDK).
 
 =====================================================================
-КОНЕЦ E-PROD. ОБЩИЙ ОБЗОР MOBILE: E1-E21 закрыто, E22-E25 запланировано.
+E26. Collaborative editing карточки умершего (mobile)
+=====================================================================
+
+Зависимость: D24 backend закрыт.
+
+E26.1. Кнопка "Изменить" на DeceasedDetailsPage
+В шапке страницы, рядом с "Назад" — кнопка "Изменить" (видна всегда:
+видимость управляется не frontend'ом а 403 от backend'а — если юзер не
+вправе, PATCH вернёт Forbidden и мы покажем человеко-понятный
+ErrorMessage). Trade-off: альтернатива была бы fetch'ить IsEditable
+с бэка, но это лишний round-trip; видимость кнопки ≠ авторизация.
+
+E26.2. EditDeceasedPage / EditDeceasedViewModel
+Маршрут: edit-deceased?deceasedId={id}. QueryProperty → LoadAsync().
+
+Форма с тремя секциями (collapsible / accordion для компактности):
+
+  Секция "Основное" (PATCH /main-info):
+    - Имя, Фамилия, Отчество
+    - Дата рождения (опционально)
+    - Дата смерти
+    - Краткое описание, Биография
+
+  Секция "Дополнительно" (PATCH /metadata):
+    - Эпитафия
+    - Религия
+    - Источник
+    - Военная служба (Switch)
+    - Дополнительная информация
+
+  Секция "Место захоронения" (PATCH /burial-location):
+    - Координаты (через "Получить GPS" reuse геолокации из AtGravePage)
+    - Страна, Город, Кладбище, Участок, Номер могилы
+
+Каждая секция имеет свою кнопку "Сохранить" — раздельные PATCH'и.
+Альтернатива была бы один большой save-button с тремя последовательными
+PATCH'ами, но раздельно проще: меньше частичных failure'ов, понятнее
+аудит-log (один PATCH = одна запись DeceasedEdit одного Kind'а).
+
+E26.3. Обработка ответов
+  - 200/204 → перезагрузка деталей карточки + Toast "Сохранено".
+  - 403 deceased.edit.not_editor → "Только отслеживающие карточку
+    могут её редактировать." + Toast.
+  - 404 → "Карточка не найдена."
+  - 409 (search_key duplicate) → "Похожая карточка уже существует."
+  - 400 валидация → показать ValidationErrors как на AtGravePage.
+
+E26.4. Hookup в AppShell + DI
+  - Routing.RegisterRoute("edit-deceased", typeof(EditDeceasedPage)).
+  - MauiProgram: regiter EditDeceasedViewModel + EditDeceasedPage.
+
+E26.5. Тесты
+  - Mobile unit tests: пройти по логике "submit раздельных секций" +
+    "no-op submit не дёргает API" (если ничего не поменялось).
+
+Открытые техдолги E26 (не блокеры):
+  - Показ истории edits на самой мобилке (не только в админке).
+    Сейчас юзер не видит "кто что менял" в своей карточке.
+  - Optimistic concurrency через xmin (сейчас last-write-wins).
+
+=====================================================================
+КОНЕЦ E-PROD. ОБЩИЙ ОБЗОР MOBILE: E1-E21 закрыто, E22-E26 запланировано.
 =====================================================================
 
 =====================================================================
@@ -10009,6 +10237,29 @@ UI для D22 — выдача / отзыв complimentary access юзеру.
 [ ] В таблице F17.1 (все карточки) — не добавляем колонку
     complimentary. Это атрибут юзера, не карточки. Видно только
     в user-flow (см. выше).
+
+---------------------------------------------------------------------
+F17.9. Просмотр истории правок карточек умерших (D24)
+---------------------------------------------------------------------
+
+Зависимость: D24 backend закрыт.
+
+[ ] На странице карточки умершего (в админке) — таб "История правок".
+[ ] GET /api/admin/deceased/{id}/edits?page=1&pageSize=50.
+[ ] Таблица: дата (desc), редактор (email + ссылка на профиль),
+    тип (Основное / Дополнительно / Место захоронения),
+    кнопка "Показать diff".
+[ ] Diff-модалка: для каждого поля — было / стало (две колонки).
+    Поля с null показываем как "—".
+[ ] Фильтр по типу правки (chips).
+[ ] Фильтр по edited_by_user_id (для разбора жалоб на конкретного
+    юзера — "что он наделал").
+[ ] Кнопка "Все правки юзера X" в профиле юзера в админке (отдельный
+    эндпоинт TBD: GET /api/admin/users/{id}/deceased-edits).
+
+Назначение: разбор спорных правок, восстановление испорченных карточек
+вручную (админ копирует "было" обратно через тот же PATCH-эндпоинт),
+выявление вандализма.
 
 ---------------------------------------------------------------------
 F17.7. Что НЕ делаем в админке

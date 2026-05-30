@@ -45,6 +45,27 @@ public interface IDeceasedRepository
         int pageSize,
         CancellationToken cancellationToken);
     Task<bool> ExistsBySearchKey(string searchKey, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// D24. Аудит правок карточки. Возвращает страницу edit'ов с
+    /// JOIN-данными о редакторе (email/displayName) для админ-таблицы.
+    /// Сортировка по EditedAtUtc desc — самые свежие сверху.
+    /// </summary>
+    Task<(List<DeceasedEditRow> Items, int TotalCount)> GetEditsPaged(
+        Guid deceasedId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken);
+
     void Delete(Deceased deceased);
     Task Save(CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// D24. Audit row: DeceasedEdit + резолвленные данные о редакторе.
+/// Email/displayName могут быть null если юзера удалили (SET NULL FK).
+/// </summary>
+public sealed record DeceasedEditRow(
+    DeceasedEdit Edit,
+    string? EditorEmail,
+    string? EditorDisplayName);
