@@ -16,6 +16,7 @@ public partial class DeceasedDetailsViewModel(
     ITrackedDeceasedApi api,
     IDeceasedMediaApi mediaApi,
     IDeceasedMemoriesApi memoriesApi,
+    IDeceasedRecordsApi deceasedRecordsApi,
     IGeolocationService geolocationService,
     IAuthService authService,
     ILocalNotificationScheduler notificationScheduler) : ObservableObject
@@ -23,6 +24,12 @@ public partial class DeceasedDetailsViewModel(
     // Кешируем текущий userId на время жизни VM. Используется для вычисления
     // CanEdit у воспоминаний (см. MemoryItemViewModel.From).
     private Guid? _currentUserId;
+
+    // Видимость кнопки "Удалить" в шапке: только админам. Решение тут
+    // (а не на бэке) — UX-обнаружение: незачем показывать кнопку, которая
+    // у не-админа вернёт 403. Сам DELETE всё равно проверяет роль на бэке.
+    [ObservableProperty]
+    private bool _isCurrentUserAdmin;
     [ObservableProperty]
     private string _deceasedId = "";
 
@@ -186,7 +193,11 @@ public partial class DeceasedDetailsViewModel(
             {
                 var me = await authService.GetCurrentUserAsync();
                 if (me is not null)
+                {
                     _currentUserId = me.Id;
+                    IsCurrentUserAdmin = string.Equals(me.Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(me.Role, "Admin", StringComparison.OrdinalIgnoreCase);
+                }
             }
 
             var envelope = await api.GetDetailsAsync(id);
@@ -845,6 +856,60 @@ public partial class DeceasedDetailsViewModel(
     {
         if (!Guid.TryParse(DeceasedId, out _)) return;
         await Shell.Current.GoToAsync($"edit-deceased?deceasedId={DeceasedId}");
+    }
+
+    /// <summary>
+    /// Жёсткое удаление карточки (DELETE /api/deceased-records/{id}).
+    /// Доступно только админу — кнопка скрыта для остальных через
+    /// <see cref="IsCurrentUserAdmin"/>, бэк независимо вернёт 403 если
+    /// что-то пойдёт не так. После удаления отменяем annivers-alarms
+    /// (best-effort) и возвращаемся на главный список.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteDeceasedAsync()
+    {
+        if (!Guid.TryParse(DeceasedId, out var id) || Data is null) return;
+
+        var page = Shell.Current?.CurrentPage;
+        if (page is null) return;
+
+        var confirmed = await page.DisplayAlertAsync(
+            "Удалить карточку?",
+            $"Карточка {FullName} будет удалена полностью, включая фото, документы и воспоминания. Действие необратимо.",
+            "Удалить",
+            "Отмена");
+        if (!confirmed) return;
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = null;
+
+            var resp = await deceasedRecordsApi.DeleteAsync(id);
+            if (!resp.IsSuccessStatusCode)
+            {
+                ErrorMessage = (int)resp.StatusCode switch
+                {
+                    403 => "Удалять карточки могут только администраторы.",
+                    404 => "Карточка уже удалена.",
+                    _ => $"Не удалось удалить (HTTP {(int)resp.StatusCode})."
+                };
+                return;
+            }
+
+            try { await notificationScheduler.CancelAllForDeceasedAsync(id); }
+            catch { /* best-effort */ }
+
+            await Shell.Current!.GoToAsync("//main/tracked");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     /// <summary>

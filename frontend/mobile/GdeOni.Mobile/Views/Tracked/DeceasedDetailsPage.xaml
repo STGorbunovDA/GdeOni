@@ -29,7 +29,7 @@
         <ScrollView>
             <VerticalStackLayout Padding="24,40,24,40" Spacing="20">
 
-                <Grid ColumnDefinitions="Auto,*,Auto">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
                     <Button Grid.Column="0"
                             Text="‹ Назад"
                             Style="{StaticResource GhostButton}"
@@ -49,6 +49,19 @@
                             Padding="16,8"
                             FontSize="14"
                             IsVisible="{Binding HasData}" />
+
+                    <!-- Удаление карточки — только админам. Backend дублирует
+                         проверку роли независимо от UI. -->
+                    <Button Grid.Column="3"
+                            Text="Удалить"
+                            Style="{StaticResource GhostButton}"
+                            BackgroundColor="#C0392B"
+                            TextColor="White"
+                            Command="{Binding DeleteDeceasedCommand}"
+                            HorizontalOptions="End"
+                            Padding="16,8"
+                            FontSize="14"
+                            IsVisible="{Binding IsCurrentUserAdmin}" />
                 </Grid>
 
                 <!-- Loader / error -->

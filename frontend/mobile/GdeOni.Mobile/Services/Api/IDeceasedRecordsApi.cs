@@ -103,4 +103,13 @@ public interface IDeceasedRecordsApi
         Guid deceasedId,
         [Body] UpdateBurialLocationRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Жёсткое удаление карточки умершего. Доступно только админу.
+    /// Бэк возвращает 403 если у юзера нет роли SuperAdmin/Admin.
+    /// </summary>
+    [Delete("/api/deceased-records/{deceasedId}")]
+    Task<HttpResponseMessage> DeleteAsync(
+        Guid deceasedId,
+        CancellationToken cancellationToken = default);
 }
