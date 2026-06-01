@@ -64,6 +64,16 @@
                             IsVisible="{Binding IsCurrentUserAdmin}" />
                 </Grid>
 
+                <!-- F17.9 mobile. История правок — только админам. Полоска
+                     под шапкой со списком кнопок, чтобы не перегружать. -->
+                <Button Text="История правок"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding OpenEditsHistoryCommand}"
+                        HorizontalOptions="End"
+                        Padding="16,6"
+                        FontSize="13"
+                        IsVisible="{Binding IsCurrentUserAdmin}" />
+
                 <!-- Loader / error -->
                 <ActivityIndicator IsRunning="{Binding IsBusy}"
                                    IsVisible="{Binding IsBusy}"

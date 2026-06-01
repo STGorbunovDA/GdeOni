@@ -112,4 +112,15 @@ public interface IDeceasedRecordsApi
     Task<HttpResponseMessage> DeleteAsync(
         Guid deceasedId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D24. История правок карточки умершего. Только админ — бэк вернёт 403
+    /// иначе. Полезно при разборе вандализма и спорных правок.
+    /// </summary>
+    [Get("/api/deceased-records/{deceasedId}/edits")]
+    Task<ApiEnvelope<DeceasedEditsResponse>> GetEditsAsync(
+        Guid deceasedId,
+        [Query] int page = 1,
+        [Query] int pageSize = 20,
+        CancellationToken cancellationToken = default);
 }

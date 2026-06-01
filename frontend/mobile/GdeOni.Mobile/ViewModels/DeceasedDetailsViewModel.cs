@@ -859,6 +859,17 @@ public partial class DeceasedDetailsViewModel(
     }
 
     /// <summary>
+    /// F17.9 mobile. История правок этой карточки. Кнопка скрыта для не-админов
+    /// через IsCurrentUserAdmin; backend дублирует проверку и вернёт 403.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenEditsHistoryAsync()
+    {
+        if (!Guid.TryParse(DeceasedId, out _)) return;
+        await Shell.Current.GoToAsync($"edits-history?deceasedId={DeceasedId}");
+    }
+
+    /// <summary>
     /// Жёсткое удаление карточки (DELETE /api/deceased-records/{id}).
     /// Доступно только админу — кнопка скрыта для остальных через
     /// <see cref="IsCurrentUserAdmin"/>, бэк независимо вернёт 403 если

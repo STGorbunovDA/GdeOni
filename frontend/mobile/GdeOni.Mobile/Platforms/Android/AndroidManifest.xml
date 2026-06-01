@@ -31,4 +31,8 @@
 	     категория calendar reminder, не требует runtime prompt). -->
 	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 	<uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+	<!-- E23 C.3. RECEIVE_BOOT_COMPLETED — после ребута телефона
+	     BootRestoreReceiver получит сигнал и восстановит annivers-alarms
+	     через AnniversariesSyncService. Без этого alarms теряются. -->
+	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>

@@ -4,6 +4,7 @@ using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Auth;
 using GdeOni.Mobile.Services.Geolocation;
 using GdeOni.Mobile.Services.Network;
+using GdeOni.Mobile.Services.Notifications;
 using GdeOni.Mobile.Services.Observability;
 using GdeOni.Mobile.Services.Routing;
 using GdeOni.Mobile.Services.Storage;
@@ -266,6 +267,8 @@ public static class MauiProgram
         services.AddTransient<ChangePasswordViewModel>();
         services.AddTransient<BurialLocationEditorViewModel>();
         services.AddTransient<EditDeceasedViewModel>();
+        services.AddTransient<EditsHistoryViewModel>();
+        services.AddSingleton<AnniversariesSyncService>();
         services.AddTransient<NearbySearchViewModel>();
         services.AddTransient<BlockingUpdateViewModel>();
         services.AddTransient<SubscriptionViewModel>();
@@ -285,6 +288,7 @@ public static class MauiProgram
         services.AddTransient<ChangePasswordPage>();
         services.AddTransient<BurialLocationEditorPage>();
         services.AddTransient<EditDeceasedPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Admin.EditsHistoryPage>();
         services.AddTransient<NearbySearchPage>();
         services.AddTransient<BlockingUpdatePage>();
         services.AddTransient<SubscriptionPage>();

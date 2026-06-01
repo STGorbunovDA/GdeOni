@@ -89,17 +89,21 @@ public sealed class AnniversaryAlarmReceiver : BroadcastReceiver
             _ => ("Напоминание", fullName),
         };
 
-        // Tap на notification поднимает приложение. Углубление до
-        // конкретной карточки умершего (deep link на DeceasedDetailsPage)
-        // — отдельная задача (E23 follow-up).
-        var openIntent = context.PackageManager?.GetLaunchIntentForPackage(context.PackageName!);
-        var pending = openIntent is null
-            ? null
-            : PendingIntent.GetActivity(
-                context,
-                deceasedId.GetHashCode(),
-                openIntent,
-                PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
+        // E23 C.2. Deep link gdeoni://deceased/{id} — MainActivity ловит его
+        // через IntentFilter, парсит ID и пушит на DeceasedDetailsPage. Если
+        // юзер не залогинен, он попадёт на LoginPage (deep link теряется —
+        // сознательно простой кейс, см. план E23 C.2).
+        var deepLinkIntent = new Intent(
+            Intent.ActionView,
+            global::Android.Net.Uri.Parse($"gdeoni://deceased/{deceasedId}"));
+        deepLinkIntent.SetPackage(context.PackageName);
+        deepLinkIntent.AddFlags(ActivityFlags.NewTask | ActivityFlags.ClearTop);
+
+        var pending = PendingIntent.GetActivity(
+            context,
+            deceasedId.GetHashCode(),
+            deepLinkIntent,
+            PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
 
         var notif = new NotificationCompat.Builder(context, ChannelId)
             .SetSmallIcon(global::Android.Resource.Drawable.IcDialogInfo)

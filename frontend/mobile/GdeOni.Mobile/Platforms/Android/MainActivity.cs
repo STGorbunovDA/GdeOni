@@ -18,12 +18,21 @@ namespace GdeOni.Mobile;
     Categories = new[] { Intent.CategoryDefault, Intent.CategoryBrowsable },
     DataScheme = "gdeoni",
     DataHost = "payment")]
+// E23 C.2. Deep link gdeoni://deceased/{deceasedId} — отправляется из
+// notification AnniversaryAlarmReceiver. MainActivity ловит, парсит ID,
+// пушит на DeceasedDetailsPage. Если юзер не залогинен — попадёт на
+// LoginPage и deep link потеряется (простой кейс, см. план).
+[IntentFilter(
+    new[] { Intent.ActionView },
+    Categories = new[] { Intent.CategoryDefault, Intent.CategoryBrowsable },
+    DataScheme = "gdeoni",
+    DataHost = "deceased")]
 public class MainActivity : MauiAppCompatActivity
 {
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
-        HandlePaymentReturnIntent(Intent);
+        HandleDeepLink(Intent);
     }
 
     protected override void OnNewIntent(Intent? intent)
@@ -33,15 +42,27 @@ public class MainActivity : MauiAppCompatActivity
         // уже запущено и юзер вернулся через deep-link, новый intent
         // прилетает сюда (не в OnCreate). Без обработки здесь — глобально
         // невидимый event.
-        HandlePaymentReturnIntent(intent);
+        HandleDeepLink(intent);
     }
 
-    private static void HandlePaymentReturnIntent(Intent? intent)
+    private static void HandleDeepLink(Intent? intent)
     {
         if (intent?.Data is null) return;
         if (!string.Equals(intent.Data.Scheme, "gdeoni", StringComparison.OrdinalIgnoreCase)) return;
-        if (!string.Equals(intent.Data.Host, "payment", StringComparison.OrdinalIgnoreCase)) return;
 
+        var host = intent.Data.Host;
+        if (string.Equals(host, "payment", StringComparison.OrdinalIgnoreCase))
+        {
+            HandlePaymentReturnIntent(intent);
+        }
+        else if (string.Equals(host, "deceased", StringComparison.OrdinalIgnoreCase))
+        {
+            HandleDeceasedDeepLink(intent);
+        }
+    }
+
+    private static void HandlePaymentReturnIntent(Intent intent)
+    {
         // Shell.Current может быть null если приложение поднимается
         // через cold-start deep-link — навигацию выполнит AppShell сам
         // в OnAppearing после инициализации (см. PaymentReturnState
@@ -60,6 +81,37 @@ public class MainActivity : MauiAppCompatActivity
                 // Если Shell ещё в переходе — флаг PaymentReturnState
                 // подхватит SubscriptionPage.OnAppearing при следующем
                 // запуске. Никакого UX-сбоя.
+            }
+        });
+    }
+
+    private static void HandleDeceasedDeepLink(Intent intent)
+    {
+        // URI вида gdeoni://deceased/{guid} — путь начинается с "/", дальше id.
+        var path = intent.Data?.Path?.TrimStart('/');
+        if (string.IsNullOrWhiteSpace(path)) return;
+        if (!Guid.TryParse(path, out _)) return;
+
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            // Shell ещё не инициализирован при cold-start: ждём один tick,
+            // чтобы OnAppearing AppShell успел отработать (он сделает
+            // навигацию на //main/tracked или paywall). После этого
+            // пушим на конкретную карточку. Альтернатива — сохранять
+            // pending deep link в state'е и применять из AppShell, но
+            // для простого кейса это избыточно.
+            for (var i = 0; i < 20 && Shell.Current is null; i++)
+                await Task.Delay(100);
+            if (Shell.Current is null) return;
+            try
+            {
+                await Shell.Current.GoToAsync($"deceased-details?deceasedId={path}");
+            }
+            catch
+            {
+                // Если навигация не сработала (например, юзер на paywall'е
+                // или login'е) — игнорируем. Юзер увидит карточку когда
+                // дойдёт до tracked-вкладки.
             }
         });
     }

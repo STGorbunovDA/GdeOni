@@ -1,13 +1,15 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Auth;
+using GdeOni.Mobile.Services.Notifications;
 using GdeOni.Mobile.Services.Subscriptions;
 
 namespace GdeOni.Mobile.ViewModels;
 
 public partial class LoginViewModel(
     IAuthService authService,
-    IPaywallChecker paywallChecker) : ObservableObject
+    IPaywallChecker paywallChecker,
+    AnniversariesSyncService anniversariesSync) : ObservableObject
 {
     [ObservableProperty]
     private string _email = "";
@@ -49,6 +51,13 @@ public partial class LoginViewModel(
 
             // Успех — определяем, куда дальше: paywall или main.
             Password = "";
+
+            // E23 C.1. Восстанавливаем annivers-alarms на текущем устройстве:
+            // покрывает переустановку APK / смену устройства / то что юзер
+            // уже отказал в permissions ранее и теперь готов принять.
+            // Запускаем в фоне — не блокируем UI логина.
+            _ = Task.Run(() => anniversariesSync.SyncAsync());
+
             var target = await paywallChecker.ShouldShowPaywallAsync()
                 ? "//subscription-required"
                 : "//main/tracked";

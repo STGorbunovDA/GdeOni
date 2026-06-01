@@ -109,3 +109,23 @@ public sealed record UpdateBurialLocationRequest(
     string? PlotNumber,
     string? GraveNumber,
     int Accuracy = 0);
+
+/// <summary>
+/// D24. Ответ GET /api/deceased-records/{id}/edits. Kind: 1=MainInfo,
+/// 2=Metadata, 3=BurialLocation. ChangesJson — словарь
+/// { "FieldName": { "Old": "...", "New": "..." } } как строка.
+/// </summary>
+public sealed record DeceasedEditsResponse(
+    IReadOnlyList<DeceasedEditDto> Items,
+    int TotalCount,
+    int Page,
+    int PageSize);
+
+public sealed record DeceasedEditDto(
+    Guid Id,
+    DateTime EditedAtUtc,
+    Guid? EditedByUserId,
+    string? EditedByEmail,
+    string? EditedByDisplayName,
+    int Kind,
+    string ChangesJson);

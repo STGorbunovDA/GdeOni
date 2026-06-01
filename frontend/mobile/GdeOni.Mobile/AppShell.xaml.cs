@@ -1,4 +1,5 @@
 using GdeOni.Mobile.Services.Auth;
+using GdeOni.Mobile.Services.Notifications;
 using GdeOni.Mobile.Services.Subscriptions;
 using GdeOni.Mobile.Services.Versioning;
 using GdeOni.Mobile.Shared.Versioning;
@@ -13,17 +14,20 @@ public partial class AppShell : Shell
     private readonly IAuthService _authService;
     private readonly IAppVersionCheckService _versionCheck;
     private readonly IPaywallChecker _paywallChecker;
+    private readonly AnniversariesSyncService _anniversariesSync;
     private bool _initialNavigationDone;
 
     public AppShell(
         IAuthService authService,
         IAppVersionCheckService versionCheck,
-        IPaywallChecker paywallChecker)
+        IPaywallChecker paywallChecker,
+        AnniversariesSyncService anniversariesSync)
     {
         InitializeComponent();
         _authService = authService;
         _versionCheck = versionCheck;
         _paywallChecker = paywallChecker;
+        _anniversariesSync = anniversariesSync;
 
         // Auth flow.
         Routing.RegisterRoute("register", typeof(RegisterPage));
@@ -40,6 +44,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("burial-location-editor", typeof(BurialLocationEditorPage));
         // E26. Редактирование карточки умершего (трекающий или админ).
         Routing.RegisterRoute("edit-deceased", typeof(EditDeceasedPage));
+        // F17.9 mobile. История правок — только админам (бэк отдаст 403).
+        Routing.RegisterRoute("edits-history", typeof(GdeOni.Mobile.Views.Admin.EditsHistoryPage));
 
         // E21: поиск умерших в радиусе вокруг текущей точки пользователя.
         Routing.RegisterRoute("nearby-search", typeof(NearbySearchPage));
@@ -80,6 +86,11 @@ public partial class AppShell : Shell
         // Если в SecureStorage нет access-токена — остаёмся на login.
         if (!await _authService.HasSessionAsync())
             return;
+
+        // E23 C.1. Восстанавливаем annivers-alarms в фоне. Запуск на старте
+        // покрывает случай "юзер открыл приложение, но логиниться не пришлось
+        // (токен ещё валиден) — sync после LoginViewModel сюда не дошёл".
+        _ = Task.Run(() => _anniversariesSync.SyncAsync());
 
         // E22.6. После логина — проверяем нужен ли paywall.
         if (await _paywallChecker.ShouldShowPaywallAsync())
