@@ -169,6 +169,17 @@ public static class MauiProgram
             .AddHttpMessageHandler<SubscriptionGateHandler>()
             .AddPolicyHandler(BuildRetryPolicy());
 
+        services.AddRefitClient<IAdminApi>(refitSettings)
+            .ConfigureHttpClient((sp, c) =>
+            {
+                var config = sp.GetRequiredService<AppConfig>();
+                c.BaseAddress = new Uri(config.Api.BaseUrl);
+                c.Timeout = TimeSpan.FromSeconds(config.Api.TimeoutSeconds);
+            })
+            .AddHttpMessageHandler<AuthTokenHandler>()
+            .AddHttpMessageHandler<RefreshTokenHandler>()
+            .AddPolicyHandler(BuildRetryPolicy());
+
         services.AddRefitClient<ITrackedDeceasedApi>(refitSettings)
             .ConfigureHttpClient((sp, c) =>
             {
@@ -268,6 +279,11 @@ public static class MauiProgram
         services.AddTransient<BurialLocationEditorViewModel>();
         services.AddTransient<EditDeceasedViewModel>();
         services.AddTransient<EditsHistoryViewModel>();
+        services.AddTransient<AdminViewModel>();
+        services.AddTransient<AllEditsHistoryViewModel>();
+        services.AddTransient<AdminUsersViewModel>();
+        services.AddTransient<AdminUserDetailsViewModel>();
+        services.AddTransient<AdminPaymentsViewModel>();
         services.AddSingleton<AnniversariesSyncService>();
         services.AddTransient<NearbySearchViewModel>();
         services.AddTransient<BlockingUpdateViewModel>();
@@ -289,6 +305,11 @@ public static class MauiProgram
         services.AddTransient<BurialLocationEditorPage>();
         services.AddTransient<EditDeceasedPage>();
         services.AddTransient<GdeOni.Mobile.Views.Admin.EditsHistoryPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Admin.AdminPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Admin.AllEditsHistoryPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Admin.AdminUsersPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Admin.AdminUserDetailsPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Admin.AdminPaymentsPage>();
         services.AddTransient<NearbySearchPage>();
         services.AddTransient<BlockingUpdatePage>();
         services.AddTransient<SubscriptionPage>();

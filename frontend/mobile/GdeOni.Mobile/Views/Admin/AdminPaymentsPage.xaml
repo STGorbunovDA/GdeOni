@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Admin.AdminPaymentsPage"
+             x:DataType="vm:AdminPaymentsViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Платежи">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="14">
+
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8" />
+
+                <Label Text="Платежи" Style="{StaticResource TitleLabel}" />
+                <Label Text="Все платежи подписок по системе." Style="{StaticResource CaptionLabel}" />
+
+                <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                   IsVisible="{Binding IsLoading}"
+                                   Color="{StaticResource Azure}" />
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="#C0392B"
+                       Style="{StaticResource BodyLabel}" />
+
+                <Label Text="Платежей нет."
+                       Style="{StaticResource CaptionLabel}"
+                       IsVisible="{Binding HasNoItems}" />
+
+                <CollectionView ItemsSource="{Binding Payments}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AdminPaymentEntry">
+                            <Border Style="{StaticResource CloudCard}" Margin="0,0,0,8">
+                                <Grid ColumnDefinitions="*,Auto" RowSpacing="2">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                        <Label Text="{Binding UserEmail}"
+                                               Style="{StaticResource SubTitleLabel}"
+                                               FontSize="15" />
+                                        <Label Text="{Binding CreatedAt}" Style="{StaticResource CaptionLabel}" />
+                                        <Label Text="{Binding Period, StringFormat='Период: {0}'}" Style="{StaticResource CaptionLabel}" />
+                                        <Label Text="{Binding Plan, StringFormat='План: {0}'}" Style="{StaticResource CaptionLabel}" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2" HorizontalOptions="End">
+                                        <Label Text="{Binding Amount}"
+                                               Style="{StaticResource SubTitleLabel}"
+                                               FontSize="15" />
+                                        <Label Text="{Binding StatusDisplay}"
+                                               TextColor="{Binding StatusColor}"
+                                               FontAttributes="Bold"
+                                               HorizontalOptions="End" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Button Text="Загрузить ещё"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding LoadNextPageCommand}"
+                        IsVisible="{Binding CanLoadMore}" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

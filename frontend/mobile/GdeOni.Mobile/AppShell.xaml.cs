@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using GdeOni.Mobile.Services.Auth;
 using GdeOni.Mobile.Services.Notifications;
 using GdeOni.Mobile.Services.Subscriptions;
@@ -9,13 +11,33 @@ using GdeOni.Mobile.Views.Tracked;
 
 namespace GdeOni.Mobile;
 
-public partial class AppShell : Shell
+public partial class AppShell : Shell, INotifyPropertyChanged
 {
     private readonly IAuthService _authService;
     private readonly IAppVersionCheckService _versionCheck;
     private readonly IPaywallChecker _paywallChecker;
     private readonly AnniversariesSyncService _anniversariesSync;
     private bool _initialNavigationDone;
+    private bool _isCurrentUserAdmin;
+
+    /// <summary>
+    /// F17.9 mobile. Биндится на IsVisible вкладки "Админка" в AppShell.xaml.
+    /// Заполняется в OnAppearing после HasSessionAsync через
+    /// authService.GetCurrentUserAsync(). На logout сбрасывается в false
+    /// внешним кодом (ProfileViewModel после Logout зовёт ResetAdminFlag).
+    /// </summary>
+    public bool IsCurrentUserAdmin
+    {
+        get => _isCurrentUserAdmin;
+        set
+        {
+            if (_isCurrentUserAdmin == value) return;
+            _isCurrentUserAdmin = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCurrentUserAdmin)));
+        }
+    }
+
+    public new event PropertyChangedEventHandler? PropertyChanged;
 
     public AppShell(
         IAuthService authService,
@@ -46,6 +68,11 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("edit-deceased", typeof(EditDeceasedPage));
         // F17.9 mobile. История правок — только админам (бэк отдаст 403).
         Routing.RegisterRoute("edits-history", typeof(GdeOni.Mobile.Views.Admin.EditsHistoryPage));
+        // Глобальная админ-вкладка → подстраницы.
+        Routing.RegisterRoute("all-edits", typeof(GdeOni.Mobile.Views.Admin.AllEditsHistoryPage));
+        Routing.RegisterRoute("admin-users", typeof(GdeOni.Mobile.Views.Admin.AdminUsersPage));
+        Routing.RegisterRoute("admin-user-details", typeof(GdeOni.Mobile.Views.Admin.AdminUserDetailsPage));
+        Routing.RegisterRoute("admin-payments", typeof(GdeOni.Mobile.Views.Admin.AdminPaymentsPage));
 
         // E21: поиск умерших в радиусе вокруг текущей точки пользователя.
         Routing.RegisterRoute("nearby-search", typeof(NearbySearchPage));
@@ -87,6 +114,10 @@ public partial class AppShell : Shell
         if (!await _authService.HasSessionAsync())
             return;
 
+        // F17.9 mobile. Подтягиваем роль ДО навигации в TabBar, чтобы
+        // вкладка "Админка" появилась/спряталась сразу.
+        await RefreshCurrentUserRoleAsync();
+
         // E23 C.1. Восстанавливаем annivers-alarms в фоне. Запуск на старте
         // покрывает случай "юзер открыл приложение, но логиниться не пришлось
         // (токен ещё валиден) — sync после LoginViewModel сюда не дошёл".
@@ -101,4 +132,28 @@ public partial class AppShell : Shell
 
         await GoToAsync("//main/tracked");
     }
+
+    /// <summary>
+    /// Дёрнуть бэк, обновить флаг IsCurrentUserAdmin. Доступно публично —
+    /// чтобы LoginViewModel после успешного логина мог сразу обновить TabBar
+    /// без полного re-init AppShell.
+    /// </summary>
+    public async Task RefreshCurrentUserRoleAsync()
+    {
+        try
+        {
+            var me = await _authService.GetCurrentUserAsync();
+            IsCurrentUserAdmin = me is not null && (
+                string.Equals(me.Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(me.Role, "Admin", StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            // Сетевая ошибка / 401 — не валим UI, просто скрываем админку.
+            IsCurrentUserAdmin = false;
+        }
+    }
+
+    /// <summary>Сброс при logout, чтобы вкладка скрылась мгновенно.</summary>
+    public void ResetAdminFlag() => IsCurrentUserAdmin = false;
 }

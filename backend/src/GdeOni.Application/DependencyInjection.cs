@@ -37,6 +37,7 @@ using GdeOni.Application.DeceasedRecords.Queries.GetDistance.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.UseCase;
+using GdeOni.Application.DeceasedRecords.Queries.GetAllEdits.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetDeceasedEdits.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.UseCase;
 using GdeOni.Application.Legal.Commands.AcceptLegal.UseCase;
@@ -106,6 +107,7 @@ public static class DependencyInjection
         services.AddScoped<IUpdateMetadataByEditorUseCase, UpdateMetadataByEditorUseCase>();
         services.AddScoped<IUpdateBurialLocationByEditorUseCase, UpdateBurialLocationByEditorUseCase>();
         services.AddScoped<IGetDeceasedEditsUseCase, GetDeceasedEditsUseCase>();
+        services.AddScoped<IGetAllEditsUseCase, GetAllEditsUseCase>();
         services.AddScoped<IDeleteDeceasedUseCase, DeleteDeceasedUseCase>();
         services.AddScoped<IDeleteUserUseCase, DeleteUserUseCase>();
 

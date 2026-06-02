@@ -195,6 +195,11 @@ public partial class ProfileViewModel(
             Subscription = null;
             ErrorMessage = null;
 
+            // F17.9 mobile. Сбросить флаг до навигации, чтобы вкладка
+            // "Админка" исчезла мгновенно (без миллисекундного мигания).
+            if (Shell.Current is AppShell appShell)
+                appShell.ResetAdminFlag();
+
             await Shell.Current.GoToAsync("//login");
         }
         finally

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Admin.AdminPage"
+             x:DataType="vm:AdminViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Title="Админка">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="20">
+
+                <Label Text="Админка" Style="{StaticResource TitleLabel}" />
+                <Label Text="Управление пользователями, платежами и историей правок."
+                       Style="{StaticResource CaptionLabel}" />
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="История правок" Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Лента всех изменений карточек умерших по всей системе." Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Открыть"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding OpenAllEditsCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Пользователи" Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Список пользователей, смена ролей, выдача бесплатного доступа." Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Открыть"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding OpenAdminUsersCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Платежи" Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="История всех платежей подписки." Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Открыть"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding OpenAdminPaymentsCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

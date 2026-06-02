@@ -57,6 +57,15 @@ public interface IDeceasedRepository
         int pageSize,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// D24/F17.9. Лента всех правок по системе для админ-вкладки.
+    /// JOIN на deceased (имя умершего) + user (email/имя редактора).
+    /// </summary>
+    Task<(List<DeceasedEditWithCardRow> Items, int TotalCount)> GetAllEditsPaged(
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken);
+
     void Delete(Deceased deceased);
     Task Save(CancellationToken cancellationToken);
 }
@@ -67,5 +76,15 @@ public interface IDeceasedRepository
 /// </summary>
 public sealed record DeceasedEditRow(
     DeceasedEdit Edit,
+    string? EditorEmail,
+    string? EditorDisplayName);
+
+/// <summary>
+/// D24/F17.9. Тот же edit + имя умершего которого правили
+/// (для глобальной ленты, где deceasedId не очевиден из контекста).
+/// </summary>
+public sealed record DeceasedEditWithCardRow(
+    DeceasedEdit Edit,
+    string DeceasedFullName,
     string? EditorEmail,
     string? EditorDisplayName);

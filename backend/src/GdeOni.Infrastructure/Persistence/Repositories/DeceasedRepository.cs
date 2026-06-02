@@ -351,6 +351,35 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
         return (items, totalCount);
     }
 
+    public async Task<(List<DeceasedEditWithCardRow> Items, int TotalCount)> GetAllEditsPaged(
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        // Тот же LEFT JOIN на users + INNER на deceased (карточка не может
+        // быть null — edit живёт внутри агрегата с CASCADE). Имя берём
+        // напрямую из PersonName через owned-проперти.
+        var query = from edit in dbContext.Set<DeceasedEdit>().AsNoTracking()
+                    join d in dbContext.DeceasedRecords.AsNoTracking() on edit.DeceasedId equals d.Id
+                    join user in dbContext.Set<GdeOni.Domain.Aggregates.User.User>().AsNoTracking()
+                        on edit.EditedByUserId equals user.Id into editorGrp
+                    from editor in editorGrp.DefaultIfEmpty()
+                    orderby edit.EditedAtUtc descending
+                    select new DeceasedEditWithCardRow(
+                        edit,
+                        d.Name.LastName + " " + d.Name.FirstName,
+                        editor != null ? editor.Email : null,
+                        editor != null ? (editor.FullName ?? editor.UserName) : null);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
     public void Delete(Deceased deceased)
     {
         dbContext.DeceasedRecords.Remove(deceased);

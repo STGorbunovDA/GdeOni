@@ -9,6 +9,8 @@
     xmlns:profile="clr-namespace:GdeOni.Mobile.Views.Profile"
     xmlns:updates="clr-namespace:GdeOni.Mobile.Views.Updates"
     xmlns:subs="clr-namespace:GdeOni.Mobile.Views.Subscriptions"
+    xmlns:admin="clr-namespace:GdeOni.Mobile.Views.Admin"
+    x:Name="ShellRoot"
     Title="GdeOni"
     FlyoutBehavior="Disabled"
     Shell.NavBarIsVisible="False"
@@ -23,14 +25,25 @@
     <!-- Главный TabBar — доступен только после логина. -->
     <TabBar Route="main">
         <ShellContent
+            Title="Отслеживаемые"
             Route="tracked"
             ContentTemplate="{DataTemplate tracked:TrackedListPage}" />
         <ShellContent
+            Title="Маршрут"
             Route="route"
             ContentTemplate="{DataTemplate route:RoutePage}" />
         <ShellContent
+            Title="Профиль"
             Route="profile"
             ContentTemplate="{DataTemplate profile:ProfilePage}" />
+        <!-- F17.9 mobile. Админская вкладка — видна только SuperAdmin/Admin.
+             IsVisible биндится на AppShell.IsCurrentUserAdmin, который
+             заполняется после HasSessionAsync в OnAppearing. -->
+        <ShellContent
+            Title="Админка"
+            Route="admin"
+            ContentTemplate="{DataTemplate admin:AdminPage}"
+            IsVisible="{Binding IsCurrentUserAdmin, Source={x:Reference ShellRoot}}" />
     </TabBar>
 
     <!-- E22. Top-level blocking-update page (без TabBar / Back).
