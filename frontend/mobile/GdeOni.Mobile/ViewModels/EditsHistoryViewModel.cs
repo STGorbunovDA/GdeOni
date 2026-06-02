@@ -121,12 +121,14 @@ public sealed class EditEntry
 
     public static EditEntry From(DeceasedEditDto dto)
     {
+        // Backend сериализует enum через JsonStringEnumConverter — приходит
+        // строкой "MainInfo"/"Metadata"/"BurialLocation".
         var kindDisplay = dto.Kind switch
         {
-            1 => "Основное",
-            2 => "Дополнительно",
-            3 => "Место захоронения",
-            _ => $"Тип {dto.Kind}",
+            "MainInfo" => "Основное",
+            "Metadata" => "Дополнительно",
+            "BurialLocation" => "Место захоронения",
+            _ => dto.Kind,
         };
 
         var editor = !string.IsNullOrWhiteSpace(dto.EditedByDisplayName)

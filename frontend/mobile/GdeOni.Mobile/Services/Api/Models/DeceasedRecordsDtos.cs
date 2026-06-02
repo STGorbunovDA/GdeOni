@@ -127,5 +127,5 @@ public sealed record DeceasedEditDto(
     Guid? EditedByUserId,
     string? EditedByEmail,
     string? EditedByDisplayName,
-    int Kind,
+    string Kind,
     string ChangesJson);
