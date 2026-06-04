@@ -172,7 +172,10 @@ public partial class AllEditsHistoryViewModel(IAdminApi adminApi) : ObservableOb
     private async Task OpenDeceasedAsync(AllEditsEntry? entry)
     {
         if (entry is null) return;
-        await Shell.Current.GoToAsync($"deceased-details?deceasedId={entry.DeceasedId}");
+        // Из админ-ленты — на preview, не на details. Details требует чтобы
+        // текущий юзер трекал эту карточку (404 от /me/tracked-deceased/{id}
+        // иначе), а админ может не отслеживать. Preview работает у всех.
+        await Shell.Current.GoToAsync($"deceased-preview?deceasedId={entry.DeceasedId}");
     }
 
     [RelayCommand]
