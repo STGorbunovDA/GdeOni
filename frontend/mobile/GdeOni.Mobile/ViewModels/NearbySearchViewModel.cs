@@ -146,15 +146,14 @@ public partial class NearbySearchViewModel(
                 return;
             }
 
-            // Тянем список уже отслеживаемых — чтобы пометить найденные
-            // галкой и поднять их в верх списка. 200 хватит большинству;
-            // если у юзера больше — те просто не будут предотмечены,
-            // что не ломает UX.
-            var alreadyTracked = await LoadAlreadyTrackedIdsAsync();
-
             UnhookRowSelectionEvents();
             Results.Clear();
             AddStatusMessage = null;
+
+            // Тянем список уже отслеживаемых ПОСЛЕ reset AddStatusMessage,
+            // чтобы диагностические сообщения (если что-то пошло не так)
+            // дошли до UI. 200 хватит большинству юзеров.
+            var alreadyTracked = await LoadAlreadyTrackedIdsAsync();
 
             // Сортировка: отслеживаемые сверху (в том же порядке как пришли
             // с бэка), за ними — остальные. По расстоянию бэк уже отсортировал.
@@ -285,13 +284,29 @@ public partial class NearbySearchViewModel(
         try
         {
             var envelope = await trackedApi.GetListAsync(page: 1, pageSize: 200);
-            if (envelope.Result is null) return new HashSet<Guid>();
-            return envelope.Result.Items.Select(x => x.DeceasedId).ToHashSet();
+            if (envelope.Result is null)
+            {
+                // Не молчим — показываем диагностику в AddStatusMessage,
+                // чтобы юзер видел почему пометки не работают.
+                AddStatusMessage = envelope.ErrorMessage is not null
+                    ? $"[Tracked load] {envelope.ErrorCode}: {envelope.ErrorMessage}"
+                    : "[Tracked load] пустой ответ";
+                return new HashSet<Guid>();
+            }
+            var ids = envelope.Result.Items.Select(x => x.DeceasedId).ToHashSet();
+            // Подсказка если 0 — может юзер реально никого не трекает.
+            if (ids.Count == 0)
+                AddStatusMessage = "[Tracked load] список пуст (0 карточек)";
+            return ids;
         }
-        catch
+        catch (Refit.ApiException apiEx)
         {
-            // Сетевая/auth ошибка — не валим основной флоу поиска, просто
-            // не помечаем галки.
+            AddStatusMessage = $"[Tracked load] HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+            return new HashSet<Guid>();
+        }
+        catch (Exception ex)
+        {
+            AddStatusMessage = $"[Tracked load] {ex.GetType().Name}: {ex.Message}";
             return new HashSet<Guid>();
         }
     }
