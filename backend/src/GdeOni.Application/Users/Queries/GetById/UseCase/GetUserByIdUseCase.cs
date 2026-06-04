@@ -73,6 +73,15 @@ public sealed class GetUserByIdUseCase(
             effectiveStatus = "Expired";
         }
 
+        // F17.10. Email админа-блокировщика — отдельный лёгкий SELECT
+        // только по id. Тянем только если юзер заблокирован, иначе
+        // лишний роунд-трип.
+        string? blockedByEmail = null;
+        if (user.IsBlocked && user.BlockedByUserId is { } byId)
+        {
+            blockedByEmail = await userRepository.GetEmailById(byId, cancellationToken);
+        }
+
         return Result.Success<GetUserByIdResponse, Error>(new GetUserByIdResponse
         {
             Id = user.Id,
@@ -89,6 +98,11 @@ public sealed class GetUserByIdUseCase(
             HasComplimentaryAccess = user.HasComplimentaryAccess(nowUtc),
             ComplimentaryAccessUntilUtc = user.ComplimentaryAccessUntilUtc,
             ComplimentaryAccessNote = user.ComplimentaryAccessNote,
+            IsBlocked = user.IsBlocked,
+            BlockedAtUtc = user.BlockedAtUtc,
+            BlockedByUserId = user.BlockedByUserId,
+            BlockedByUserEmail = blockedByEmail,
+            BlockedReason = user.BlockedReason,
         });
     }
 }

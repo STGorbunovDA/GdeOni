@@ -97,6 +97,33 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("complimentary_access_note")
             .HasMaxLength(User.MaxComplimentaryNoteLength);
 
+        // F17.10. Блокировка пользователя — четыре nullable-колонки
+        // заполняются и обнуляются единым методом User.Block/Unblock.
+        // IsBlocked имеет default=false для существующих юзеров после
+        // миграции. BlockedReason — опциональный комментарий админа.
+        builder.Property(x => x.IsBlocked)
+            .HasColumnName("is_blocked")
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        builder.Property(x => x.BlockedAtUtc)
+            .HasColumnName("blocked_at_utc");
+
+        builder.Property(x => x.BlockedByUserId)
+            .HasColumnName("blocked_by_user_id");
+
+        builder.Property(x => x.BlockedReason)
+            .HasColumnName("blocked_reason")
+            .HasMaxLength(User.MaxBlockReasonLength);
+
+        // ix_users_is_blocked — для аналитических запросов "сколько
+        // заблокированных" и потенциального батч-разблока. Партиал по
+        // is_blocked = true минимизирует размер: подавляющее большинство
+        // юзеров не заблокированы.
+        builder.HasIndex(x => x.IsBlocked)
+            .HasFilter("is_blocked = true")
+            .HasDatabaseName("ix_users_is_blocked");
+
         builder.OwnsOne(x => x.Subscription, subscription =>
         {
             subscription.Property(x => x.Status)

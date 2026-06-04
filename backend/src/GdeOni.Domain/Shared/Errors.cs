@@ -388,6 +388,33 @@ public static class Errors
                 "user.delete.peer_admin.forbidden",
                 "An Admin cannot delete another Admin. Only a SuperAdmin can.");
 
+        public static Error AdminIdRequired() =>
+            Error.Validation("user.admin_id.required", "Admin id is required.");
+
+        public static Error BlockSelfForbidden() =>
+            Error.Forbidden("user.block.self.forbidden", "You cannot block your own account.");
+
+        public static Error BlockSuperAdminForbidden() =>
+            Error.Forbidden(
+                "user.block.super_admin.forbidden",
+                "Only a SuperAdmin can block another SuperAdmin (and currently it is disabled).");
+
+        public static Error BlockPeerAdminForbidden() =>
+            Error.Forbidden(
+                "user.block.peer_admin.forbidden",
+                "An Admin cannot block another Admin. Only a SuperAdmin can.");
+
+        public static Error BlockReasonTooLong(int max) =>
+            Error.Validation("user.block.reason.too_long",
+                $"Block reason must not exceed {max} characters.");
+
+        public static Error AccountBlocked(string? reason) =>
+            Error.Forbidden(
+                "user.account.blocked",
+                reason is null
+                    ? "Your account is blocked. Contact support."
+                    : $"Your account is blocked. Reason: {reason}");
+
         public static Error RoleUnknownNotAllowed() =>
             Error.Validation("user.role.unknown.not_allowed", "The role cannot be Unknown");
 

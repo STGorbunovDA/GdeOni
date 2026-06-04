@@ -12,6 +12,7 @@ public sealed class User : Entity<Guid>
     public const int MaxRole = 50;
     public const int MaxPasswordHash = 1000;
     public const int MaxComplimentaryNoteLength = 500;
+    public const int MaxBlockReasonLength = 500;
     public string Email { get; private set; }
 
     /// <summary>
@@ -101,6 +102,15 @@ public sealed class User : Entity<Guid>
     /// <see cref="MaxComplimentaryNoteLength"/> символов.
     /// </summary>
     public string? ComplimentaryAccessNote { get; private set; }
+
+    /// <summary>
+    /// Заблокирован ли аккаунт админом. LoginUseCase сразу отбивает,
+    /// а текущая сессия инвалидируется через ротацию SecurityStamp.
+    /// </summary>
+    public bool IsBlocked { get; private set; }
+    public DateTime? BlockedAtUtc { get; private set; }
+    public Guid? BlockedByUserId { get; private set; }
+    public string? BlockedReason { get; private set; }
 
     private readonly List<TrackedDeceased> _trackedDeceasedItems = new();
     public IReadOnlyCollection<TrackedDeceased> TrackedDeceasedItems => _trackedDeceasedItems.AsReadOnly();
@@ -426,6 +436,53 @@ public sealed class User : Entity<Guid>
             return UnitResult.Success<Error>();
 
         Subscription = Subscription.WithRevoked(nowUtc);
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// Блокировка аккаунта админом. Ротация SecurityStamp инвалидирует
+    /// активную access-сессию (см. OnTokenValidated middleware). Reason
+    /// опционален — для аудита и UX (юзер видит на login-экране).
+    /// </summary>
+    public UnitResult<Error> Block(Guid byAdminId, string? reason, DateTime nowUtc)
+    {
+        if (byAdminId == Guid.Empty)
+            return Errors.User.AdminIdRequired();
+        if (byAdminId == Id)
+            return Errors.User.BlockSelfForbidden();
+
+        var normalizedReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        if (normalizedReason is not null && normalizedReason.Length > MaxBlockReasonLength)
+            return Errors.User.BlockReasonTooLong(MaxBlockReasonLength);
+
+        // No-op guard: уже заблокирован той же причиной → не дёргаем
+        // SecurityStamp/Touch, чтобы повторный POST был идемпотентен.
+        if (IsBlocked && BlockedReason == normalizedReason && BlockedByUserId == byAdminId)
+            return UnitResult.Success<Error>();
+
+        IsBlocked = true;
+        BlockedAtUtc = nowUtc;
+        BlockedByUserId = byAdminId;
+        BlockedReason = normalizedReason;
+        SecurityStamp = Guid.NewGuid();
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// Разблокировка. Юзер снова может логиниться, но активная сессия
+    /// (если оставалась) уже была инвалидирована при Block — повторно
+    /// ротировать SecurityStamp смысла нет.
+    /// </summary>
+    public UnitResult<Error> Unblock()
+    {
+        if (!IsBlocked) return UnitResult.Success<Error>();
+
+        IsBlocked = false;
+        BlockedAtUtc = null;
+        BlockedByUserId = null;
+        BlockedReason = null;
         Touch();
         return UnitResult.Success<Error>();
     }

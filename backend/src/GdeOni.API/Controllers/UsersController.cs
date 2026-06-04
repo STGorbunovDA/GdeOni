@@ -7,6 +7,8 @@ using GdeOni.API.Response;
 using GdeOni.Application.Common.Shared;
 using GdeOni.Application.Legal.Commands.AcceptLegal.Model;
 using GdeOni.Application.Legal.Commands.AcceptLegal.UseCase;
+using GdeOni.Application.Users.Commands.Block.Model;
+using GdeOni.Application.Users.Commands.Block.UseCase;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
 using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
 using GdeOni.Application.Users.Commands.ChangePassword.Model;
@@ -17,6 +19,8 @@ using GdeOni.Application.Users.Commands.Delete.Model;
 using GdeOni.Application.Users.Commands.Delete.UseCase;
 using GdeOni.Application.Users.Commands.Register.Model;
 using GdeOni.Application.Users.Commands.Register.UseCase;
+using GdeOni.Application.Users.Commands.Unblock.Model;
+using GdeOni.Application.Users.Commands.Unblock.UseCase;
 using GdeOni.Application.Users.Commands.UpdateProfile.Model;
 using GdeOni.Application.Users.Commands.UpdateProfile.UseCase;
 using GdeOni.Application.Users.Queries.GetAll.Model;
@@ -247,6 +251,56 @@ public sealed class UsersController : ApiControllerBase
     {
         var result = await deleteUserUseCase.Execute(
             UsersMapping.ToDeleteCommand(id),
+            cancellationToken);
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// F17.10. Заблокировать пользователя навсегда. Доступ к API мгновенно
+    /// закрывается (ротируется SecurityStamp + invalidation кеша). Reason
+    /// опциональный — попадёт в сообщение об отказе при попытке логина.
+    /// SuperAdmin блокировать нельзя; Admin не может блокировать другого
+    /// Admin (только SuperAdmin может).
+    /// </summary>
+    [HttpPut("{id:guid}/block")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(ApiResponse<BlockUserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Block(
+        [FromRoute] Guid id,
+        [FromBody] BlockUserRequest request,
+        [FromServices] IBlockUserUseCase blockUserUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await blockUserUseCase.Execute(
+            request.ToBlockCommand(id),
+            cancellationToken);
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// F17.10. Разблокировать пользователя. Идемпотентен: на не-заблокированном
+    /// возвращает 200 без изменений в БД (no-op guard в домене).
+    /// </summary>
+    [HttpDelete("{id:guid}/block")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(ApiResponse<UnblockUserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Unblock(
+        [FromRoute] Guid id,
+        [FromServices] IUnblockUserUseCase unblockUserUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await unblockUserUseCase.Execute(
+            UsersMapping.ToUnblockCommand(id),
             cancellationToken);
 
         return FromResult(result);

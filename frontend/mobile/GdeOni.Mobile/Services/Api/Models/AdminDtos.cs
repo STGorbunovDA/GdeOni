@@ -50,7 +50,15 @@ public sealed record AdminUserDetailsDto(
     string? SubscriptionPlan,
     bool HasComplimentaryAccess,
     DateTime? ComplimentaryAccessUntilUtc,
-    string? ComplimentaryAccessNote);
+    string? ComplimentaryAccessNote,
+    bool IsBlocked = false,
+    DateTime? BlockedAtUtc = null,
+    Guid? BlockedByUserId = null,
+    string? BlockedByUserEmail = null,
+    string? BlockedReason = null);
+
+/// <summary>F17.10. PUT /api/users/{id}/block — reason опционален.</summary>
+public sealed record BlockUserRequest(string? Reason);
 
 /// <summary>
 /// PUT /api/users/{id}/role — бэк ожидает поле userRole с enum-строкой

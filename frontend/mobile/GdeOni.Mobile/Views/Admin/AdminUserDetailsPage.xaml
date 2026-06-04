@@ -124,13 +124,51 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Опасная зона — удаление навсегда. Видна только SuperAdmin'у
-                     (CanDeleteTarget). Backend дублирует через Roles=SuperAdmin. -->
+                <!-- F17.10. Опасная зона — блокировка / удаление.
+                     Блок "Заблокировать/Разблокировать" виден Admin'у и
+                     SuperAdmin'у (CanManageBlock), кнопка "Удалить" —
+                     только SuperAdmin'у (CanDeleteTarget). -->
                 <Border Style="{StaticResource CloudCard}"
-                        IsVisible="{Binding CanDeleteTarget}">
+                        IsVisible="{Binding CanManageBlock}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Опасная зона" Style="{StaticResource SubTitleLabel}" TextColor="#C0392B" />
-                        <Label Style="{StaticResource CaptionLabel}">
+
+                        <!-- Текущий статус блокировки -->
+                        <Label Text="{Binding BlockedInfo}"
+                               IsVisible="{Binding IsBlocked}"
+                               Style="{StaticResource CaptionLabel}"
+                               TextColor="#C0392B" />
+
+                        <!-- Поле причины и кнопка Заблокировать (когда не заблокирован) -->
+                        <Editor Placeholder="Причина блокировки (необязательно)"
+                                Text="{Binding BlockReason}"
+                                IsVisible="{Binding CanBlockTarget}"
+                                AutoSize="TextChanges"
+                                BackgroundColor="{StaticResource Cloud}"
+                                MaxLength="500" />
+                        <Button Text="Заблокировать пользователя навсегда"
+                                Style="{StaticResource GhostButton}"
+                                BackgroundColor="#C0392B"
+                                TextColor="White"
+                                Command="{Binding BlockUserCommand}"
+                                IsVisible="{Binding CanBlockTarget}"
+                                IsEnabled="{Binding IsBusyAction, Converter={StaticResource InvertedBool}}" />
+
+                        <!-- Кнопка Разблокировать (когда заблокирован) -->
+                        <Button Text="Разблокировать пользователя"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding UnblockUserCommand}"
+                                IsVisible="{Binding CanUnblockTarget}"
+                                IsEnabled="{Binding IsBusyAction, Converter={StaticResource InvertedBool}}" />
+
+                        <!-- Разделитель + удаление навсегда (только SuperAdmin) -->
+                        <BoxView HeightRequest="1"
+                                 BackgroundColor="#E0E0E0"
+                                 Margin="0,8,0,8"
+                                 IsVisible="{Binding CanDeleteTarget}" />
+
+                        <Label Style="{StaticResource CaptionLabel}"
+                               IsVisible="{Binding CanDeleteTarget}">
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="Удалятся: " />
@@ -150,9 +188,15 @@
                                 BackgroundColor="#C0392B"
                                 TextColor="White"
                                 Command="{Binding DeleteUserCommand}"
+                                IsVisible="{Binding CanDeleteTarget}"
                                 IsEnabled="{Binding IsBusyAction, Converter={StaticResource InvertedBool}}" />
                     </VerticalStackLayout>
                 </Border>
+
+                <!-- Запасной случай: я SuperAdmin, target=SuperAdmin (себя)
+                     — блок блокировки скрыт, но "Удалить" мог бы быть.
+                     По текущей логике CanDeleteTarget здесь тоже false,
+                     так что отдельная карта не нужна. -->
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

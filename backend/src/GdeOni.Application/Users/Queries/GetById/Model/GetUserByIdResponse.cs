@@ -26,4 +26,15 @@ public sealed class GetUserByIdResponse
     public bool HasComplimentaryAccess { get; init; }
     public DateTime? ComplimentaryAccessUntilUtc { get; init; }
     public string? ComplimentaryAccessNote { get; init; }
+
+    /// <summary>
+    /// F17.10. Поля блокировки. BlockedByUserEmail подтягивается join'ом
+    /// в use case (репозитория для админ-сводки нет — раз на детальный
+    /// экран допустимо).
+    /// </summary>
+    public bool IsBlocked { get; init; }
+    public DateTime? BlockedAtUtc { get; init; }
+    public Guid? BlockedByUserId { get; init; }
+    public string? BlockedByUserEmail { get; init; }
+    public string? BlockedReason { get; init; }
 }

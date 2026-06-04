@@ -84,6 +84,15 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
     }
 
+    public Task<string?> GetEmailById(Guid userId, CancellationToken cancellationToken)
+    {
+        return dbContext.Users
+            .AsNoTracking()
+            .Where(x => x.Id == userId)
+            .Select(x => x.Email)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public Task<User?> GetBySubscriptionPaymentId(
         string externalPaymentId,
         CancellationToken cancellationToken)

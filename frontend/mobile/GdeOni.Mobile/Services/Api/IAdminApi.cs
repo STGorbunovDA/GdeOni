@@ -60,6 +60,23 @@ public interface IAdminApi
         [Body] ChangeRoleRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// F17.10. PUT /api/users/{id}/block — заблокировать юзера навсегда.
+    /// Доступно Admin и SuperAdmin (с иерархией). Бэк ротирует SecurityStamp
+    /// — у заблокированного следующая попытка запроса упадёт в 401.
+    /// </summary>
+    [Put("/api/users/{userId}/block")]
+    Task<HttpResponseMessage> BlockUserAsync(
+        Guid userId,
+        [Body] BlockUserRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>F17.10. DELETE /api/users/{id}/block — разблокировать.</summary>
+    [Delete("/api/users/{userId}/block")]
+    Task<HttpResponseMessage> UnblockUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>D22. POST /api/admin/users/{id}/complimentary-access.</summary>
     [Post("/api/admin/users/{userId}/complimentary-access")]
     Task<HttpResponseMessage> GrantComplimentaryAsync(

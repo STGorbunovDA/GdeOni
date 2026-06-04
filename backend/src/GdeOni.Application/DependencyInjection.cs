@@ -56,8 +56,10 @@ using GdeOni.Application.Subscriptions.Queries.GetMySubscription.UseCase;
 using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
 using GdeOni.Application.Users.Commands.ChangePassword.UseCase;
 using GdeOni.Application.Users.Commands.ChangeRole.UseCase;
+using GdeOni.Application.Users.Commands.Block.UseCase;
 using GdeOni.Application.Users.Commands.Delete.UseCase;
 using GdeOni.Application.Users.Commands.Register.UseCase;
+using GdeOni.Application.Users.Commands.Unblock.UseCase;
 using GdeOni.Application.Users.Commands.RemoveTracking.UseCase;
 using GdeOni.Application.Users.Commands.TrackDeceased.UseCase;
 using GdeOni.Application.Users.Commands.UpdateProfile.UseCase;
@@ -114,6 +116,12 @@ public static class DependencyInjection
         services.AddScoped<IGetAllEditsUseCase, GetAllEditsUseCase>();
         services.AddScoped<IDeleteDeceasedUseCase, DeleteDeceasedUseCase>();
         services.AddScoped<IDeleteUserUseCase, DeleteUserUseCase>();
+
+        // F17.10. Блокировка пользователя — мягкая альтернатива удалению:
+        // данные сохраняются, доступ закрыт. SecurityStamp ротируется в
+        // Block() — заблокированный юзер вылетает мгновенно.
+        services.AddScoped<IBlockUserUseCase, BlockUserUseCase>();
+        services.AddScoped<IUnblockUserUseCase, UnblockUserUseCase>();
 
         services.AddScoped<IAddMemoryUseCase, AddMemoryUseCase>();
         services.AddScoped<IRemoveMemoryUseCase, RemoveMemoryUseCase>();

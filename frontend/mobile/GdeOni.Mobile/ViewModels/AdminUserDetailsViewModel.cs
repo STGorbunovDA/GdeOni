@@ -81,6 +81,36 @@ public partial class AdminUserDetailsViewModel(
 
     [ObservableProperty] private string _complimentaryNote = "";
 
+    // ─── F17.10. Block/Unblock ───
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanBlockTarget))]
+    [NotifyPropertyChangedFor(nameof(CanUnblockTarget))]
+    private bool _isBlocked;
+
+    [ObservableProperty] private string _blockedInfo = "";
+
+    /// <summary>
+    /// Текст для Editor'а причины. Используется ТОЛЬКО когда юзер ещё
+    /// не заблокирован — иначе reason приходит с бэка в BlockedInfo.
+    /// </summary>
+    [ObservableProperty] private string _blockReason = "";
+
+    /// <summary>
+    /// Виден ли блок управления блокировкой. Зеркало серверной иерархии:
+    /// SuperAdmin блокировать нельзя; Admin может блокировать другого
+    /// Admin только если я SuperAdmin.
+    /// </summary>
+    [ObservableProperty] private bool _canManageBlock;
+
+    public bool CanBlockTarget => CanManageBlock && !IsBlocked;
+    public bool CanUnblockTarget => CanManageBlock && IsBlocked;
+
+    partial void OnCanManageBlockChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanBlockTarget));
+        OnPropertyChanged(nameof(CanUnblockTarget));
+    }
+
     /// <summary>
     /// Публичный wrapper для перезагрузки данных юзера. Используется
     /// AdminUserDetailsPage.OnAppearing после возврата со вложенных
@@ -134,6 +164,16 @@ public partial class AdminUserDetailsViewModel(
             // самого себя) удалить нельзя — backend дополнительно отрежет
             // через DeleteSelfForbidden / DeleteSuperAdminForbidden.
             CanDeleteTarget = isSuperAdmin && !targetIsSuperAdmin && u.Id != (me?.Id ?? Guid.Empty);
+
+            // F17.10. Block visibility: SuperAdmin блокировать нельзя.
+            // Admin не может блокировать другого Admin (только SuperAdmin).
+            // Самого себя блокировать тоже нельзя.
+            CanManageBlock = !targetIsSuperAdmin
+                && u.Id != (me?.Id ?? Guid.Empty)
+                && (isSuperAdmin || !string.Equals(u.Role, "Admin", StringComparison.OrdinalIgnoreCase));
+
+            IsBlocked = u.IsBlocked;
+            BlockedInfo = BuildBlockedInfo(u);
 
             SubscriptionStatusDisplay = u.SubscriptionStatus switch
             {
@@ -360,6 +400,95 @@ public partial class AdminUserDetailsViewModel(
         finally { IsBusyAction = false; }
     }
 
+    /// <summary>
+    /// F17.10. Заблокировать юзера. Бэк ротирует SecurityStamp — у юзера
+    /// тут же протухнет access-токен (фактически — мгновенный logout).
+    /// Если он уже разлогинен и попытается залогиниться, получит 403 с
+    /// причиной из BlockedReason.
+    /// </summary>
+    [RelayCommand]
+    private async Task BlockUserAsync()
+    {
+        if (!Guid.TryParse(UserId, out var id)) return;
+        var page = Shell.Current?.CurrentPage;
+        if (page is null) return;
+
+        var reason = string.IsNullOrWhiteSpace(BlockReason) ? null : BlockReason.Trim();
+        var confirmMsg = reason is null
+            ? $"Юзер {Email} будет заблокирован. Причина не указана."
+            : $"Юзер {Email} будет заблокирован. Причина: «{reason}».";
+        var confirmed = await page.DisplayAlertAsync(
+            "Заблокировать пользователя?",
+            confirmMsg + " Доступ закроется немедленно.",
+            "Заблокировать",
+            "Отмена");
+        if (!confirmed) return;
+
+        try
+        {
+            IsBusyAction = true;
+            ErrorMessage = null;
+            StatusMessage = null;
+            var resp = await adminApi.BlockUserAsync(id, new BlockUserRequest(reason));
+            if (resp.IsSuccessStatusCode)
+            {
+                BlockReason = "";
+                StatusMessage = "Пользователь заблокирован.";
+                await LoadAsync();
+            }
+            else
+            {
+                ErrorMessage = (int)resp.StatusCode switch
+                {
+                    403 => "У вас нет прав блокировать этого пользователя.",
+                    404 => "Пользователь не найден.",
+                    _ => $"Не удалось заблокировать (HTTP {(int)resp.StatusCode})."
+                };
+            }
+        }
+        catch (Exception ex) { ErrorMessage = $"Ошибка: {ex.Message}"; }
+        finally { IsBusyAction = false; }
+    }
+
+    /// <summary>F17.10. Разблокировать. Доступ к API восстановится сразу.</summary>
+    [RelayCommand]
+    private async Task UnblockUserAsync()
+    {
+        if (!Guid.TryParse(UserId, out var id)) return;
+        var page = Shell.Current?.CurrentPage;
+        if (page is null) return;
+        var confirmed = await page.DisplayAlertAsync(
+            "Разблокировать пользователя?",
+            $"Юзер {Email} снова получит доступ к API.",
+            "Разблокировать",
+            "Отмена");
+        if (!confirmed) return;
+
+        try
+        {
+            IsBusyAction = true;
+            ErrorMessage = null;
+            StatusMessage = null;
+            var resp = await adminApi.UnblockUserAsync(id);
+            if (resp.IsSuccessStatusCode)
+            {
+                StatusMessage = "Пользователь разблокирован.";
+                await LoadAsync();
+            }
+            else
+            {
+                ErrorMessage = (int)resp.StatusCode switch
+                {
+                    403 => "У вас нет прав разблокировать этого пользователя.",
+                    404 => "Пользователь не найден.",
+                    _ => $"Не удалось разблокировать (HTTP {(int)resp.StatusCode})."
+                };
+            }
+        }
+        catch (Exception ex) { ErrorMessage = $"Ошибка: {ex.Message}"; }
+        finally { IsBusyAction = false; }
+    }
+
     [RelayCommand]
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
 
@@ -381,5 +510,16 @@ public partial class AdminUserDetailsViewModel(
         return string.IsNullOrWhiteSpace(u.ComplimentaryAccessNote)
             ? head
             : $"{head} — {u.ComplimentaryAccessNote}";
+    }
+
+    private static string BuildBlockedInfo(AdminUserDetailsDto u)
+    {
+        if (!u.IsBlocked) return "";
+        var at = u.BlockedAtUtc?.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        var by = u.BlockedByUserEmail ?? "(админ)";
+        var head = at is null ? $"Заблокирован: {by}" : $"Заблокирован {at} — {by}";
+        return string.IsNullOrWhiteSpace(u.BlockedReason)
+            ? head
+            : $"{head}. Причина: {u.BlockedReason}";
     }
 }

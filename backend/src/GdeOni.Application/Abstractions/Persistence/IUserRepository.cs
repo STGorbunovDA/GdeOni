@@ -19,6 +19,13 @@ public interface IUserRepository
     Task<User?> GetByEmail(string email, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Лёгкий lookup только email'а по id. Нужен для отображения "кто
+    /// заблокировал" в GetUserById — поднимать второй User entity
+    /// ради одного string'а избыточно.
+    /// </summary>
+    Task<string?> GetEmailById(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// D16. Поиск пользователя по <c>Subscription.LastPaymentId</c>.
     /// Используется <c>ProcessPaymentWebhookUseCase</c> чтобы найти,
     /// кого активировать после webhook YooKassa. Возвращает null

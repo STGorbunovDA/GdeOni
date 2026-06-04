@@ -1,10 +1,12 @@
 using GdeOni.API.Models.Users;
 using GdeOni.Application.Legal.Commands.AcceptLegal.Model;
+using GdeOni.Application.Users.Commands.Block.Model;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
 using GdeOni.Application.Users.Commands.ChangePassword.Model;
 using GdeOni.Application.Users.Commands.ChangeRole.Model;
 using GdeOni.Application.Users.Commands.Delete.Model;
 using GdeOni.Application.Users.Commands.Register.Model;
+using GdeOni.Application.Users.Commands.Unblock.Model;
 using GdeOni.Application.Users.Commands.UpdateProfile.Model;
 using GdeOni.Application.Users.Queries.GetAll.Model;
 using GdeOni.Application.Users.Queries.GetById.Model;
@@ -66,6 +68,14 @@ public static class UsersMapping
     }
 
     public static DeleteUserCommand ToDeleteCommand(Guid id) => new(id);
+
+    public static BlockUserCommand ToBlockCommand(this BlockUserRequest request, Guid id)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return new BlockUserCommand(id, request.Reason);
+    }
+
+    public static UnblockUserCommand ToUnblockCommand(Guid id) => new(id);
 
     public static AcceptLegalCommand ToCommand(this AcceptLegalRequest request)
     {
