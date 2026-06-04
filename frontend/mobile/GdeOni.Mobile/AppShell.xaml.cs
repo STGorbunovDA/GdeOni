@@ -3,7 +3,6 @@ using GdeOni.Mobile.Services.Notifications;
 using GdeOni.Mobile.Services.Subscriptions;
 using GdeOni.Mobile.Services.Versioning;
 using GdeOni.Mobile.Shared.Versioning;
-using GdeOni.Mobile.Views.Admin;
 using GdeOni.Mobile.Views.Auth;
 using GdeOni.Mobile.Views.Profile;
 using GdeOni.Mobile.Views.Tracked;
@@ -17,9 +16,6 @@ public partial class AppShell : Shell
     private readonly IPaywallChecker _paywallChecker;
     private readonly AnniversariesSyncService _anniversariesSync;
     private bool _initialNavigationDone;
-    private ShellContent? _adminTab;
-
-    public bool IsCurrentUserAdmin { get; private set; }
 
     public AppShell(
         IAuthService authService,
@@ -50,7 +46,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("edit-deceased", typeof(EditDeceasedPage));
         // F17.9 mobile. История правок — только админам (бэк отдаст 403).
         Routing.RegisterRoute("edits-history", typeof(GdeOni.Mobile.Views.Admin.EditsHistoryPage));
-        // Глобальная админ-вкладка → подстраницы.
+        // F17.9 mobile. Админ-меню и подстраницы (доступ — кнопка из Profile).
+        Routing.RegisterRoute("admin", typeof(GdeOni.Mobile.Views.Admin.AdminPage));
         Routing.RegisterRoute("all-edits", typeof(GdeOni.Mobile.Views.Admin.AllEditsHistoryPage));
         Routing.RegisterRoute("admin-users", typeof(GdeOni.Mobile.Views.Admin.AdminUsersPage));
         Routing.RegisterRoute("admin-user-details", typeof(GdeOni.Mobile.Views.Admin.AdminUserDetailsPage));
@@ -96,10 +93,6 @@ public partial class AppShell : Shell
         if (!await _authService.HasSessionAsync())
             return;
 
-        // F17.9 mobile. Подтягиваем роль ДО навигации в TabBar, чтобы
-        // вкладка "Админка" появилась/спряталась сразу.
-        await RefreshCurrentUserRoleAsync();
-
         // E23 C.1. Восстанавливаем annivers-alarms в фоне. Запуск на старте
         // покрывает случай "юзер открыл приложение, но логиниться не пришлось
         // (токен ещё валиден) — sync после LoginViewModel сюда не дошёл".
@@ -113,59 +106,5 @@ public partial class AppShell : Shell
         }
 
         await GoToAsync("//main/tracked");
-    }
-
-    /// <summary>
-    /// Дёрнуть бэк, обновить роль, и в зависимости от неё добавить/убрать
-    /// админ-вкладку в TabBar. ShellContent.IsVisible биндинг для TabBar
-    /// в MAUI Shell не работает — поэтому управляем коллекцией Items
-    /// напрямую.
-    /// </summary>
-    public async Task RefreshCurrentUserRoleAsync()
-    {
-        try
-        {
-            var me = await _authService.GetCurrentUserAsync();
-            IsCurrentUserAdmin = me is not null && (
-                string.Equals(me.Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(me.Role, "Admin", StringComparison.OrdinalIgnoreCase));
-        }
-        catch
-        {
-            // Сетевая ошибка / 401 — не валим UI, просто скрываем админку.
-            IsCurrentUserAdmin = false;
-        }
-
-        ApplyAdminTabVisibility();
-    }
-
-    /// <summary>Сброс при logout, чтобы вкладка скрылась мгновенно.</summary>
-    public void ResetAdminFlag()
-    {
-        IsCurrentUserAdmin = false;
-        ApplyAdminTabVisibility();
-    }
-
-    private void ApplyAdminTabVisibility()
-    {
-        // MainTabBar — x:Name из AppShell.xaml.
-        if (IsCurrentUserAdmin)
-        {
-            if (_adminTab is null)
-            {
-                _adminTab = new ShellContent
-                {
-                    Title = "Админка",
-                    Route = "admin",
-                    ContentTemplate = new DataTemplate(typeof(AdminPage)),
-                };
-                MainTabBar.Items.Add(_adminTab);
-            }
-        }
-        else if (_adminTab is not null)
-        {
-            MainTabBar.Items.Remove(_adminTab);
-            _adminTab = null;
-        }
     }
 }

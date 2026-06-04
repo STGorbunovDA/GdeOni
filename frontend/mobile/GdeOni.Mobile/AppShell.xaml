@@ -9,8 +9,6 @@
     xmlns:profile="clr-namespace:GdeOni.Mobile.Views.Profile"
     xmlns:updates="clr-namespace:GdeOni.Mobile.Views.Updates"
     xmlns:subs="clr-namespace:GdeOni.Mobile.Views.Subscriptions"
-    xmlns:admin="clr-namespace:GdeOni.Mobile.Views.Admin"
-    x:Name="ShellRoot"
     Title="GdeOni"
     FlyoutBehavior="Disabled"
     Shell.NavBarIsVisible="False"
@@ -22,21 +20,15 @@
         Route="login"
         ContentTemplate="{DataTemplate auth:LoginPage}" />
 
-    <!-- Главный TabBar — доступен только после логина.
-         Админская вкладка ДОБАВЛЯЕТСЯ ДИНАМИЧЕСКИ в code-behind
-         (см. AppShell.AddOrRemoveAdminTab). XAML-биндинг на
-         ShellContent.IsVisible в TabBar не работает в MAUI Shell. -->
-    <TabBar Route="main" x:Name="MainTabBar">
+    <!-- Главный TabBar — доступен только после логина. -->
+    <TabBar Route="main">
         <ShellContent
-            Title="Отслеживаемые"
             Route="tracked"
             ContentTemplate="{DataTemplate tracked:TrackedListPage}" />
         <ShellContent
-            Title="Маршрут"
             Route="route"
             ContentTemplate="{DataTemplate route:RoutePage}" />
         <ShellContent
-            Title="Профиль"
             Route="profile"
             ContentTemplate="{DataTemplate profile:ProfilePage}" />
     </TabBar>

@@ -58,11 +58,6 @@ public partial class LoginViewModel(
             // Запускаем в фоне — не блокируем UI логина.
             _ = Task.Run(() => anniversariesSync.SyncAsync());
 
-            // F17.9 mobile. Подтянуть роль ДО навигации — чтобы вкладка
-            // "Админка" появилась сразу при попадании на TabBar.
-            if (Shell.Current is AppShell appShell)
-                await appShell.RefreshCurrentUserRoleAsync();
-
             var target = await paywallChecker.ShouldShowPaywallAsync()
                 ? "//subscription-required"
                 : "//main/tracked";

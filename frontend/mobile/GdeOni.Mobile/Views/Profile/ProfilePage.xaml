@@ -95,6 +95,15 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- F17.9 mobile. Кнопка видна только админам — видимость
+                     управляется IsAdmin (SuperAdmin/Admin). Бэк дублирует
+                     проверку 403. -->
+                <Button Text="Админка"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding OpenAdminCommand}"
+                        IsVisible="{Binding IsAdmin}"
+                        HorizontalOptions="Fill" />
+
                 <Button Text="Сменить пароль"
                         Style="{StaticResource GhostButton}"
                         Command="{Binding ChangePasswordCommand}"

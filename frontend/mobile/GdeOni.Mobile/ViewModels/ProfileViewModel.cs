@@ -25,11 +25,13 @@ public partial class ProfileViewModel(
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowSubscriptionBlock))]
+    [NotifyPropertyChangedFor(nameof(IsAdmin))]
     private string? _role;
 
     /// <summary>
     /// Admin / SuperAdmin не платят подписку (см. D16.5 — бэк их пускает
     /// без подписки), поэтому блок "Подписка" в Profile им не показываем.
+    /// Также управляет видимостью кнопки "Админка" (F17.9 mobile).
     /// </summary>
     public bool IsAdmin =>
         string.Equals(Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase)
@@ -179,6 +181,16 @@ public partial class ProfileViewModel(
         await Shell.Current.GoToAsync("subscription");
     }
 
+    /// <summary>
+    /// F17.9 mobile. Открыть админ-страницу. Кнопка видна только при
+    /// IsAdmin == true; backend сам отдаст 403 если что-то рассинхронится.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenAdminAsync()
+    {
+        await Shell.Current.GoToAsync("admin");
+    }
+
     [RelayCommand]
     private async Task LogoutAsync()
     {
@@ -194,11 +206,7 @@ public partial class ProfileViewModel(
             FullName = null;
             Subscription = null;
             ErrorMessage = null;
-
-            // F17.9 mobile. Сбросить флаг до навигации, чтобы вкладка
-            // "Админка" исчезла мгновенно (без миллисекундного мигания).
-            if (Shell.Current is AppShell appShell)
-                appShell.ResetAdminFlag();
+            Role = null;
 
             await Shell.Current.GoToAsync("//login");
         }
