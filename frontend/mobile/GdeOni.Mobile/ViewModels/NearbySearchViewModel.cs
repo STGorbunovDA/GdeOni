@@ -58,17 +58,9 @@ public partial class NearbySearchViewModel(
     public bool HasResults => Results.Count > 0;
     public bool ShowEmptyState => HasSearched && !IsBusy && Results.Count == 0;
 
-    public string SummaryText
-    {
-        get
-        {
-            if (!HasSearched) return string.Empty;
-            var preMarked = Results.Count(r => r.IsSelected);
-            if (preMarked > 0)
-                return $"Найдено: {Results.Count} в радиусе {RadiusDisplay} (уже отслеживаете: {preMarked})";
-            return $"Найдено: {Results.Count} в радиусе {RadiusDisplay}";
-        }
-    }
+    public string SummaryText => HasSearched
+        ? $"Найдено: {Results.Count} в радиусе {RadiusDisplay}"
+        : string.Empty;
 
     public bool HasSummary => HasSearched;
 
@@ -279,34 +271,25 @@ public partial class NearbySearchViewModel(
     /// юзеров их меньше, у активных трекеров часть не предотметится,
     /// но базовый UX работает.
     /// </summary>
+    /// <summary>
+    /// Тянем все отслеживаемые карточки (включая Archived/Muted), чтобы
+    /// предотметить в Nearby. PageSize=100 — максимум который принимает
+    /// бэк (GetMyTrackedDeceasedListQueryValidator). У активных трекеров
+    /// с 100+ карточек часть не предотметится — невидимый техдолг,
+    /// исправляется отдельным IDs-only-эндпоинтом если станет нужно.
+    /// </summary>
     private async Task<HashSet<Guid>> LoadAlreadyTrackedIdsAsync()
     {
         try
         {
-            var envelope = await trackedApi.GetListAsync(page: 1, pageSize: 200);
-            if (envelope.Result is null)
-            {
-                // Не молчим — показываем диагностику в AddStatusMessage,
-                // чтобы юзер видел почему пометки не работают.
-                AddStatusMessage = envelope.ErrorMessage is not null
-                    ? $"[Tracked load] {envelope.ErrorCode}: {envelope.ErrorMessage}"
-                    : "[Tracked load] пустой ответ";
-                return new HashSet<Guid>();
-            }
-            var ids = envelope.Result.Items.Select(x => x.DeceasedId).ToHashSet();
-            // Подсказка если 0 — может юзер реально никого не трекает.
-            if (ids.Count == 0)
-                AddStatusMessage = "[Tracked load] список пуст (0 карточек)";
-            return ids;
+            var envelope = await trackedApi.GetListAsync(page: 1, pageSize: 100);
+            if (envelope.Result is null) return new HashSet<Guid>();
+            return envelope.Result.Items.Select(x => x.DeceasedId).ToHashSet();
         }
-        catch (Refit.ApiException apiEx)
+        catch
         {
-            AddStatusMessage = $"[Tracked load] HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
-            return new HashSet<Guid>();
-        }
-        catch (Exception ex)
-        {
-            AddStatusMessage = $"[Tracked load] {ex.GetType().Name}: {ex.Message}";
+            // Сетевая/auth ошибка — silent, не валим основной флоу поиска,
+            // просто не помечаем галки.
             return new HashSet<Guid>();
         }
     }
