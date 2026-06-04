@@ -12,6 +12,12 @@
         <ScrollView>
             <VerticalStackLayout Padding="24,40,24,40" Spacing="20">
 
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8" />
+
                 <Label Text="Админка" Style="{StaticResource TitleLabel}" />
                 <Label Text="Управление пользователями, платежами и историей правок."
                        Style="{StaticResource CaptionLabel}" />

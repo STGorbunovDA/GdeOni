@@ -20,4 +20,16 @@ public partial class AdminViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenAdminPaymentsAsync()
         => await Shell.Current.GoToAsync("admin-payments");
+
+    /// <summary>
+    /// Возврат на профиль (откуда обычно попадают). ".." делает pop,
+    /// если переход был через push; если AdminPage оказалась корневой
+    /// в стеке — открываем профиль абсолютным путём как fallback.
+    /// </summary>
+    [RelayCommand]
+    private async Task BackAsync()
+    {
+        try { await Shell.Current.GoToAsync(".."); }
+        catch { await Shell.Current.GoToAsync("//main/profile"); }
+    }
 }
