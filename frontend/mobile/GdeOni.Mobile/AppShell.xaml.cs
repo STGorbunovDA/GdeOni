@@ -1,43 +1,25 @@
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using GdeOni.Mobile.Services.Auth;
 using GdeOni.Mobile.Services.Notifications;
 using GdeOni.Mobile.Services.Subscriptions;
 using GdeOni.Mobile.Services.Versioning;
 using GdeOni.Mobile.Shared.Versioning;
+using GdeOni.Mobile.Views.Admin;
 using GdeOni.Mobile.Views.Auth;
 using GdeOni.Mobile.Views.Profile;
 using GdeOni.Mobile.Views.Tracked;
 
 namespace GdeOni.Mobile;
 
-public partial class AppShell : Shell, INotifyPropertyChanged
+public partial class AppShell : Shell
 {
     private readonly IAuthService _authService;
     private readonly IAppVersionCheckService _versionCheck;
     private readonly IPaywallChecker _paywallChecker;
     private readonly AnniversariesSyncService _anniversariesSync;
     private bool _initialNavigationDone;
-    private bool _isCurrentUserAdmin;
+    private ShellContent? _adminTab;
 
-    /// <summary>
-    /// F17.9 mobile. Биндится на IsVisible вкладки "Админка" в AppShell.xaml.
-    /// Заполняется в OnAppearing после HasSessionAsync через
-    /// authService.GetCurrentUserAsync(). На logout сбрасывается в false
-    /// внешним кодом (ProfileViewModel после Logout зовёт ResetAdminFlag).
-    /// </summary>
-    public bool IsCurrentUserAdmin
-    {
-        get => _isCurrentUserAdmin;
-        set
-        {
-            if (_isCurrentUserAdmin == value) return;
-            _isCurrentUserAdmin = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCurrentUserAdmin)));
-        }
-    }
-
-    public new event PropertyChangedEventHandler? PropertyChanged;
+    public bool IsCurrentUserAdmin { get; private set; }
 
     public AppShell(
         IAuthService authService,
@@ -134,9 +116,10 @@ public partial class AppShell : Shell, INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Дёрнуть бэк, обновить флаг IsCurrentUserAdmin. Доступно публично —
-    /// чтобы LoginViewModel после успешного логина мог сразу обновить TabBar
-    /// без полного re-init AppShell.
+    /// Дёрнуть бэк, обновить роль, и в зависимости от неё добавить/убрать
+    /// админ-вкладку в TabBar. ShellContent.IsVisible биндинг для TabBar
+    /// в MAUI Shell не работает — поэтому управляем коллекцией Items
+    /// напрямую.
     /// </summary>
     public async Task RefreshCurrentUserRoleAsync()
     {
@@ -152,8 +135,37 @@ public partial class AppShell : Shell, INotifyPropertyChanged
             // Сетевая ошибка / 401 — не валим UI, просто скрываем админку.
             IsCurrentUserAdmin = false;
         }
+
+        ApplyAdminTabVisibility();
     }
 
     /// <summary>Сброс при logout, чтобы вкладка скрылась мгновенно.</summary>
-    public void ResetAdminFlag() => IsCurrentUserAdmin = false;
+    public void ResetAdminFlag()
+    {
+        IsCurrentUserAdmin = false;
+        ApplyAdminTabVisibility();
+    }
+
+    private void ApplyAdminTabVisibility()
+    {
+        // MainTabBar — x:Name из AppShell.xaml.
+        if (IsCurrentUserAdmin)
+        {
+            if (_adminTab is null)
+            {
+                _adminTab = new ShellContent
+                {
+                    Title = "Админка",
+                    Route = "admin",
+                    ContentTemplate = new DataTemplate(typeof(AdminPage)),
+                };
+                MainTabBar.Items.Add(_adminTab);
+            }
+        }
+        else if (_adminTab is not null)
+        {
+            MainTabBar.Items.Remove(_adminTab);
+            _adminTab = null;
+        }
+    }
 }

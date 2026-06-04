@@ -22,8 +22,11 @@
         Route="login"
         ContentTemplate="{DataTemplate auth:LoginPage}" />
 
-    <!-- Главный TabBar — доступен только после логина. -->
-    <TabBar Route="main">
+    <!-- Главный TabBar — доступен только после логина.
+         Админская вкладка ДОБАВЛЯЕТСЯ ДИНАМИЧЕСКИ в code-behind
+         (см. AppShell.AddOrRemoveAdminTab). XAML-биндинг на
+         ShellContent.IsVisible в TabBar не работает в MAUI Shell. -->
+    <TabBar Route="main" x:Name="MainTabBar">
         <ShellContent
             Title="Отслеживаемые"
             Route="tracked"
@@ -36,14 +39,6 @@
             Title="Профиль"
             Route="profile"
             ContentTemplate="{DataTemplate profile:ProfilePage}" />
-        <!-- F17.9 mobile. Админская вкладка — видна только SuperAdmin/Admin.
-             IsVisible биндится на AppShell.IsCurrentUserAdmin, который
-             заполняется после HasSessionAsync в OnAppearing. -->
-        <ShellContent
-            Title="Админка"
-            Route="admin"
-            ContentTemplate="{DataTemplate admin:AdminPage}"
-            IsVisible="{Binding IsCurrentUserAdmin, Source={x:Reference ShellRoot}}" />
     </TabBar>
 
     <!-- E22. Top-level blocking-update page (без TabBar / Back).
