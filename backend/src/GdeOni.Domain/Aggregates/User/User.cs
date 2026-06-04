@@ -308,6 +308,22 @@ public sealed class User : Entity<Guid>
     }
 
     /// <summary>
+    /// Админский restart триала: переводит юзера в Trial с новым сроком
+    /// независимо от текущего статуса. Используется когда админ хочет
+    /// вернуть юзеру бесплатный пробный период (например, для
+    /// поддержки после жалобы).
+    /// </summary>
+    public UnitResult<Error> RestartTrialByAdmin(DateTime nowUtc, TimeSpan trialDuration)
+    {
+        if (trialDuration <= TimeSpan.Zero)
+            return Errors.Subscription.TrialDurationInvalid();
+
+        Subscription = Subscription.WithTrial(nowUtc, trialDuration);
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
     /// D16. Помечает, что пользователь инициировал оплату — webhook
     /// от YooKassa может прийти спустя несколько секунд/минут. Хранит
     /// externalPaymentId, по которому потом найдём этого юзера в

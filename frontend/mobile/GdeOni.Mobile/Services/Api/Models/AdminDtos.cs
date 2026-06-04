@@ -58,6 +58,9 @@ public sealed record AdminUserDetailsDto(
 /// </summary>
 public sealed record ChangeRoleRequest(string UserRole);
 
+/// <summary>POST /api/admin/users/{id}/subscription/trial.</summary>
+public sealed record RestartTrialRequest(int? DurationDays);
+
 public sealed record GrantComplimentaryRequest(DateTime? UntilUtc, string? Note);
 
 /// <summary>D23. Ответ GET /api/admin/payments.</summary>

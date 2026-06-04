@@ -220,6 +220,40 @@ public partial class AdminUserDetailsViewModel(IAdminApi adminApi) : ObservableO
     }
 
     [RelayCommand]
+    private async Task RestartTrialAsync()
+    {
+        if (!Guid.TryParse(UserId, out var id)) return;
+        var page = Shell.Current?.CurrentPage;
+        if (page is null) return;
+        var confirmed = await page.DisplayAlertAsync(
+            "Восстановить пробный период?",
+            "Пользователю будет выдан 30-дневный пробный период (Trial). Текущий статус подписки заменится.",
+            "Восстановить",
+            "Отмена");
+        if (!confirmed) return;
+
+        try
+        {
+            IsBusyAction = true;
+            ErrorMessage = null;
+            StatusMessage = null;
+            // DurationDays=null → бэк возьмёт SubscriptionOptions.TrialDurationDays (30).
+            var resp = await adminApi.RestartTrialAsync(id, new RestartTrialRequest(null));
+            if (resp.IsSuccessStatusCode)
+            {
+                StatusMessage = "Пробный период восстановлен (30 дней).";
+                await LoadAsync();
+            }
+            else
+            {
+                ErrorMessage = $"Ошибка (HTTP {(int)resp.StatusCode}).";
+            }
+        }
+        catch (Exception ex) { ErrorMessage = $"Ошибка: {ex.Message}"; }
+        finally { IsBusyAction = false; }
+    }
+
+    [RelayCommand]
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
 
     private static string BuildSubscriptionDetails(AdminUserDetailsDto u)

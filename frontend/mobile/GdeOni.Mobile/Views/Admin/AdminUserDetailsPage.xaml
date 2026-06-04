@@ -93,8 +93,15 @@
                 <Border Style="{StaticResource CloudCard}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Подписка" Style="{StaticResource SubTitleLabel}" />
-                        <Label Text="Принудительно снять активную подписку (Status → Expired). Доступ закроется при следующем запросе."
+                        <Label Text="Восстановить пробный период на 30 дней — статус заменится на Trial."
                                Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Восстановить Trial (30 дней)"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding RestartTrialCommand}"
+                                IsEnabled="{Binding IsBusyAction, Converter={StaticResource InvertedBool}}" />
+                        <Label Text="Принудительно снять активную подписку (Status → Expired). Доступ закроется при следующем запросе."
+                               Style="{StaticResource CaptionLabel}"
+                               Margin="0,8,0,0" />
                         <Button Text="Снять подписку"
                                 Style="{StaticResource GhostButton}"
                                 BackgroundColor="#C0392B"

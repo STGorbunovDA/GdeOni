@@ -62,6 +62,17 @@ public interface IAdminApi
         Guid userId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Перезапустить пробный период подписки (default 30 дней из
+    /// SubscriptionOptions). DurationDays опционально — если нужно
+    /// нестандартный срок.
+    /// </summary>
+    [Post("/api/admin/users/{userId}/subscription/trial")]
+    Task<HttpResponseMessage> RestartTrialAsync(
+        Guid userId,
+        [Body] RestartTrialRequest request,
+        CancellationToken cancellationToken = default);
+
     /// <summary>D23. GET /api/admin/payments — все платежи.</summary>
     [Get("/api/admin/payments")]
     Task<ApiEnvelope<AdminPaymentsResponse>> GetPaymentsAsync(
