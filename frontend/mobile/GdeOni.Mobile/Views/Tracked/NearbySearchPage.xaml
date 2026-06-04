@@ -20,7 +20,7 @@
                  TranslationX="60"
                  TranslationY="40" />
 
-        <Grid RowDefinitions="Auto,*">
+        <Grid RowDefinitions="Auto,*,Auto">
 
             <!-- Header -->
             <VerticalStackLayout Grid.Row="0" Padding="24,40,24,12" Spacing="12">
@@ -92,37 +92,48 @@
                         <DataTemplate x:DataType="vm:NearbyDeceasedRowViewModel">
                             <Border Style="{StaticResource CloudCard}"
                                     Margin="24,0">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer
-                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenPreviewCommand}"
-                                        CommandParameter="{Binding .}" />
-                                </Border.GestureRecognizers>
+                                <Grid ColumnDefinitions="Auto,*,Auto"
+                                      ColumnSpacing="10">
 
-                                <Grid ColumnDefinitions="*,Auto"
-                                      ColumnSpacing="14"
-                                      RowDefinitions="Auto,Auto,Auto"
-                                      RowSpacing="2">
+                                    <!-- CheckBox для batch-выбора (E21+).
+                                         Тап по чекбоксу — выбирает, тап по
+                                         остальной карточке — открывает preview. -->
+                                    <CheckBox Grid.Column="0"
+                                              IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                              VerticalOptions="Center" />
 
-                                    <Label Grid.Row="0" Grid.Column="0"
-                                           Text="{Binding FullName}"
-                                           Style="{StaticResource SubTitleLabel}"
-                                           FontSize="16"
-                                           LineBreakMode="TailTruncation" />
-                                    <Label Grid.Row="0" Grid.Column="1"
-                                           Text="{Binding DistanceText}"
-                                           Style="{StaticResource CaptionLabel}"
-                                           TextColor="{StaticResource Azure}"
-                                           VerticalOptions="Center" />
+                                    <Grid Grid.Column="1"
+                                          ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="14"
+                                          RowDefinitions="Auto,Auto,Auto"
+                                          RowSpacing="2">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenPreviewCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        </Grid.GestureRecognizers>
 
-                                    <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                                           Text="{Binding LifePeriod}"
-                                           Style="{StaticResource CaptionLabel}" />
+                                        <Label Grid.Row="0" Grid.Column="0"
+                                               Text="{Binding FullName}"
+                                               Style="{StaticResource SubTitleLabel}"
+                                               FontSize="16"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Grid.Row="0" Grid.Column="1"
+                                               Text="{Binding DistanceText}"
+                                               Style="{StaticResource CaptionLabel}"
+                                               TextColor="{StaticResource Azure}"
+                                               VerticalOptions="Center" />
 
-                                    <Label Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
-                                           Text="{Binding LocationText}"
-                                           Style="{StaticResource CaptionLabel}"
-                                           LineBreakMode="TailTruncation"
-                                           IsVisible="{Binding LocationText, TargetNullValue=False}" />
+                                        <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                               Text="{Binding LifePeriod}"
+                                               Style="{StaticResource CaptionLabel}" />
+
+                                        <Label Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                               Text="{Binding LocationText}"
+                                               Style="{StaticResource CaptionLabel}"
+                                               LineBreakMode="TailTruncation"
+                                               IsVisible="{Binding LocationText, TargetNullValue=False}" />
+                                    </Grid>
                                 </Grid>
                             </Border>
                         </DataTemplate>
@@ -145,6 +156,24 @@
                     </VerticalStackLayout>
                 </Border>
             </Grid>
+
+            <!-- Sticky-блок внизу: статус добавления + кнопка "Добавить
+                 выбранных (N)". Виден когда есть выбор ИЛИ есть статус. -->
+            <VerticalStackLayout Grid.Row="2"
+                                 Padding="24,12,24,24"
+                                 Spacing="8">
+                <Label Text="{Binding AddStatusMessage}"
+                       IsVisible="{Binding HasAddStatus}"
+                       TextColor="#2E7D32"
+                       HorizontalTextAlignment="Center"
+                       Style="{StaticResource CaptionLabel}" />
+                <Button Text="{Binding AddSelectedButtonText}"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding AddSelectedCommand}"
+                        IsEnabled="{Binding IsNotBusy}"
+                        IsVisible="{Binding HasSelection}"
+                        HorizontalOptions="Fill" />
+            </VerticalStackLayout>
         </Grid>
     </Grid>
 

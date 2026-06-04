@@ -17,6 +17,7 @@ namespace GdeOni.Mobile.ViewModels;
 /// </summary>
 public partial class NearbySearchViewModel(
     IDeceasedRecordsApi deceasedApi,
+    ITrackedDeceasedApi trackedApi,
     IGeolocationService geo) : ObservableObject
 {
     [ObservableProperty]
@@ -63,6 +64,40 @@ public partial class NearbySearchViewModel(
 
     public bool HasSummary => HasSearched;
 
+    // ─── Batch-add выбранных ───
+    public int SelectedCount => Results.Count(x => x.IsSelected);
+    public bool HasSelection => SelectedCount > 0;
+    public string AddSelectedButtonText => $"Добавить выбранных ({SelectedCount})";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAddStatus))]
+    private string? _addStatusMessage;
+    public bool HasAddStatus => !string.IsNullOrEmpty(AddStatusMessage);
+
+    /// <summary>
+    /// Подписываемся на IsSelected каждой row чтобы пересчитывать
+    /// SelectedCount / HasSelection / текст кнопки.
+    /// </summary>
+    private void HookRowSelectionEvents()
+    {
+        foreach (var row in Results)
+            row.PropertyChanged += OnRowPropertyChanged;
+    }
+
+    private void UnhookRowSelectionEvents()
+    {
+        foreach (var row in Results)
+            row.PropertyChanged -= OnRowPropertyChanged;
+    }
+
+    private void OnRowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(NearbyDeceasedRowViewModel.IsSelected)) return;
+        OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(AddSelectedButtonText));
+    }
+
     /// <summary>
     /// Главная кнопка "Найти рядом": берём GPS → GET /nearby → заполняем
     /// Results. При permission-denied показываем ShowOpenSettings.
@@ -103,14 +138,20 @@ public partial class NearbySearchViewModel(
                 return;
             }
 
+            UnhookRowSelectionEvents();
             Results.Clear();
+            AddStatusMessage = null;
             foreach (var item in envelope.Result.Items)
                 Results.Add(new NearbyDeceasedRowViewModel(item));
+            HookRowSelectionEvents();
 
             HasSearched = true;
             OnPropertyChanged(nameof(HasResults));
             OnPropertyChanged(nameof(SummaryText));
             OnPropertyChanged(nameof(HasSummary));
+            OnPropertyChanged(nameof(SelectedCount));
+            OnPropertyChanged(nameof(HasSelection));
+            OnPropertyChanged(nameof(AddSelectedButtonText));
         }
         catch (ApiException apiEx)
         {
@@ -145,15 +186,75 @@ public partial class NearbySearchViewModel(
         await Shell.Current.GoToAsync($"deceased-preview?deceasedId={item.Id}");
     }
 
+    /// <summary>
+    /// Batch-добавление выбранных умерших в Отслеживаемые. Каждый row
+    /// дёргает отдельный POST (нет batch-эндпоинта на бэке); делаем
+    /// параллельно через WhenAll. RelationshipType=Other, notify-флаги
+    /// off, заметка пустая — позже юзер сможет дополнить в карточке.
+    /// Идемпотентен: если кто-то уже отслеживается — backend перезаписывает
+    /// в Active без ошибки.
+    /// </summary>
+    [RelayCommand]
+    private async Task AddSelectedAsync()
+    {
+        var selected = Results.Where(x => x.IsSelected).ToList();
+        if (selected.Count == 0) return;
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = null;
+            AddStatusMessage = null;
+
+            var request = new AddMeTrackingRequest(
+                RelationshipType: RelationshipTypes.Other,
+                PersonalNotes: null,
+                NotifyOnDeathAnniversary: false,
+                NotifyOnBirthAnniversary: false);
+
+            var tasks = selected.Select(row => trackedApi.TrackAsync(row.Id, request));
+            var responses = await Task.WhenAll(tasks);
+
+            var success = responses.Count(r => r.Result is not null);
+            var failed = responses.Length - success;
+
+            // Сбрасываем выделение успешно добавленных.
+            for (int i = 0; i < responses.Length; i++)
+                if (responses[i].Result is not null)
+                    selected[i].IsSelected = false;
+
+            AddStatusMessage = failed == 0
+                ? $"Добавлено: {success}."
+                : $"Добавлено: {success}, не удалось: {failed}.";
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (HttpRequestException httpEx)
+        {
+            ErrorMessage = $"Сетевая ошибка: {httpEx.Message}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     [RelayCommand]
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
 }
 
 /// <summary>
 /// Обёртка над NearbyDeceasedItem с pre-форматированными для XAML
-/// строками (DistanceText, LifePeriod).
+/// строками (DistanceText, LifePeriod). IsSelected — для batch-добавления
+/// нескольких выбранных в отслеживаемые без захода в карточку.
 /// </summary>
-public sealed record NearbyDeceasedRowViewModel
+public partial class NearbyDeceasedRowViewModel : ObservableObject
 {
     public Guid Id { get; }
     public string FullName { get; }
@@ -161,6 +262,9 @@ public sealed record NearbyDeceasedRowViewModel
     public string LocationText { get; }
     public string DistanceText { get; }
     public bool IsVerified { get; }
+
+    [ObservableProperty]
+    private bool _isSelected;
 
     public NearbyDeceasedRowViewModel(NearbyDeceasedItem source)
     {
