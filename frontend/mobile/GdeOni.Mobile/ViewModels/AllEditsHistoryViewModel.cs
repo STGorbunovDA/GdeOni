@@ -195,6 +195,7 @@ public sealed class AllEditsEntry
             "MainInfo" => "Основное",
             "Metadata" => "Дополнительно",
             "BurialLocation" => "Место захоронения",
+            "Reassignment" => "Переуступка (удаление автора)",
             _ => dto.Kind,
         };
 
@@ -252,6 +253,7 @@ public sealed class AllEditsEntry
         "CemeteryName" => "Кладбище",
         "PlotNumber" => "Участок",
         "GraveNumber" => "Номер могилы",
+        "PreviousAuthor" => "Удалённый автор (email)",
         _ => field,
     };
 

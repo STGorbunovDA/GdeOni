@@ -164,11 +164,12 @@ public sealed class DeleteUserUseCaseTests
         var currentUser = new Mock<ICurrentUserService>();
         var invalidator = new Mock<ISecurityStampInvalidator>();
 
-        // Default: у юзера нет ни карточек, ни медиа — FK guard пропускает.
-        // Конкретные тесты могут переопределить через setup на repo.
+        // Default: ReassignContent no-op (нет контента к переуступке).
         deceasedRepo
-            .Setup(x => x.HasContentByUser(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+            .Setup(x => x.ReassignContent(
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
 
         currentUser.Setup(x => x.IsAdmin()).Returns(isAdmin);
         currentUser

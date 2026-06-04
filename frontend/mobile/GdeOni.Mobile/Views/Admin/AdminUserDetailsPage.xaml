@@ -134,11 +134,13 @@
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="Удалятся: " />
-                                    <Span Text="отслеживания, refresh-токены." FontAttributes="Bold" />
-                                    <Span Text="&#10;Останутся: " />
-                                    <Span Text="карточки умерших, файлы, платежи, история правок и воспоминания" FontAttributes="Bold" />
+                                    <Span Text="отслеживания, refresh-токены, сам аккаунт." FontAttributes="Bold" />
+                                    <Span Text="&#10;Переназначатся на вас: " />
+                                    <Span Text="карточки умерших и файлы." FontAttributes="Bold" />
+                                    <Span Text=" В историю правок каждой карточки добавится запись «Переуступка» с email удалённого юзера." />
+                                    <Span Text="&#10;Останутся как есть: " />
+                                    <Span Text="платежи, история правок, воспоминания" FontAttributes="Bold" />
                                     <Span Text=" (автор пометится как «удалённый пользователь»)." />
-                                    <Span Text="&#10;&#10;⚠️ Если юзер создавал карточки или загружал файлы, БД не даст его удалить — нужно сначала переназначить или удалить контент." />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>

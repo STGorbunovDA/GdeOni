@@ -55,6 +55,21 @@ public interface IDeceasedRepository
     Task<bool> HasContentByUser(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Переназначить весь контент (карточки умерших + медиа), созданный
+    /// одним юзером, на другого. Используется при удалении юзера админом:
+    /// SuperAdmin становится новым автором. Для каждой переназначенной
+    /// карточки добавляется запись в deceased_edits (Kind=Reassignment)
+    /// с email удалённого юзера в diff'е — чтобы история «кто реально
+    /// создал» не потерялась. Медиа просто UPDATE'ятся (там нет audit log).
+    /// Возвращает количество затронутых строк (deceased + media).
+    /// </summary>
+    Task<int> ReassignContent(
+        Guid fromUserId,
+        string fromUserEmail,
+        Guid toUserId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// D24. Аудит правок карточки. Возвращает страницу edit'ов с
     /// JOIN-данными о редакторе (email/displayName) для админ-таблицы.
     /// Сортировка по EditedAtUtc desc — самые свежие сверху.

@@ -12,4 +12,10 @@ public enum DeceasedEditKind
     MainInfo = 1,
     Metadata = 2,
     BurialLocation = 3,
+    /// <summary>
+    /// Админская переуступка авторства карточки — при удалении юзера
+    /// SuperAdmin становится новым CreatedByUserId, а в ChangesJson
+    /// фиксируется email удалённого юзера для аудита.
+    /// </summary>
+    Reassignment = 4,
 }

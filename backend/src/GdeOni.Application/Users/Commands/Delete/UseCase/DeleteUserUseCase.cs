@@ -57,12 +57,17 @@ public sealed class DeleteUserUseCase(
         if (user.Role == UserRole.Admin && !isSuperAdmin)
             return Errors.User.DeletePeerAdminForbidden();
 
-        // FK guard: если юзер создавал карточки умерших или загружал
-        // медиа — у этих сущностей OnDelete=Restrict, БД кинет
-        // FK violation в SaveChangesAsync (500). Возвращаем 409
-        // с понятным кодом, чтобы UI мог объяснить что делать.
-        if (await deceasedRepository.HasContentByUser(user.Id, cancellationToken))
-            return Errors.User.DeleteHasContent();
+        // FK guard через reassign: у Deceased.CreatedByUserId и
+        // DeceasedMedia.UploadedByUserId стоит OnDelete=Restrict, поэтому
+        // перед удалением переуступаем весь контент текущему SuperAdmin'у.
+        // Для каждой карточки создаётся audit-запись DeceasedEditKind.Reassignment
+        // с email удалённого юзера в diff'е — историю "кто реально создал"
+        // не теряем.
+        await deceasedRepository.ReassignContent(
+            fromUserId: user.Id,
+            fromUserEmail: user.Email,
+            toUserId: currentUserIdResult.Value,
+            cancellationToken);
 
         userRepository.Delete(user);
         // Refresh-токены удаляемого пользователя уйдут сами по

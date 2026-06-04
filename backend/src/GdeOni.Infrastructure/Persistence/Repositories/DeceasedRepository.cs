@@ -336,6 +336,69 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
             .AnyAsync(x => x.UploadedByUserId == userId, cancellationToken);
     }
 
+    public async Task<int> ReassignContent(
+        Guid fromUserId,
+        string fromUserEmail,
+        Guid toUserId,
+        CancellationToken cancellationToken)
+    {
+        // 1) Сначала собираем id'шники всех карточек этого автора (нужны
+        // для batch-insert аудит-записей до UPDATE).
+        var deceasedIds = await dbContext.DeceasedRecords
+            .AsNoTracking()
+            .Where(x => x.CreatedByUserId == fromUserId)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        // 2) UPDATE deceased SET created_by_user_id = toUserId
+        //    WHERE created_by_user_id = fromUserId.
+        //    ExecuteUpdateAsync — один SQL, не подгружает агрегаты в память.
+        var deceasedCount = await dbContext.DeceasedRecords
+            .Where(x => x.CreatedByUserId == fromUserId)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(x => x.CreatedByUserId, toUserId),
+                cancellationToken);
+
+        // 3) Аналогично media.
+        var mediaCount = await dbContext.Set<DeceasedMedia>()
+            .Where(x => x.UploadedByUserId == fromUserId)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(x => x.UploadedByUserId, toUserId),
+                cancellationToken);
+
+        // 4) Для каждой переназначенной карточки — audit-запись в deceased_edits.
+        //    Сохраняем email удалённого юзера в diff'е, чтобы было видно
+        //    "кто реально создал" даже спустя годы.
+        if (deceasedIds.Count > 0)
+        {
+            var changesPayload = $"{{\"PreviousAuthor\":{{\"Old\":\"{fromUserEmail}\",\"New\":null}}}}";
+            var nowUtc = DateTime.UtcNow;
+            var editsToAdd = deceasedIds.Select(deceasedId => new
+            {
+                Id = Guid.NewGuid(),
+                DeceasedId = deceasedId,
+                // EditedByUserId = null: формально переуступка системная,
+                // выполняется при удалении автора. В админ-UI отображается
+                // как "Удалённый пользователь" (SetNull-семантика).
+                EditedAtUtc = nowUtc,
+                Kind = (int)DeceasedEditKind.Reassignment,
+                ChangesJson = changesPayload,
+            }).ToList();
+
+            // INSERT batch через ExecuteUpdateAsync невозможен — используем
+            // standard AddRange + SaveChanges (там же где основной use case
+            // делает Save).
+            foreach (var e in editsToAdd)
+            {
+                await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                    $"INSERT INTO deceased_edits (id, deceased_id, edited_by_user_id, edited_at_utc, kind, changes_json) VALUES ({e.Id}, {e.DeceasedId}, NULL, {e.EditedAtUtc}, {e.Kind}, CAST({e.ChangesJson} AS jsonb))",
+                    cancellationToken);
+            }
+        }
+
+        return deceasedCount + mediaCount;
+    }
+
     public async Task<(List<DeceasedEditRow> Items, int TotalCount)> GetEditsPaged(
         Guid deceasedId,
         int page,
