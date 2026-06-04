@@ -43,15 +43,15 @@ public sealed class GetUserByIdUseCase(
         if (!isAdmin && user.Id != currentUserId)
             return Errors.User.UserForbidden();
 
-        // Admin не должен видеть SuperAdmin'а (его собственные данные —
-        // да, но чужого SuperAdmin'а — нет). SuperAdmin видит всех.
-        var currentIsSuperAdmin = currentUserService.IsInRole(Domain.Shared.UserRole.SuperAdmin.ToString());
-        if (user.Role == Domain.Shared.UserRole.SuperAdmin
-            && !currentIsSuperAdmin
-            && user.Id != currentUserId)
-        {
+        // SuperAdmin-аккаунты скрыты от админ-листинга ВООБЩЕ — даже
+        // собственный SuperAdmin не должен видеть себя в списке /users.
+        // Управление SuperAdmin-аккаунтами идёт через bootstrap-скрипт
+        // или прямые запросы к БД. ВАЖНО: этот use case используется
+        // также при просмотре своего профиля по userId (если фронт так
+        // ходит) — но canonical путь это /me, поэтому 403 здесь
+        // не сломает обычный UX.
+        if (user.Role == Domain.Shared.UserRole.SuperAdmin)
             return Errors.User.UserForbidden();
-        }
 
         var nowUtc = DateTime.UtcNow;
 

@@ -100,10 +100,11 @@ public partial class AdminUserDetailsViewModel(
             var isSuperAdmin = me is not null &&
                 string.Equals(me.Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
 
-            // SuperAdmin может назначать любую роль; обычный Admin —
-            // только RegularUser и Manager.
+            // SuperAdmin может назначать RegularUser/Manager/Admin (SuperAdmin
+            // намеренно НЕ в списке — этот аккаунт через UI не выдаётся,
+            // только через bootstrap-скрипт). Обычный Admin — RegularUser/Manager.
             Roles = isSuperAdmin
-                ? new[] { "RegularUser", "Manager", "Admin", "SuperAdmin" }
+                ? new[] { "RegularUser", "Manager", "Admin" }
                 : new[] { "RegularUser", "Manager" };
 
             // Если я обычный Admin и target — другой Admin / SuperAdmin,
