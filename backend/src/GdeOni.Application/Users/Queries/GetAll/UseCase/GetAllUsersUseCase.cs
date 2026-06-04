@@ -34,8 +34,13 @@ public sealed class GetAllUsersUseCase(
 
         if (!currentUserService.IsAdmin())
             return Errors.User.InsufficientPermissionsToViewAllUsers();
-        
-        var (items, totalCount) = await userRepository.GetPaged(query, cancellationToken);
+
+        // SuperAdmin'ы видны только другому SuperAdmin'у. Admin не должен
+        // знать про SuperAdmin'ов через UI — иначе мог бы пытаться их
+        // понизить/изменить (бэкэндом всё равно отрежется, но UX-проблема).
+        var includeSuperAdmins = currentUserService.IsInRole(UserRole.SuperAdmin.ToString());
+
+        var (items, totalCount) = await userRepository.GetPaged(query, includeSuperAdmins, cancellationToken);
 
         var responseItems = items.Select(row => new GetAllUsersResponse
         {

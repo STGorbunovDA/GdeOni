@@ -362,6 +362,11 @@ public static class Errors
                 "user.role.change.peer_admin.forbidden",
                 "An Admin cannot change the role of another Admin. Only a SuperAdmin can.");
 
+        public static Error AssignAdminRoleForbidden() =>
+            Error.Forbidden(
+                "user.role.assign.admin.forbidden",
+                "An Admin cannot assign Admin or SuperAdmin roles. Only a SuperAdmin can.");
+
         public static Error DeleteSuperAdminForbidden() =>
             Error.Forbidden(
                 "user.delete.super_admin.forbidden",

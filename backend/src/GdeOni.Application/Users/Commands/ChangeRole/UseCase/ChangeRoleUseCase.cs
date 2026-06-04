@@ -52,6 +52,12 @@ public sealed class ChangeRoleUseCase(
         if (user.Role == UserRole.Admin && !isSuperAdmin)
             return Errors.User.ChangePeerAdminRoleForbidden();
 
+        // Admin не может выдавать роль Admin или SuperAdmin — только
+        // повысить до Manager или вернуть обратно в RegularUser. Только
+        // SuperAdmin вправе назначать админов.
+        if (!isSuperAdmin && command.UserRole is UserRole.Admin or UserRole.SuperAdmin)
+            return Errors.User.AssignAdminRoleForbidden();
+
         var stampBefore = user.SecurityStamp;
 
         var result = user.ChangeRole(command.UserRole);

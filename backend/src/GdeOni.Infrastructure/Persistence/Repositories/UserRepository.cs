@@ -178,14 +178,16 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 
     public async Task<(List<(User User, int TrackingCount)> Items, int TotalCount)> GetPaged(
         GetAllUsersQuery query,
+        bool includeSuperAdmins,
         CancellationToken cancellationToken)
     {
         // Без Include(TrackedDeceasedItems) — раньше тянули всю коллекцию
         // подписок ради одного .Count в response. Сейчас COUNT делается
         // в SQL через subquery в Select.
-        var dbQuery = UsersQuery()
-            .Where(x => x.Role != UserRole.SuperAdmin)
-            .AsNoTracking();
+        var dbQuery = UsersQuery().AsNoTracking();
+
+        if (!includeSuperAdmins)
+            dbQuery = dbQuery.Where(x => x.Role != UserRole.SuperAdmin);
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {

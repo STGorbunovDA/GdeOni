@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
+using GdeOni.Mobile.Services.Auth;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
@@ -13,7 +14,9 @@ namespace GdeOni.Mobile.ViewModels;
 /// для этого есть отдельный раздел "Платежи" в админке.
 /// </summary>
 [QueryProperty(nameof(UserId), "userId")]
-public partial class AdminUserDetailsViewModel(IAdminApi adminApi) : ObservableObject
+public partial class AdminUserDetailsViewModel(
+    IAdminApi adminApi,
+    IAuthService authService) : ObservableObject
 {
     [ObservableProperty] private string _userId = "";
 
@@ -52,13 +55,21 @@ public partial class AdminUserDetailsViewModel(IAdminApi adminApi) : ObservableO
     public bool HasComplimentaryAccess => HasComplimentaryAccessFlag;
 
     /// <summary>
-    /// Доступные роли — соответствуют enum UserRole на бэке. SuperAdmin
-    /// исключён намеренно: его не выставляют через UI (только bootstrap
-    /// через seed). Manager — для модераторов без полных прав админа.
+    /// Доступные роли для выбора. Заполняется в LoadAsync в зависимости
+    /// от роли текущего юзера: Admin видит только RegularUser/Manager,
+    /// SuperAdmin видит RegularUser/Manager/Admin/SuperAdmin.
     /// </summary>
-    public IReadOnlyList<string> Roles { get; } = new[] { "RegularUser", "Manager", "Admin" };
+    [ObservableProperty]
+    private IReadOnlyList<string> _roles = new[] { "RegularUser", "Manager" };
 
     [ObservableProperty] private string _selectedRole = "RegularUser";
+
+    /// <summary>
+    /// Может ли текущий юзер что-то менять у этого target'а. Если target=Admin
+    /// и я не SuperAdmin — все действия скрыты (бэк отдаёт 403 в любом случае).
+    /// </summary>
+    [ObservableProperty]
+    private bool _canManageTarget = true;
     [ObservableProperty] private string _complimentaryNote = "";
 
     private async Task LoadAsync()
@@ -81,6 +92,25 @@ public partial class AdminUserDetailsViewModel(IAdminApi adminApi) : ObservableO
             SelectedRole = u.Role;
             Registered = u.RegisteredAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
             TrackingCount = u.TrackingCount;
+
+            // Подгружаем СВОЮ роль чтобы вычислить допустимые действия.
+            // Зеркало server-side guards в ChangeRole / RevokeSubscription /
+            // Complimentary — здесь только UX-гейт (бэк всё равно отдаст 403).
+            var me = await authService.GetCurrentUserAsync();
+            var isSuperAdmin = me is not null &&
+                string.Equals(me.Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+
+            // SuperAdmin может назначать любую роль; обычный Admin —
+            // только RegularUser и Manager.
+            Roles = isSuperAdmin
+                ? new[] { "RegularUser", "Manager", "Admin", "SuperAdmin" }
+                : new[] { "RegularUser", "Manager" };
+
+            // Если я обычный Admin и target — другой Admin / SuperAdmin,
+            // все действия (роль, подписка, complimentary) скрываем.
+            var targetIsAdmin = string.Equals(u.Role, "Admin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(u.Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+            CanManageTarget = isSuperAdmin || !targetIsAdmin;
 
             SubscriptionStatusDisplay = u.SubscriptionStatus switch
             {

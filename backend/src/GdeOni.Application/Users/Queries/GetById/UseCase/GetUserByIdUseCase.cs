@@ -43,6 +43,16 @@ public sealed class GetUserByIdUseCase(
         if (!isAdmin && user.Id != currentUserId)
             return Errors.User.UserForbidden();
 
+        // Admin не должен видеть SuperAdmin'а (его собственные данные —
+        // да, но чужого SuperAdmin'а — нет). SuperAdmin видит всех.
+        var currentIsSuperAdmin = currentUserService.IsInRole(Domain.Shared.UserRole.SuperAdmin.ToString());
+        if (user.Role == Domain.Shared.UserRole.SuperAdmin
+            && !currentIsSuperAdmin
+            && user.Id != currentUserId)
+        {
+            return Errors.User.UserForbidden();
+        }
+
         var nowUtc = DateTime.UtcNow;
 
         // Эффективный статус: если Status=Active/Trial/Cancelled, но

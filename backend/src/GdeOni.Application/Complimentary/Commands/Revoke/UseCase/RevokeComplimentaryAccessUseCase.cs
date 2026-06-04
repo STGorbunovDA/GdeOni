@@ -34,8 +34,9 @@ public sealed class RevokeComplimentaryAccessUseCase(
         if (target is null)
             return Errors.General.NotFound("user", command.TargetUserId);
 
-        if (target.Role == UserRole.SuperAdmin
-            && !currentUserService.IsInRole(nameof(UserRole.SuperAdmin)))
+        var isSuperAdmin = currentUserService.IsInRole(nameof(UserRole.SuperAdmin));
+        if ((target.Role == UserRole.SuperAdmin || target.Role == UserRole.Admin)
+            && !isSuperAdmin)
         {
             return Errors.Complimentary.ManageSuperAdminForbidden();
         }

@@ -93,7 +93,7 @@ public sealed class ChangeRoleUseCaseTests
     /// (security-event, новый Role в access-token-claim'ах).
     /// </summary>
     [Fact]
-    public async Task Execute_AdminPromotesRegularUser_SavesAndRevokesTokens()
+    public async Task Execute_AdminPromotesRegularUserToManager_SavesAndRevokesTokens()
     {
         var target = User.Register("bob@example.com", "hash").Value;
         var oldStamp = target.SecurityStamp;
@@ -106,18 +106,44 @@ public sealed class ChangeRoleUseCaseTests
         userRepo.Setup(x => x.GetById(target.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(target);
 
+        // Admin может назначить только Manager (или RegularUser).
         var result = await useCase.Execute(
-            new ChangeRoleCommand(target.Id, UserRole.Admin),
+            new ChangeRoleCommand(target.Id, UserRole.Manager),
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        target.Role.Should().Be(UserRole.Admin);
+        target.Role.Should().Be(UserRole.Manager);
         target.SecurityStamp.Should().NotBe(oldStamp);
         userRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Once);
         refreshRepo.Verify(
             x => x.RevokeAllForUser(target.Id, It.IsAny<CancellationToken>()),
             Times.Once);
         invalidator.Verify(x => x.Invalidate(target.Id), Times.Once);
+    }
+
+    /// <summary>
+    /// Admin не может назначить роль Admin или SuperAdmin — только SuperAdmin.
+    /// </summary>
+    [Fact]
+    public async Task Execute_AdminAssignsAdminRole_Forbidden()
+    {
+        var target = User.Register("bob@example.com", "hash").Value;
+
+        var (userRepo, _, currentUser, _, useCase) = BuildHarness();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
+        currentUser.Setup(x => x.IsAdmin()).Returns(true);
+        currentUser.Setup(x => x.IsInRole(nameof(UserRole.SuperAdmin))).Returns(false);
+        userRepo.Setup(x => x.GetById(target.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(target);
+
+        var result = await useCase.Execute(
+            new ChangeRoleCommand(target.Id, UserRole.Admin),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("user.role.assign.admin.forbidden");
+        target.Role.Should().Be(UserRole.RegularUser);
     }
 
     /// <summary>

@@ -59,7 +59,10 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <Border Style="{StaticResource CloudCard}">
+                <!-- Если я Admin и target — Admin/SuperAdmin, все блоки
+                     управления скрыты. Бэк всё равно отдаст 403. -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding CanManageTarget}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Сменить роль" Style="{StaticResource SubTitleLabel}" />
                         <Picker ItemsSource="{Binding Roles}" SelectedItem="{Binding SelectedRole}" />
@@ -70,7 +73,8 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <Border Style="{StaticResource CloudCard}">
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding CanManageTarget}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Бесплатный доступ (бессрочно)" Style="{StaticResource SubTitleLabel}" />
                         <Label Text="Юзер получает доступ ко всем функциям без подписки. Можно отозвать в любой момент."
@@ -90,7 +94,8 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <Border Style="{StaticResource CloudCard}">
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding CanManageTarget}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Подписка" Style="{StaticResource SubTitleLabel}" />
                         <Label Text="Восстановить пробный период на 30 дней — статус заменится на Trial."

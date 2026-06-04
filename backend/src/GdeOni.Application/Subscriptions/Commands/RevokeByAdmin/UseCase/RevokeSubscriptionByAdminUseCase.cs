@@ -41,14 +41,14 @@ public sealed class RevokeSubscriptionByAdminUseCase(
         if (target is null)
             return Errors.General.NotFound("user", command.UserId);
 
-        // Admin не управляет SuperAdmin'ом — паттерн как в D22.
-        var isCurrentSuperAdmin = currentUserService.IsAdmin()
-            && target.Role == Domain.Shared.UserRole.SuperAdmin
-            && currentUserIdResult.Value != target.Id;
-        if (target.Role == Domain.Shared.UserRole.SuperAdmin && !isCurrentSuperAdmin)
+        // Admin не управляет SuperAdmin'ом или другим Admin'ом — только
+        // SuperAdmin может. Сам себя уже отсекли выше.
+        var isCurrentSuperAdmin = currentUserService.IsInRole(
+            Domain.Shared.UserRole.SuperAdmin.ToString());
+        if ((target.Role == Domain.Shared.UserRole.SuperAdmin
+                || target.Role == Domain.Shared.UserRole.Admin)
+            && !isCurrentSuperAdmin)
         {
-            // SuperAdmin как цель — только сам SuperAdmin это может,
-            // но себя мы уже отрезали выше.
             return Errors.Subscription.ManageSuperAdminForbidden();
         }
 

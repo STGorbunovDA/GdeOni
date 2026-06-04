@@ -43,8 +43,14 @@ public sealed class RestartTrialByAdminUseCase(
         if (target is null)
             return Errors.General.NotFound("user", command.UserId);
 
-        if (target.Role == Domain.Shared.UserRole.SuperAdmin)
+        var isCurrentSuperAdmin = currentUserService.IsInRole(
+            Domain.Shared.UserRole.SuperAdmin.ToString());
+        if ((target.Role == Domain.Shared.UserRole.SuperAdmin
+                || target.Role == Domain.Shared.UserRole.Admin)
+            && !isCurrentSuperAdmin)
+        {
             return Errors.Subscription.ManageSuperAdminForbidden();
+        }
 
         var duration = command.DurationDays is > 0
             ? TimeSpan.FromDays(command.DurationDays.Value)

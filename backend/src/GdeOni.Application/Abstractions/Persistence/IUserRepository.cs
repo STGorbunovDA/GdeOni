@@ -20,8 +20,14 @@ public interface IUserRepository
     /// или подделанного платежа).
     /// </summary>
     Task<User?> GetBySubscriptionPaymentId(string externalPaymentId, CancellationToken cancellationToken);
+    /// <summary>
+    /// Список юзеров с пагинацией. <paramref name="includeSuperAdmins"/>
+    /// контролирует видимость SuperAdmin'ов: false — обычные админы
+    /// не должны их видеть.
+    /// </summary>
     Task<(List<(User User, int TrackingCount)> Items, int TotalCount)> GetPaged(
         GetAllUsersQuery query,
+        bool includeSuperAdmins,
         CancellationToken cancellationToken);
     Task<bool> ExistsById(Guid userId, CancellationToken cancellationToken);
     Task<bool> ExistsByEmail(string email, CancellationToken cancellationToken);

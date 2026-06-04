@@ -45,9 +45,11 @@ public sealed class GrantComplimentaryAccessUseCase(
         if (target is null)
             return Errors.General.NotFound("user", command.TargetUserId);
 
-        // Admin (не SuperAdmin) не имеет прав управлять SuperAdmin'ом.
-        if (target.Role == UserRole.SuperAdmin
-            && !currentUserService.IsInRole(nameof(UserRole.SuperAdmin)))
+        // Admin (не SuperAdmin) не имеет прав управлять SuperAdmin'ом
+        // или другим Admin'ом — только SuperAdmin может.
+        var isSuperAdmin = currentUserService.IsInRole(nameof(UserRole.SuperAdmin));
+        if ((target.Role == UserRole.SuperAdmin || target.Role == UserRole.Admin)
+            && !isSuperAdmin)
         {
             return Errors.Complimentary.ManageSuperAdminForbidden();
         }
