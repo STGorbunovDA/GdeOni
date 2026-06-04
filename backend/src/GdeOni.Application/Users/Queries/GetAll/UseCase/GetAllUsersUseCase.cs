@@ -37,8 +37,14 @@ public sealed class GetAllUsersUseCase(
 
         // SuperAdmin'ы намеренно скрыты ОТ ВСЕХ через UI-листинг, включая
         // других SuperAdmin'ов. Управление SuperAdmin-аккаунтами идёт
-        // только через bootstrap-скрипт / прямые запросы к БД.
-        var (items, totalCount) = await userRepository.GetPaged(query, includeSuperAdmins: false, cancellationToken);
+        // только через bootstrap-скрипт / прямые запросы к БД. Также
+        // исключаем самого админа из списка — нет смысла видеть свою
+        // карточку при модерации других юзеров.
+        var (items, totalCount) = await userRepository.GetPaged(
+            query,
+            includeSuperAdmins: false,
+            excludeUserId: currentUserIdResult.Value,
+            cancellationToken);
 
         var responseItems = items.Select(row => new GetAllUsersResponse
         {

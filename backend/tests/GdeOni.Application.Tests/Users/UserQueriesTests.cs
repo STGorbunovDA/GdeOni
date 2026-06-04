@@ -64,7 +64,7 @@ public sealed class UserQueriesTests
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
         currentUser.Setup(x => x.IsAdmin()).Returns(true);
         userRepo
-            .Setup(x => x.GetPaged(It.IsAny<GetAllUsersQuery>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetPaged(It.IsAny<GetAllUsersQuery>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<(User, int)>(), 0));
 
         var useCase = new GetAllUsersUseCase(
@@ -77,7 +77,7 @@ public sealed class UserQueriesTests
 
         result.IsSuccess.Should().BeTrue();
         userRepo.Verify(
-            x => x.GetPaged(It.IsAny<GetAllUsersQuery>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            x => x.GetPaged(It.IsAny<GetAllUsersQuery>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

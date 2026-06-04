@@ -29,11 +29,14 @@ public interface IUserRepository
     /// <summary>
     /// Список юзеров с пагинацией. <paramref name="includeSuperAdmins"/>
     /// контролирует видимость SuperAdmin'ов: false — обычные админы
-    /// не должны их видеть.
+    /// не должны их видеть. <paramref name="excludeUserId"/> — id юзера
+    /// которого надо исключить (типичный случай: текущий админ не должен
+    /// видеть сам себя в списке).
     /// </summary>
     Task<(List<(User User, int TrackingCount)> Items, int TotalCount)> GetPaged(
         GetAllUsersQuery query,
         bool includeSuperAdmins,
+        Guid? excludeUserId,
         CancellationToken cancellationToken);
     Task<bool> ExistsById(Guid userId, CancellationToken cancellationToken);
     Task<bool> ExistsByEmail(string email, CancellationToken cancellationToken);

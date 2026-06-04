@@ -189,6 +189,7 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
     public async Task<(List<(User User, int TrackingCount)> Items, int TotalCount)> GetPaged(
         GetAllUsersQuery query,
         bool includeSuperAdmins,
+        Guid? excludeUserId,
         CancellationToken cancellationToken)
     {
         // Без Include(TrackedDeceasedItems) — раньше тянули всю коллекцию
@@ -198,6 +199,9 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 
         if (!includeSuperAdmins)
             dbQuery = dbQuery.Where(x => x.Role != UserRole.SuperAdmin);
+
+        if (excludeUserId.HasValue)
+            dbQuery = dbQuery.Where(x => x.Id != excludeUserId.Value);
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
