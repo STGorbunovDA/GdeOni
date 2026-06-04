@@ -104,11 +104,17 @@ public interface IAdminApi
         Guid userId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>D23. GET /api/admin/payments — все платежи.</summary>
+    /// <summary>
+    /// D23. GET /api/admin/payments — все платежи. Опциональные фильтры:
+    /// status, диапазон дат created, частичный поиск по email.
+    /// </summary>
     [Get("/api/admin/payments")]
     Task<ApiEnvelope<AdminPaymentsResponse>> GetPaymentsAsync(
         [Query] int page = 1,
         [Query] int pageSize = 20,
         [Query] string? status = null,
+        [Query] string? emailSearch = null,
+        [Query(Format = "O")] DateTime? createdFromUtc = null,
+        [Query(Format = "O")] DateTime? createdToUtc = null,
         CancellationToken cancellationToken = default);
 }

@@ -23,10 +23,48 @@ public partial class AdminPaymentsViewModel(IAdminApi adminApi) : ObservableObje
 
     [ObservableProperty] private string _selectedStatusFilter = "Все";
 
+    /// <summary>Частичный поиск по email юзера. Применяется server-side (ILIKE).</summary>
+    [ObservableProperty] private string _emailSearch = "";
+
+    /// <summary>Диапазон дат создания. Аналог фильтра в Пользователях.</summary>
+    [ObservableProperty] private bool _isDateFilterEnabled;
+    [ObservableProperty] private DateTime _createdFrom = DateTime.Today.AddDays(-30);
+    [ObservableProperty] private DateTime _createdTo = DateTime.Today;
+
     partial void OnSelectedStatusFilterChanged(string value)
     {
         if (!HasLoadedOnce) return;
         _ = LoadFirstPageAsync();
+    }
+
+    partial void OnIsDateFilterEnabledChanged(bool value)
+    {
+        if (!HasLoadedOnce) return;
+        _ = LoadFirstPageAsync();
+    }
+
+    partial void OnCreatedFromChanged(DateTime value)
+    {
+        if (!HasLoadedOnce || !IsDateFilterEnabled) return;
+        _ = LoadFirstPageAsync();
+    }
+
+    partial void OnCreatedToChanged(DateTime value)
+    {
+        if (!HasLoadedOnce || !IsDateFilterEnabled) return;
+        _ = LoadFirstPageAsync();
+    }
+
+    [RelayCommand]
+    private async Task ApplyEmailSearchAsync() => await LoadFirstPageAsync();
+
+    [RelayCommand]
+    private async Task ClearFiltersAsync()
+    {
+        SelectedStatusFilter = "Все";
+        EmailSearch = "";
+        IsDateFilterEnabled = false;
+        await LoadFirstPageAsync();
     }
 
     [ObservableProperty] private bool _isLoading;
@@ -68,7 +106,13 @@ public partial class AdminPaymentsViewModel(IAdminApi adminApi) : ObservableObje
             IsLoading = true;
             ErrorMessage = null;
             var status = SelectedStatusFilter == "Все" ? null : SelectedStatusFilter;
-            var envelope = await adminApi.GetPaymentsAsync(_nextPage, PageSize, status);
+            var emailTerm = string.IsNullOrWhiteSpace(EmailSearch) ? null : EmailSearch.Trim();
+            DateTime? fromUtc = IsDateFilterEnabled
+                ? DateTime.SpecifyKind(CreatedFrom.Date, DateTimeKind.Utc) : null;
+            DateTime? toUtc = IsDateFilterEnabled
+                ? DateTime.SpecifyKind(CreatedTo.Date, DateTimeKind.Utc) : null;
+            var envelope = await adminApi.GetPaymentsAsync(
+                _nextPage, PageSize, status, emailTerm, fromUtc, toUtc);
             if (envelope.Result is null)
             {
                 ErrorMessage = envelope.ErrorMessage ?? "Не удалось загрузить платежи.";

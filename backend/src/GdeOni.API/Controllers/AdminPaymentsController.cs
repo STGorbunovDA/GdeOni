@@ -38,6 +38,7 @@ public sealed class AdminPaymentsController : ApiControllerBase
         [FromQuery] DateTime? createdToUtc,
         [FromQuery] int page,
         [FromQuery] int pageSize,
+        [FromQuery] string? emailSearch,
         [FromServices] IGetAdminPaymentsUseCase useCase,
         CancellationToken cancellationToken)
     {
@@ -47,7 +48,8 @@ public sealed class AdminPaymentsController : ApiControllerBase
             CreatedFromUtc: createdFromUtc,
             CreatedToUtc: createdToUtc,
             Page: page == 0 ? 1 : page,
-            PageSize: pageSize == 0 ? 20 : pageSize);
+            PageSize: pageSize == 0 ? 20 : pageSize,
+            EmailSearch: emailSearch);
         var result = await useCase.Execute(query, cancellationToken);
         return FromResult(result);
     }

@@ -30,13 +30,15 @@ public interface ISubscriptionPaymentRepository
 
     /// <summary>
     /// Пагинированный список платежей для админ-UI с фильтрами.
-    /// userId = null означает "все юзеры".
+    /// userId = null означает "все юзеры". emailSearch — частичное
+    /// совпадение email (ILIKE %...%), удобнее чем UUID для админа.
     /// </summary>
     Task<(List<(SubscriptionPayment Payment, string UserEmail)> Items, int TotalCount)> GetPagedForAdmin(
         Guid? userId,
         PaymentRecordStatus? status,
         DateTime? createdFromUtc,
         DateTime? createdToUtc,
+        string? emailSearch,
         int page,
         int pageSize,
         CancellationToken cancellationToken);

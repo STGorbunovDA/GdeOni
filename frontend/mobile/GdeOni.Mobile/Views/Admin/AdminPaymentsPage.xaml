@@ -22,15 +22,73 @@
                 <Label Text="Платежи" Style="{StaticResource TitleLabel}" />
                 <Label Text="Все платежи подписок по системе." Style="{StaticResource CaptionLabel}" />
 
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
-                    <Label Grid.Column="0"
-                           Text="Статус:"
-                           Style="{StaticResource CaptionLabel}"
-                           VerticalOptions="Center" />
-                    <Picker Grid.Column="1"
-                            ItemsSource="{Binding StatusFilterOptions}"
-                            SelectedItem="{Binding SelectedStatusFilter}" />
-                </Grid>
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Фильтры" Style="{StaticResource SubTitleLabel}" FontSize="15" />
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                            <Label Grid.Column="0"
+                                   Text="Статус:"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Picker Grid.Column="1"
+                                    ItemsSource="{Binding StatusFilterOptions}"
+                                    SelectedItem="{Binding SelectedStatusFilter}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Entry Grid.Column="0"
+                                   Placeholder="Поиск по email юзера"
+                                   Text="{Binding EmailSearch}" />
+                            <Button Grid.Column="1"
+                                    Text="Найти"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Padding="14,6"
+                                    Command="{Binding ApplyEmailSearchCommand}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalOptions="Center">
+                            <Label Grid.Column="0"
+                                   Text="Фильтр по дате создания"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding IsDateFilterEnabled}"
+                                    OnColor="{StaticResource Azure}" />
+                        </Grid>
+
+                        <VerticalStackLayout IsVisible="{Binding IsDateFilterEnabled}" Spacing="6">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                                <Label Grid.Column="0" Text="От:"
+                                       Style="{StaticResource CaptionLabel}"
+                                       VerticalOptions="Center" />
+                                <DatePicker Grid.Column="1"
+                                            Date="{Binding CreatedFrom}"
+                                            MaximumDate="{Binding CreatedTo}"
+                                            Format="dd.MM.yyyy" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                                <Label Grid.Column="0" Text="До:"
+                                       Style="{StaticResource CaptionLabel}"
+                                       VerticalOptions="Center" />
+                                <DatePicker Grid.Column="1"
+                                            Date="{Binding CreatedTo}"
+                                            MinimumDate="{Binding CreatedFrom}"
+                                            Format="dd.MM.yyyy" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <Button Text="Сбросить фильтры"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding ClearFiltersCommand}"
+                                HorizontalOptions="End"
+                                Padding="14,6"
+                                FontSize="13" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding TotalCount, StringFormat='Всего: {0}'}"
+                       Style="{StaticResource CaptionLabel}" />
 
                 <ActivityIndicator IsRunning="{Binding IsLoading}"
                                    IsVisible="{Binding IsLoading}"

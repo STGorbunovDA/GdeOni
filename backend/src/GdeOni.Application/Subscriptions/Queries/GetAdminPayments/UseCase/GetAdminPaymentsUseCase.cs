@@ -30,6 +30,7 @@ public sealed class GetAdminPaymentsUseCase(
             query.Status,
             query.CreatedFromUtc,
             query.CreatedToUtc,
+            query.EmailSearch,
             page,
             pageSize,
             cancellationToken);

@@ -107,7 +107,7 @@ public sealed class PaymentsHistoryUseCaseTests
             new DateTime(2026, 5, 20, 12, 0, 0, DateTimeKind.Utc)).Value;
         paymentRepo
             .Setup(x => x.GetPagedForAdmin(
-                null, null, null, null, 1, 20, It.IsAny<CancellationToken>()))
+                null, null, null, null, null, 1, 20, It.IsAny<CancellationToken>()))
             .ReturnsAsync(
                 (new List<(SubscriptionPayment, string)> { (payment, "user@example.com") }, 1));
 

@@ -12,4 +12,5 @@ public sealed record GetAdminPaymentsQuery(
     DateTime? CreatedFromUtc = null,
     DateTime? CreatedToUtc = null,
     int Page = 1,
-    int PageSize = 20);
+    int PageSize = 20,
+    string? EmailSearch = null);

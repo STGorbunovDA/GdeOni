@@ -41,6 +41,7 @@ public sealed class SubscriptionPaymentRepository(AppDbContext dbContext) : ISub
         PaymentRecordStatus? status,
         DateTime? createdFromUtc,
         DateTime? createdToUtc,
+        string? emailSearch,
         int page,
         int pageSize,
         CancellationToken cancellationToken)
@@ -58,10 +59,23 @@ public sealed class SubscriptionPaymentRepository(AppDbContext dbContext) : ISub
             query = query.Where(x => x.Payment.Status == status.Value);
 
         if (createdFromUtc.HasValue)
-            query = query.Where(x => x.Payment.CreatedAtUtc >= createdFromUtc.Value);
+        {
+            var from = DateTime.SpecifyKind(createdFromUtc.Value.Date, DateTimeKind.Utc);
+            query = query.Where(x => x.Payment.CreatedAtUtc >= from);
+        }
 
         if (createdToUtc.HasValue)
-            query = query.Where(x => x.Payment.CreatedAtUtc <= createdToUtc.Value);
+        {
+            // Включительно по концу дня: < AddDays(1) of target date.
+            var toExclusive = DateTime.SpecifyKind(createdToUtc.Value.Date.AddDays(1), DateTimeKind.Utc);
+            query = query.Where(x => x.Payment.CreatedAtUtc < toExclusive);
+        }
+
+        if (!string.IsNullOrWhiteSpace(emailSearch))
+        {
+            var term = emailSearch.Trim();
+            query = query.Where(x => EF.Functions.ILike(x.Email, $"%{term}%"));
+        }
 
         var totalCount = await query.CountAsync(cancellationToken);
 
