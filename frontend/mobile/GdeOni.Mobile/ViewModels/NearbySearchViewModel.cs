@@ -58,9 +58,17 @@ public partial class NearbySearchViewModel(
     public bool HasResults => Results.Count > 0;
     public bool ShowEmptyState => HasSearched && !IsBusy && Results.Count == 0;
 
-    public string SummaryText => HasSearched
-        ? $"Найдено: {Results.Count} в радиусе {RadiusDisplay}"
-        : string.Empty;
+    public string SummaryText
+    {
+        get
+        {
+            if (!HasSearched) return string.Empty;
+            var preMarked = Results.Count(r => r.IsSelected);
+            if (preMarked > 0)
+                return $"Найдено: {Results.Count} в радиусе {RadiusDisplay} (уже отслеживаете: {preMarked})";
+            return $"Найдено: {Results.Count} в радиусе {RadiusDisplay}";
+        }
+    }
 
     public bool HasSummary => HasSearched;
 
