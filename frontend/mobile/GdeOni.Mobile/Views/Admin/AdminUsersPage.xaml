@@ -32,6 +32,16 @@
                             Command="{Binding LoadFirstPageCommand}" />
                 </Grid>
 
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Роль:"
+                           Style="{StaticResource CaptionLabel}"
+                           VerticalOptions="Center" />
+                    <Picker Grid.Column="1"
+                            ItemsSource="{Binding RoleFilterOptions}"
+                            SelectedItem="{Binding SelectedRoleFilter}" />
+                </Grid>
+
                 <ActivityIndicator IsRunning="{Binding IsLoading}"
                                    IsVisible="{Binding IsLoading}"
                                    Color="{StaticResource Azure}" />

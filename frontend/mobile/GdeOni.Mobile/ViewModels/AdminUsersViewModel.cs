@@ -15,6 +15,25 @@ public partial class AdminUsersViewModel(IAdminApi adminApi) : ObservableObject
     private int _nextPage = 1;
 
     [ObservableProperty] private string _searchText = "";
+
+    /// <summary>
+    /// Фильтр по роли. "Все" → null на бэк, иначе строка enum'а UserRole.
+    /// </summary>
+    public IReadOnlyList<string> RoleFilterOptions { get; } =
+        new[] { "Все", "RegularUser", "Manager", "Admin" };
+
+    [ObservableProperty] private string _selectedRoleFilter = "Все";
+
+    /// <summary>
+    /// При смене роли в Picker'е — сразу перезагружаем первую страницу
+    /// под новый фильтр, чтобы не требовалось дополнительно жать "Найти".
+    /// </summary>
+    partial void OnSelectedRoleFilterChanged(string value)
+    {
+        if (!HasLoadedOnce) return; // первичная инициализация — не дёргаем.
+        _ = LoadFirstPageAsync();
+    }
+
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -54,7 +73,8 @@ public partial class AdminUsersViewModel(IAdminApi adminApi) : ObservableObject
             IsLoading = true;
             ErrorMessage = null;
             var search = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText.Trim();
-            var envelope = await adminApi.GetUsersAsync(_nextPage, PageSize, search);
+            var role = SelectedRoleFilter == "Все" ? null : SelectedRoleFilter;
+            var envelope = await adminApi.GetUsersAsync(_nextPage, PageSize, search, role);
             if (envelope.Result is null)
             {
                 ErrorMessage = envelope.ErrorMessage ?? "Не удалось загрузить пользователей.";

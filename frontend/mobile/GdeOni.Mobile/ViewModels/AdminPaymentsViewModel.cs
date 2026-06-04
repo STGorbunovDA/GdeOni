@@ -17,6 +17,18 @@ public partial class AdminPaymentsViewModel(IAdminApi adminApi) : ObservableObje
     private const int PageSize = 20;
     private int _nextPage = 1;
 
+    /// <summary>Все возможные статусы + "Все" sentinel для отсутствия фильтра.</summary>
+    public IReadOnlyList<string> StatusFilterOptions { get; } =
+        new[] { "Все", "Pending", "Succeeded", "Cancelled", "Failed" };
+
+    [ObservableProperty] private string _selectedStatusFilter = "Все";
+
+    partial void OnSelectedStatusFilterChanged(string value)
+    {
+        if (!HasLoadedOnce) return;
+        _ = LoadFirstPageAsync();
+    }
+
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -55,7 +67,8 @@ public partial class AdminPaymentsViewModel(IAdminApi adminApi) : ObservableObje
         {
             IsLoading = true;
             ErrorMessage = null;
-            var envelope = await adminApi.GetPaymentsAsync(_nextPage, PageSize);
+            var status = SelectedStatusFilter == "Все" ? null : SelectedStatusFilter;
+            var envelope = await adminApi.GetPaymentsAsync(_nextPage, PageSize, status);
             if (envelope.Result is null)
             {
                 ErrorMessage = envelope.ErrorMessage ?? "Не удалось загрузить платежи.";

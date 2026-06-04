@@ -25,6 +25,7 @@ public interface IAdminApi
         [Query] int page = 1,
         [Query] int pageSize = 20,
         [Query] string? search = null,
+        [Query] string? role = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>GET /api/users/{id} — детали конкретного пользователя.</summary>

@@ -22,6 +22,16 @@
                 <Label Text="Платежи" Style="{StaticResource TitleLabel}" />
                 <Label Text="Все платежи подписок по системе." Style="{StaticResource CaptionLabel}" />
 
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Статус:"
+                           Style="{StaticResource CaptionLabel}"
+                           VerticalOptions="Center" />
+                    <Picker Grid.Column="1"
+                            ItemsSource="{Binding StatusFilterOptions}"
+                            SelectedItem="{Binding SelectedStatusFilter}" />
+                </Grid>
+
                 <ActivityIndicator IsRunning="{Binding IsLoading}"
                                    IsVisible="{Binding IsLoading}"
                                    Color="{StaticResource Azure}" />
