@@ -10,6 +10,7 @@ namespace GdeOni.Application.Users.Commands.Delete.UseCase;
 
 public sealed class DeleteUserUseCase(
     IUserRepository userRepository,
+    IDeceasedRepository deceasedRepository,
     ICurrentUserService currentUserService,
     ISecurityStampInvalidator securityStampInvalidator,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
@@ -55,6 +56,13 @@ public sealed class DeleteUserUseCase(
         var isSuperAdmin = currentUserService.IsInRole(nameof(UserRole.SuperAdmin));
         if (user.Role == UserRole.Admin && !isSuperAdmin)
             return Errors.User.DeletePeerAdminForbidden();
+
+        // FK guard: если юзер создавал карточки умерших или загружал
+        // медиа — у этих сущностей OnDelete=Restrict, БД кинет
+        // FK violation в SaveChangesAsync (500). Возвращаем 409
+        // с понятным кодом, чтобы UI мог объяснить что делать.
+        if (await deceasedRepository.HasContentByUser(user.Id, cancellationToken))
+            return Errors.User.DeleteHasContent();
 
         userRepository.Delete(user);
         // Refresh-токены удаляемого пользователя уйдут сами по

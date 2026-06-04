@@ -377,6 +377,12 @@ public static class Errors
                 "user.delete.self.forbidden",
                 "You cannot delete your own account.");
 
+        public static Error DeleteHasContent() =>
+            Error.Conflict(
+                "user.delete.has_content",
+                "User created deceased records or uploaded media. " +
+                "Reassign or delete that content before removing the user.");
+
         public static Error DeletePeerAdminForbidden() =>
             Error.Forbidden(
                 "user.delete.peer_admin.forbidden",

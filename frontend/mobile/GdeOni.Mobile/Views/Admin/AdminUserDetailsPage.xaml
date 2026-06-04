@@ -130,8 +130,18 @@
                         IsVisible="{Binding CanDeleteTarget}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Опасная зона" Style="{StaticResource SubTitleLabel}" TextColor="#C0392B" />
-                        <Label Text="Полное удаление пользователя со всеми отслеживаниями, платежами и историей правок. Действие необратимо."
-                               Style="{StaticResource CaptionLabel}" />
+                        <Label Style="{StaticResource CaptionLabel}">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="Удалятся: " />
+                                    <Span Text="отслеживания, refresh-токены." FontAttributes="Bold" />
+                                    <Span Text="&#10;Останутся: " />
+                                    <Span Text="карточки умерших, файлы, платежи, история правок и воспоминания" FontAttributes="Bold" />
+                                    <Span Text=" (автор пометится как «удалённый пользователь»)." />
+                                    <Span Text="&#10;&#10;⚠️ Если юзер создавал карточки или загружал файлы, БД не даст его удалить — нужно сначала переназначить или удалить контент." />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
                         <Button Text="Удалить пользователя навсегда"
                                 Style="{StaticResource GhostButton}"
                                 BackgroundColor="#C0392B"

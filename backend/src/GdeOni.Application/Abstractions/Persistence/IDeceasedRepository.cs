@@ -47,6 +47,14 @@ public interface IDeceasedRepository
     Task<bool> ExistsBySearchKey(string searchKey, CancellationToken cancellationToken);
 
     /// <summary>
+    /// True если юзер создавал хоть одну карточку умершего ИЛИ загружал
+    /// хоть один медиа-файл. Используется DeleteUserUseCase: эти связи
+    /// имеют OnDelete=Restrict в БД, поэтому удаление юзера без явной
+    /// проверки кинуло бы 500 на FK violation.
+    /// </summary>
+    Task<bool> HasContentByUser(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// D24. Аудит правок карточки. Возвращает страницу edit'ов с
     /// JOIN-данными о редакторе (email/displayName) для админ-таблицы.
     /// Сортировка по EditedAtUtc desc — самые свежие сверху.

@@ -322,6 +322,20 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
             .AnyAsync(x => x.SearchKey == searchKey, cancellationToken);
     }
 
+    public async Task<bool> HasContentByUser(Guid userId, CancellationToken cancellationToken)
+    {
+        // Две короткие проверки EXISTS. Индекс ix_deceased_created_by_user_id
+        // покрывает первую, индекс ix_deceased_media_uploaded_by — вторую.
+        var hasDeceased = await dbContext.DeceasedRecords
+            .AsNoTracking()
+            .AnyAsync(x => x.CreatedByUserId == userId, cancellationToken);
+        if (hasDeceased) return true;
+
+        return await dbContext.Set<DeceasedMedia>()
+            .AsNoTracking()
+            .AnyAsync(x => x.UploadedByUserId == userId, cancellationToken);
+    }
+
     public async Task<(List<DeceasedEditRow> Items, int TotalCount)> GetEditsPaged(
         Guid deceasedId,
         int page,

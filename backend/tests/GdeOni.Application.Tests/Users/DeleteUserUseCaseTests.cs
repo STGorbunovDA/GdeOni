@@ -160,8 +160,15 @@ public sealed class DeleteUserUseCaseTests
         DeleteUserUseCase) BuildHarness(bool isAdmin, bool isSuperAdmin)
     {
         var userRepo = new Mock<IUserRepository>();
+        var deceasedRepo = new Mock<IDeceasedRepository>();
         var currentUser = new Mock<ICurrentUserService>();
         var invalidator = new Mock<ISecurityStampInvalidator>();
+
+        // Default: у юзера нет ни карточек, ни медиа — FK guard пропускает.
+        // Конкретные тесты могут переопределить через setup на repo.
+        deceasedRepo
+            .Setup(x => x.HasContentByUser(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
         currentUser.Setup(x => x.IsAdmin()).Returns(isAdmin);
         currentUser
@@ -170,6 +177,7 @@ public sealed class DeleteUserUseCaseTests
 
         var useCase = new DeleteUserUseCase(
             userRepo.Object,
+            deceasedRepo.Object,
             currentUser.Object,
             invalidator.Object,
             TestExecutor.With<DeleteUserCommand, DeleteUserCommandValidator>());
