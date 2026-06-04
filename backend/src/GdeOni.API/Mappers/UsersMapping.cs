@@ -34,7 +34,9 @@ public static class UsersMapping
             request.RegisteredAtUtc,
             request.LastLoginAtUtc,
             request.Page,
-            request.PageSize);
+            request.PageSize,
+            request.RegisteredFromUtc,
+            request.RegisteredToUtc);
     }
 
     public static GetUserByIdQuery ToGetByIdQuery(Guid id) => new(id);

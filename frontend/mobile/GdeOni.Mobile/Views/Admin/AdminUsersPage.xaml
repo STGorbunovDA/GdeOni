@@ -42,6 +42,37 @@
                             SelectedItem="{Binding SelectedRoleFilter}" />
                 </Grid>
 
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalOptions="Center">
+                    <Label Grid.Column="0"
+                           Text="Фильтр по дате регистрации"
+                           Style="{StaticResource CaptionLabel}"
+                           VerticalOptions="Center" />
+                    <Switch Grid.Column="1"
+                            IsToggled="{Binding IsDateFilterEnabled}"
+                            OnColor="{StaticResource Azure}" />
+                </Grid>
+
+                <VerticalStackLayout IsVisible="{Binding IsDateFilterEnabled}" Spacing="6">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                        <Label Grid.Column="0"
+                               Text="От:"
+                               Style="{StaticResource CaptionLabel}"
+                               VerticalOptions="Center" />
+                        <DatePicker Grid.Column="1"
+                                    Date="{Binding RegisteredFrom}"
+                                    MaximumDate="{Binding RegisteredTo}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                        <Label Grid.Column="0"
+                               Text="До:"
+                               Style="{StaticResource CaptionLabel}"
+                               VerticalOptions="Center" />
+                        <DatePicker Grid.Column="1"
+                                    Date="{Binding RegisteredTo}"
+                                    MinimumDate="{Binding RegisteredFrom}" />
+                    </Grid>
+                </VerticalStackLayout>
+
                 <ActivityIndicator IsRunning="{Binding IsLoading}"
                                    IsVisible="{Binding IsLoading}"
                                    Color="{StaticResource Azure}" />

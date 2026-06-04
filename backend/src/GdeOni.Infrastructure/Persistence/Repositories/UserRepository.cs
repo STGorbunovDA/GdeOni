@@ -229,6 +229,20 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
                 x.RegisteredAtUtc < nextDate);
         }
 
+        // Range-фильтр: From включительно, To включительно (на полный день).
+        if (query.RegisteredFromUtc.HasValue)
+        {
+            var from = DateTime.SpecifyKind(query.RegisteredFromUtc.Value.Date, DateTimeKind.Utc);
+            dbQuery = dbQuery.Where(x => x.RegisteredAtUtc >= from);
+        }
+
+        if (query.RegisteredToUtc.HasValue)
+        {
+            // То = конец указанного дня (включительно), т.е. начало следующего.
+            var toExclusive = DateTime.SpecifyKind(query.RegisteredToUtc.Value.Date.AddDays(1), DateTimeKind.Utc);
+            dbQuery = dbQuery.Where(x => x.RegisteredAtUtc < toExclusive);
+        }
+
         if (query.LastLoginAtUtc.HasValue)
         {
             var date = DateTime.SpecifyKind(query.LastLoginAtUtc.Value.Date, DateTimeKind.Utc);

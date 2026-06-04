@@ -26,6 +26,8 @@ public interface IAdminApi
         [Query] int pageSize = 20,
         [Query] string? search = null,
         [Query] string? role = null,
+        [Query(Format = "O")] DateTime? registeredFromUtc = null,
+        [Query(Format = "O")] DateTime? registeredToUtc = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>GET /api/users/{id} — детали конкретного пользователя.</summary>
