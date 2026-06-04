@@ -60,10 +60,12 @@
                         <Entry Placeholder="Отчество (необязательно)" Text="{Binding MiddleName}" />
 
                         <Label Text="Дата рождения (необязательно)" Style="{StaticResource CaptionLabel}" />
-                        <DatePicker Date="{Binding BirthDate, FallbackValue={x:Null}, TargetNullValue={x:Null}}" />
+                        <DatePicker Date="{Binding BirthDate, FallbackValue={x:Null}, TargetNullValue={x:Null}}"
+                                    Format="dd.MM.yyyy" />
 
                         <Label Text="Дата смерти" Style="{StaticResource CaptionLabel}" />
-                        <DatePicker Date="{Binding DeathDate}" />
+                        <DatePicker Date="{Binding DeathDate}"
+                                    Format="dd.MM.yyyy" />
 
                         <Editor Placeholder="Краткое описание (необязательно)"
                                 Text="{Binding ShortDescription}"

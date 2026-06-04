@@ -60,7 +60,8 @@
                                VerticalOptions="Center" />
                         <DatePicker Grid.Column="1"
                                     Date="{Binding RegisteredFrom}"
-                                    MaximumDate="{Binding RegisteredTo}" />
+                                    MaximumDate="{Binding RegisteredTo}"
+                                    Format="dd.MM.yyyy" />
                     </Grid>
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
                         <Label Grid.Column="0"
@@ -69,7 +70,8 @@
                                VerticalOptions="Center" />
                         <DatePicker Grid.Column="1"
                                     Date="{Binding RegisteredTo}"
-                                    MinimumDate="{Binding RegisteredFrom}" />
+                                    MinimumDate="{Binding RegisteredFrom}"
+                                    Format="dd.MM.yyyy" />
                     </Grid>
                 </VerticalStackLayout>
 
