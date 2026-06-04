@@ -45,6 +45,14 @@
                         <Label Text="{Binding Role, StringFormat='Текущая роль: {0}'}" Style="{StaticResource BodyLabel}" />
                         <Label Text="{Binding Registered, StringFormat='Регистрация: {0}'}" Style="{StaticResource CaptionLabel}" />
                         <Label Text="{Binding TrackingCount, StringFormat='Отслеживает: {0}'}" Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Управление отслеживаниями"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding OpenTrackedCommand}"
+                                HorizontalOptions="Start"
+                                Padding="14,6"
+                                FontSize="13"
+                                Margin="0,8,0,0"
+                                IsVisible="{Binding CanManageTarget}" />
                     </VerticalStackLayout>
                 </Border>
 

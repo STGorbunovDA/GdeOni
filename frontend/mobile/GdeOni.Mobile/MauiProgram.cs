@@ -283,6 +283,7 @@ public static class MauiProgram
         services.AddTransient<AllEditsHistoryViewModel>();
         services.AddTransient<AdminUsersViewModel>();
         services.AddTransient<AdminUserDetailsViewModel>();
+        services.AddTransient<AdminUserTrackedViewModel>();
         services.AddTransient<AdminPaymentsViewModel>();
         services.AddSingleton<AnniversariesSyncService>();
         services.AddTransient<NearbySearchViewModel>();
@@ -309,6 +310,7 @@ public static class MauiProgram
         services.AddTransient<GdeOni.Mobile.Views.Admin.AllEditsHistoryPage>();
         services.AddTransient<GdeOni.Mobile.Views.Admin.AdminUsersPage>();
         services.AddTransient<GdeOni.Mobile.Views.Admin.AdminUserDetailsPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Admin.AdminUserTrackedPage>();
         services.AddTransient<GdeOni.Mobile.Views.Admin.AdminPaymentsPage>();
         services.AddTransient<NearbySearchPage>();
         services.AddTransient<BlockingUpdatePage>();

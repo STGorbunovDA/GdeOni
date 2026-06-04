@@ -284,6 +284,14 @@ public partial class AdminUserDetailsViewModel(
         finally { IsBusyAction = false; }
     }
 
+    /// <summary>Открыть список отслеживаемых для этого юзера.</summary>
+    [RelayCommand]
+    private async Task OpenTrackedAsync()
+    {
+        if (!Guid.TryParse(UserId, out _)) return;
+        await Shell.Current.GoToAsync($"admin-user-tracked?userId={UserId}");
+    }
+
     [RelayCommand]
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
 

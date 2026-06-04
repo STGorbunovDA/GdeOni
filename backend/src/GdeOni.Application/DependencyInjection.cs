@@ -7,6 +7,8 @@ using GdeOni.Application.Complimentary.Commands.Grant.UseCase;
 using GdeOni.Application.Complimentary.Commands.Revoke.UseCase;
 using GdeOni.Application.Subscriptions.Commands.RestartTrialByAdmin.UseCase;
 using GdeOni.Application.Subscriptions.Commands.RevokeByAdmin.UseCase;
+using GdeOni.Application.Users.Commands.AdminRemoveUserTracking.UseCase;
+using GdeOni.Application.Users.Queries.GetUserTrackedDeceasedForAdmin.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.UseCase;
@@ -159,6 +161,9 @@ public static class DependencyInjection
         services.AddScoped<IRevokeComplimentaryAccessUseCase, RevokeComplimentaryAccessUseCase>();
         services.AddScoped<IRevokeSubscriptionByAdminUseCase, RevokeSubscriptionByAdminUseCase>();
         services.AddScoped<IRestartTrialByAdminUseCase, RestartTrialByAdminUseCase>();
+        services.AddScoped<IGetUserTrackedDeceasedForAdminUseCase, GetUserTrackedDeceasedForAdminUseCase>();
+        services.AddScoped<IAdminRemoveUserTrackingUseCase, AdminRemoveUserTrackingUseCase>();
+        services.AddScoped<IAdminRemoveAllUserTrackingUseCase, AdminRemoveAllUserTrackingUseCase>();
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;

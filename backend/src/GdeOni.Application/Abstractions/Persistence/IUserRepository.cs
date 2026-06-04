@@ -10,6 +10,12 @@ public interface IUserRepository
     Task<User?> GetByIdReadOnly(Guid userId, CancellationToken cancellationToken);
     Task<User?> GetByIdWithTrackingByDeceasedId(Guid userId, Guid deceasedId, CancellationToken cancellationToken);
     Task<(User User, int TrackingCount)?> GetByIdWithTrackingCount(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// User с полной коллекцией TrackedDeceasedItems — для bulk-операций
+    /// (например, админский RemoveAllTracking).
+    /// </summary>
+    Task<User?> GetByIdWithAllTracking(Guid userId, CancellationToken cancellationToken);
     Task<User?> GetByEmail(string email, CancellationToken cancellationToken);
 
     /// <summary>

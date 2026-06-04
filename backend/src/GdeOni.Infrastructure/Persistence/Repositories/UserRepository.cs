@@ -50,6 +50,16 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
     }
 
+    public Task<User?> GetByIdWithAllTracking(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        // Full Include для bulk-операций (RemoveAllTracking).
+        return dbContext.Users
+            .Include(x => x.TrackedDeceasedItems)
+            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
+    }
+
     public async Task<(User User, int TrackingCount)?> GetByIdWithTrackingCount(
         Guid userId,
         CancellationToken cancellationToken)

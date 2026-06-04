@@ -74,6 +74,27 @@ public interface IAdminApi
         [Body] RestartTrialRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Список отслеживаний конкретного юзера.</summary>
+    [Get("/api/admin/users/{userId}/tracked-deceased")]
+    Task<ApiEnvelope<AdminUserTrackedResponse>> GetUserTrackedAsync(
+        Guid userId,
+        [Query] int page = 1,
+        [Query] int pageSize = 20,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Снять одно отслеживание у юзера.</summary>
+    [Delete("/api/admin/users/{userId}/tracked-deceased/{deceasedId}")]
+    Task<HttpResponseMessage> RemoveUserTrackingAsync(
+        Guid userId,
+        Guid deceasedId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Снять все отслеживания у юзера. Возвращает количество удалённых.</summary>
+    [Delete("/api/admin/users/{userId}/tracked-deceased")]
+    Task<ApiEnvelope<RemoveAllTrackingResponse>> RemoveAllUserTrackingAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>D23. GET /api/admin/payments — все платежи.</summary>
     [Get("/api/admin/payments")]
     Task<ApiEnvelope<AdminPaymentsResponse>> GetPaymentsAsync(

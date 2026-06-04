@@ -681,6 +681,19 @@ public sealed class User : Entity<Guid>
         return UnitResult.Success<Error>();
     }
 
+    /// <summary>
+    /// Снимает все отслеживания юзера разом. Возвращает количество
+    /// удалённых записей. Используется админом для bulk-операции.
+    /// </summary>
+    public int RemoveAllTracking()
+    {
+        var count = _trackedDeceasedItems.Count;
+        if (count == 0) return 0;
+        _trackedDeceasedItems.Clear();
+        Touch();
+        return count;
+    }
+
     private UnitResult<Error> StopTracking(Guid deceasedId)
     {
         var tracked = _trackedDeceasedItems

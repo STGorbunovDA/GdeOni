@@ -51,6 +51,7 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("all-edits", typeof(GdeOni.Mobile.Views.Admin.AllEditsHistoryPage));
         Routing.RegisterRoute("admin-users", typeof(GdeOni.Mobile.Views.Admin.AdminUsersPage));
         Routing.RegisterRoute("admin-user-details", typeof(GdeOni.Mobile.Views.Admin.AdminUserDetailsPage));
+        Routing.RegisterRoute("admin-user-tracked", typeof(GdeOni.Mobile.Views.Admin.AdminUserTrackedPage));
         Routing.RegisterRoute("admin-payments", typeof(GdeOni.Mobile.Views.Admin.AdminPaymentsPage));
 
         // E21: поиск умерших в радиусе вокруг текущей точки пользователя.
