@@ -60,10 +60,15 @@ public interface IDeceasedRepository
     /// <summary>
     /// D24/F17.9. Лента всех правок по системе для админ-вкладки.
     /// JOIN на deceased (имя умершего) + user (email/имя редактора).
+    /// Опциональные фильтры: deceasedId, editorUserId, диапазон дат.
     /// </summary>
     Task<(List<DeceasedEditWithCardRow> Items, int TotalCount)> GetAllEditsPaged(
         int page,
         int pageSize,
+        Guid? deceasedId,
+        Guid? editorUserId,
+        DateTime? editedFromUtc,
+        DateTime? editedToUtc,
         CancellationToken cancellationToken);
 
     void Delete(Deceased deceased);

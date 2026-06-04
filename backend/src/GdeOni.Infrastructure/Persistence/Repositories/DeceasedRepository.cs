@@ -354,12 +354,38 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
     public async Task<(List<DeceasedEditWithCardRow> Items, int TotalCount)> GetAllEditsPaged(
         int page,
         int pageSize,
+        Guid? deceasedId,
+        Guid? editorUserId,
+        DateTime? editedFromUtc,
+        DateTime? editedToUtc,
         CancellationToken cancellationToken)
     {
-        // Тот же LEFT JOIN на users + INNER на deceased (карточка не может
-        // быть null — edit живёт внутри агрегата с CASCADE). Имя берём
-        // напрямую из PersonName через owned-проперти.
-        var query = from edit in dbContext.Set<DeceasedEdit>().AsNoTracking()
+        // Применяем фильтры на edits ДО JOIN'ов — индексы по deceased_id
+        // и edited_by_user_id уже есть (см. DeceasedEditConfiguration).
+        var editsQuery = dbContext.Set<DeceasedEdit>().AsNoTracking();
+
+        if (deceasedId.HasValue)
+            editsQuery = editsQuery.Where(e => e.DeceasedId == deceasedId.Value);
+
+        if (editorUserId.HasValue)
+            editsQuery = editsQuery.Where(e => e.EditedByUserId == editorUserId.Value);
+
+        if (editedFromUtc.HasValue)
+        {
+            var from = DateTime.SpecifyKind(editedFromUtc.Value.Date, DateTimeKind.Utc);
+            editsQuery = editsQuery.Where(e => e.EditedAtUtc >= from);
+        }
+
+        if (editedToUtc.HasValue)
+        {
+            var toExclusive = DateTime.SpecifyKind(editedToUtc.Value.Date.AddDays(1), DateTimeKind.Utc);
+            editsQuery = editsQuery.Where(e => e.EditedAtUtc < toExclusive);
+        }
+
+        // LEFT JOIN на users + INNER на deceased (карточка не может быть
+        // null — edit живёт внутри агрегата с CASCADE). Имя берём напрямую
+        // из PersonName через owned-проперти.
+        var query = from edit in editsQuery
                     join d in dbContext.DeceasedRecords.AsNoTracking() on edit.DeceasedId equals d.Id
                     join user in dbContext.Set<GdeOni.Domain.Aggregates.User.User>().AsNoTracking()
                         on edit.EditedByUserId equals user.Id into editorGrp

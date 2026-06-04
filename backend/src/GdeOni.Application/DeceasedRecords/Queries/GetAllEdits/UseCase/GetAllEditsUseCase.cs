@@ -27,7 +27,12 @@ public sealed class GetAllEditsUseCase(
         CancellationToken cancellationToken)
     {
         var (rows, totalCount) = await deceasedRepository.GetAllEditsPaged(
-            query.Page, query.PageSize, cancellationToken);
+            query.Page, query.PageSize,
+            query.DeceasedId,
+            query.EditorUserId,
+            query.EditedFromUtc,
+            query.EditedToUtc,
+            cancellationToken);
 
         var items = rows.Select(r => new DeceasedEditWithCardItem(
             r.Edit.Id,

@@ -9,11 +9,18 @@ namespace GdeOni.Mobile.Services.Api;
 /// </summary>
 public interface IAdminApi
 {
-    /// <summary>GET /api/admin/edits — все правки карточек по системе.</summary>
+    /// <summary>
+    /// GET /api/admin/edits — все правки карточек по системе.
+    /// Опциональные фильтры: deceasedId, editorUserId, диапазон дат.
+    /// </summary>
     [Get("/api/admin/edits")]
     Task<ApiEnvelope<AllEditsResponse>> GetAllEditsAsync(
         [Query] int page = 1,
         [Query] int pageSize = 20,
+        [Query] Guid? deceasedId = null,
+        [Query] Guid? editorUserId = null,
+        [Query(Format = "O")] DateTime? editedFromUtc = null,
+        [Query(Format = "O")] DateTime? editedToUtc = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

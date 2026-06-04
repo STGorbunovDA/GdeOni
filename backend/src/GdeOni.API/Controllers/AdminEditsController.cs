@@ -28,12 +28,20 @@ public sealed class AdminEditsController : ApiControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int page,
         [FromQuery] int pageSize,
+        [FromQuery] Guid? deceasedId,
+        [FromQuery] Guid? editorUserId,
+        [FromQuery] DateTime? editedFromUtc,
+        [FromQuery] DateTime? editedToUtc,
         [FromServices] IGetAllEditsUseCase useCase,
         CancellationToken cancellationToken)
     {
         var query = new GetAllEditsQuery(
             page <= 0 ? 1 : page,
-            pageSize <= 0 ? 50 : pageSize);
+            pageSize <= 0 ? 50 : pageSize,
+            deceasedId,
+            editorUserId,
+            editedFromUtc,
+            editedToUtc);
 
         var result = await useCase.Execute(query, cancellationToken);
         return FromResult(result);

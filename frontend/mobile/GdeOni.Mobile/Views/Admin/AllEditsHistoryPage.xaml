@@ -23,6 +23,60 @@
                 <Label Text="Все правки карточек умерших по системе, от свежих к старым."
                        Style="{StaticResource CaptionLabel}" />
 
+                <!-- Фильтры. Поиск по умершему/редактору — client-side
+                     по уже загруженным страницам. Дата — server-side. -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Фильтры" Style="{StaticResource SubTitleLabel}" FontSize="15" />
+
+                        <Entry Placeholder="Поиск по ФИО умершего"
+                               Text="{Binding DeceasedSearch}" />
+                        <Entry Placeholder="Поиск по email/имени редактора"
+                               Text="{Binding EditorSearch}" />
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalOptions="Center">
+                            <Label Grid.Column="0"
+                                   Text="Фильтр по дате изменения"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding IsDateFilterEnabled}"
+                                    OnColor="{StaticResource Azure}" />
+                        </Grid>
+
+                        <VerticalStackLayout IsVisible="{Binding IsDateFilterEnabled}" Spacing="6">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                                <Label Grid.Column="0" Text="От:"
+                                       Style="{StaticResource CaptionLabel}"
+                                       VerticalOptions="Center" />
+                                <DatePicker Grid.Column="1"
+                                            Date="{Binding EditedFrom}"
+                                            MaximumDate="{Binding EditedTo}"
+                                            Format="dd.MM.yyyy" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                                <Label Grid.Column="0" Text="До:"
+                                       Style="{StaticResource CaptionLabel}"
+                                       VerticalOptions="Center" />
+                                <DatePicker Grid.Column="1"
+                                            Date="{Binding EditedTo}"
+                                            MinimumDate="{Binding EditedFrom}"
+                                            Format="dd.MM.yyyy" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <Button Text="Сбросить фильтры"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding ClearFiltersCommand}"
+                                HorizontalOptions="End"
+                                Padding="14,6"
+                                FontSize="13" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding TotalCount, StringFormat='Всего правок: {0}'}"
+                       Style="{StaticResource CaptionLabel}" />
+
                 <ActivityIndicator IsRunning="{Binding IsLoading}"
                                    IsVisible="{Binding IsLoading}"
                                    Color="{StaticResource Azure}" />

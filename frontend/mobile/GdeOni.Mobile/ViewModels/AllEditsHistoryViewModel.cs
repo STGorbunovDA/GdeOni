@@ -25,7 +25,74 @@ public partial class AllEditsHistoryViewModel(IAdminApi adminApi) : ObservableOb
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
+    /// <summary>Сырая лента с бэка (нефильтрованная client-side).</summary>
+    private readonly ObservableCollection<AllEditsEntry> _allEdits = new();
+
+    /// <summary>
+    /// Видимая коллекция после client-side фильтра по умершему/редактору.
+    /// Биндинг XAML — на неё.
+    /// </summary>
     public ObservableCollection<AllEditsEntry> Edits { get; } = new();
+
+    /// <summary>
+    /// Поиск по ФИО умершего. Применяется client-side к уже загруженной
+    /// ленте — не дёргает бэк. Для глубокого поиска можно
+    /// "Загрузить ещё" и фильтр применится к новым страницам.
+    /// </summary>
+    [ObservableProperty] private string _deceasedSearch = "";
+
+    /// <summary>Поиск по email/имени редактора. Тоже client-side.</summary>
+    [ObservableProperty] private string _editorSearch = "";
+
+    // Server-side фильтр дат через бэк (точный, не теряем данные).
+    [ObservableProperty] private bool _isDateFilterEnabled;
+    [ObservableProperty] private DateTime _editedFrom = DateTime.Today.AddDays(-30);
+    [ObservableProperty] private DateTime _editedTo = DateTime.Today;
+
+    partial void OnDeceasedSearchChanged(string value) => ReapplyClientFilter();
+    partial void OnEditorSearchChanged(string value) => ReapplyClientFilter();
+
+    partial void OnIsDateFilterEnabledChanged(bool value)
+    {
+        if (!HasLoadedOnce) return;
+        _ = LoadFirstPageAsync();
+    }
+    partial void OnEditedFromChanged(DateTime value)
+    {
+        if (!HasLoadedOnce || !IsDateFilterEnabled) return;
+        _ = LoadFirstPageAsync();
+    }
+    partial void OnEditedToChanged(DateTime value)
+    {
+        if (!HasLoadedOnce || !IsDateFilterEnabled) return;
+        _ = LoadFirstPageAsync();
+    }
+
+    [RelayCommand]
+    private async Task ClearFiltersAsync()
+    {
+        DeceasedSearch = "";
+        EditorSearch = "";
+        IsDateFilterEnabled = false;
+        await LoadFirstPageAsync();
+    }
+
+    private void ReapplyClientFilter()
+    {
+        Edits.Clear();
+        var deceasedTerm = DeceasedSearch?.Trim();
+        var editorTerm = EditorSearch?.Trim();
+        foreach (var item in _allEdits)
+        {
+            var matchesDeceased = string.IsNullOrEmpty(deceasedTerm)
+                || item.DeceasedFullName.Contains(deceasedTerm, StringComparison.OrdinalIgnoreCase);
+            var matchesEditor = string.IsNullOrEmpty(editorTerm)
+                || item.Editor.Contains(editorTerm, StringComparison.OrdinalIgnoreCase);
+            if (matchesDeceased && matchesEditor)
+                Edits.Add(item);
+        }
+        OnPropertyChanged(nameof(HasNoItems));
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasNoItems))]
@@ -37,11 +104,12 @@ public partial class AllEditsHistoryViewModel(IAdminApi adminApi) : ObservableOb
     [NotifyPropertyChangedFor(nameof(CanLoadMore))]
     private int _totalCount;
 
-    public bool CanLoadMore => Edits.Count < TotalCount && !IsLoading;
+    public bool CanLoadMore => _allEdits.Count < TotalCount && !IsLoading;
 
     [RelayCommand]
     private async Task LoadFirstPageAsync()
     {
+        _allEdits.Clear();
         Edits.Clear();
         _nextPage = 1;
         TotalCount = 0;
@@ -58,7 +126,13 @@ public partial class AllEditsHistoryViewModel(IAdminApi adminApi) : ObservableOb
             IsLoading = true;
             ErrorMessage = null;
 
-            var envelope = await adminApi.GetAllEditsAsync(_nextPage, PageSize);
+            DateTime? fromUtc = IsDateFilterEnabled
+                ? DateTime.SpecifyKind(EditedFrom.Date, DateTimeKind.Utc) : null;
+            DateTime? toUtc = IsDateFilterEnabled
+                ? DateTime.SpecifyKind(EditedTo.Date, DateTimeKind.Utc) : null;
+
+            var envelope = await adminApi.GetAllEditsAsync(
+                _nextPage, PageSize, null, null, fromUtc, toUtc);
             if (envelope.Result is null)
             {
                 ErrorMessage = envelope.ErrorMessage ?? "Не удалось загрузить ленту правок.";
@@ -66,7 +140,9 @@ public partial class AllEditsHistoryViewModel(IAdminApi adminApi) : ObservableOb
             }
 
             foreach (var item in envelope.Result.Items)
-                Edits.Add(AllEditsEntry.From(item));
+                _allEdits.Add(AllEditsEntry.From(item));
+
+            ReapplyClientFilter();
 
             TotalCount = envelope.Result.TotalCount;
             _nextPage++;
