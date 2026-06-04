@@ -108,7 +108,7 @@ public partial class ArchiveViewModel(
         if (page is null) return;
 
         var confirmed = await page.DisplayAlertAsync(
-            "Удалить из отслеживания навсегда?",
+            "Удалить из отслеживания?",
             $"{item.FullName} полностью пропадёт из вашего списка. Сама карточка умершего останется в системе.",
             "Удалить",
             "Отмена");

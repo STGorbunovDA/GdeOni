@@ -2,6 +2,8 @@
 using GdeOni.Application.DeceasedRecords.Queries.GetAll.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.Model;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
+using GdeOni.Domain.Aggregates.User;
+using GdeOni.Domain.Shared;
 using GdeOni.Domain.Shared;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -396,7 +398,28 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
             }
         }
 
-        return deceasedCount + mediaCount;
+        // 5) Переуступка трекингов. Уникальный индекс
+        //    ux_tracked_deceased_user_id_deceased_id блокирует UPDATE если
+        //    SuperAdmin уже отслеживает ту же карточку — фильтруем такие
+        //    через NOT EXISTS, они уйдут Cascade при Delete(user).
+        //    Также сбрасываем relationship_type на Other (99) и
+        //    status на Active — SuperAdmin принимает "опеку" в нейтральном
+        //    состоянии, своих заметок и тогглов удалённого юзера у него
+        //    быть не должно (но PersonalNotes очищать не будем — там может
+        //    быть важная информация о покойном).
+        var trackedCount = await dbContext.Set<TrackedDeceased>()
+            .Where(t => EF.Property<Guid>(t, "user_id") == fromUserId
+                && !dbContext.Set<TrackedDeceased>()
+                    .Any(t2 => EF.Property<Guid>(t2, "user_id") == toUserId
+                        && t2.DeceasedId == t.DeceasedId))
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(t => EF.Property<Guid>(t, "user_id"), toUserId)
+                    .SetProperty(t => t.RelationshipType, RelationshipType.Other)
+                    .SetProperty(t => t.Status, TrackStatus.Active),
+                cancellationToken);
+
+        return deceasedCount + mediaCount + trackedCount;
     }
 
     public async Task<(List<DeceasedEditRow> Items, int TotalCount)> GetEditsPaged(
