@@ -138,11 +138,29 @@ public partial class NearbySearchViewModel(
                 return;
             }
 
+            // Тянем список уже отслеживаемых — чтобы пометить найденные
+            // галкой и поднять их в верх списка. 200 хватит большинству;
+            // если у юзера больше — те просто не будут предотмечены,
+            // что не ломает UX.
+            var alreadyTracked = await LoadAlreadyTrackedIdsAsync();
+
             UnhookRowSelectionEvents();
             Results.Clear();
             AddStatusMessage = null;
-            foreach (var item in envelope.Result.Items)
-                Results.Add(new NearbyDeceasedRowViewModel(item));
+
+            // Сортировка: отслеживаемые сверху (в том же порядке как пришли
+            // с бэка), за ними — остальные. По расстоянию бэк уже отсортировал.
+            var ordered = envelope.Result.Items
+                .OrderByDescending(x => alreadyTracked.Contains(x.Id))
+                .ToList();
+
+            foreach (var item in ordered)
+            {
+                var row = new NearbyDeceasedRowViewModel(item);
+                if (alreadyTracked.Contains(item.Id))
+                    row.IsSelected = true;
+                Results.Add(row);
+            }
             HookRowSelectionEvents();
 
             HasSearched = true;
@@ -247,6 +265,28 @@ public partial class NearbySearchViewModel(
 
     [RelayCommand]
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
+
+    /// <summary>
+    /// Тянем все отслеживаемые карточки (включая Archived/Muted), чтобы
+    /// предотметить в Nearby. PageSize=200 — компромисс: у большинства
+    /// юзеров их меньше, у активных трекеров часть не предотметится,
+    /// но базовый UX работает.
+    /// </summary>
+    private async Task<HashSet<Guid>> LoadAlreadyTrackedIdsAsync()
+    {
+        try
+        {
+            var envelope = await trackedApi.GetListAsync(page: 1, pageSize: 200);
+            if (envelope.Result is null) return new HashSet<Guid>();
+            return envelope.Result.Items.Select(x => x.DeceasedId).ToHashSet();
+        }
+        catch
+        {
+            // Сетевая/auth ошибка — не валим основной флоу поиска, просто
+            // не помечаем галки.
+            return new HashSet<Guid>();
+        }
+    }
 }
 
 /// <summary>
