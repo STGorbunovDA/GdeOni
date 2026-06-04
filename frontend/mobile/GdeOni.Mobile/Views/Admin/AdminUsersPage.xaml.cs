@@ -5,7 +5,6 @@ namespace GdeOni.Mobile.Views.Admin;
 public partial class AdminUsersPage : ContentPage
 {
     private readonly AdminUsersViewModel _viewModel;
-    private bool _initialLoadDone;
 
     public AdminUsersPage(AdminUsersViewModel viewModel)
     {
@@ -14,11 +13,14 @@ public partial class AdminUsersPage : ContentPage
         BindingContext = viewModel;
     }
 
+    /// <summary>
+    /// Перезагружаем при каждом возврате на страницу — иначе после
+    /// смены роли в AdminUserDetailsPage список останется с устаревшими
+    /// данными.
+    /// </summary>
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (_initialLoadDone) return;
-        _initialLoadDone = true;
         await _viewModel.LoadFirstPageAsync();
     }
 }

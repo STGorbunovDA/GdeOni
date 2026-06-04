@@ -72,6 +72,13 @@ public partial class AdminUserDetailsViewModel(
     private bool _canManageTarget = true;
     [ObservableProperty] private string _complimentaryNote = "";
 
+    /// <summary>
+    /// Публичный wrapper для перезагрузки данных юзера. Используется
+    /// AdminUserDetailsPage.OnAppearing после возврата со вложенных
+    /// страниц (admin-user-tracked, и т.д.).
+    /// </summary>
+    public Task RefreshAsync() => LoadAsync();
+
     private async Task LoadAsync()
     {
         if (!Guid.TryParse(UserId, out var id)) return;
