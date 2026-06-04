@@ -66,11 +66,13 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
 
     // Кнопка "Оформить" показывается только когда подписка действительно
     // не активна: Cancelled, Expired, NeedSubscription (нет статуса).
-    // На Trial и Active — скрыта.
+    // На Trial, Active и PendingPayment — скрыта (у юзера и так доступ
+    // или он уже в процессе оплаты).
     public bool ShowSubscribeButton =>
         Current is { HasComplimentaryAccess: false }
         && Current.Status is not "Active"
-        && Current.Status is not "Trial";
+        && Current.Status is not "Trial"
+        && Current.Status is not "PendingPayment";
 
     public string SubscribeButtonText => Current?.Status switch
     {
@@ -90,6 +92,7 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
             {
                 "Trial" => "Пробный период",
                 "Active" => "Подписка активна",
+                "PendingPayment" => "Ожидаем подтверждения оплаты",
                 "Cancelled" => "Подписка отменена",
                 "Expired" => "Подписка истекла",
                 _ => "Подписка не активна",
@@ -118,7 +121,7 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
 
             return Current.Status switch
             {
-                "Trial" or "Active" or "Cancelled" when Current.ExpiresAtUtc is { } expiry =>
+                "Trial" or "Active" or "Cancelled" or "PendingPayment" when Current.ExpiresAtUtc is { } expiry =>
                     $"До {expiry.ToLocalTime():dd.MM.yyyy} ({Current.DaysUntilExpiry} дн.)",
                 "Expired" => "Срок подписки закончился. Оформите снова, чтобы продолжить пользоваться приложением.",
                 _ => "Оформите подписку для полного доступа.",

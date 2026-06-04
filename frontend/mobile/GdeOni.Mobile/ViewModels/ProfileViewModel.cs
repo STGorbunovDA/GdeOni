@@ -75,6 +75,7 @@ public partial class ProfileViewModel(
             {
                 "Trial" => "Пробный период",
                 "Active" => "Подписка активна",
+                "PendingPayment" => "Ожидаем подтверждения оплаты",
                 "Cancelled" => "Подписка отменена",
                 "Expired" => "Подписка истекла",
                 _ => "Подписка не оформлена",
@@ -109,10 +110,10 @@ public partial class ProfileViewModel(
 
             return Subscription.Status switch
             {
-                "Trial" or "Active" or "Cancelled" when Subscription.ExpiresAtUtc is { } expiry =>
+                "Trial" or "Active" or "Cancelled" or "PendingPayment" when Subscription.ExpiresAtUtc is { } expiry =>
                     $"До {expiry.ToLocalTime():dd.MM.yyyy} ({Subscription.DaysUntilExpiry} дн.)",
-                "Expired" => "Срок подписки закончился.",
-                _ => "Доступ возможен только с активной подпиской.",
+                "Expired" => "Срок подписки закончился. Оформите подписку для продолжения.",
+                _ => "Оформите подписку для доступа к сервису.",
             };
         }
     }
