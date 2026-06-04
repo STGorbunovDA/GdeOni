@@ -59,16 +59,21 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
 
     public bool ShowComplimentaryBlock => Current?.HasComplimentaryAccess == true;
 
-    public bool ShowCancelButton =>
-        Current is { HasComplimentaryAccess: false, Status: "Active" or "Trial" };
+    // На mobile отмена подписки не нужна — управление активной подпиской
+    // делается через web/админку. На trial кнопок тоже нет: у юзера и так
+    // активный доступ, оформлять/отменять до конца trial бессмысленно.
+    public bool ShowCancelButton => false;
 
+    // Кнопка "Оформить" показывается только когда подписка действительно
+    // не активна: Cancelled, Expired, NeedSubscription (нет статуса).
+    // На Trial и Active — скрыта.
     public bool ShowSubscribeButton =>
         Current is { HasComplimentaryAccess: false }
-        && Current.Status is not "Active";
+        && Current.Status is not "Active"
+        && Current.Status is not "Trial";
 
     public string SubscribeButtonText => Current?.Status switch
     {
-        "Trial" => "Оформить подписку",
         "Cancelled" => "Оформить снова",
         _ => "Оформить подписку",
     };
