@@ -229,11 +229,12 @@ public sealed class UsersController : ApiControllerBase
     }
 
     /// <summary>
-    /// Удаление пользователя.
-    /// Доступно только администраторам.
+    /// Жёсткое удаление пользователя со всеми связанными данными.
+    /// Доступно ТОЛЬКО SuperAdmin'у — это необратимая операция, обычный
+    /// Admin не должен иметь к ней доступа.
     /// </summary>
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
+    [Authorize(Roles = "SuperAdmin")]
     [ProducesResponseType(typeof(ApiResponse<DeleteUserResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]

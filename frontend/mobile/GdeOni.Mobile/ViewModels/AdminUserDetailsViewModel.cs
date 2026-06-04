@@ -70,6 +70,15 @@ public partial class AdminUserDetailsViewModel(
     /// </summary>
     [ObservableProperty]
     private bool _canManageTarget = true;
+
+    /// <summary>
+    /// Может ли текущий юзер удалить target'а навсегда. Только SuperAdmin
+    /// и только если target не Admin/SuperAdmin и не сам SuperAdmin.
+    /// Backend дополнительно проверит (Roles=SuperAdmin + use case guards).
+    /// </summary>
+    [ObservableProperty]
+    private bool _canDeleteTarget;
+
     [ObservableProperty] private string _complimentaryNote = "";
 
     /// <summary>
@@ -118,7 +127,13 @@ public partial class AdminUserDetailsViewModel(
             // все действия (роль, подписка, complimentary) скрываем.
             var targetIsAdmin = string.Equals(u.Role, "Admin", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(u.Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+            var targetIsSuperAdmin = string.Equals(u.Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
             CanManageTarget = isSuperAdmin || !targetIsAdmin;
+
+            // Удалить юзера может ТОЛЬКО SuperAdmin. SuperAdmin (включая
+            // самого себя) удалить нельзя — backend дополнительно отрежет
+            // через DeleteSelfForbidden / DeleteSuperAdminForbidden.
+            CanDeleteTarget = isSuperAdmin && !targetIsSuperAdmin && u.Id != (me?.Id ?? Guid.Empty);
 
             SubscriptionStatusDisplay = u.SubscriptionStatus switch
             {
@@ -297,6 +312,49 @@ public partial class AdminUserDetailsViewModel(
     {
         if (!Guid.TryParse(UserId, out _)) return;
         await Shell.Current.GoToAsync($"admin-user-tracked?userId={UserId}");
+    }
+
+    /// <summary>
+    /// Жёсткое удаление юзера. Видимость кнопки — через CanDeleteTarget
+    /// (только SuperAdmin). Сами защиты на бэке: Roles=SuperAdmin +
+    /// DeleteSelfForbidden + DeleteSuperAdminForbidden.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteUserAsync()
+    {
+        if (!Guid.TryParse(UserId, out var id)) return;
+        var page = Shell.Current?.CurrentPage;
+        if (page is null) return;
+        var confirmed = await page.DisplayAlertAsync(
+            "Удалить пользователя навсегда?",
+            $"Юзер {Email} будет удалён вместе со всеми отслеживаниями, платежами и историей. Действие необратимо.",
+            "Удалить",
+            "Отмена");
+        if (!confirmed) return;
+
+        try
+        {
+            IsBusyAction = true;
+            ErrorMessage = null;
+            StatusMessage = null;
+            var resp = await adminApi.DeleteUserAsync(id);
+            if (resp.IsSuccessStatusCode)
+            {
+                // Возврат на список юзеров (карточка уже не существует).
+                await Shell.Current!.GoToAsync("..");
+            }
+            else
+            {
+                ErrorMessage = (int)resp.StatusCode switch
+                {
+                    403 => "Удалять пользователей может только SuperAdmin.",
+                    404 => "Пользователь уже удалён.",
+                    _ => $"Не удалось удалить (HTTP {(int)resp.StatusCode})."
+                };
+            }
+        }
+        catch (Exception ex) { ErrorMessage = $"Ошибка: {ex.Message}"; }
+        finally { IsBusyAction = false; }
     }
 
     [RelayCommand]

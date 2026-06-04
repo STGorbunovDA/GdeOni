@@ -123,6 +123,23 @@
                                 IsEnabled="{Binding IsBusyAction, Converter={StaticResource InvertedBool}}" />
                     </VerticalStackLayout>
                 </Border>
+
+                <!-- Опасная зона — удаление навсегда. Видна только SuperAdmin'у
+                     (CanDeleteTarget). Backend дублирует через Roles=SuperAdmin. -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding CanDeleteTarget}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Опасная зона" Style="{StaticResource SubTitleLabel}" TextColor="#C0392B" />
+                        <Label Text="Полное удаление пользователя со всеми отслеживаниями, платежами и историей правок. Действие необратимо."
+                               Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Удалить пользователя навсегда"
+                                Style="{StaticResource GhostButton}"
+                                BackgroundColor="#C0392B"
+                                TextColor="White"
+                                Command="{Binding DeleteUserCommand}"
+                                IsEnabled="{Binding IsBusyAction, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

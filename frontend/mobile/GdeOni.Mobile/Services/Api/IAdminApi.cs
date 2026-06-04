@@ -43,6 +43,16 @@ public interface IAdminApi
         Guid userId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// DELETE /api/users/{id} — жёсткое удаление юзера. ТОЛЬКО SuperAdmin.
+    /// Бэк отдаст 403 если у юзера нет роли SuperAdmin или цель —
+    /// SuperAdmin/Admin/себя.
+    /// </summary>
+    [Delete("/api/users/{userId}")]
+    Task<HttpResponseMessage> DeleteUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>PUT /api/users/{id}/role — смена роли.</summary>
     [Put("/api/users/{userId}/role")]
     Task<HttpResponseMessage> ChangeRoleAsync(
