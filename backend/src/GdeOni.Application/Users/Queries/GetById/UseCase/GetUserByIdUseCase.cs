@@ -43,6 +43,7 @@ public sealed class GetUserByIdUseCase(
         if (!isAdmin && user.Id != currentUserId)
             return Errors.User.UserForbidden();
 
+        var nowUtc = DateTime.UtcNow;
         return Result.Success<GetUserByIdResponse, Error>(new GetUserByIdResponse
         {
             Id = user.Id,
@@ -52,7 +53,13 @@ public sealed class GetUserByIdUseCase(
             Role = user.Role.ToString(),
             RegisteredAtUtc = user.RegisteredAtUtc,
             LastLoginAtUtc = user.LastLoginAtUtc,
-            TrackingCount = trackingCount
+            TrackingCount = trackingCount,
+            SubscriptionStatus = user.Subscription.Status.ToString(),
+            SubscriptionExpiresAtUtc = user.Subscription.ExpiresAtUtc,
+            SubscriptionPlan = user.Subscription.Plan?.ToString(),
+            HasComplimentaryAccess = user.HasComplimentaryAccess(nowUtc),
+            ComplimentaryAccessUntilUtc = user.ComplimentaryAccessUntilUtc,
+            ComplimentaryAccessNote = user.ComplimentaryAccessNote,
         });
     }
 }

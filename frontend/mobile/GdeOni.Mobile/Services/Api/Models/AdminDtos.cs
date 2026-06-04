@@ -35,7 +35,7 @@ public sealed record AdminUserListItem(
     DateTime? LastLoginAtUtc,
     int TrackingCount);
 
-/// <summary>F17.9 mobile. Детали конкретного юзера.</summary>
+/// <summary>F17.9 mobile. Детали конкретного юзера + статус подписки.</summary>
 public sealed record AdminUserDetailsDto(
     Guid Id,
     string Email,
@@ -44,7 +44,13 @@ public sealed record AdminUserDetailsDto(
     string Role,
     DateTime RegisteredAtUtc,
     DateTime? LastLoginAtUtc,
-    int TrackingCount);
+    int TrackingCount,
+    string SubscriptionStatus,
+    DateTime? SubscriptionExpiresAtUtc,
+    string? SubscriptionPlan,
+    bool HasComplimentaryAccess,
+    DateTime? ComplimentaryAccessUntilUtc,
+    string? ComplimentaryAccessNote);
 
 /// <summary>
 /// PUT /api/users/{id}/role — бэк ожидает поле userRole с enum-строкой

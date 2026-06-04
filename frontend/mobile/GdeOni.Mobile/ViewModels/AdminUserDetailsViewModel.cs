@@ -41,6 +41,16 @@ public partial class AdminUserDetailsViewModel(IAdminApi adminApi) : ObservableO
     [ObservableProperty] private string _registered = "";
     [ObservableProperty] private int _trackingCount;
 
+    [ObservableProperty] private string _subscriptionStatusDisplay = "";
+    [ObservableProperty] private string _subscriptionDetails = "";
+    [ObservableProperty] private string _complimentaryDisplay = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasComplimentaryAccess))]
+    private bool _hasComplimentaryAccessFlag;
+
+    public bool HasComplimentaryAccess => HasComplimentaryAccessFlag;
+
     /// <summary>
     /// Доступные роли — соответствуют enum UserRole на бэке. SuperAdmin
     /// исключён намеренно: его не выставляют через UI (только bootstrap
@@ -71,6 +81,20 @@ public partial class AdminUserDetailsViewModel(IAdminApi adminApi) : ObservableO
             SelectedRole = u.Role;
             Registered = u.RegisteredAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
             TrackingCount = u.TrackingCount;
+
+            SubscriptionStatusDisplay = u.SubscriptionStatus switch
+            {
+                "None" => "Нет подписки",
+                "Trial" => "Пробный период",
+                "PendingPayment" => "Ожидает оплаты",
+                "Active" => "Активна",
+                "Cancelled" => "Отменена (платный период идёт)",
+                "Expired" => "Истекла",
+                _ => u.SubscriptionStatus,
+            };
+            SubscriptionDetails = BuildSubscriptionDetails(u);
+            HasComplimentaryAccessFlag = u.HasComplimentaryAccess;
+            ComplimentaryDisplay = BuildComplimentaryDisplay(u);
         }
         catch (ApiException apiEx)
         {
@@ -124,9 +148,15 @@ public partial class AdminUserDetailsViewModel(IAdminApi adminApi) : ObservableO
             StatusMessage = null;
             var resp = await adminApi.GrantComplimentaryAsync(id,
                 new GrantComplimentaryRequest(null, string.IsNullOrWhiteSpace(ComplimentaryNote) ? null : ComplimentaryNote.Trim()));
-            StatusMessage = resp.IsSuccessStatusCode
-                ? "Бесплатный доступ выдан (бессрочно)."
-                : $"Ошибка (HTTP {(int)resp.StatusCode}).";
+            if (resp.IsSuccessStatusCode)
+            {
+                StatusMessage = "Бесплатный доступ выдан (бессрочно).";
+                await LoadAsync();
+            }
+            else
+            {
+                ErrorMessage = $"Ошибка (HTTP {(int)resp.StatusCode}).";
+            }
         }
         catch (Exception ex) { ErrorMessage = $"Ошибка: {ex.Message}"; }
         finally { IsBusyAction = false; }
@@ -142,9 +172,15 @@ public partial class AdminUserDetailsViewModel(IAdminApi adminApi) : ObservableO
             ErrorMessage = null;
             StatusMessage = null;
             var resp = await adminApi.RevokeComplimentaryAsync(id);
-            StatusMessage = resp.IsSuccessStatusCode
-                ? "Бесплатный доступ отозван."
-                : $"Ошибка (HTTP {(int)resp.StatusCode}).";
+            if (resp.IsSuccessStatusCode)
+            {
+                StatusMessage = "Бесплатный доступ отозван.";
+                await LoadAsync();
+            }
+            else
+            {
+                ErrorMessage = $"Ошибка (HTTP {(int)resp.StatusCode}).";
+            }
         }
         catch (Exception ex) { ErrorMessage = $"Ошибка: {ex.Message}"; }
         finally { IsBusyAction = false; }
@@ -169,9 +205,15 @@ public partial class AdminUserDetailsViewModel(IAdminApi adminApi) : ObservableO
             ErrorMessage = null;
             StatusMessage = null;
             var resp = await adminApi.RevokeSubscriptionAsync(id);
-            StatusMessage = resp.IsSuccessStatusCode
-                ? "Подписка снята."
-                : $"Ошибка (HTTP {(int)resp.StatusCode}).";
+            if (resp.IsSuccessStatusCode)
+            {
+                StatusMessage = "Подписка снята.";
+                await LoadAsync();
+            }
+            else
+            {
+                ErrorMessage = $"Ошибка (HTTP {(int)resp.StatusCode}).";
+            }
         }
         catch (Exception ex) { ErrorMessage = $"Ошибка: {ex.Message}"; }
         finally { IsBusyAction = false; }
@@ -179,4 +221,24 @@ public partial class AdminUserDetailsViewModel(IAdminApi adminApi) : ObservableO
 
     [RelayCommand]
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
+
+    private static string BuildSubscriptionDetails(AdminUserDetailsDto u)
+    {
+        var plan = string.IsNullOrWhiteSpace(u.SubscriptionPlan) ? null : u.SubscriptionPlan;
+        var expires = u.SubscriptionExpiresAtUtc?.ToLocalTime().ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+        var parts = new List<string>();
+        if (plan is not null) parts.Add($"План: {plan}");
+        if (expires is not null) parts.Add($"До: {expires}");
+        return parts.Count == 0 ? "" : string.Join(" · ", parts);
+    }
+
+    private static string BuildComplimentaryDisplay(AdminUserDetailsDto u)
+    {
+        if (!u.HasComplimentaryAccess) return "Нет";
+        var until = u.ComplimentaryAccessUntilUtc?.ToLocalTime().ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+        var head = until is null ? "Бессрочно" : $"До {until}";
+        return string.IsNullOrWhiteSpace(u.ComplimentaryAccessNote)
+            ? head
+            : $"{head} — {u.ComplimentaryAccessNote}";
+    }
 }

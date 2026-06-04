@@ -10,4 +10,20 @@ public sealed class GetUserByIdResponse
     public DateTime RegisteredAtUtc { get; init; }
     public DateTime? LastLoginAtUtc { get; init; }
     public int TrackingCount { get; init; }
+
+    /// <summary>
+    /// Текущий статус подписки (None/Trial/PendingPayment/Active/
+    /// Cancelled/Expired). Для админ-страницы детального вида юзера.
+    /// </summary>
+    public string SubscriptionStatus { get; init; } = null!;
+    public DateTime? SubscriptionExpiresAtUtc { get; init; }
+    public string? SubscriptionPlan { get; init; }
+
+    /// <summary>
+    /// D22. Имеет ли юзер активный complimentary access от админа
+    /// (UntilUtc=null или > now).
+    /// </summary>
+    public bool HasComplimentaryAccess { get; init; }
+    public DateTime? ComplimentaryAccessUntilUtc { get; init; }
+    public string? ComplimentaryAccessNote { get; init; }
 }

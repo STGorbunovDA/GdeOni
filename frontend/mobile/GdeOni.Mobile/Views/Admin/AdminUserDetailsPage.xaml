@@ -49,6 +49,17 @@
                 </Border>
 
                 <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Текущая подписка" Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="{Binding SubscriptionStatusDisplay}" Style="{StaticResource BodyLabel}" />
+                        <Label Text="{Binding SubscriptionDetails}"
+                               Style="{StaticResource CaptionLabel}" />
+                        <Label Text="{Binding ComplimentaryDisplay, StringFormat='Бесплатный доступ: {0}'}"
+                               Style="{StaticResource CaptionLabel}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CloudCard}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Сменить роль" Style="{StaticResource SubTitleLabel}" />
                         <Picker ItemsSource="{Binding Roles}" SelectedItem="{Binding SelectedRole}" />
