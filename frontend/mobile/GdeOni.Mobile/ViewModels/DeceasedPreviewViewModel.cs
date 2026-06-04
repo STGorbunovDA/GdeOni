@@ -232,6 +232,18 @@ public partial class DeceasedPreviewViewModel(
     [RelayCommand]
     private async Task BackAsync()
     {
-        await Shell.Current.GoToAsync("..");
+        // GoToAsync("..") в Shell иногда возвращается не туда, если
+        // целевой route зарегистрирован глобально (deceased-preview
+        // используется и из tracked-flow, и из админ-ленты правок).
+        // Прямой PopAsync однозначно снимает верхний элемент стека и
+        // возвращает на ту страницу с которой пришли.
+        try
+        {
+            await Shell.Current.Navigation.PopAsync();
+        }
+        catch
+        {
+            await Shell.Current.GoToAsync("..");
+        }
     }
 }
