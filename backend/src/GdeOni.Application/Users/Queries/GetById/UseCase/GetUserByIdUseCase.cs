@@ -44,6 +44,21 @@ public sealed class GetUserByIdUseCase(
             return Errors.User.UserForbidden();
 
         var nowUtc = DateTime.UtcNow;
+
+        // Эффективный статус: если Status=Active/Trial/Cancelled, но
+        // ExpiresAtUtc уже в прошлом — фактически Expired. Сырой Status
+        // из БД может быть рассинхронен (например, ручные правки тестовых
+        // данных). Админу нужен честный взгляд на текущее состояние.
+        var effectiveStatus = user.Subscription.Status.ToString();
+        if (user.Subscription.ExpiresAtUtc is { } expires && expires <= nowUtc &&
+            user.Subscription.Status is Domain.Shared.SubscriptionStatus.Active
+                or Domain.Shared.SubscriptionStatus.Trial
+                or Domain.Shared.SubscriptionStatus.Cancelled
+                or Domain.Shared.SubscriptionStatus.PendingPayment)
+        {
+            effectiveStatus = "Expired";
+        }
+
         return Result.Success<GetUserByIdResponse, Error>(new GetUserByIdResponse
         {
             Id = user.Id,
@@ -54,7 +69,7 @@ public sealed class GetUserByIdUseCase(
             RegisteredAtUtc = user.RegisteredAtUtc,
             LastLoginAtUtc = user.LastLoginAtUtc,
             TrackingCount = trackingCount,
-            SubscriptionStatus = user.Subscription.Status.ToString(),
+            SubscriptionStatus = effectiveStatus,
             SubscriptionExpiresAtUtc = user.Subscription.ExpiresAtUtc,
             SubscriptionPlan = user.Subscription.Plan?.ToString(),
             HasComplimentaryAccess = user.HasComplimentaryAccess(nowUtc),
