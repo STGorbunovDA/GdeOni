@@ -49,11 +49,15 @@ public sealed class ActiveSubscriptionAuthorizationHandler(
             return;
         }
 
-        // 3) Admin / SuperAdmin → bypass подписки. Проверка по claim'у,
-        // не по hit'у в БД — у админа смена роли всё равно ротирует
-        // SecurityStamp и инвалидирует токен.
-        if (context.User.IsInRole(UserRole.Admin.ToString())
-            || context.User.IsInRole(UserRole.SuperAdmin.ToString()))
+        // 3) Admin / SuperAdmin / Manager → bypass подписки. Manager
+        // получает доступ ко всем функциям бесплатно (как штатные
+        // сотрудники-модераторы), но НЕ имеет админ-прав в других
+        // местах (CanEditDeceasedPolicy, AdminController-ы остаются
+        // только для Admin/SuperAdmin). Проверка по claim'у — у юзера
+        // смена роли ротирует SecurityStamp и инвалидирует токен.
+        if (context.User.IsInRole(UserRole.SuperAdmin.ToString())
+            || context.User.IsInRole(UserRole.Admin.ToString())
+            || context.User.IsInRole(UserRole.Manager.ToString()))
         {
             context.Succeed(requirement);
             return;

@@ -8,7 +8,8 @@ namespace GdeOni.Mobile.Shared.Subscriptions;
 ///
 /// Решение OR:
 ///   - SubscriptionEnabled=false → не показывать (open-beta);
-///   - admin (SuperAdmin/Admin) → не показывать (бэк всё равно пускает);
+///   - staff-роли (SuperAdmin/Admin/Manager) → не показывать
+///     (бэк пускает их без подписки в ActiveSubscriptionAuthorizationHandler);
 ///   - IsActiveNow=true (включая complimentary, D22) → не показывать;
 ///   - иначе → показывать.
 /// </summary>
@@ -22,7 +23,7 @@ public static class PaywallEvaluator
     /// <c>AppFeaturesResponse.SubscriptionEnabled</c>.
     /// </param>
     /// <param name="userRole">
-    /// Серверная роль юзера в строковом виде ("SuperAdmin"/"Admin"/...).
+    /// Серверная роль юзера в строковом виде ("SuperAdmin"/"Admin"/"Manager"/...).
     /// </param>
     /// <param name="isActiveNow">
     /// <c>MySubscriptionResponse.IsActiveNow</c> — учитывает Trial /
@@ -36,13 +37,14 @@ public static class PaywallEvaluator
         if (!subscriptionEnabled)
             return false;
 
-        if (IsAdmin(userRole))
+        if (IsStaff(userRole))
             return false;
 
         return !isActiveNow;
     }
 
-    private static bool IsAdmin(string? role) =>
+    private static bool IsStaff(string? role) =>
         string.Equals(role, "SuperAdmin", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+        || string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(role, "Manager", StringComparison.OrdinalIgnoreCase);
 }

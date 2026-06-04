@@ -26,16 +26,26 @@ public partial class ProfileViewModel(
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowSubscriptionBlock))]
     [NotifyPropertyChangedFor(nameof(IsAdmin))]
+    [NotifyPropertyChangedFor(nameof(IsStaff))]
     private string? _role;
 
     /// <summary>
-    /// Admin / SuperAdmin не платят подписку (см. D16.5 — бэк их пускает
-    /// без подписки), поэтому блок "Подписка" в Profile им не показываем.
-    /// Также управляет видимостью кнопки "Админка" (F17.9 mobile).
+    /// SuperAdmin / Admin — доступ к админ-странице (управление юзерами,
+    /// платежами, complimentary). Manager НЕ входит — он сотрудник без
+    /// прав модерации других юзеров.
     /// </summary>
     public bool IsAdmin =>
         string.Equals(Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase)
         || string.Equals(Role, "Admin", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Staff-роли (SuperAdmin/Admin/Manager) не платят подписку — бэк
+    /// пускает их без неё (см. D16.5), поэтому блок "Подписка" в Profile
+    /// им не показываем.
+    /// </summary>
+    public bool IsStaff =>
+        IsAdmin
+        || string.Equals(Role, "Manager", StringComparison.OrdinalIgnoreCase);
 
     [ObservableProperty]
     private bool _isBusy;
@@ -55,10 +65,10 @@ public partial class ProfileViewModel(
     public bool HasSubscriptionData => Subscription is not null;
 
     /// <summary>
-    /// Показываем блок только обычным юзерам — админам подписка
-    /// не нужна (бэк их освобождает в гейте, см. D16.5).
+    /// Показываем блок только обычным юзерам — staff (Admin/SuperAdmin/Manager)
+    /// подписка не нужна (бэк их освобождает в гейте, см. D16.5).
     /// </summary>
-    public bool ShowSubscriptionBlock => HasSubscriptionData && !IsAdmin;
+    public bool ShowSubscriptionBlock => HasSubscriptionData && !IsStaff;
 
     /// <summary>
     /// Краткое название состояния — большим текстом в карточке.
@@ -145,9 +155,10 @@ public partial class ProfileViewModel(
             FullName = me.FullName;
             Role = me.Role;
 
-            // Админам блок подписки в UI скрыт — нет смысла дёргать /me/subscription
-            // (и тратить запрос, и нагружать бэк).
-            if (!IsAdmin)
+            // Staff-юзерам (SuperAdmin/Admin/Manager) блок подписки в UI скрыт —
+            // нет смысла дёргать /me/subscription (и тратить запрос, и
+            // нагружать бэк).
+            if (!IsStaff)
             {
                 // Подписка — best-effort. Если упадёт (нет сети, бэк лёг) —
                 // не ломаем весь экран профиля, просто оставляем "Загрузка…".
