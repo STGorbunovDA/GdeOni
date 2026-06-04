@@ -202,9 +202,24 @@ public sealed class AllEditsEntry
             _ => dto.Kind,
         };
 
-        var editor = !string.IsNullOrWhiteSpace(dto.EditedByDisplayName)
-            ? $"{dto.EditedByDisplayName} ({dto.EditedByEmail})"
-            : dto.EditedByEmail ?? "Удалённый пользователь";
+        // Reassignment: EditedByUserId всегда NULL (системная операция при
+        // удалении юзера), но email удалённого юзера лежит в
+        // ChangesJson.PreviousAuthor.Old — показываем его, иначе фразу
+        // "Удалённый пользователь" видеть бесполезно (не понятно кто).
+        string editor;
+        if (dto.Kind == "Reassignment")
+        {
+            var deletedEmail = ExtractPreviousAuthorEmail(dto.ChangesJson);
+            editor = deletedEmail is not null
+                ? $"Удалённый пользователь ({deletedEmail})"
+                : "Удалённый пользователь";
+        }
+        else
+        {
+            editor = !string.IsNullOrWhiteSpace(dto.EditedByDisplayName)
+                ? $"{dto.EditedByDisplayName} ({dto.EditedByEmail})"
+                : dto.EditedByEmail ?? "Удалённый пользователь";
+        }
 
         return new AllEditsEntry
         {
@@ -215,6 +230,16 @@ public sealed class AllEditsEntry
             KindDisplay = kindDisplay,
             Changes = ParseChanges(dto.ChangesJson),
         };
+    }
+
+    private static string? ExtractPreviousAuthorEmail(string json)
+    {
+        try
+        {
+            var dict = JsonSerializer.Deserialize<Dictionary<string, ChangePairDto>>(json);
+            return dict?.TryGetValue("PreviousAuthor", out var pair) == true ? pair.Old : null;
+        }
+        catch { return null; }
     }
 
     private static IReadOnlyList<ChangeRow> ParseChanges(string json)

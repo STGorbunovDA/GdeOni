@@ -132,9 +132,22 @@ public sealed class EditEntry
             _ => dto.Kind,
         };
 
-        var editor = !string.IsNullOrWhiteSpace(dto.EditedByDisplayName)
-            ? $"{dto.EditedByDisplayName} ({dto.EditedByEmail})"
-            : dto.EditedByEmail ?? "Удалённый пользователь";
+        // Reassignment: EditedByUserId всегда NULL (системная операция),
+        // email удалённого юзера — в ChangesJson.PreviousAuthor.Old.
+        string editor;
+        if (dto.Kind == "Reassignment")
+        {
+            var deletedEmail = ExtractPreviousAuthorEmail(dto.ChangesJson);
+            editor = deletedEmail is not null
+                ? $"Удалённый пользователь ({deletedEmail})"
+                : "Удалённый пользователь";
+        }
+        else
+        {
+            editor = !string.IsNullOrWhiteSpace(dto.EditedByDisplayName)
+                ? $"{dto.EditedByDisplayName} ({dto.EditedByEmail})"
+                : dto.EditedByEmail ?? "Удалённый пользователь";
+        }
 
         var changes = ParseChanges(dto.ChangesJson);
 
@@ -145,6 +158,16 @@ public sealed class EditEntry
             KindDisplay = kindDisplay,
             Changes = changes,
         };
+    }
+
+    private static string? ExtractPreviousAuthorEmail(string json)
+    {
+        try
+        {
+            var dict = JsonSerializer.Deserialize<Dictionary<string, ChangePairDto>>(json);
+            return dict?.TryGetValue("PreviousAuthor", out var pair) == true ? pair.Old : null;
+        }
+        catch { return null; }
     }
 
     private static IReadOnlyList<ChangeRow> ParseChanges(string json)
