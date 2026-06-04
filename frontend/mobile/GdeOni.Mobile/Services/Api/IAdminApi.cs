@@ -53,6 +53,15 @@ public interface IAdminApi
         Guid userId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Моментально снять активную подписку у юзера. Status переходит
+    /// в Expired, доступ блокируется при следующем запросе.
+    /// </summary>
+    [Delete("/api/admin/users/{userId}/subscription")]
+    Task<HttpResponseMessage> RevokeSubscriptionAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>D23. GET /api/admin/payments — все платежи.</summary>
     [Get("/api/admin/payments")]
     Task<ApiEnvelope<AdminPaymentsResponse>> GetPaymentsAsync(

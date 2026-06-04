@@ -506,6 +506,16 @@ public static class Errors
             Error.Conflict(
                 "subscription.not_cancellable",
                 "Subscription cannot be cancelled from the current state.");
+
+        public static Error RevokeSelfForbidden() =>
+            Error.Forbidden(
+                "subscription.revoke.self_forbidden",
+                "Admin cannot revoke their own subscription.");
+
+        public static Error ManageSuperAdminForbidden() =>
+            Error.Forbidden(
+                "subscription.manage.super_admin_forbidden",
+                "Admin cannot manage SuperAdmin's subscription.");
     }
 
     public static class Legal

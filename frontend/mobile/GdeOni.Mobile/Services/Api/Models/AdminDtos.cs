@@ -46,7 +46,11 @@ public sealed record AdminUserDetailsDto(
     DateTime? LastLoginAtUtc,
     int TrackingCount);
 
-public sealed record ChangeRoleRequest(string NewRole);
+/// <summary>
+/// PUT /api/users/{id}/role — бэк ожидает поле userRole с enum-строкой
+/// (JsonStringEnumConverter): RegularUser / Manager / Admin / SuperAdmin.
+/// </summary>
+public sealed record ChangeRoleRequest(string UserRole);
 
 public sealed record GrantComplimentaryRequest(DateTime? UntilUtc, string? Note);
 

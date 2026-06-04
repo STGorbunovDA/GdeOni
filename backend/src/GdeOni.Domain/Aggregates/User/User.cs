@@ -400,6 +400,21 @@ public sealed class User : Entity<Guid>
     }
 
     /// <summary>
+    /// Админский revoke: моментально снимает подписку (Expired с
+    /// expires=now), независимо от текущего статуса. No-op для тех,
+    /// у кого подписки не было (None).
+    /// </summary>
+    public UnitResult<Error> RevokeSubscriptionByAdmin(DateTime nowUtc)
+    {
+        if (Subscription.Status == SubscriptionStatus.None)
+            return UnitResult.Success<Error>();
+
+        Subscription = Subscription.WithRevoked(nowUtc);
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
     /// D16. Главный гейт-метод: пускать ли пользователя на endpoint'ы,
     /// требующие активной подписки. Учитывает Trial / Active /
     /// Cancelled (последний — пока ExpiresAtUtc не наступил).

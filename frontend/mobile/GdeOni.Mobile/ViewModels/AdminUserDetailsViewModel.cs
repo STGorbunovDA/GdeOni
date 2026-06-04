@@ -41,10 +41,14 @@ public partial class AdminUserDetailsViewModel(IAdminApi adminApi) : ObservableO
     [ObservableProperty] private string _registered = "";
     [ObservableProperty] private int _trackingCount;
 
-    /// <summary>Доступные роли — SuperAdmin сам себе не меняет.</summary>
-    public IReadOnlyList<string> Roles { get; } = new[] { "Standard", "Admin", "SuperAdmin" };
+    /// <summary>
+    /// Доступные роли — соответствуют enum UserRole на бэке. SuperAdmin
+    /// исключён намеренно: его не выставляют через UI (только bootstrap
+    /// через seed). Manager — для модераторов без полных прав админа.
+    /// </summary>
+    public IReadOnlyList<string> Roles { get; } = new[] { "RegularUser", "Manager", "Admin" };
 
-    [ObservableProperty] private string _selectedRole = "Standard";
+    [ObservableProperty] private string _selectedRole = "RegularUser";
     [ObservableProperty] private string _complimentaryNote = "";
 
     private async Task LoadAsync()
@@ -140,6 +144,33 @@ public partial class AdminUserDetailsViewModel(IAdminApi adminApi) : ObservableO
             var resp = await adminApi.RevokeComplimentaryAsync(id);
             StatusMessage = resp.IsSuccessStatusCode
                 ? "Бесплатный доступ отозван."
+                : $"Ошибка (HTTP {(int)resp.StatusCode}).";
+        }
+        catch (Exception ex) { ErrorMessage = $"Ошибка: {ex.Message}"; }
+        finally { IsBusyAction = false; }
+    }
+
+    [RelayCommand]
+    private async Task RevokeSubscriptionAsync()
+    {
+        if (!Guid.TryParse(UserId, out var id)) return;
+        var page = Shell.Current?.CurrentPage;
+        if (page is null) return;
+        var confirmed = await page.DisplayAlertAsync(
+            "Снять подписку?",
+            "Подписка пользователя будет немедленно отозвана (статус Expired). Доступ к функциям закроется при следующем запросе.",
+            "Снять",
+            "Отмена");
+        if (!confirmed) return;
+
+        try
+        {
+            IsBusyAction = true;
+            ErrorMessage = null;
+            StatusMessage = null;
+            var resp = await adminApi.RevokeSubscriptionAsync(id);
+            StatusMessage = resp.IsSuccessStatusCode
+                ? "Подписка снята."
                 : $"Ошибка (HTTP {(int)resp.StatusCode}).";
         }
         catch (Exception ex) { ErrorMessage = $"Ошибка: {ex.Message}"; }

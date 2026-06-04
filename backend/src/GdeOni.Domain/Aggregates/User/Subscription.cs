@@ -97,6 +97,20 @@ public sealed class Subscription : ValueObject
         cancelledAtUtc: nowUtc);
 
     /// <summary>
+    /// Админский revoke: сразу убирает доступ независимо от ExpiresAtUtc.
+    /// В отличие от Cancel, не оставляет paid-period до конца — переводит
+    /// в Expired и сбрасывает expiry на now, чтобы IsActive() сразу
+    /// возвращал false.
+    /// </summary>
+    internal Subscription WithRevoked(DateTime nowUtc) => new(
+        SubscriptionStatus.Expired,
+        Plan,
+        CurrentPeriodStartedAtUtc,
+        expiresAtUtc: nowUtc,
+        LastPaymentId,
+        cancelledAtUtc: nowUtc);
+
+    /// <summary>
     /// true если у пользователя есть действующий доступ (Trial или
     /// Active с непросроченным ExpiresAtUtc). Cancelled также даёт
     /// доступ до конца paid-period — гейт пускает.

@@ -5,6 +5,7 @@ using GdeOni.Application.Auth.Logout.UseCase;
 using GdeOni.Application.Auth.Refresh.UseCase;
 using GdeOni.Application.Complimentary.Commands.Grant.UseCase;
 using GdeOni.Application.Complimentary.Commands.Revoke.UseCase;
+using GdeOni.Application.Subscriptions.Commands.RevokeByAdmin.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.UseCase;
@@ -155,6 +156,7 @@ public static class DependencyInjection
         // D22. Complimentary access (admin granted free access).
         services.AddScoped<IGrantComplimentaryAccessUseCase, GrantComplimentaryAccessUseCase>();
         services.AddScoped<IRevokeComplimentaryAccessUseCase, RevokeComplimentaryAccessUseCase>();
+        services.AddScoped<IRevokeSubscriptionByAdminUseCase, RevokeSubscriptionByAdminUseCase>();
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;

@@ -61,20 +61,34 @@
 
                 <Border Style="{StaticResource CloudCard}">
                     <VerticalStackLayout Spacing="10">
-                        <Label Text="Бесплатный доступ" Style="{StaticResource SubTitleLabel}" />
-                        <Label Text="Выдать пользователю бесплатный доступ (бессрочно) или отозвать."
+                        <Label Text="Бесплатный доступ (бессрочно)" Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Юзер получает доступ ко всем функциям без подписки. Можно отозвать в любой момент."
                                Style="{StaticResource CaptionLabel}" />
                         <Editor Placeholder="Причина (необязательно)"
                                 Text="{Binding ComplimentaryNote}"
                                 AutoSize="TextChanges"
                                 BackgroundColor="{StaticResource Cloud}" />
-                        <Button Text="Выдать"
+                        <Button Text="Сделать бессрочным"
                                 Style="{StaticResource PrimaryButton}"
                                 Command="{Binding GrantComplimentaryCommand}"
                                 IsEnabled="{Binding IsBusyAction, Converter={StaticResource InvertedBool}}" />
-                        <Button Text="Отозвать"
+                        <Button Text="Убрать бессрочный доступ"
                                 Style="{StaticResource GhostButton}"
                                 Command="{Binding RevokeComplimentaryCommand}"
+                                IsEnabled="{Binding IsBusyAction, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Подписка" Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Принудительно снять активную подписку (Status → Expired). Доступ закроется при следующем запросе."
+                               Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Снять подписку"
+                                Style="{StaticResource GhostButton}"
+                                BackgroundColor="#C0392B"
+                                TextColor="White"
+                                Command="{Binding RevokeSubscriptionCommand}"
                                 IsEnabled="{Binding IsBusyAction, Converter={StaticResource InvertedBool}}" />
                     </VerticalStackLayout>
                 </Border>
