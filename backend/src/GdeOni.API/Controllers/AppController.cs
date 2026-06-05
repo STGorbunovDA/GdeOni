@@ -17,6 +17,7 @@ namespace GdeOni.API.Controllers;
 /// <see cref="AppFeaturesResponse.SubscriptionEnabled"/>).
 /// </summary>
 [ApiController]
+[Tags("App")]
 [Route("api/app")]
 public sealed class AppController : ControllerBase
 {

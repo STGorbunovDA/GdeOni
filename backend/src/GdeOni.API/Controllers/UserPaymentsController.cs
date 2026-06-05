@@ -13,6 +13,7 @@ namespace GdeOni.API.Controllers;
 /// должен быть доступен список платежей в Profile.
 /// </summary>
 [ApiController]
+[Tags("Subscriptions")]
 [Route("api/users/me/payments")]
 [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
 public sealed class UserPaymentsController : ApiControllerBase

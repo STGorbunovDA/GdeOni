@@ -30,7 +30,7 @@ public sealed class DeceasedEdit : Entity<Guid>
     private DeceasedEdit(
         Guid id,
         Guid deceasedId,
-        Guid editedByUserId,
+        Guid? editedByUserId,
         DateTime editedAtUtc,
         DeceasedEditKind kind,
         string changesJson) : base(id)
@@ -41,6 +41,26 @@ public sealed class DeceasedEdit : Entity<Guid>
         Kind = kind;
         ChangesJson = changesJson;
     }
+
+    /// <summary>
+    /// Системная аудит-запись о переуступке карточки при удалении
+    /// автора. EditedByUserId = null (формально действие админа над
+    /// данными удалённого юзера, конкретный исполнитель не важен —
+    /// в diff'е сохраняется email удалённого как контекст).
+    /// Используется из <see cref="IDeceasedRepository.ReassignContent"/>,
+    /// поэтому internal.
+    /// </summary>
+    internal static DeceasedEdit CreateReassignment(
+        Guid deceasedId,
+        string changesJson,
+        DateTime nowUtc)
+        => new(
+            Guid.NewGuid(),
+            deceasedId,
+            editedByUserId: null,
+            nowUtc,
+            DeceasedEditKind.Reassignment,
+            changesJson);
 
     /// <summary>
     /// Фабрика: принимает уже посчитанный diff и сериализует его.

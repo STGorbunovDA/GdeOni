@@ -27,6 +27,7 @@ namespace GdeOni.API.Controllers;
 /// <summary>
 /// Список отслеживаемых умерших текущего пользователя (через JWT).
 /// </summary>
+[Tags("TrackedDeceased")]
 [Route("api/users/me/tracked-deceased")]
 [Authorize]
 public sealed class MeTrackedDeceasedController : ApiControllerBase

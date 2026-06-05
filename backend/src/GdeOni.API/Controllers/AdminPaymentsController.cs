@@ -13,6 +13,7 @@ namespace GdeOni.API.Controllers;
 /// Сейчас доступна через swagger / curl для ручного аудита.
 /// </summary>
 [ApiController]
+[Tags("Admin")]
 [Route("api/admin/payments")]
 [Authorize(Roles = "SuperAdmin,Admin")]
 public sealed class AdminPaymentsController : ApiControllerBase

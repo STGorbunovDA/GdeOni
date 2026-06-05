@@ -14,6 +14,7 @@ namespace GdeOni.API.Controllers;
 /// "принимаю"). Версию клиент использует при <c>POST /accept-legal</c>.
 /// </summary>
 [ApiController]
+[Tags("Legal")]
 [Route("api/legal")]
 public sealed class LegalController : ApiControllerBase
 {

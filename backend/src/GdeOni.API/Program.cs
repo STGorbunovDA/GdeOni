@@ -88,12 +88,35 @@ app.UseAuthorization();
 // и привязан к политике auth (D7.39).
 app.UseRateLimiter();
 
-// D21. /health — публичный health-check для k8s liveness / readiness
-// probe и для прод-мониторинга. AllowAnonymous: балансировщик
-// не имеет JWT. JSON-ответ содержит статус каждой проверки и
-// её длительность — это помогает понять, что именно отвалилось.
+// D21. Health-checks для k8s probes:
+//
+// /health      — все проверки (Postgres + MinIO) для прод-мониторинга
+//                и обратной совместимости со старой настройкой балансировщика.
+// /health/live — только liveness: процесс жив, отвечает 200 без побочных
+//                запросов. Используется k8s livenessProbe: при провале
+//                под рестартится. БД не проверяется намеренно — если
+//                Postgres временно лёг, поды виноваты не будут.
+// /health/ready — readiness: реальные зависимости (Postgres + MinIO).
+//                При провале под перестаёт получать трафик, но не рестартится.
+//                Теги "ready" уже расставлены в AddHealthChecks выше.
+//
+// AllowAnonymous — балансировщик и k8s probes ходят без JWT.
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
+    ResponseWriter = WriteHealthResponse,
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    // Predicate _ => false: пропускаем все checks, отвечаем 200 если
+    // процесс жив. Этого достаточно для liveness.
+    Predicate = _ => false,
+    ResponseWriter = WriteHealthResponse,
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
     ResponseWriter = WriteHealthResponse,
 }).AllowAnonymous();
 

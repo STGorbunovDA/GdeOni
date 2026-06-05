@@ -170,6 +170,11 @@ internal sealed class MinioOrphanCleanupService(
 
         foreach (var item in batch)
         {
+            // Между удалениями проверяем shutdown — иначе SIGTERM
+            // в середине batch заставляет нас доделывать всю пачку
+            // ещё несколько секунд, даже если ASP.NET уже хочет
+            // graceful-stop'нуть.
+            cancellationToken.ThrowIfCancellationRequested();
             if (knownSet.Contains(item.Key)) continue;
 
             var lastModified = item.LastModifiedDateTime ?? DateTime.UtcNow;

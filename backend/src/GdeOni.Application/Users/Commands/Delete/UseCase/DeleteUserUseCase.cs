@@ -63,11 +63,21 @@ public sealed class DeleteUserUseCase(
         // Для каждой карточки создаётся audit-запись DeceasedEditKind.Reassignment
         // с email удалённого юзера в diff'е — историю "кто реально создал"
         // не теряем.
-        await deceasedRepository.ReassignContent(
-            fromUserId: user.Id,
-            fromUserEmail: user.Email,
-            toUserId: currentUserIdResult.Value,
-            cancellationToken);
+        //
+        // Гард на пустого юзера: ReassignContent делает 3 ExecuteUpdateAsync
+        // даже когда у юзера 0 карточек/медиа. Для типичного "удалил тестового
+        // регистранта без активности" — это 3 лишних SQL-запроса. Дешёвая
+        // проверка HasContentByUser (один EXISTS) спасает их.
+        // Trackings всё равно уйдут Cascade при Delete(user) — для них
+        // ReassignContent не нужен ради сохранения данных.
+        if (await deceasedRepository.HasContentByUser(user.Id, cancellationToken))
+        {
+            await deceasedRepository.ReassignContent(
+                fromUserId: user.Id,
+                fromUserEmail: user.Email,
+                toUserId: currentUserIdResult.Value,
+                cancellationToken);
+        }
 
         userRepository.Delete(user);
         // Refresh-токены удаляемого пользователя уйдут сами по

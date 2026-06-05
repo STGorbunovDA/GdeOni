@@ -17,6 +17,7 @@ namespace GdeOni.API.Controllers;
 /// — Admin не управляет SuperAdmin'ом.
 /// </summary>
 [ApiController]
+[Tags("Admin")]
 [Route("api/admin/users/{userId:guid}/complimentary-access")]
 [Authorize(Roles = "SuperAdmin,Admin")]
 public sealed class AdminComplimentaryAccessController : ApiControllerBase

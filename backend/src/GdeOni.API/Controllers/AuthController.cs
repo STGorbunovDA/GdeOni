@@ -18,6 +18,7 @@ namespace GdeOni.API.Controllers;
 /// <summary>
 /// Контроллер авторизации.
 /// </summary>
+[Tags("Auth")]
 [Route("api/auth")]
 public sealed class AuthController : ApiControllerBase
 {

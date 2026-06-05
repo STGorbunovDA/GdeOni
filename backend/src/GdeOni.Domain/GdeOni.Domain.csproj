@@ -10,4 +10,15 @@
       <PackageReference Include="CSharpFunctionalExtensions" Version="3.7.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <!--
+        Infrastructure нуждается в DeceasedEdit.CreateReassignment для
+        AddRange-вставки audit-записей при удалении юзера (ReassignContent
+        в репозитории). Сама фабрика остаётся internal, чтобы Application
+        и тесты не могли штамповать audit-записи в обход Deceased-агрегата.
+      -->
+      <InternalsVisibleTo Include="GdeOni.Infrastructure" />
+      <InternalsVisibleTo Include="GdeOni.Domain.Tests" />
+    </ItemGroup>
+
 </Project>

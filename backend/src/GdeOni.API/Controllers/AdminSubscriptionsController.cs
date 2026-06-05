@@ -14,6 +14,7 @@ namespace GdeOni.API.Controllers;
 /// моментально снимает подписку независимо от платного периода.
 /// </summary>
 [ApiController]
+[Tags("Admin")]
 [Route("api/admin/users/{userId:guid}/subscription")]
 [Authorize(Roles = "SuperAdmin,Admin")]
 public sealed class AdminSubscriptionsController : ApiControllerBase

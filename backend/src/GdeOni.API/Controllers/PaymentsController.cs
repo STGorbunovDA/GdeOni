@@ -21,6 +21,7 @@ namespace GdeOni.API.Controllers;
 /// трафика на webhook-endpoint.
 /// </summary>
 [ApiController]
+[Tags("Subscriptions")]
 [Route("api/payments")]
 public sealed class PaymentsController : ApiControllerBase
 {
@@ -31,9 +32,16 @@ public sealed class PaymentsController : ApiControllerBase
     /// </summary>
     [HttpPost("yookassa/webhook")]
     [AllowAnonymous]
+    // RequestSizeLimit: эндпоинт публичный и без rate-limit
+    // (планируется в backlog). Без явного лимита body любой паразит
+    // мог бы слать 100 MB JSON, мы бы буферизировали в память/tempfile
+    // через EnableBuffering — дешёвый DoS. Реальный YooKassa payload
+    // меньше 4 KB, поэтому 64 KB — щедрый потолок с запасом.
+    [RequestSizeLimit(64 * 1024)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status413RequestEntityTooLarge)]
     public async Task<IActionResult> YooKassaWebhook(
         [FromServices] IProcessPaymentWebhookUseCase processWebhook,
         CancellationToken cancellationToken)

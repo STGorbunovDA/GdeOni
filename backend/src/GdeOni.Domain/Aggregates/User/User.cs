@@ -233,10 +233,13 @@ public sealed class User : Entity<Guid>
         UserName = userNameResult.Value.Display;
         UserNameNormalized = userNameResult.Value.Normalized;
         FullName = fullNameResult.Value;
-        // UserName уходит в JWT-claim ClaimTypes.Name (см. JwtProvider:27),
-        // поэтому смена имени должна инвалидировать ранее выпущенные
-        // access-токены — ротируем SecurityStamp как при ChangeEmail.
-        // (D11.4.2)
+        // Ротация SecurityStamp оставлена ради консистентности с
+        // ChangeEmail/ChangePassword/ChangeRole — все «удостоверяющие»
+        // изменения профиля закрывают старые сессии (D11.4.2). Раньше
+        // обосновывалось тем, что UserName/Email шли в JWT-claims, но
+        // после очистки JWT от PII (см. JwtProvider) этот конкретный
+        // аргумент отпал — однако сама ротация остаётся как защита
+        // от replay сессий с устаревшим профилем.
         SecurityStamp = Guid.NewGuid();
         Touch();
 

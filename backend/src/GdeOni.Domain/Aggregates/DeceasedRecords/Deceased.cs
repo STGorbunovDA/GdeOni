@@ -247,7 +247,9 @@ public sealed class Deceased : Entity<Guid>
         AddIfChanged("Latitude", oldLocation?.Latitude.ToString("R"), newLocation?.Latitude.ToString("R"));
         AddIfChanged("Longitude", oldLocation?.Longitude.ToString("R"), newLocation?.Longitude.ToString("R"));
         AddIfChanged("AccuracyMeters", oldLocation?.AccuracyMeters?.ToString("R"), newLocation?.AccuracyMeters?.ToString("R"));
+        AddIfChanged("Accuracy", oldLocation?.Accuracy.ToString(), newLocation?.Accuracy.ToString());
         AddIfChanged("Country", OldS(x => x.Country), NewS(x => x.Country));
+        AddIfChanged("Region", OldS(x => x.Region), NewS(x => x.Region));
         AddIfChanged("City", OldS(x => x.City), NewS(x => x.City));
         AddIfChanged("CemeteryName", OldS(x => x.CemeteryName), NewS(x => x.CemeteryName));
         AddIfChanged("PlotNumber", OldS(x => x.PlotNumber), NewS(x => x.PlotNumber));

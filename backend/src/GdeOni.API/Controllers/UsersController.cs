@@ -38,6 +38,7 @@ namespace GdeOni.API.Controllers;
 /// <summary>
 /// Пользователи
 /// </summary>
+[Tags("Users")]
 [Route("api/users")]
 public sealed class UsersController : ApiControllerBase
 {

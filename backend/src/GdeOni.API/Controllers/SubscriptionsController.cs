@@ -23,6 +23,7 @@ namespace GdeOni.API.Controllers;
 /// <c>RequireActiveSubscription</c>-политики.
 /// </summary>
 [ApiController]
+[Tags("Subscriptions")]
 [Route("api/users/me/subscription")]
 [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
 public sealed class SubscriptionsController : ApiControllerBase

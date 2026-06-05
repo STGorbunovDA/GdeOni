@@ -4,7 +4,6 @@ using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.Model;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
-using GdeOni.Domain.Shared;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -390,31 +389,20 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
         // 4) Для каждой переназначенной карточки — audit-запись в deceased_edits.
         //    Сохраняем email удалённого юзера в diff'е, чтобы было видно
         //    "кто реально создал" даже спустя годы.
+        //    AddRange + SaveChanges заменили цикл из N отдельных
+        //    ExecuteSqlInterpolatedAsync: на юзере с 500 карточками
+        //    это было 500 round-trip к БД внутри одной транзакции.
+        //    EF Core 8 теперь сгруппирует их в один batched INSERT.
         if (deceasedIds.Count > 0)
         {
             var changesPayload = $"{{\"PreviousAuthor\":{{\"Old\":\"{fromUserEmail}\",\"New\":null}}}}";
             var nowUtc = DateTime.UtcNow;
-            var editsToAdd = deceasedIds.Select(deceasedId => new
-            {
-                Id = Guid.NewGuid(),
-                DeceasedId = deceasedId,
-                // EditedByUserId = null: формально переуступка системная,
-                // выполняется при удалении автора. В админ-UI отображается
-                // как "Удалённый пользователь" (SetNull-семантика).
-                EditedAtUtc = nowUtc,
-                Kind = (int)DeceasedEditKind.Reassignment,
-                ChangesJson = changesPayload,
-            }).ToList();
+            var editsToAdd = deceasedIds
+                .Select(deceasedId => DeceasedEdit.CreateReassignment(
+                    deceasedId, changesPayload, nowUtc))
+                .ToList();
 
-            // INSERT batch через ExecuteUpdateAsync невозможен — используем
-            // standard AddRange + SaveChanges (там же где основной use case
-            // делает Save).
-            foreach (var e in editsToAdd)
-            {
-                await dbContext.Database.ExecuteSqlInterpolatedAsync(
-                    $"INSERT INTO deceased_edits (id, deceased_id, edited_by_user_id, edited_at_utc, kind, changes_json) VALUES ({e.Id}, {e.DeceasedId}, NULL, {e.EditedAtUtc}, {e.Kind}, CAST({e.ChangesJson} AS jsonb))",
-                    cancellationToken);
-            }
+            await dbContext.Set<DeceasedEdit>().AddRangeAsync(editsToAdd, cancellationToken);
         }
 
         // 5) Переуступка трекингов. Уникальный индекс

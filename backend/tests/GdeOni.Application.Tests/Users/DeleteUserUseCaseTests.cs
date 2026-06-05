@@ -150,6 +150,113 @@ public sealed class DeleteUserUseCaseTests
     }
 
     /// <summary>
+    /// Если у юзера нет ни одной карточки/медиа — ReassignContent
+    /// не должен вызываться (3 SQL-запроса вхолостую). Trackings
+    /// уйдут Cascade при Delete(user).
+    /// </summary>
+    [Fact]
+    public async Task Execute_EmptyUser_SkipsReassignContent()
+    {
+        var currentUserId = Guid.NewGuid();
+        var targetUser = User.Register("empty@example.com", "$hash").Value;
+
+        var (userRepo, currentUser, _, useCase, deceasedRepo) =
+            BuildHarnessWithRepo(isAdmin: true, isSuperAdmin: false);
+        currentUser
+            .Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(currentUserId));
+        userRepo
+            .Setup(x => x.GetById(targetUser.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(targetUser);
+        // HasContentByUser → false: у юзера нет карточек/медиа.
+        deceasedRepo
+            .Setup(x => x.HasContentByUser(targetUser.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await useCase.Execute(
+            new DeleteUserCommand(targetUser.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        // Главный assertion: ReassignContent НЕ вызвался.
+        deceasedRepo.Verify(
+            x => x.ReassignContent(
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+        userRepo.Verify(x => x.Delete(targetUser), Times.Once);
+    }
+
+    /// <summary>
+    /// Если контент есть — ReassignContent ОБЯЗАН быть вызван,
+    /// иначе FK Restrict завалит Delete(user).
+    /// </summary>
+    [Fact]
+    public async Task Execute_UserWithContent_CallsReassignContent()
+    {
+        var currentUserId = Guid.NewGuid();
+        var targetUser = User.Register("author@example.com", "$hash").Value;
+
+        var (userRepo, currentUser, _, useCase, deceasedRepo) =
+            BuildHarnessWithRepo(isAdmin: true, isSuperAdmin: false);
+        currentUser
+            .Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(currentUserId));
+        userRepo
+            .Setup(x => x.GetById(targetUser.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(targetUser);
+        deceasedRepo
+            .Setup(x => x.HasContentByUser(targetUser.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await useCase.Execute(
+            new DeleteUserCommand(targetUser.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        deceasedRepo.Verify(
+            x => x.ReassignContent(
+                targetUser.Id, targetUser.Email, currentUserId,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    /// <summary>
+    /// Версия helper'а, возвращающая ещё и deceasedRepo для тестов
+    /// которые проверяют HasContentByUser / ReassignContent поведение.
+    /// </summary>
+    private static (
+        Mock<IUserRepository>,
+        Mock<ICurrentUserService>,
+        Mock<ISecurityStampInvalidator>,
+        DeleteUserUseCase,
+        Mock<IDeceasedRepository>) BuildHarnessWithRepo(bool isAdmin, bool isSuperAdmin)
+    {
+        var userRepo = new Mock<IUserRepository>();
+        var deceasedRepo = new Mock<IDeceasedRepository>();
+        var currentUser = new Mock<ICurrentUserService>();
+        var invalidator = new Mock<ISecurityStampInvalidator>();
+
+        deceasedRepo
+            .Setup(x => x.ReassignContent(
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        currentUser.Setup(x => x.IsAdmin()).Returns(isAdmin);
+        currentUser
+            .Setup(x => x.IsInRole(nameof(UserRole.SuperAdmin)))
+            .Returns(isSuperAdmin);
+
+        var useCase = new DeleteUserUseCase(
+            userRepo.Object,
+            deceasedRepo.Object,
+            currentUser.Object,
+            invalidator.Object,
+            TestExecutor.With<DeleteUserCommand, DeleteUserCommandValidator>());
+
+        return (userRepo, currentUser, invalidator, useCase, deceasedRepo);
+    }
+
+    /// <summary>
     /// Helper: собирает моки + use case за один вызов. Возвращает
     /// userRepo и currentUser для дополнительной настройки в тесте.
     /// </summary>
