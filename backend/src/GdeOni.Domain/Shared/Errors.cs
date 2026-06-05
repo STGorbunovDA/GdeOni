@@ -466,6 +466,15 @@ public static class Errors
         public static Error AlreadyActive() =>
             Error.Conflict("tracking.already.active", "Tracking is already active");
 
+        /// <summary>
+        /// Срабатывает по unique-индексу (user_id, deceased_id) — race-condition
+        /// при параллельных запросах "отслеживать" одной и той же карточки.
+        /// </summary>
+        public static Error AlreadyExists() =>
+            Error.Conflict(
+                "tracking.already.exists",
+                "You are already tracking this deceased.");
+
         public static Error NotTracked() =>
             Error.NotFound(
                 "tracking.not_tracked",
@@ -509,6 +518,16 @@ public static class Errors
             Error.NotFound(
                 "subscription.payment.not_found",
                 "Payment was not found for any user.");
+
+        /// <summary>
+        /// Срабатывает по unique-индексу на external_payment_id —
+        /// дубль webhook'а от YooKassa с тем же payment id (штатный
+        /// retry-механизм платёжного провайдера).
+        /// </summary>
+        public static Error PaymentDuplicate() =>
+            Error.Conflict(
+                "subscription.payment.duplicate",
+                "Payment with this external id has already been processed.");
 
         public static Error InvalidPaymentSignature() =>
             Error.Unauthorized(
@@ -665,6 +684,8 @@ public static class Errors
                 DbConstraints.DeceasedSearchKey => Deceased.AlreadyExists(),
                 DbConstraints.UxDeceasedMediaStorageKey => DeceasedMedia.DuplicateStorageKey(),
                 DbConstraints.UxRefreshTokensTokenHash => RefreshToken.TokenHashAlreadyExists(),
+                DbConstraints.UxSubscriptionPaymentsExternalPaymentId => Subscription.PaymentDuplicate(),
+                DbConstraints.UxTrackedDeceasedUserIdDeceasedId => Tracking.AlreadyExists(),
                 _ => Error.Conflict(
                     "conflict.unique_constraint",
                     "A unique constraint was violated.")
