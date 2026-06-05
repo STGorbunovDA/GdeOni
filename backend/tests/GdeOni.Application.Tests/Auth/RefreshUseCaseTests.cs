@@ -109,6 +109,48 @@ public sealed class RefreshUseCaseTests
     }
 
     /// <summary>
+    /// F17.10. Заблокированный юзер пытается обновить токен → AccountBlocked
+    /// + все RT юзера ревокаются (чтобы цепочка оборвалась здесь и сейчас,
+    /// а не дожила до конца жизни refresh-токена).
+    /// </summary>
+    [Fact]
+    public async Task Execute_BlockedUser_ReturnsAccountBlockedAndRevokesAll()
+    {
+        var (refreshRepo, userRepo, _, factory, _, useCase) = BuildHarness();
+
+        var user = User.Register("blocked@example.com", "$hash").Value;
+        user.Block(Guid.NewGuid(), "spam", DateTime.UtcNow);
+
+        var token = RefreshToken.Issue(
+            user.Id, "hash", DateTime.UtcNow.AddDays(7),
+            DateTime.UtcNow).Value;
+
+        factory.Setup(x => x.Hash("plain")).Returns("hash");
+        refreshRepo
+            .Setup(x => x.GetByHash("hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(token);
+        userRepo
+            .Setup(x => x.GetByIdReadOnly(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var result = await useCase.Execute(
+            new RefreshCommand("plain"), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("user.account.blocked");
+        // Все RT юзера ревокнуты — повторный /refresh точно так же получит
+        // AccountBlocked (replay-проверки не сработают: RevokeAllForUser
+        // помечает existingToken тоже).
+        refreshRepo.Verify(
+            x => x.RevokeAllForUser(user.Id, It.IsAny<CancellationToken>()),
+            Times.Once);
+        // Новый токен НЕ выпущен — Add не вызывался.
+        refreshRepo.Verify(
+            x => x.Add(It.IsAny<RefreshToken>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
     /// Happy path: ротация → старый токен revoked со ссылкой на новый,
     /// новый Add'ится, Save вызывается, возвращается новая пара.
     /// </summary>

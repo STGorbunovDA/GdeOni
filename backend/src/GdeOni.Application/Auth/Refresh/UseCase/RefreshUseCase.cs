@@ -69,6 +69,18 @@ public sealed class RefreshUseCase(
         if (user is null)
             return Errors.RefreshToken.TokenInvalid();
 
+        // F17.10. Гейт блокировки симметрично LoginUseCase. Без этого
+        // у заблокированного юзера refresh-токен жил бы до своего истечения
+        // (default 14 дней) — атакующий бесконечно продлевал бы сессию
+        // SecurityStamp ротируется в Block, но новый access-токен выпустится
+        // с актуальным stamp и проживёт до конца своего TTL. Заодно ревокаем
+        // все RT юзера, чтобы цепочка оборвалась здесь и сейчас.
+        if (user.IsBlocked)
+        {
+            await refreshTokenRepository.RevokeAllForUser(user.Id, cancellationToken);
+            return Errors.User.AccountBlocked(user.BlockedReason);
+        }
+
         var accessToken = jwtProvider.GenerateAccessToken(user);
 
         var newPlain = refreshTokenFactory.Generate();
