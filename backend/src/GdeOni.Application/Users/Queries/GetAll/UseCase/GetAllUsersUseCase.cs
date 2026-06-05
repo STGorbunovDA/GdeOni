@@ -55,7 +55,8 @@ public sealed class GetAllUsersUseCase(
             Role = row.User.Role.ToString(),
             RegisteredAtUtc = row.User.RegisteredAtUtc,
             LastLoginAtUtc = row.User.LastLoginAtUtc,
-            TrackingCount = row.TrackingCount
+            TrackingCount = row.TrackingCount,
+            IsBlocked = row.User.IsBlocked,
         }).ToList();
 
         var response = new PagedResponse<GetAllUsersResponse>

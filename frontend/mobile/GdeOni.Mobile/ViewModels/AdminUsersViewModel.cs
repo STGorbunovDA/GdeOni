@@ -161,6 +161,9 @@ public sealed class AdminUserItem
     public string Registered { get; init; } = "";
     public int TrackingCount { get; init; }
 
+    /// <summary>F17.10. Заблокированных подсветим красным в карточке.</summary>
+    public bool IsBlocked { get; init; }
+
     public static AdminUserItem From(AdminUserListItem dto) => new()
     {
         Id = dto.Id,
@@ -169,5 +172,6 @@ public sealed class AdminUserItem
         Role = dto.Role,
         Registered = dto.RegisteredAtUtc.ToLocalTime().ToString("dd.MM.yyyy", CultureInfo.InvariantCulture),
         TrackingCount = dto.TrackingCount,
+        IsBlocked = dto.IsBlocked,
     };
 }

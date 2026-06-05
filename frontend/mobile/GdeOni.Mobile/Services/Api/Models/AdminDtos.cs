@@ -33,7 +33,8 @@ public sealed record AdminUserListItem(
     string Role,
     DateTime RegisteredAtUtc,
     DateTime? LastLoginAtUtc,
-    int TrackingCount);
+    int TrackingCount,
+    bool IsBlocked = false);
 
 /// <summary>F17.9 mobile. Детали конкретного юзера + статус подписки.</summary>
 public sealed record AdminUserDetailsDto(
