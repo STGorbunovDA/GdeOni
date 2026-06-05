@@ -10,6 +10,9 @@ public sealed class MyTrackedDeceasedListItemResponse
     public bool HasGraveLocation { get; init; }
     public double? GraveLatitude { get; init; }
     public double? GraveLongitude { get; init; }
+
+    /// <summary>F17.*. Id главного фото — нужен для редактирования.</summary>
+    public Guid? MainMediaId { get; init; }
     public string? MainPhotoUrl { get; init; }
     public string RelationshipType { get; init; } = null!;
     public string Status { get; init; } = null!;

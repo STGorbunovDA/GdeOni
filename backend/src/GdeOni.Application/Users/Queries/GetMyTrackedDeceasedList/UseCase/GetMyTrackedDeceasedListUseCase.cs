@@ -56,6 +56,7 @@ public sealed class GetMyTrackedDeceasedListUseCase(
                     HasGraveLocation = deceased.BurialLocation is not null,
                     GraveLatitude = deceased.BurialLocation?.Latitude,
                     GraveLongitude = deceased.BurialLocation?.Longitude,
+                    MainMediaId = mainPhoto?.Id,
                     MainPhotoUrl = mainPhotoUrl,
                     RelationshipType = tracking.RelationshipType.ToString(),
                     Status = tracking.Status.ToString(),

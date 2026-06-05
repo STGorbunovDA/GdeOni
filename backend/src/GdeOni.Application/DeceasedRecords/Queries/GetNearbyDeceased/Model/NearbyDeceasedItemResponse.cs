@@ -26,4 +26,10 @@ public sealed class NearbyDeceasedItemResponse
     /// "1.2 км" (форматирует клиент).
     /// </summary>
     public int DistanceMeters { get; init; }
+
+    /// <summary>F17.*. Id главного фото (Approved) — для редактирования.</summary>
+    public Guid? MainMediaId { get; init; }
+
+    /// <summary>F17.*. Готовый URL главного фото — для превью в списке Nearby.</summary>
+    public string? MainPhotoUrl { get; init; }
 }

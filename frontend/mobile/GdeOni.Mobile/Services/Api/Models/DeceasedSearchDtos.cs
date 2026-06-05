@@ -20,7 +20,9 @@ public sealed record DeceasedSearchItem(
     string? PlotNumber,
     string? GraveNumber,
     bool IsVerified,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    Guid? MainMediaId = null,
+    string? MainPhotoUrl = null);
 
 /// <summary>
 /// Body для POST /api/users/me/tracked-deceased/{id}. Backend ожидает
@@ -59,4 +61,6 @@ public sealed record NearbyDeceasedItem(
     string? PlotNumber,
     string? GraveNumber,
     bool IsVerified,
-    int DistanceMeters);
+    int DistanceMeters,
+    Guid? MainMediaId = null,
+    string? MainPhotoUrl = null);

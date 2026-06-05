@@ -37,4 +37,16 @@ public sealed class DeceasedDetailsResponse
 
     public DeceasedMetadataResponse Metadata { get; init; } = null!;
     public IReadOnlyCollection<DeceasedMemoryResponse> Memories { get; init; } = [];
+
+    /// <summary>
+    /// Id главного фото (если выбрано и Approved). Нужен для редактирования
+    /// (например, в админке отметить какое сейчас главное).
+    /// </summary>
+    public Guid? MainMediaId { get; init; }
+
+    /// <summary>
+    /// Готовый публичный URL главного фото. Null если фото нет или оно
+    /// не Approved. Зашит в ответ для устранения N+1 запросов на /media.
+    /// </summary>
+    public string? MainPhotoUrl { get; init; }
 }

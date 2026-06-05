@@ -20,4 +20,5 @@ public sealed record TrackedDeceasedListItem(
     string Status,
     bool NotifyOnDeathAnniversary,
     bool NotifyOnBirthAnniversary,
-    DateTime TrackedAtUtc);
+    DateTime TrackedAtUtc,
+    Guid? MainMediaId = null);

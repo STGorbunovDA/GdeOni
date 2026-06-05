@@ -42,6 +42,9 @@ public partial class DeceasedDetailsViewModel(
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasData))]
+    [NotifyPropertyChangedFor(nameof(MainPhotoUrl))]
+    [NotifyPropertyChangedFor(nameof(HasMainPhoto))]
+    [NotifyPropertyChangedFor(nameof(HasNoMainPhoto))]
     private MyTrackedDeceasedDetailsResponse? _data;
 
     [ObservableProperty]
@@ -162,10 +165,15 @@ public partial class DeceasedDetailsViewModel(
     public bool HasDocuments => Documents.Count > 0;
 
     /// <summary>
-    /// URL главного фото умершего (для hero-блока). Если main-photo не
-    /// помечен или его нет — null, страница покажет 🕊-плейсхолдер.
+    /// URL главного фото умершего (для hero-блока). Приоритет:
+    /// 1) MainPhotoUrl из details-ответа (рендерим сразу, без ожидания
+    ///    отдельной загрузки media-коллекции — лекарство от мигающего
+    ///    🕊-плейсхолдера, пока грузится /media);
+    /// 2) Фолбэк на коллекцию DeceasedPhotos (если /media уже успел и
+    ///    почему-то details не отдал главное фото — на старом backend'е).
     /// </summary>
-    public string? MainPhotoUrl => DeceasedPhotos.FirstOrDefault(p => p.IsMainPhoto)?.Url
+    public string? MainPhotoUrl => Data?.Deceased.MainPhotoUrl
+                                   ?? DeceasedPhotos.FirstOrDefault(p => p.IsMainPhoto)?.Url
                                    ?? DeceasedPhotos.FirstOrDefault()?.Url;
     public bool HasMainPhoto => MainPhotoUrl is not null;
     public bool HasNoMainPhoto => MainPhotoUrl is null;

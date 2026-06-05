@@ -251,8 +251,9 @@ public sealed class UserQueriesTests
                 user.Id, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
+        var fileStorage = new Mock<IFileStorage>();
         var useCase = new GetMyTrackedDeceasedDetailsUseCase(
-            userRepo.Object, deceasedRepo.Object, currentUser.Object,
+            userRepo.Object, deceasedRepo.Object, fileStorage.Object, currentUser.Object,
             TestExecutor.With<GetMyTrackedDeceasedDetailsQuery, GetMyTrackedDeceasedDetailsQueryValidator>());
 
         var result = await useCase.Execute(
@@ -291,8 +292,9 @@ public sealed class UserQueriesTests
             .Setup(x => x.GetByIdWithMemoriesReadOnly(deceased.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(deceased);
 
+        var fileStorage = new Mock<IFileStorage>();
         var useCase = new GetMyTrackedDeceasedDetailsUseCase(
-            userRepo.Object, deceasedRepo.Object, currentUser.Object,
+            userRepo.Object, deceasedRepo.Object, fileStorage.Object, currentUser.Object,
             TestExecutor.With<GetMyTrackedDeceasedDetailsQuery, GetMyTrackedDeceasedDetailsQueryValidator>());
 
         var result = await useCase.Execute(

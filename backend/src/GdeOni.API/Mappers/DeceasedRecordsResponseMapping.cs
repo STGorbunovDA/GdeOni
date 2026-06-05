@@ -15,12 +15,18 @@ namespace GdeOni.API.Mappers;
 public static class DeceasedRecordsResponseMapping
 {
     public static DeceasedDetailsResponse ToDetailsResponse(this GetDeceasedByIdResult result) =>
-        result.Deceased.ToDetailsResponse(result.CanSeeAllMemories);
+        result.Deceased.ToDetailsResponse(
+            result.CanSeeAllMemories,
+            result.MainMediaId,
+            result.MainPhotoUrl);
 
     public static MyTrackedDeceasedDetailsResponse ToDetailsResponse(this GetMyTrackedDeceasedDetailsResult result) =>
         new()
         {
-            Deceased = result.Deceased.ToDetailsResponse(result.CanSeeAllMemories),
+            Deceased = result.Deceased.ToDetailsResponse(
+                result.CanSeeAllMemories,
+                result.MainMediaId,
+                result.MainPhotoUrl),
             Tracking = new MyTrackingInfoResponse
             {
                 TrackingId = result.Tracking.Id,
@@ -35,7 +41,9 @@ public static class DeceasedRecordsResponseMapping
 
     public static DeceasedDetailsResponse ToDetailsResponse(
         this Deceased deceased,
-        bool canSeeAllMemories)
+        bool canSeeAllMemories,
+        Guid? mainMediaId = null,
+        string? mainPhotoUrl = null)
     {
         var memoriesQuery = canSeeAllMemories
             ? deceased.Memories
@@ -96,7 +104,10 @@ public static class DeceasedRecordsResponseMapping
                     UpdatedAtUtc = memory.UpdatedAtUtc,
                     ModerationStatus = memory.ModerationStatus.ToString()
                 })
-                .ToArray()
+                .ToArray(),
+
+            MainMediaId = mainMediaId,
+            MainPhotoUrl = mainPhotoUrl,
         };
     }
 }

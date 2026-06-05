@@ -30,7 +30,9 @@ public sealed record DeceasedDetailsResponse(
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,
     DeceasedMetadataResponse Metadata,
-    IReadOnlyList<DeceasedMemoryResponse> Memories);
+    IReadOnlyList<DeceasedMemoryResponse> Memories,
+    Guid? MainMediaId = null,
+    string? MainPhotoUrl = null);
 
 public sealed record DeceasedMetadataResponse(
     string? Epitaph,

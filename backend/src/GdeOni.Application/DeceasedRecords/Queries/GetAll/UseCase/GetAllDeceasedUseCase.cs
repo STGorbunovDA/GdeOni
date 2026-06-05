@@ -1,5 +1,6 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Common.Shared;
@@ -10,6 +11,7 @@ namespace GdeOni.Application.DeceasedRecords.Queries.GetAll.UseCase;
 
 public sealed class GetAllDeceasedUseCase(
     IDeceasedRepository deceasedRepository,
+    IFileStorage fileStorage,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetAllDeceasedUseCase
@@ -40,25 +42,51 @@ public sealed class GetAllDeceasedUseCase(
 
         var (items, totalCount) = await deceasedRepository.GetPaged(query, cancellationToken);
 
+        // Лекарство от N+1: одним SQL'ем тянем главные фото для всех
+        // карточек страницы. GetPaged не Include'ит Media, поэтому
+        // GetMainPhoto() на этих сущностях вернул бы null. Approved-
+        // фильтр зашит в GetApprovedMainMedia.
+        var mainMediaIds = items
+            .Where(x => x.MainMediaId.HasValue)
+            .Select(x => x.MainMediaId!.Value)
+            .ToList();
+        var mainMediaByMediaId = mainMediaIds.Count == 0
+            ? new Dictionary<Guid, MainMediaProjection>()
+            : await deceasedRepository.GetApprovedMainMedia(mainMediaIds, cancellationToken);
+
         var response = new PagedResponse<GetAllDeceasedItemResponse>
         {
-            Items = items.Select(x => new GetAllDeceasedItemResponse
+            Items = items.Select(x =>
             {
-                Id = x.Id,
-                FullName = x.Name.FullName,
-                BirthDate = x.LifePeriod.BirthDate,
-                DeathDate = x.LifePeriod.DeathDate,
-                HasBurialLocation = x.BurialLocation is not null,
-                Latitude = x.BurialLocation?.Latitude,
-                Longitude = x.BurialLocation?.Longitude,
-                AccuracyMeters = x.BurialLocation?.AccuracyMeters,
-                Country = x.BurialLocation?.Country,
-                City = x.BurialLocation?.City,
-                CemeteryName = x.BurialLocation?.CemeteryName,
-                PlotNumber = x.BurialLocation?.PlotNumber,
-                GraveNumber = x.BurialLocation?.GraveNumber,
-                IsVerified = x.IsVerified,
-                CreatedAtUtc = x.CreatedAtUtc
+                Guid? mediaId = null;
+                string? photoUrl = null;
+                if (x.MainMediaId is { } mid
+                    && mainMediaByMediaId.TryGetValue(mid, out var photo))
+                {
+                    mediaId = photo.Id;
+                    photoUrl = fileStorage.GetPublicUrl(photo.Bucket, photo.StorageKey);
+                }
+
+                return new GetAllDeceasedItemResponse
+                {
+                    Id = x.Id,
+                    FullName = x.Name.FullName,
+                    BirthDate = x.LifePeriod.BirthDate,
+                    DeathDate = x.LifePeriod.DeathDate,
+                    HasBurialLocation = x.BurialLocation is not null,
+                    Latitude = x.BurialLocation?.Latitude,
+                    Longitude = x.BurialLocation?.Longitude,
+                    AccuracyMeters = x.BurialLocation?.AccuracyMeters,
+                    Country = x.BurialLocation?.Country,
+                    City = x.BurialLocation?.City,
+                    CemeteryName = x.BurialLocation?.CemeteryName,
+                    PlotNumber = x.BurialLocation?.PlotNumber,
+                    GraveNumber = x.BurialLocation?.GraveNumber,
+                    IsVerified = x.IsVerified,
+                    CreatedAtUtc = x.CreatedAtUtc,
+                    MainMediaId = mediaId,
+                    MainPhotoUrl = photoUrl,
+                };
             }).ToList(),
             TotalCount = totalCount,
             Page = query.Page,

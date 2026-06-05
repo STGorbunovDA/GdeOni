@@ -114,6 +114,25 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
             .AnyAsync(x => x.Id == id, cancellationToken);
     }
 
+    public async Task<Dictionary<Guid, MainMediaProjection>> GetApprovedMainMedia(
+        IReadOnlyList<Guid> mediaIds,
+        CancellationToken cancellationToken)
+    {
+        if (mediaIds.Count == 0)
+            return new Dictionary<Guid, MainMediaProjection>();
+
+        // Узкая проекция (id, bucket, storage_key) для Approved-фото.
+        // ToDictionary — id уникальный (PK), коллизий быть не может.
+        var rows = await dbContext.Set<DeceasedMedia>()
+            .AsNoTracking()
+            .Where(m => mediaIds.Contains(m.Id)
+                        && m.ModerationStatus == ModerationStatus.Approved)
+            .Select(m => new MainMediaProjection(m.Id, m.Bucket, m.StorageKey))
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(r => r.Id);
+    }
+
     public async Task<(List<DeceasedMedia> Items, int TotalCount)> GetMediaPaged(
         Guid deceasedId,
         MediaKind? kind,

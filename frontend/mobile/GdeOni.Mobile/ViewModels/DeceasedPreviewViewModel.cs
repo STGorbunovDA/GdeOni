@@ -19,8 +19,7 @@ namespace GdeOni.Mobile.ViewModels;
 [QueryProperty(nameof(DeceasedId), "deceasedId")]
 public partial class DeceasedPreviewViewModel(
     IDeceasedRecordsApi deceasedApi,
-    ITrackedDeceasedApi trackingApi,
-    IDeceasedMediaApi mediaApi) : ObservableObject
+    ITrackedDeceasedApi trackingApi) : ObservableObject
 {
     [ObservableProperty]
     private string _deceasedId = "";
@@ -113,6 +112,10 @@ public partial class DeceasedPreviewViewModel(
                 return;
             }
             Data = details.Result;
+            // Главное фото приходит прямо в ответе details (MainPhotoUrl),
+            // без отдельного запроса за /media. Раньше тут был N+1: грузили
+            // всю коллекцию media только ради url одного главного фото.
+            MainPhotoUrl = details.Result.MainPhotoUrl;
 
             // 2. Проверяем, отслеживаем ли уже (от этого зависит текст
             // кнопки и поведение тапа).
@@ -126,21 +129,6 @@ public partial class DeceasedPreviewViewModel(
                 // Если exists упал — считаем что не отслеживается, чтобы
                 // юзер мог нажать "Добавить". Backend всё равно идемпотентный.
                 IsAlreadyTracked = false;
-            }
-
-            // 3. Главное фото (для hero-аватара). Если не загрузилось —
-            // показываем placeholder, не блокируем preview.
-            try
-            {
-                var media = await mediaApi.GetListAsync(id, page: 1, pageSize: 50);
-                MainPhotoUrl = media.Result?.Items
-                    .FirstOrDefault(m => m.Kind == MediaKinds.DeceasedPhotoString && m.IsMainPhoto)?.Url
-                    ?? media.Result?.Items
-                        .FirstOrDefault(m => m.Kind == MediaKinds.DeceasedPhotoString)?.Url;
-            }
-            catch
-            {
-                MainPhotoUrl = null;
             }
 
             // Триггерим все computed.

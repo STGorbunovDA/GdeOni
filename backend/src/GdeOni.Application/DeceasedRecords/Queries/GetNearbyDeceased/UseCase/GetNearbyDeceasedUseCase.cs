@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Common.Shared;
@@ -10,6 +11,7 @@ namespace GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.UseCase;
 
 public sealed class GetNearbyDeceasedUseCase(
     IDeceasedRepository deceasedRepository,
+    IFileStorage fileStorage,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetNearbyDeceasedUseCase
@@ -34,24 +36,47 @@ public sealed class GetNearbyDeceasedUseCase(
 
         var (items, totalCount) = await deceasedRepository.GetNearby(query, cancellationToken);
 
+        // Лекарство от N+1: одним SQL'ем тянем главные фото для страницы.
+        var mainMediaIds = items
+            .Where(x => x.Deceased.MainMediaId.HasValue)
+            .Select(x => x.Deceased.MainMediaId!.Value)
+            .ToList();
+        var mainMediaByMediaId = mainMediaIds.Count == 0
+            ? new Dictionary<Guid, MainMediaProjection>()
+            : await deceasedRepository.GetApprovedMainMedia(mainMediaIds, cancellationToken);
+
         var response = new PagedResponse<NearbyDeceasedItemResponse>
         {
             Items = items
-                .Select(x => new NearbyDeceasedItemResponse
+                .Select(x =>
                 {
-                    Id = x.Deceased.Id,
-                    FullName = x.Deceased.Name.FullName,
-                    BirthDate = x.Deceased.LifePeriod.BirthDate,
-                    DeathDate = x.Deceased.LifePeriod.DeathDate,
-                    Latitude = x.Deceased.BurialLocation!.Latitude,
-                    Longitude = x.Deceased.BurialLocation.Longitude,
-                    Country = x.Deceased.BurialLocation.Country,
-                    City = x.Deceased.BurialLocation.City,
-                    CemeteryName = x.Deceased.BurialLocation.CemeteryName,
-                    PlotNumber = x.Deceased.BurialLocation.PlotNumber,
-                    GraveNumber = x.Deceased.BurialLocation.GraveNumber,
-                    IsVerified = x.Deceased.IsVerified,
-                    DistanceMeters = (int)Math.Round(x.DistanceMeters),
+                    Guid? mediaId = null;
+                    string? photoUrl = null;
+                    if (x.Deceased.MainMediaId is { } mid
+                        && mainMediaByMediaId.TryGetValue(mid, out var photo))
+                    {
+                        mediaId = photo.Id;
+                        photoUrl = fileStorage.GetPublicUrl(photo.Bucket, photo.StorageKey);
+                    }
+
+                    return new NearbyDeceasedItemResponse
+                    {
+                        Id = x.Deceased.Id,
+                        FullName = x.Deceased.Name.FullName,
+                        BirthDate = x.Deceased.LifePeriod.BirthDate,
+                        DeathDate = x.Deceased.LifePeriod.DeathDate,
+                        Latitude = x.Deceased.BurialLocation!.Latitude,
+                        Longitude = x.Deceased.BurialLocation.Longitude,
+                        Country = x.Deceased.BurialLocation.Country,
+                        City = x.Deceased.BurialLocation.City,
+                        CemeteryName = x.Deceased.BurialLocation.CemeteryName,
+                        PlotNumber = x.Deceased.BurialLocation.PlotNumber,
+                        GraveNumber = x.Deceased.BurialLocation.GraveNumber,
+                        IsVerified = x.Deceased.IsVerified,
+                        DistanceMeters = (int)Math.Round(x.DistanceMeters),
+                        MainMediaId = mediaId,
+                        MainPhotoUrl = photoUrl,
+                    };
                 })
                 .ToList(),
             TotalCount = totalCount,

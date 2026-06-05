@@ -94,9 +94,28 @@ public interface IDeceasedRepository
         DateTime? editedToUtc,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Batched-выборка проекций (id, bucket, storage_key) для главных фото
+    /// списком mediaIds. Возвращает только Approved-фото — Pending/Rejected
+    /// наружу не отдаём (зеркало Deceased.GetMainPhoto()). Используется
+    /// в листинговых use case'ах (GetAll/Nearby/GetById), чтобы клиенту
+    /// в одном ответе пришла ссылка на главное фото без N+1 запросов
+    /// за /media для каждой карточки.
+    /// </summary>
+    Task<Dictionary<Guid, MainMediaProjection>> GetApprovedMainMedia(
+        IReadOnlyList<Guid> mediaIds,
+        CancellationToken cancellationToken);
+
     void Delete(Deceased deceased);
     Task Save(CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Узкая проекция главного фото для листинговых эндпоинтов.
+/// Bucket + StorageKey достаточно для генерации публичного URL через
+/// IFileStorage.GetPublicUrl, остальные поля DeceasedMedia не нужны.
+/// </summary>
+public sealed record MainMediaProjection(Guid Id, string Bucket, string StorageKey);
 
 /// <summary>
 /// D24. Audit row: DeceasedEdit + резолвленные данные о редакторе.

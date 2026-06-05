@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.DeceasedRecords.Queries.GetAgeAtDeath.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetAgeAtDeath.UseCase;
@@ -42,6 +43,7 @@ public sealed class DeceasedQueriesTests
     public async Task GetAll_AnyAuthenticated_ReturnsPaged()
     {
         var deceasedRepo = new Mock<IDeceasedRepository>();
+        var fileStorage = new Mock<IFileStorage>();
         var currentUser = new Mock<ICurrentUserService>();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
@@ -51,7 +53,7 @@ public sealed class DeceasedQueriesTests
             .ReturnsAsync((new List<Deceased>(), 0));
 
         var useCase = new GetAllDeceasedUseCase(
-            deceasedRepo.Object, currentUser.Object,
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
             TestExecutor.With<GetAllDeceasedQuery, GetAllDeceasedQueryValidator>());
 
         var result = await useCase.Execute(
@@ -71,6 +73,7 @@ public sealed class DeceasedQueriesTests
     public async Task GetAll_Admin_ReturnsPaged()
     {
         var deceasedRepo = new Mock<IDeceasedRepository>();
+        var fileStorage = new Mock<IFileStorage>();
         var currentUser = new Mock<ICurrentUserService>();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
@@ -80,7 +83,7 @@ public sealed class DeceasedQueriesTests
             .ReturnsAsync((new List<Deceased>(), 0));
 
         var useCase = new GetAllDeceasedUseCase(
-            deceasedRepo.Object, currentUser.Object,
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
             TestExecutor.With<GetAllDeceasedQuery, GetAllDeceasedQueryValidator>());
 
         var result = await useCase.Execute(
@@ -111,8 +114,9 @@ public sealed class DeceasedQueriesTests
             .Setup(x => x.GetByIdWithMemoriesReadOnly(deceased.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(deceased);
 
+        var fileStorage = new Mock<IFileStorage>();
         var useCase = new GetDeceasedByIdUseCase(
-            deceasedRepo.Object, currentUser.Object,
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
             TestExecutor.With<GetDeceasedByIdQuery, GetDeceasedByIdQueryValidator>());
 
         var result = await useCase.Execute(
@@ -143,8 +147,9 @@ public sealed class DeceasedQueriesTests
             .Setup(x => x.GetByIdWithMemoriesReadOnly(deceased.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(deceased);
 
+        var fileStorage = new Mock<IFileStorage>();
         var useCase = new GetDeceasedByIdUseCase(
-            deceasedRepo.Object, currentUser.Object,
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
             TestExecutor.With<GetDeceasedByIdQuery, GetDeceasedByIdQueryValidator>());
 
         var result = await useCase.Execute(
@@ -331,8 +336,9 @@ public sealed class DeceasedQueriesTests
             .Setup(x => x.GetNearby(It.IsAny<GetNearbyDeceasedQuery>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<NearbyDeceasedRow>(), 0));
 
+        var fileStorage = new Mock<IFileStorage>();
         var useCase = new GetNearbyDeceasedUseCase(
-            deceasedRepo.Object, currentUser.Object,
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
             TestExecutor.With<GetNearbyDeceasedQuery, GetNearbyDeceasedQueryValidator>());
 
         var result = await useCase.Execute(
@@ -365,8 +371,9 @@ public sealed class DeceasedQueriesTests
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
 
+        var fileStorage = new Mock<IFileStorage>();
         var useCase = new GetNearbyDeceasedUseCase(
-            deceasedRepo.Object, currentUser.Object,
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
             TestExecutor.With<GetNearbyDeceasedQuery, GetNearbyDeceasedQueryValidator>());
 
         var result = await useCase.Execute(
@@ -395,8 +402,9 @@ public sealed class DeceasedQueriesTests
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
 
+        var fileStorage = new Mock<IFileStorage>();
         var useCase = new GetNearbyDeceasedUseCase(
-            deceasedRepo.Object, currentUser.Object,
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
             TestExecutor.With<GetNearbyDeceasedQuery, GetNearbyDeceasedQueryValidator>());
 
         var result = await useCase.Execute(
@@ -425,8 +433,9 @@ public sealed class DeceasedQueriesTests
             .Setup(x => x.GetNearby(It.IsAny<GetNearbyDeceasedQuery>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<NearbyDeceasedRow> { new(deceased, 123.6) }, 1));
 
+        var fileStorage = new Mock<IFileStorage>();
         var useCase = new GetNearbyDeceasedUseCase(
-            deceasedRepo.Object, currentUser.Object,
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
             TestExecutor.With<GetNearbyDeceasedQuery, GetNearbyDeceasedQueryValidator>());
 
         var result = await useCase.Execute(

@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Users.Queries.GetMyTrackedDeceasedDetails.Model;
@@ -10,6 +11,7 @@ namespace GdeOni.Application.Users.Queries.GetMyTrackedDeceasedDetails.UseCase;
 public sealed class GetMyTrackedDeceasedDetailsUseCase(
     IUserRepository userRepository,
     IDeceasedRepository deceasedRepository,
+    IFileStorage fileStorage,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IGetMyTrackedDeceasedDetailsUseCase
@@ -49,10 +51,28 @@ public sealed class GetMyTrackedDeceasedDetailsUseCase(
         if (deceased is null)
             return Errors.General.NotFound("deceased", query.DeceasedId);
 
+        // Лекарство от N+1: главное фото отдельным узким SELECT'ом.
+        // GetByIdWithMemoriesReadOnly Media не Include'ит, GetMainPhoto()
+        // вернул бы null. Approved-фильтр зашит в GetApprovedMainMedia.
+        Guid? mainMediaId = null;
+        string? mainPhotoUrl = null;
+        if (deceased.MainMediaId is { } mediaId)
+        {
+            var byId = await deceasedRepository.GetApprovedMainMedia(
+                new[] { mediaId },
+                cancellationToken);
+            if (byId.TryGetValue(mediaId, out var photo))
+            {
+                mainMediaId = photo.Id;
+                mainPhotoUrl = fileStorage.GetPublicUrl(photo.Bucket, photo.StorageKey);
+            }
+        }
+
         // D14: модерация воспоминаний отключена — все воспоминания видны
         // всем. Параметр canSeeAllMemories в Result оставлен (используется
         // mapper'ом для совместимости), просто всегда true.
         return Result.Success<GetMyTrackedDeceasedDetailsResult, Error>(
-            new GetMyTrackedDeceasedDetailsResult(deceased, tracking, CanSeeAllMemories: true));
+            new GetMyTrackedDeceasedDetailsResult(
+                deceased, tracking, CanSeeAllMemories: true, mainMediaId, mainPhotoUrl));
     }
 }
