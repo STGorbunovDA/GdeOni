@@ -124,6 +124,23 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasFilter("is_blocked = true")
             .HasDatabaseName("ix_users_is_blocked");
 
+        // Self-reference FK: blocked_by_user_id и complimentary_access_granted_by_admin_id
+        // указывают на админа, выполнившего действие. OnDelete=SetNull —
+        // зеркало DeceasedEdit.EditedByUserId (D24): админа можно удалить,
+        // запись о блокировке/complimentary остаётся, но "кем" — анонимно.
+        // EF сам создаст индексы ix_users_blocked_by_user_id и
+        // ix_users_complimentary_access_granted_by_admin_id (FK без индекса
+        // делает full scan на удалении строки в users).
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(x => x.BlockedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(x => x.ComplimentaryAccessGrantedByAdminId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.OwnsOne(x => x.Subscription, subscription =>
         {
             subscription.Property(x => x.Status)
