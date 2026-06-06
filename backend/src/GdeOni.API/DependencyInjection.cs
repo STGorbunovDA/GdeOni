@@ -57,10 +57,21 @@ public static class DependencyInjection
         {
             options.AddPolicy(CorsPolicyName, policy =>
             {
+                // Явный whitelist headers/methods вместо AllowAnyHeader/Method.
+                // Вместе с AllowCredentials комбинация "ANY + credentials"
+                // раньше давала источнику из whitelist полный доступ от
+                // имени юзера: XSS на самом фронте или subdomain-takeover
+                // = CSRF без ограничений. Теперь только то, что мы реально
+                // используем.
                 policy
                     .WithOrigins(origins)
-                    .AllowAnyHeader()
-                    .AllowAnyMethod()
+                    .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                    .WithHeaders(
+                        "Authorization",
+                        "Content-Type",
+                        "Accept",
+                        "X-Requested-With",
+                        "X-Trace-Id")
                     .AllowCredentials();
             });
         });
@@ -176,6 +187,14 @@ public static class DependencyInjection
     }
 
     internal static string SecurityStampCacheKey(Guid userId) => $"secstamp:{userId}";
+
+    /// <summary>
+    /// Кеш-ключ для read-through ActiveSubscriptionAuthorizationHandler:
+    /// "юзер X имеет активный access (subscription или complimentary)".
+    /// Инвалидируется тем же SecurityStampInvalidator — любая операция,
+    /// меняющая статус подписки, должна ротировать SecurityStamp юзера.
+    /// </summary>
+    internal static string SubscriptionAccessCacheKey(Guid userId) => $"subaccess:{userId}";
 
     private static async Task ValidateSecurityStampAsync(TokenValidatedContext context)
     {

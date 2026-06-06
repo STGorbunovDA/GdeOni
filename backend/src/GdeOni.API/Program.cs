@@ -57,6 +57,11 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
+// Fail-fast старта: проверяем что миграции накатаны. Без этого API
+// стартует и падает на первом запросе с непонятной ошибкой EF Core
+// ("column does not exist"). См. D11.6.
+await app.Services.EnsureDatabaseMigrationsAppliedAsync();
+
 await app.Services.SeedDatabaseAsync();
 await app.Services.BootstrapStorageAsync();
 
@@ -67,7 +72,20 @@ await app.Services.BootstrapStorageAsync();
 // no-op (см. D7.38).
 app.UseForwardedHeadersIfConfigured(builder.Configuration);
 
-app.UseSerilogRequestLogging();
+// Correlation id в логах: каждый лог запроса теперь несёт TraceId
+// (HTTP TraceIdentifier) и UserId (если юзер уже аутентифицирован).
+// В Seq можно фильтровать "все логи запроса X" одним кликом —
+// без этого диагностика инцидента превращается в распутывание клубка.
+app.UseSerilogRequestLogging(options =>
+{
+    options.EnrichDiagnosticContext = (diag, http) =>
+    {
+        diag.Set("TraceId", http.TraceIdentifier);
+        var userIdClaim = http.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!string.IsNullOrEmpty(userIdClaim))
+            diag.Set("UserId", userIdClaim);
+    };
+});
 
 app.UseMiddleware<ExceptionMiddleware>();
 

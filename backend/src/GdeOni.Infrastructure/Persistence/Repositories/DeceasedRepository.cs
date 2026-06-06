@@ -120,6 +120,23 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
         if (mediaIds.Count == 0)
             return new Dictionary<Guid, MainMediaProjection>();
 
+        // Guard: текущие callsite'ы передают max query.PageSize штук
+        // (≤100 в GetAll/Nearby/MyTracked + 1 в GetById/Details). Если
+        // кто-то новый передаст сюда полный список (без Take), Npgsql
+        // переведёт Contains в ANY(@arr) и формально limit 65535 параметров
+        // не упрётся — но запрос всё равно становится медленным
+        // (full scan) и подозрительным. 1000 — мягкая граница. Если
+        // понадобится больше — добавь chunking.
+        const int MaxIdsPerCall = 1000;
+        if (mediaIds.Count > MaxIdsPerCall)
+        {
+            throw new ArgumentException(
+                $"GetApprovedMainMedia: mediaIds.Count={mediaIds.Count} > {MaxIdsPerCall}. " +
+                "Используй chunking, если действительно нужно больше — листинговые " +
+                "use case'ы ограничены PageSize.",
+                nameof(mediaIds));
+        }
+
         // Узкая проекция (id, bucket, storage_key) для Approved-фото.
         // ToDictionary — id уникальный (PK), коллизий быть не может.
         var rows = await dbContext.Set<DeceasedMedia>()

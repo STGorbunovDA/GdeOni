@@ -38,7 +38,11 @@ public sealed class DeceasedMediaController : ApiControllerBase
     /// При ошибке БД файл удаляется из MinIO (best-effort).
     /// </summary>
     [HttpPost]
-    [RequestSizeLimit(50L * 1024 * 1024)]
+    // Лимит = max(MaxPhotoSizeBytes, MaxDocumentSizeBytes) из FileValidator.
+    // Раньше было хардкод 50 MB — шире чем валидатор; атакующий мог
+    // прокинуть 49 MB и съесть память до отбоя на per-kind проверке.
+    // Теперь сервер ASP.NET сам отрубает запросы > 25 MB на уровне TCP.
+    [RequestSizeLimit(FileValidator.MaxDocumentSizeBytes)]
     [ProducesResponseType(typeof(ApiResponse<UploadMediaResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]

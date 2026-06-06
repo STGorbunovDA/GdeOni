@@ -3,8 +3,11 @@ using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Subscriptions.Queries.GetAdminPayments.Model;
 using GdeOni.Application.Subscriptions.Queries.GetAdminPayments.UseCase;
+using GdeOni.Application.Subscriptions.Queries.GetAdminPayments.Validation;
 using GdeOni.Application.Subscriptions.Queries.GetMyPayments.Model;
 using GdeOni.Application.Subscriptions.Queries.GetMyPayments.UseCase;
+using GdeOni.Application.Subscriptions.Queries.GetMyPayments.Validation;
+using GdeOni.Application.Tests.TestSupport;
 using GdeOni.Domain.Aggregates.Subscriptions;
 using GdeOni.Domain.Shared;
 
@@ -22,7 +25,9 @@ public sealed class PaymentsHistoryUseCaseTests
         var currentUser = new Mock<ICurrentUserService>();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Errors.General.Unauthorized());
-        var useCase = new GetMyPaymentsUseCase(paymentRepo.Object, currentUser.Object);
+        var useCase = new GetMyPaymentsUseCase(
+            paymentRepo.Object, currentUser.Object,
+            TestExecutor.With<GetMyPaymentsQuery, GetMyPaymentsQueryValidator>());
 
         var result = await useCase.Execute(new GetMyPaymentsQuery(), CancellationToken.None);
 
@@ -46,7 +51,9 @@ public sealed class PaymentsHistoryUseCaseTests
             .Setup(x => x.GetPagedForUser(userId, 1, 20, It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<SubscriptionPayment> { payment }, 1));
 
-        var useCase = new GetMyPaymentsUseCase(paymentRepo.Object, currentUser.Object);
+        var useCase = new GetMyPaymentsUseCase(
+            paymentRepo.Object, currentUser.Object,
+            TestExecutor.With<GetMyPaymentsQuery, GetMyPaymentsQueryValidator>());
 
         var result = await useCase.Execute(new GetMyPaymentsQuery(), CancellationToken.None);
 
@@ -57,27 +64,53 @@ public sealed class PaymentsHistoryUseCaseTests
         result.Value.Items[0].Status.Should().Be("Pending");
     }
 
+    /// <summary>
+    /// Раньше use case делал silent clamping (Page=-5 → 1). Теперь
+    /// валидатор отдаёт 400 — клиент узнаёт о своей ошибке вместо
+    /// "почему я не вижу никаких платежей".
+    /// </summary>
     [Theory]
-    [InlineData(0, 1)]
-    [InlineData(-5, 1)]
-    [InlineData(2, 2)]
-    public async Task GetMy_NormalizesPageNumber(int input, int normalized)
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task GetMy_InvalidPage_ReturnsValidationError(int badPage)
     {
         var paymentRepo = new Mock<ISubscriptionPaymentRepository>();
         var currentUser = new Mock<ICurrentUserService>();
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
-        paymentRepo
-            .Setup(x => x.GetPagedForUser(It.IsAny<Guid>(), normalized, It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((new List<SubscriptionPayment>(), 0));
 
-        var useCase = new GetMyPaymentsUseCase(paymentRepo.Object, currentUser.Object);
+        var useCase = new GetMyPaymentsUseCase(
+            paymentRepo.Object, currentUser.Object,
+            TestExecutor.With<GetMyPaymentsQuery, GetMyPaymentsQueryValidator>());
 
-        var result = await useCase.Execute(new GetMyPaymentsQuery(Page: input), CancellationToken.None);
+        var result = await useCase.Execute(new GetMyPaymentsQuery(Page: badPage), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
+        result.IsFailure.Should().BeTrue();
+        result.Error.Type.Should().Be(ErrorType.Validation);
         paymentRepo.Verify(x => x.GetPagedForUser(
-            It.IsAny<Guid>(), normalized, It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(101)]
+    [InlineData(-1)]
+    public async Task GetMy_InvalidPageSize_ReturnsValidationError(int badSize)
+    {
+        var paymentRepo = new Mock<ISubscriptionPaymentRepository>();
+        var currentUser = new Mock<ICurrentUserService>();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
+
+        var useCase = new GetMyPaymentsUseCase(
+            paymentRepo.Object, currentUser.Object,
+            TestExecutor.With<GetMyPaymentsQuery, GetMyPaymentsQueryValidator>());
+
+        var result = await useCase.Execute(new GetMyPaymentsQuery(PageSize: badSize), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Type.Should().Be(ErrorType.Validation);
     }
 
     [Fact]
@@ -86,7 +119,9 @@ public sealed class PaymentsHistoryUseCaseTests
         var paymentRepo = new Mock<ISubscriptionPaymentRepository>();
         var currentUser = new Mock<ICurrentUserService>();
         currentUser.Setup(x => x.IsAdmin()).Returns(false);
-        var useCase = new GetAdminPaymentsUseCase(paymentRepo.Object, currentUser.Object);
+        var useCase = new GetAdminPaymentsUseCase(
+            paymentRepo.Object, currentUser.Object,
+            TestExecutor.With<GetAdminPaymentsQuery, GetAdminPaymentsQueryValidator>());
 
         var result = await useCase.Execute(new GetAdminPaymentsQuery(), CancellationToken.None);
 
@@ -111,7 +146,9 @@ public sealed class PaymentsHistoryUseCaseTests
             .ReturnsAsync(
                 (new List<(SubscriptionPayment, string)> { (payment, "user@example.com") }, 1));
 
-        var useCase = new GetAdminPaymentsUseCase(paymentRepo.Object, currentUser.Object);
+        var useCase = new GetAdminPaymentsUseCase(
+            paymentRepo.Object, currentUser.Object,
+            TestExecutor.With<GetAdminPaymentsQuery, GetAdminPaymentsQueryValidator>());
 
         var result = await useCase.Execute(new GetAdminPaymentsQuery(), CancellationToken.None);
 

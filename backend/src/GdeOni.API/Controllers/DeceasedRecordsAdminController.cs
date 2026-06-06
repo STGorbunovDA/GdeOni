@@ -1,4 +1,5 @@
 ﻿using GdeOni.API.Mappers;
+using GdeOni.API.Models.Admin;
 using GdeOni.API.Response;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.Model;
@@ -183,17 +184,13 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetEdits(
         [FromRoute] Guid id,
-        [FromQuery] int page,
-        [FromQuery] int pageSize,
+        [FromQuery] GetDeceasedEditsRequest request,
         [FromServices] IGetDeceasedEditsUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetDeceasedEditsQuery(
-            id,
-            page <= 0 ? 1 : page,
-            pageSize <= 0 ? 50 : pageSize);
-
-        var result = await useCase.Execute(query, cancellationToken);
+        // Inline clamping убран — пагинация валидируется в
+        // GetDeceasedEditsQueryValidator.
+        var result = await useCase.Execute(request.ToQuery(id), cancellationToken);
         return FromResult(result);
     }
 }

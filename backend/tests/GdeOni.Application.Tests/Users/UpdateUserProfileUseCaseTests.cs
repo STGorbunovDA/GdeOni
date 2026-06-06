@@ -155,10 +155,12 @@ public sealed class UpdateUserProfileUseCaseTests
         UpdateUserProfileUseCase UseCase) BuildHarness()
     {
         var userRepo = new Mock<IUserRepository>();
+        var refreshRepo = new Mock<IRefreshTokenRepository>();
         var currentUser = new Mock<ICurrentUserService>();
         var invalidator = new Mock<ISecurityStampInvalidator>();
         var useCase = new UpdateUserProfileUseCase(
             userRepo.Object,
+            refreshRepo.Object,
             currentUser.Object,
             invalidator.Object,
             TestExecutor.With<UpdateUserProfileCommand, UpdateUserProfileCommandValidator>());

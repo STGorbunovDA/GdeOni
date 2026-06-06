@@ -125,6 +125,20 @@ public static class DependencyInjection
             if (string.IsNullOrWhiteSpace(options.SecretKey))
                 throw new InvalidOperationException("MinIO SecretKey не сконфигурирован.");
 
+            // PublicBaseUrl опционален, но если задан — обязан быть
+            // валидным абсолютным URL'ом. Без проверки typo вроде
+            // "http//example.com" (нет двоеточия) приводил к тому, что
+            // MinioFileStorage возвращал presigned URL с внутренним
+            // адресом "minio:9000", который недоступен извне — фото
+            // не отображались, ошибка находилась только в проде.
+            if (!string.IsNullOrWhiteSpace(options.PublicBaseUrl)
+                && !Uri.TryCreate(options.PublicBaseUrl, UriKind.Absolute, out _))
+            {
+                throw new InvalidOperationException(
+                    $"MinIO PublicBaseUrl невалиден: '{options.PublicBaseUrl}'. " +
+                    "Ожидается абсолютный URL (например, https://cdn.example.com).");
+            }
+
             var builder = new MinioClient()
                 .WithEndpoint(options.Endpoint)
                 .WithCredentials(options.AccessKey, options.SecretKey);
@@ -157,6 +171,17 @@ public static class DependencyInjection
         CancellationToken cancellationToken = default)
     {
         return DbInitializer.SeedSuperAdminAsync(services, cancellationToken);
+    }
+
+    /// <summary>
+    /// Fail-fast старта: бросает исключение если на БД не накатаны
+    /// миграции из сборки. См. <see cref="DbInitializer.EnsureMigrationsAppliedAsync"/>.
+    /// </summary>
+    public static Task EnsureDatabaseMigrationsAppliedAsync(
+        this IServiceProvider services,
+        CancellationToken cancellationToken = default)
+    {
+        return DbInitializer.EnsureMigrationsAppliedAsync(services, cancellationToken);
     }
 
     public static Task BootstrapStorageAsync(

@@ -9,6 +9,7 @@ namespace GdeOni.Application.Users.Commands.UpdateProfile.UseCase;
 
 public sealed class UpdateUserProfileUseCase(
     IUserRepository userRepository,
+    IRefreshTokenRepository refreshTokenRepository,
     ICurrentUserService currentUserService,
     ISecurityStampInvalidator securityStampInvalidator,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
@@ -56,9 +57,16 @@ public sealed class UpdateUserProfileUseCase(
             return result.Error;
 
         await userRepository.Save(cancellationToken);
-        // D11.8.1: если домен реально ротировал stamp, выбиваем кеш.
         if (user.SecurityStamp != stampBefore)
+        {
+            // D11.8.1: если домен реально ротировал stamp, выбиваем кеш.
             securityStampInvalidator.Invalidate(user.Id);
+            // Также ревокаем refresh-токены: атакующий с украденным access
+            // мог перевыпустить access через /refresh ещё ~14 дней,
+            // несмотря на изменение профиля. Симметрично ChangePassword
+            // (D7.36). Сам юзер просто переавторизуется на устройстве.
+            await refreshTokenRepository.RevokeAllForUser(user.Id, cancellationToken);
+        }
 
         return Result.Success<UpdateUserProfileResponse, Error>(
             new UpdateUserProfileResponse(user.Id));

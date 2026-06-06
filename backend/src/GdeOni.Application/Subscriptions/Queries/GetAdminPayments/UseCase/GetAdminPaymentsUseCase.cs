@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Subscriptions.Queries.GetAdminPayments.Model;
 using GdeOni.Application.Subscriptions.Queries.GetMyPayments.Model;
@@ -13,33 +14,39 @@ namespace GdeOni.Application.Subscriptions.Queries.GetAdminPayments.UseCase;
 /// </summary>
 public sealed class GetAdminPaymentsUseCase(
     ISubscriptionPaymentRepository paymentRepository,
-    ICurrentUserService currentUserService) : IGetAdminPaymentsUseCase
+    ICurrentUserService currentUserService,
+    IValidatedUseCaseExecutor validatedUseCaseExecutor) : IGetAdminPaymentsUseCase
 {
-    public async Task<Result<PagedPaymentsResponse, Error>> Execute(
+    public Task<Result<PagedPaymentsResponse, Error>> Execute(
+        GetAdminPaymentsQuery query,
+        CancellationToken cancellationToken)
+    {
+        return validatedUseCaseExecutor.Execute(query, Handle, cancellationToken);
+    }
+
+    private async Task<Result<PagedPaymentsResponse, Error>> Handle(
         GetAdminPaymentsQuery query,
         CancellationToken cancellationToken)
     {
         if (!currentUserService.IsAdmin())
             return Errors.User.UserForbidden();
 
-        var page = query.Page < 1 ? 1 : query.Page;
-        var pageSize = query.PageSize is < 1 or > 100 ? 20 : query.PageSize;
-
+        // Inline clamping убран — валидация в GetAdminPaymentsQueryValidator.
         var (items, totalCount) = await paymentRepository.GetPagedForAdmin(
             query.UserId,
             query.Status,
             query.CreatedFromUtc,
             query.CreatedToUtc,
             query.EmailSearch,
-            page,
-            pageSize,
+            query.Page,
+            query.PageSize,
             cancellationToken);
 
         var response = new PagedPaymentsResponse(
             items.Select(x => PaymentRecordResponse.FromDomain(x.Payment, x.UserEmail)).ToList(),
             totalCount,
-            page,
-            pageSize);
+            query.Page,
+            query.PageSize);
 
         return Result.Success<PagedPaymentsResponse, Error>(response);
     }

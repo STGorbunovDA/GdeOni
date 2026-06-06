@@ -1,8 +1,11 @@
 using System.Security.Claims;
 using GdeOni.Application.Abstractions.Features;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Common.Security;
 using GdeOni.Domain.Shared;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 
 namespace GdeOni.API.Authorization;
 
@@ -27,9 +30,14 @@ namespace GdeOni.API.Authorization;
 /// </summary>
 public sealed class ActiveSubscriptionAuthorizationHandler(
     IFeatureFlagService featureFlags,
-    IServiceScopeFactory scopeFactory)
+    IServiceScopeFactory scopeFactory,
+    IMemoryCache memoryCache,
+    IOptions<JwtOptions> jwtOptions)
     : AuthorizationHandler<ActiveSubscriptionRequirement>
 {
+    private readonly TimeSpan _cacheTtl = TimeSpan.FromSeconds(
+        Math.Max(1, jwtOptions.Value.SecurityStampCacheTtlSeconds));
+
     protected override async Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
         ActiveSubscriptionRequirement requirement)
@@ -70,24 +78,37 @@ public sealed class ActiveSubscriptionAuthorizationHandler(
         if (!Guid.TryParse(userIdClaim, out var userId))
             return;
 
+        // Read-through кеш по userId с TTL = SecurityStampCacheTtlSeconds.
+        // Раньше каждый запрос за защищённым ресурсом = SELECT по users
+        // (~1000 RPS = 1000 SELECT). Теперь — один SELECT раз в 30 сек,
+        // плюс мгновенная инвалидация через SecurityStampInvalidator
+        // (Block/RoleChange/RevokeSubscription/Complimentary grant/revoke
+        // уже его дёргают).
+        var cacheKey = DependencyInjection.SubscriptionAccessCacheKey(userId);
+        if (memoryCache.TryGetValue<bool>(cacheKey, out var cachedAccess))
+        {
+            if (cachedAccess) context.Succeed(requirement);
+            return;
+        }
+
         await using var scope = scopeFactory.CreateAsyncScope();
         var userRepo = scope.ServiceProvider.GetRequiredService<IUserRepository>();
         var user = await userRepo.GetByIdReadOnly(userId, CancellationToken.None);
         if (user is null)
+        {
+            // Отрицательный результат тоже кешируем — иначе атакующий
+            // с украденным токеном удалённого юзера каждый раз заставляет
+            // нас идти в БД и получать null.
+            memoryCache.Set(cacheKey, false, _cacheTtl);
             return;
+        }
 
         var now = DateTime.UtcNow;
+        var hasAccess = user.HasComplimentaryAccess(now)
+            || user.HasActiveSubscription(now, featureFlags.GracePeriodDaysAfterExpiry);
 
-        // D22. Complimentary access перебивает проверку подписки.
-        if (user.HasComplimentaryAccess(now))
-        {
+        memoryCache.Set(cacheKey, hasAccess, _cacheTtl);
+        if (hasAccess)
             context.Succeed(requirement);
-            return;
-        }
-
-        if (user.HasActiveSubscription(now, featureFlags.GracePeriodDaysAfterExpiry))
-        {
-            context.Succeed(requirement);
-        }
     }
 }

@@ -19,7 +19,7 @@ namespace GdeOni.API.Controllers;
 [ApiController]
 [Tags("App")]
 [Route("api/app")]
-public sealed class AppController : ControllerBase
+public sealed class AppController : ApiControllerBase
 {
     /// <summary>
     /// Информация о минимально-поддерживаемой и последней версии

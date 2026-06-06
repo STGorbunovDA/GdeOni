@@ -1,3 +1,5 @@
+using GdeOni.API.Mappers;
+using GdeOni.API.Models.Admin;
 using GdeOni.API.Response;
 using GdeOni.Application.DeceasedRecords.Queries.GetAllEdits.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetAllEdits.UseCase;
@@ -26,24 +28,14 @@ public sealed class AdminEditsController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAll(
-        [FromQuery] int page,
-        [FromQuery] int pageSize,
-        [FromQuery] Guid? deceasedId,
-        [FromQuery] Guid? editorUserId,
-        [FromQuery] DateTime? editedFromUtc,
-        [FromQuery] DateTime? editedToUtc,
+        [FromQuery] GetAllEditsRequest request,
         [FromServices] IGetAllEditsUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetAllEditsQuery(
-            page <= 0 ? 1 : page,
-            pageSize <= 0 ? 50 : pageSize,
-            deceasedId,
-            editorUserId,
-            editedFromUtc,
-            editedToUtc);
-
-        var result = await useCase.Execute(query, cancellationToken);
+        // Маппер собирает Query без inline clamping — пагинация и
+        // диапазон валидируются в GetAllEditsQueryValidator (400 на
+        // невалидные значения вместо silent normalization).
+        var result = await useCase.Execute(request.ToQuery(), cancellationToken);
         return FromResult(result);
     }
 }

@@ -15,5 +15,11 @@ public sealed class SecurityStampInvalidator(IMemoryCache memoryCache) : ISecuri
     public void Invalidate(Guid userId)
     {
         memoryCache.Remove(DependencyInjection.SecurityStampCacheKey(userId));
+        // Заодно выбиваем кеш subscription-access (см. ActiveSubscription
+        // AuthorizationHandler). Любая операция, ротирующая SecurityStamp
+        // (Block/Unblock, ChangeRole, RevokeSubscription, Complimentary
+        // grant/revoke), потенциально меняет и статус доступа — должны
+        // их инвалидировать вместе, чтобы избежать рассинхрона.
+        memoryCache.Remove(DependencyInjection.SubscriptionAccessCacheKey(userId));
     }
 }
