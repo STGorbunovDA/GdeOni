@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Admin.AdminSupportPage"
+             x:DataType="vm:AdminSupportViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Проблемы">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="14">
+
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8" />
+
+                <Label Text="Проблемы" Style="{StaticResource TitleLabel}" />
+                <Label Text="Обращения пользователей и автоматические инциденты."
+                       Style="{StaticResource CaptionLabel}" />
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Фильтры" Style="{StaticResource SubTitleLabel}" FontSize="15" />
+
+                        <Label Text="Статус:" Style="{StaticResource CaptionLabel}" />
+                        <HorizontalStackLayout Spacing="14">
+                            <HorizontalStackLayout Spacing="4" VerticalOptions="Center">
+                                <CheckBox IsChecked="{Binding FilterStatusOpen}" />
+                                <Label Text="Открыто" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                            <HorizontalStackLayout Spacing="4" VerticalOptions="Center">
+                                <CheckBox IsChecked="{Binding FilterStatusInProgress}" />
+                                <Label Text="В работе" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                            <HorizontalStackLayout Spacing="4" VerticalOptions="Center">
+                                <CheckBox IsChecked="{Binding FilterStatusResolved}" />
+                                <Label Text="Решено" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                        </HorizontalStackLayout>
+
+                        <Label Text="Приоритет:" Style="{StaticResource CaptionLabel}" />
+                        <HorizontalStackLayout Spacing="14">
+                            <HorizontalStackLayout Spacing="4" VerticalOptions="Center">
+                                <CheckBox IsChecked="{Binding FilterSeverityNormal}" />
+                                <Label Text="Обычно" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                            <HorizontalStackLayout Spacing="4" VerticalOptions="Center">
+                                <CheckBox IsChecked="{Binding FilterSeverityUrgent}" />
+                                <Label Text="Срочно" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                        </HorizontalStackLayout>
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                            <Label Grid.Column="0" Text="Тип:"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Picker Grid.Column="1"
+                                    ItemsSource="{Binding KindFilterOptions}"
+                                    SelectedItem="{Binding SelectedKindFilter}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                            <Label Grid.Column="0" Text="Источник:"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Picker Grid.Column="1"
+                                    ItemsSource="{Binding SourceFilterOptions}"
+                                    SelectedItem="{Binding SelectedSourceFilter}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Entry Grid.Column="0"
+                                   Placeholder="Поиск по заголовку / тексту / email"
+                                   Text="{Binding Search}" />
+                            <Button Grid.Column="1"
+                                    Text="Найти"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Padding="14,6"
+                                    Command="{Binding ApplySearchCommand}" />
+                        </Grid>
+
+                        <Button Text="Сбросить фильтры"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding ClearFiltersCommand}"
+                                HorizontalOptions="End"
+                                Padding="14,6"
+                                FontSize="13" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding TotalCount, StringFormat='Всего: {0}'}"
+                       Style="{StaticResource CaptionLabel}" />
+
+                <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                   IsVisible="{Binding IsLoading}"
+                                   Color="{StaticResource Azure}" />
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="#C0392B"
+                       Style="{StaticResource BodyLabel}" />
+
+                <Label Text="Обращений нет."
+                       Style="{StaticResource CaptionLabel}"
+                       IsVisible="{Binding HasNoItems}" />
+
+                <CollectionView ItemsSource="{Binding Tickets}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AdminSupportEntry">
+                            <Border Style="{StaticResource CloudCard}" Margin="0,0,0,8">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AdminSupportViewModel}}, Path=OpenCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <VerticalStackLayout Spacing="6">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Label Grid.Column="0"
+                                               Text="{Binding Title}"
+                                               Style="{StaticResource SubTitleLabel}"
+                                               FontSize="15"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding SeverityDisplay}"
+                                               TextColor="{Binding SeverityColor}"
+                                               FontAttributes="Bold"
+                                               VerticalOptions="Center" />
+                                    </Grid>
+                                    <Label Text="{Binding UserEmail}"
+                                           Style="{StaticResource CaptionLabel}" />
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Label Grid.Column="0"
+                                               Text="{Binding KindDisplay}"
+                                               Style="{StaticResource CaptionLabel}" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding StatusDisplay}"
+                                               TextColor="{Binding StatusColor}"
+                                               FontAttributes="Bold" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Label Grid.Column="0"
+                                               Text="{Binding SourceDisplay}"
+                                               Style="{StaticResource CaptionLabel}" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding CreatedAt}"
+                                               Style="{StaticResource CaptionLabel}" />
+                                    </Grid>
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Button Text="Загрузить ещё"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding LoadNextPageCommand}"
+                        IsVisible="{Binding CanLoadMore}" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

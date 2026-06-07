@@ -247,6 +247,20 @@ public static class MauiProgram
             .AddHttpMessageHandler<AuthTokenHandler>()
             .AddHttpMessageHandler<RefreshTokenHandler>()
             .AddPolicyHandler(BuildRetryPolicy());
+
+        // D25. ISupportApi: обращения в поддержку. Доступно любому
+        // authenticated юзеру — не нужно гейтить подпиской, иначе юзер
+        // с истёкшей подпиской не сможет пожаловаться "не работает оплата".
+        services.AddRefitClient<ISupportApi>(refitSettings)
+            .ConfigureHttpClient((sp, c) =>
+            {
+                var config = sp.GetRequiredService<AppConfig>();
+                c.BaseAddress = new Uri(config.Api.BaseUrl);
+                c.Timeout = TimeSpan.FromSeconds(config.Api.TimeoutSeconds);
+            })
+            .AddHttpMessageHandler<AuthTokenHandler>()
+            .AddHttpMessageHandler<RefreshTokenHandler>()
+            .AddPolicyHandler(BuildRetryPolicy());
     }
 
     /// <summary>
@@ -291,6 +305,13 @@ public static class MauiProgram
         services.AddTransient<SubscriptionViewModel>();
         services.AddTransient<SubscriptionRequiredViewModel>();
 
+        // D25 mobile. Обращения в поддержку.
+        services.AddTransient<SupportNewViewModel>();
+        services.AddTransient<SupportMineViewModel>();
+        services.AddTransient<SupportDetailsViewModel>();
+        services.AddTransient<AdminSupportViewModel>();
+        services.AddTransient<AdminSupportDetailsViewModel>();
+
         services.AddTransient<LoginPage>();
         services.AddTransient<RegisterPage>();
         services.AddTransient<TrackedListPage>();
@@ -316,5 +337,12 @@ public static class MauiProgram
         services.AddTransient<BlockingUpdatePage>();
         services.AddTransient<SubscriptionPage>();
         services.AddTransient<SubscriptionRequiredPage>();
+
+        // D25 mobile. Pages обращений.
+        services.AddTransient<GdeOni.Mobile.Views.Support.SupportNewPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Support.SupportMinePage>();
+        services.AddTransient<GdeOni.Mobile.Views.Support.SupportDetailsPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Admin.AdminSupportPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Admin.AdminSupportDetailsPage>();
     }
 }

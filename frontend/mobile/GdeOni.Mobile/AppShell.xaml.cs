@@ -53,6 +53,12 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("admin-user-details", typeof(GdeOni.Mobile.Views.Admin.AdminUserDetailsPage));
         Routing.RegisterRoute("admin-user-tracked", typeof(GdeOni.Mobile.Views.Admin.AdminUserTrackedPage));
         Routing.RegisterRoute("admin-payments", typeof(GdeOni.Mobile.Views.Admin.AdminPaymentsPage));
+        // D25 mobile. Обращения — юзерские страницы и админ-страницы.
+        Routing.RegisterRoute("support-new", typeof(GdeOni.Mobile.Views.Support.SupportNewPage));
+        Routing.RegisterRoute("support-mine", typeof(GdeOni.Mobile.Views.Support.SupportMinePage));
+        Routing.RegisterRoute("support-details", typeof(GdeOni.Mobile.Views.Support.SupportDetailsPage));
+        Routing.RegisterRoute("admin-support", typeof(GdeOni.Mobile.Views.Admin.AdminSupportPage));
+        Routing.RegisterRoute("admin-support-details", typeof(GdeOni.Mobile.Views.Admin.AdminSupportDetailsPage));
 
         // E21: поиск умерших в радиусе вокруг текущей точки пользователя.
         Routing.RegisterRoute("nearby-search", typeof(NearbySearchPage));

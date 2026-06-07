@@ -203,6 +203,25 @@ public partial class ProfileViewModel(
         await Shell.Current.GoToAsync("admin");
     }
 
+    /// <summary>
+    /// D25 mobile. Новое обращение в службу поддержки. Доступно всем
+    /// authenticated юзерам (включая админов — они тоже могут писать).
+    /// </summary>
+    [RelayCommand]
+    private async Task NewSupportTicketAsync()
+    {
+        await Shell.Current.GoToAsync("support-new");
+    }
+
+    /// <summary>
+    /// D25 mobile. Лента "Мои обращения" с ответами админа и статусом.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenMySupportTicketsAsync()
+    {
+        await Shell.Current.GoToAsync("support-mine");
+    }
+
     [RelayCommand]
     private async Task LogoutAsync()
     {

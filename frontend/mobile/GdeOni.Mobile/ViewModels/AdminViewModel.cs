@@ -21,6 +21,11 @@ public partial class AdminViewModel : ObservableObject
     private async Task OpenAdminPaymentsAsync()
         => await Shell.Current.GoToAsync("admin-payments");
 
+    /// <summary>D25. Обращения в службу поддержки + автоматические инциденты.</summary>
+    [RelayCommand]
+    private async Task OpenAdminSupportAsync()
+        => await Shell.Current.GoToAsync("admin-support");
+
     /// <summary>
     /// Возврат на профиль (откуда обычно попадают). ".." делает pop,
     /// если переход был через push; если AdminPage оказалась корневой

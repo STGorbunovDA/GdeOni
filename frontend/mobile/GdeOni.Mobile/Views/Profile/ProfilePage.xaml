@@ -104,6 +104,25 @@
                         IsVisible="{Binding IsAdmin}"
                         HorizontalOptions="Fill" />
 
+                <!-- D25 mobile. Обращения в службу поддержки — две кнопки
+                     для всех authenticated юзеров (включая админов). -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Поддержка"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Опишите проблему или посмотрите ответ администратора."
+                               Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Обращение в службу поддержки"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding NewSupportTicketCommand}"
+                                HorizontalOptions="Fill" />
+                        <Button Text="Мои обращения"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding OpenMySupportTicketsCommand}"
+                                HorizontalOptions="Fill" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <Button Text="Сменить пароль"
                         Style="{StaticResource GhostButton}"
                         Command="{Binding ChangePasswordCommand}"
