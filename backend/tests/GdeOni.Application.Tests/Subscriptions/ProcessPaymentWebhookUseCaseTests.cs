@@ -158,10 +158,12 @@ public sealed class ProcessPaymentWebhookUseCaseTests
     {
         var userRepo = new Mock<IUserRepository>();
         var paymentRepo = new Mock<ISubscriptionPaymentRepository>();
+        var supportRepo = new Mock<ISupportTicketRepository>();
         var paymentProvider = new Mock<IPaymentProvider>();
         var options = Options.Create(new SubscriptionOptions());
         var useCase = new ProcessPaymentWebhookUseCase(
-            userRepo.Object, paymentRepo.Object, paymentProvider.Object, options, TimeProvider.System);
+            userRepo.Object, paymentRepo.Object, supportRepo.Object,
+            paymentProvider.Object, options, TimeProvider.System);
         return (userRepo, paymentRepo, paymentProvider, useCase);
     }
 }

@@ -10464,16 +10464,105 @@ F17.13. Сайдбар-навигация админки (web layout)
 ---------------------------------------------------------------------
 
 На mobile админка устроена как одна страница `AdminPage` с кнопками
-"История правок", "Пользователи", "Платежи". На вебе нужен полноценный
-sidebar.
+"История правок", "Пользователи", "Платежи", "Проблемы". На вебе нужен
+полноценный sidebar.
 
 [ ] Layout `/admin/*` с боковым меню:
     - Карточки умерших (F17.1) → `/admin/deceased`;
     - Пользователи (F17.7) → `/admin/users`;
     - Платежи (F17.8) → `/admin/payments`;
-    - История правок (F17.9, system-wide) → `/admin/edits`.
+    - История правок (F17.9, system-wide) → `/admin/edits`;
+    - Проблемы (F17.14) → `/admin/support-tickets`.
 [ ] Header с email текущего админа + кнопка Logout.
 [ ] Брейкrumbs (web-friendly навигация при глубоком переходе).
+
+---------------------------------------------------------------------
+F17.14. Обращения / Проблемы (D25)
+---------------------------------------------------------------------
+
+D25 backend закрыт (commit с этим планом):
+- support_tickets таблица: user_id (nullable), source (Manual/Auto),
+  kind (Payment/Bug/Complaint/Question/Other), severity (Normal/Urgent),
+  status (Open/InProgress/Resolved), title, description, details (jsonb),
+  resolution_note, resolved_by_user_id, resolved_at_utc, timestamps;
+- FK user_id и resolved_by_user_id → users (SetNull при удалении —
+  история переживает удаление автора);
+- Domain SupportTicket: CreateManual (юзер, severity=Normal по дефолту),
+  CreateAuto (бек, severity указывает caller), ChangeStatus (Resolved
+  требует note, повторный Resolve → 409 AlreadyResolved), ChangeSeverity
+  (запрещено на Resolved);
+- Auto-источник: ProcessPaymentWebhookUseCase при payment is null
+  (webhook от YooKassa с unknown external_payment_id) создаёт тикет
+  с user_id=null, severity=Urgent, kind=Payment;
+- API:
+  * POST /api/support-tickets (любой authenticated) — создание Manual;
+  * GET  /api/support-tickets/mine (любой authenticated) — мои тикеты;
+  * GET  /api/support-tickets/{id} (любой) — карточка моего тикета,
+    админ видит любой;
+  * GET  /api/admin/support-tickets (Admin/SuperAdmin) — листинг
+    с фильтрами: statuses[], severities[], kind, source, userId,
+    createdFromUtc/ToUtc, search (по title/description/email юзера);
+  * GET  /api/admin/support-tickets/{id} (Admin) — карточка;
+  * PATCH /api/admin/support-tickets/{id}/status — смена статуса;
+  * PATCH /api/admin/support-tickets/{id}/severity — смена severity.
+
+Mobile:
+
+[ ] В профиле пользователя (ProfilePage, в том числе у админа) кнопка
+    "Обращение в службу поддержки" → SupportNewPage:
+    - Picker Kind: Платёж / Баг / Жалоба / Вопрос / Другое;
+    - Entry Title (max 200);
+    - Editor Description (max 4000);
+    - Кнопка "Отправить" → POST /api/support-tickets.
+[ ] Страница "Мои обращения" SupportTicketsMinePage (ссылка из профиля):
+    - Лента моих тикетов, отсортированы CreatedAtUtc DESC;
+    - На карточке: статус (badge), severity (Urgent → красный badge),
+      kind, title, дата;
+    - Тап → SupportTicketDetailsPage с описанием, ResolutionNote
+      (если уже Resolved), резолютор (email), даты.
+[ ] В AdminPage между "Платежи" и (если есть) другими карточками —
+    четвёртая карточка "Проблемы" → AdminSupportTicketsPage.
+[ ] AdminSupportTicketsPage — список с фильтрами:
+    - Чек-боксы статусов (несколько одновременно): Open / InProgress /
+      Resolved;
+    - Чек-боксы severities: Normal / Urgent;
+    - Picker kind, source;
+    - Search-bar (title/description/email);
+    - Date range (createdFromUtc/ToUtc).
+[ ] Тап на тикет → AdminSupportTicketDetailsPage:
+    - Полная карточка тикета (включая details jsonb для auto);
+    - Тап на email юзера → AdminUserDetailsPage (как из F17.7);
+    - Picker смены status (если не Resolved): при выборе Resolved —
+      обязательный editor для ResolutionNote;
+    - Picker смены severity (если не Resolved);
+    - При успешной мутации — обновить карточку из GET by id.
+
+Веб:
+
+[ ] В sidebar (F17.13) пункт "Проблемы" → `/admin/support-tickets`.
+[ ] `/admin/support-tickets` — таблица с теми же фильтрами что и mobile:
+    - Колонки: CreatedAtUtc, Source (Auto/Manual badge), Kind,
+      Severity (Urgent → красная подсветка), Status (badge), Title,
+      UserEmail (clickable → `/admin/users/{userId}`);
+    - Фильтры в правой панели или над таблицей: chip-checkboxes для
+      статусов/severity (несколько одновременно), dropdown'ы для
+      kind/source, date range, full-text search;
+    - Pagination 20/50/100 на страницу.
+[ ] `/admin/support-tickets/{id}` — карточка с теми же действиями
+    что и mobile (смена status/severity, ResolutionNote);
+    - Email юзера — ссылка на `/admin/users/{userId}`.
+[ ] У пользователя в `/profile` кнопка "Обращение в службу поддержки"
+    → `/support/new` (форма) и "Мои обращения" → `/support/mine`
+    (зеркало mobile).
+
+ВНЕ scope этого блока (отдельные D-пункты при необходимости):
+- Refund через YooKassa Refund API (минимум на текущем этапе —
+  админ ставит статус и делает refund вручную через ЛК YooKassa);
+- Уведомления юзеру при смене статуса (нет push-инфраструктуры
+  на текущий момент);
+- Прямые действия из карточки тикета типа "Выдать compli отсюда"
+  (отложено: админ открывает профиль юзера через email-link и
+  использует существующий F17.6).
 
 ---------------------------------------------------------------------
 F17.99. Что НЕ делаем в админке

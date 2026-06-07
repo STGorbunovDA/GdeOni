@@ -2,6 +2,7 @@ using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Payments;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Subscriptions.Commands.ProcessPaymentWebhook.Model;
+using GdeOni.Domain.Aggregates.Support;
 using GdeOni.Domain.Shared;
 using Microsoft.Extensions.Options;
 
@@ -10,6 +11,7 @@ namespace GdeOni.Application.Subscriptions.Commands.ProcessPaymentWebhook.UseCas
 public sealed class ProcessPaymentWebhookUseCase(
     IUserRepository userRepository,
     ISubscriptionPaymentRepository paymentRepository,
+    ISupportTicketRepository supportTicketRepository,
     IPaymentProvider paymentProvider,
     IOptions<SubscriptionOptions> subscriptionOptions,
     TimeProvider timeProvider)
@@ -39,7 +41,20 @@ public sealed class ProcessPaymentWebhookUseCase(
         var payment = await paymentRepository.GetByExternalPaymentId(
             verification.ExternalPaymentId, cancellationToken);
         if (payment is null)
+        {
+            // D25. Auto-инцидент: YooKassa подтвердила платёж по
+            // external_payment_id, которого в нашей БД нет. Это значит
+            // либо CreatePayment упал после ответа провайдера (наш
+            // INSERT не доехал, а YooKassa уже выставила счёт), либо
+            // race с очень медленным INSERT'ом, либо подделка с валидной
+            // подписью (что невероятно). User неизвестен — пишем тикет
+            // без UserId, админ разберётся по external_payment_id.
+            await CreateAutoTicketAsync(
+                verification.ExternalPaymentId,
+                verification.Status.ToString(),
+                cancellationToken);
             return Errors.Subscription.PaymentNotFound();
+        }
 
         // Pending от YooKassa — финальный статус ещё не известен.
         // Ничего не меняем; YooKassa пришлёт ещё один webhook позже.
@@ -96,5 +111,36 @@ public sealed class ProcessPaymentWebhookUseCase(
         // в одной транзакции.
         await userRepository.Save(cancellationToken);
         return UnitResult.Success<Error>();
+    }
+
+    private async Task CreateAutoTicketAsync(
+        string externalPaymentId,
+        string yooKassaStatus,
+        CancellationToken cancellationToken)
+    {
+        var details =
+            $"{{\"externalPaymentId\":\"{externalPaymentId}\"," +
+            $"\"yooKassaStatus\":\"{yooKassaStatus}\"}}";
+
+        var ticketResult = SupportTicket.CreateAuto(
+            userId: null,
+            kind: SupportTicketKind.Payment,
+            severity: SupportTicketSeverity.Urgent,
+            title: "Webhook: платёж не найден в БД",
+            description: $"YooKassa прислала webhook со статусом " +
+                $"'{yooKassaStatus}' для external_payment_id " +
+                $"'{externalPaymentId}', но в subscription_payments " +
+                $"такой записи нет. Возможные причины: упал CreatePayment " +
+                $"после ответа провайдера, race-условие, или внешняя " +
+                $"попытка с валидной подписью. Найти юзера по " +
+                $"external_payment_id в логах YooKassa.",
+            details: details,
+            nowUtc: timeProvider.GetUtcNow().UtcDateTime);
+
+        if (ticketResult.IsFailure)
+            return;
+
+        await supportTicketRepository.Add(ticketResult.Value, cancellationToken);
+        await supportTicketRepository.Save(cancellationToken);
     }
 }

@@ -1,6 +1,7 @@
 ﻿using GdeOni.Domain.Aggregates.Auth;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.Subscriptions;
+using GdeOni.Domain.Aggregates.Support;
 using GdeOni.Domain.Aggregates.User;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     // D23. История платежей.
     public DbSet<SubscriptionPayment> SubscriptionPayments => Set<SubscriptionPayment>();
+
+    // D25. Универсальные тикеты службы поддержки (manual + auto).
+    public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

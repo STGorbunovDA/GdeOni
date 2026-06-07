@@ -62,6 +62,8 @@ public static class DependencyInjection
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         // D23. История платежей.
         services.AddScoped<ISubscriptionPaymentRepository, SubscriptionPaymentRepository>();
+        // D25. Обращения в службу поддержки (manual + auto-инциденты).
+        services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
         // PasswordHasher без состояния: BCrypt.Net не использует поля
         // экземпляра. Singleton экономит аллокацию на каждый запрос
         // (см. D11.7.2).

@@ -53,6 +53,12 @@ using GdeOni.Application.Subscriptions.Commands.ProcessPaymentWebhook.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetAdminPayments.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMyPayments.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMySubscription.UseCase;
+using GdeOni.Application.Support.Commands.Create.UseCase;
+using GdeOni.Application.Support.Commands.UpdateSeverity.UseCase;
+using GdeOni.Application.Support.Commands.UpdateStatus.UseCase;
+using GdeOni.Application.Support.Queries.GetAll.UseCase;
+using GdeOni.Application.Support.Queries.GetById.UseCase;
+using GdeOni.Application.Support.Queries.GetMine.UseCase;
 using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
 using GdeOni.Application.Users.Commands.ChangePassword.UseCase;
 using GdeOni.Application.Users.Commands.ChangeRole.UseCase;
@@ -177,6 +183,16 @@ public static class DependencyInjection
         services.AddScoped<IGetUserTrackedDeceasedForAdminUseCase, GetUserTrackedDeceasedForAdminUseCase>();
         services.AddScoped<IAdminRemoveUserTrackingUseCase, AdminRemoveUserTrackingUseCase>();
         services.AddScoped<IAdminRemoveAllUserTrackingUseCase, AdminRemoveAllUserTrackingUseCase>();
+
+        // D25. Универсальные обращения в поддержку: юзер заполняет
+        // форму или backend заводит auto-инцидент. Админка фильтрует
+        // и меняет статус/severity.
+        services.AddScoped<ICreateSupportTicketUseCase, CreateSupportTicketUseCase>();
+        services.AddScoped<IGetMySupportTicketsUseCase, GetMySupportTicketsUseCase>();
+        services.AddScoped<IGetSupportTicketByIdUseCase, GetSupportTicketByIdUseCase>();
+        services.AddScoped<IGetAllSupportTicketsUseCase, GetAllSupportTicketsUseCase>();
+        services.AddScoped<IUpdateSupportTicketStatusUseCase, UpdateSupportTicketStatusUseCase>();
+        services.AddScoped<IUpdateSupportTicketSeverityUseCase, UpdateSupportTicketSeverityUseCase>();
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;
