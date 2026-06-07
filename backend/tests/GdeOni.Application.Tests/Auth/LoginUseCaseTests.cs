@@ -58,7 +58,8 @@ public sealed class LoginUseCaseTests
             userRepo.Object, refreshRepo.Object, hasher.Object,
             jwt.Object, rtFactory.Object, currentUser.Object,
             Options.Create(JwtOptions),
-            TestExecutor.With<LoginCommand, LoginCommandValidator>());
+            TestExecutor.With<LoginCommand, LoginCommandValidator>(),
+            TimeProvider.System);
 
         // Act
         var result = await useCase.Execute(
@@ -108,7 +109,8 @@ public sealed class LoginUseCaseTests
             userRepo.Object, refreshRepo.Object, hasher.Object,
             jwt.Object, rtFactory.Object, currentUser.Object,
             Options.Create(JwtOptions),
-            TestExecutor.With<LoginCommand, LoginCommandValidator>());
+            TestExecutor.With<LoginCommand, LoginCommandValidator>(),
+            TimeProvider.System);
 
         // Act
         var result = await useCase.Execute(
@@ -160,7 +162,8 @@ public sealed class LoginUseCaseTests
             userRepo.Object, refreshRepo.Object, hasher.Object,
             jwt.Object, rtFactory.Object, currentUser.Object,
             Options.Create(JwtOptions),
-            TestExecutor.With<LoginCommand, LoginCommandValidator>());
+            TestExecutor.With<LoginCommand, LoginCommandValidator>(),
+            TimeProvider.System);
 
         // Act
         var result = await useCase.Execute(

@@ -135,7 +135,10 @@ public sealed class GrantComplimentaryAccessUseCaseTests
         var userRepo = new Mock<IUserRepository>();
         var currentUser = new Mock<ICurrentUserService>();
         var executor = TestExecutor.With<GrantComplimentaryAccessCommand, GrantComplimentaryAccessCommandValidator>();
-        var useCase = new GrantComplimentaryAccessUseCase(userRepo.Object, currentUser.Object, executor);
+        var useCase = new GrantComplimentaryAccessUseCase(
+            userRepo.Object, currentUser.Object, executor,
+            new Mock<GdeOni.Application.Common.Security.ISecurityStampInvalidator>().Object,
+            TimeProvider.System);
         return (userRepo, currentUser, useCase);
     }
 }

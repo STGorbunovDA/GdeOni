@@ -17,9 +17,9 @@ namespace GdeOni.Api.IntegrationTests.Security;
 public sealed class JwtProviderTests
 {
     /// <summary>
-    /// GenerateAccessToken кладёт NameIdentifier / Email / Name / Role /
-    /// SecurityStamp / Jti claims. Это контракт, на котором держится
-    /// CurrentUserService и роль-based авторизация.
+    /// GenerateAccessToken кладёт NameIdentifier / Role / SecurityStamp /
+    /// Jti claims. Email и UserName были вырезаны 152-ФЗ-ради
+    /// (минимизация PII в долгоживущих артефактах).
     /// </summary>
     [Fact]
     public void GenerateAccessToken_PutsExpectedClaims()
@@ -37,14 +37,14 @@ public sealed class JwtProviderTests
         jwt.Claims.Should().Contain(c =>
             c.Type == ClaimTypes.NameIdentifier && c.Value == user.Id.ToString());
         jwt.Claims.Should().Contain(c =>
-            c.Type == ClaimTypes.Email && c.Value == user.Email);
-        jwt.Claims.Should().Contain(c =>
-            c.Type == ClaimTypes.Name && c.Value == user.UserName);
-        jwt.Claims.Should().Contain(c =>
             c.Type == ClaimTypes.Role && c.Value == user.Role.ToString());
         jwt.Claims.Should().Contain(c =>
             c.Type == JwtClaimNames.SecurityStamp && c.Value == user.SecurityStamp.ToString());
         jwt.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Jti);
+
+        // PII не в JWT — claims не должны содержать email/userName (152-ФЗ).
+        jwt.Claims.Should().NotContain(c => c.Type == ClaimTypes.Email);
+        jwt.Claims.Should().NotContain(c => c.Type == ClaimTypes.Name);
     }
 
     /// <summary>
@@ -104,7 +104,7 @@ public sealed class JwtProviderTests
             SecurityStampCacheTtlSeconds = 30
         };
         cache ??= new MemoryCache(new MemoryCacheOptions());
-        var provider = new JwtProvider(Options.Create(options), cache);
+        var provider = new JwtProvider(Options.Create(options), cache, TimeProvider.System);
         return (provider, cache, options);
     }
 }

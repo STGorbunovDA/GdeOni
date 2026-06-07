@@ -186,7 +186,8 @@ public sealed class AdminSubscriptionUseCaseTests
         var opts = Options.Create(new SubscriptionOptions { TrialDurationDays = 30 });
         var useCase = new RestartTrialByAdminUseCase(
             userRepo.Object, currentUser.Object, opts,
-            TestExecutor.With<RestartTrialByAdminCommand, RestartTrialByAdminCommandValidator>());
+            TestExecutor.With<RestartTrialByAdminCommand, RestartTrialByAdminCommandValidator>(),
+            TimeProvider.System);
         return (userRepo, currentUser, useCase);
     }
 
@@ -202,7 +203,8 @@ public sealed class AdminSubscriptionUseCaseTests
 
         var useCase = new RevokeSubscriptionByAdminUseCase(
             userRepo.Object, currentUser.Object,
-            TestExecutor.With<RevokeSubscriptionByAdminCommand, RevokeSubscriptionByAdminCommandValidator>());
+            TestExecutor.With<RevokeSubscriptionByAdminCommand, RevokeSubscriptionByAdminCommandValidator>(),
+            TimeProvider.System);
         return (userRepo, currentUser, useCase);
     }
 }

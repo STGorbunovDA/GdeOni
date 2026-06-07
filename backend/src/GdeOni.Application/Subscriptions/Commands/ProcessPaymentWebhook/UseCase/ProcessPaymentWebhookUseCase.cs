@@ -11,7 +11,8 @@ public sealed class ProcessPaymentWebhookUseCase(
     IUserRepository userRepository,
     ISubscriptionPaymentRepository paymentRepository,
     IPaymentProvider paymentProvider,
-    IOptions<SubscriptionOptions> subscriptionOptions)
+    IOptions<SubscriptionOptions> subscriptionOptions,
+    TimeProvider timeProvider)
     : IProcessPaymentWebhookUseCase
 {
     public async Task<UnitResult<Error>> Execute(
@@ -51,7 +52,7 @@ public sealed class ProcessPaymentWebhookUseCase(
         if (user is null)
             return Errors.General.NotFound("user", payment.UserId);
 
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
 
         // Concurrent webhook race: YooKassa может прислать два webhook'а
         // с одним external_payment_id (retry-механизм). Оба попадут сюда

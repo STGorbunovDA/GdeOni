@@ -30,6 +30,18 @@ internal static class TestExecutor
     }
 
     /// <summary>
+    /// Вариант для валидаторов с зависимостями (TimeProvider и т.п.) —
+    /// принимает уже сконструированный инстанс.
+    /// </summary>
+    public static IValidatedUseCaseExecutor With<TRequest>(IValidator<TRequest> validator)
+        where TRequest : class
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(validator);
+        return new ValidatedUseCaseExecutor(services.BuildServiceProvider());
+    }
+
+    /// <summary>
     /// Executor без валидаторов — тогда executor молча проходит и сразу
     /// зовёт handler. Полезно, когда тестируем поведение handler'а
     /// в обход валидации (например, проверяем 403 на ресурсе с правильным

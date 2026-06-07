@@ -43,13 +43,13 @@ public sealed class RefreshTokenRepositoryTests
                 DateTime.UtcNow,
                 "127.0.0.1").Value;
 
-            var seedRepo = new RefreshTokenRepository(seedContext);
+            var seedRepo = new RefreshTokenRepository(seedContext, TimeProvider.System);
             await seedRepo.Add(token, CancellationToken.None);
             await seedRepo.Save(CancellationToken.None);
         }
 
         await using var dbContext = _fixture.CreateDbContext();
-        var repo = new RefreshTokenRepository(dbContext);
+        var repo = new RefreshTokenRepository(dbContext, TimeProvider.System);
 
         var loaded = await repo.GetByHash(hash, CancellationToken.None);
 
@@ -84,7 +84,7 @@ public sealed class RefreshTokenRepositoryTests
         }
 
         await using var dbContext = _fixture.CreateDbContext();
-        var repo = new RefreshTokenRepository(dbContext);
+        var repo = new RefreshTokenRepository(dbContext, TimeProvider.System);
 
         await repo.RevokeAllForUser(userId, CancellationToken.None);
 
@@ -158,7 +158,8 @@ public sealed class RefreshTokenRepositoryTests
         var service = new RefreshTokensCleanupService(
             sp,
             sp.GetRequiredService<IOptions<RefreshTokensCleanupOptions>>(),
-            new NullLogger<RefreshTokensCleanupService>());
+            new NullLogger<RefreshTokensCleanupService>(),
+            TimeProvider.System);
 
         var runOnce = typeof(RefreshTokensCleanupService).GetMethod(
             "RunOnceAsync",

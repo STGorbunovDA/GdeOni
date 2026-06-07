@@ -8,7 +8,8 @@ namespace GdeOni.Application.Subscriptions.Queries.GetMySubscription.UseCase;
 
 public sealed class GetMySubscriptionUseCase(
     IUserRepository userRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    TimeProvider timeProvider)
     : IGetMySubscriptionUseCase
 {
     public async Task<Result<MySubscriptionResponse, Error>> Execute(CancellationToken cancellationToken)
@@ -21,7 +22,7 @@ public sealed class GetMySubscriptionUseCase(
         if (user is null)
             return Errors.General.NotFound("user", currentUserIdResult.Value);
 
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
         var subscription = user.Subscription;
         var hasComplimentary = user.HasComplimentaryAccess(nowUtc);
 

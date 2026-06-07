@@ -201,7 +201,8 @@ public sealed class CreatePaymentUseCaseTests
             currentUser.Object,
             paymentProvider.Object,
             options,
-            TestExecutor.With<CreatePaymentCommand, CreatePaymentCommandValidator>());
+            TestExecutor.With<CreatePaymentCommand, CreatePaymentCommandValidator>(),
+            TimeProvider.System);
         return (userRepo, currentUser, paymentProvider, paymentRepo, useCase);
     }
 }

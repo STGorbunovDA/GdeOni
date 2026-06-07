@@ -57,7 +57,7 @@ public sealed class CancelSubscriptionUseCaseTests
     {
         var userRepo = new Mock<IUserRepository>();
         var currentUser = new Mock<ICurrentUserService>();
-        var useCase = new CancelSubscriptionUseCase(userRepo.Object, currentUser.Object);
+        var useCase = new CancelSubscriptionUseCase(userRepo.Object, currentUser.Object, TimeProvider.System);
         return (userRepo, currentUser, useCase);
     }
 }

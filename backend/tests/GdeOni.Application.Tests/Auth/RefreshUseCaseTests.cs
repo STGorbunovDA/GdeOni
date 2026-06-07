@@ -212,7 +212,8 @@ public sealed class RefreshUseCaseTests
             currentUser.Object,
             Options.Create(JwtOptions),
             TestExecutor.With<RefreshCommand, RefreshCommandValidator>(),
-            NullLogger<RefreshUseCase>.Instance);
+            NullLogger<RefreshUseCase>.Instance,
+            TimeProvider.System);
 
         return (refreshRepo, userRepo, jwt, factory, currentUser, useCase);
     }

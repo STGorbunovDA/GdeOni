@@ -78,6 +78,11 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        // TimeProvider.System — единственный источник "сейчас" в use case'ах
+        // и валидаторах. В тестах подменяется на FakeTimeProvider, в проде —
+        // системные часы. Заменяет россыпь DateTime.UtcNow по слою.
+        services.AddSingleton(TimeProvider.System);
+
         services.AddScoped<IValidatedUseCaseExecutor, ValidatedUseCaseExecutor>();
 
         services.AddScoped<ILoginUseCase, LoginUseCase>();

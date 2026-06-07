@@ -16,7 +16,8 @@ public sealed class CreatePaymentUseCase(
     ICurrentUserService currentUserService,
     IPaymentProvider paymentProvider,
     IOptions<SubscriptionOptions> subscriptionOptions,
-    IValidatedUseCaseExecutor validatedUseCaseExecutor)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    TimeProvider timeProvider)
     : ICreatePaymentUseCase
 {
     public Task<Result<CreatePaymentResponse, Error>> Execute(
@@ -40,7 +41,7 @@ public sealed class CreatePaymentUseCase(
             return Errors.General.NotFound("user", userId);
 
         var options = subscriptionOptions.Value;
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
 
         // D23. Re-use существующего Pending в течение
         // PendingPaymentReuseTimeout: если юзер тапнул "Оформить" два

@@ -8,7 +8,7 @@ namespace GdeOni.Application.DeceasedRecords.Commands.Create.Validation;
 
 public sealed class CreateDeceasedCommandValidator : AbstractValidator<CreateDeceasedCommand>
 {
-    public CreateDeceasedCommandValidator()
+    public CreateDeceasedCommandValidator(TimeProvider timeProvider)
     {
         RuleFor(x => x.FirstName)
             .NotEmpty()
@@ -32,7 +32,7 @@ public sealed class CreateDeceasedCommandValidator : AbstractValidator<CreateDec
             .WithError(Errors.LifePeriod.DeathDateRequired());
 
         RuleFor(x => x.DeathDate)
-            .Must(x => x <= DateOnly.FromDateTime(DateTime.UtcNow))
+            .Must(x => x <= DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime))
             .WithError(Errors.LifePeriod.DeathDateInFuture());
 
         RuleFor(x => x)

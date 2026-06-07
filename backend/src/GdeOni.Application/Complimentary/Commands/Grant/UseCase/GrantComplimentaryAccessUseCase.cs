@@ -17,7 +17,9 @@ namespace GdeOni.Application.Complimentary.Commands.Grant.UseCase;
 public sealed class GrantComplimentaryAccessUseCase(
     IUserRepository userRepository,
     ICurrentUserService currentUserService,
-    IValidatedUseCaseExecutor executor)
+    IValidatedUseCaseExecutor executor,
+    ISecurityStampInvalidator securityStampInvalidator,
+    TimeProvider timeProvider)
     : IGrantComplimentaryAccessUseCase
 {
     public Task<UnitResult<Error>> Execute(
@@ -58,12 +60,20 @@ public sealed class GrantComplimentaryAccessUseCase(
             adminId,
             command.UntilUtc,
             command.Note,
-            DateTime.UtcNow);
+            timeProvider.GetUtcNow().UtcDateTime);
 
         if (grantResult.IsFailure)
             return grantResult.Error;
 
         await userRepository.Save(cancellationToken);
+
+        // D22 + D11.8: после grant'а статус доступа таргета меняется, но
+        // кеш ActiveSubscriptionAuthorizationHandler ещё держит старый
+        // hasAccess=false до конца TTL (default 30s). Инвалидируем явно,
+        // чтобы юзер получил доступ немедленно. Invalidate чистит и
+        // security-stamp, и subscription-access кеши.
+        securityStampInvalidator.Invalidate(command.TargetUserId);
+
         return UnitResult.Success<Error>();
     }
 }

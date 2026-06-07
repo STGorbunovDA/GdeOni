@@ -23,7 +23,8 @@ public sealed class AcceptLegalUseCase(
     IUserRepository userRepository,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor,
-    IOptions<LegalOptions> legalOptions)
+    IOptions<LegalOptions> legalOptions,
+    TimeProvider timeProvider)
     : IAcceptLegalUseCase
 {
     public Task<UnitResult<Error>> Execute(
@@ -59,7 +60,7 @@ public sealed class AcceptLegalUseCase(
         var acceptResult = user.AcceptLegal(
             command.PrivacyPolicyVersion,
             command.TermsVersion,
-            DateTime.UtcNow);
+            timeProvider.GetUtcNow().UtcDateTime);
         if (acceptResult.IsFailure)
             return acceptResult.Error;
 

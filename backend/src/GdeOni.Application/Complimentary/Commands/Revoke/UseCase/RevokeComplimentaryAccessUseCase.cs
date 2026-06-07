@@ -15,7 +15,8 @@ namespace GdeOni.Application.Complimentary.Commands.Revoke.UseCase;
 public sealed class RevokeComplimentaryAccessUseCase(
     IUserRepository userRepository,
     ICurrentUserService currentUserService,
-    IValidatedUseCaseExecutor executor)
+    IValidatedUseCaseExecutor executor,
+    ISecurityStampInvalidator securityStampInvalidator)
     : IRevokeComplimentaryAccessUseCase
 {
     public Task<UnitResult<Error>> Execute(
@@ -46,6 +47,11 @@ public sealed class RevokeComplimentaryAccessUseCase(
             return revokeResult.Error;
 
         await userRepository.Save(cancellationToken);
+
+        // Симметрично Grant: после revoke юзер должен потерять доступ
+        // мгновенно, без ожидания TTL кеша.
+        securityStampInvalidator.Invalidate(command.TargetUserId);
+
         return UnitResult.Success<Error>();
     }
 }

@@ -8,7 +8,8 @@ namespace GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
 
 public sealed class CancelSubscriptionUseCase(
     IUserRepository userRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    TimeProvider timeProvider)
     : ICancelSubscriptionUseCase
 {
     public async Task<UnitResult<Error>> Execute(
@@ -23,7 +24,7 @@ public sealed class CancelSubscriptionUseCase(
         if (user is null)
             return Errors.General.NotFound("user", currentUserIdResult.Value);
 
-        var cancelResult = user.CancelSubscription(DateTime.UtcNow);
+        var cancelResult = user.CancelSubscription(timeProvider.GetUtcNow().UtcDateTime);
         if (cancelResult.IsFailure)
             return cancelResult.Error;
 

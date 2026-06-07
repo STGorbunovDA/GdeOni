@@ -17,7 +17,8 @@ public sealed class LoginUseCase(
     IRefreshTokenFactory refreshTokenFactory,
     ICurrentUserService currentUserService,
     IOptions<JwtOptions> jwtOptions,
-    IValidatedUseCaseExecutor validatedUseCaseExecutor)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    TimeProvider timeProvider)
     : ILoginUseCase
 {
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
@@ -57,7 +58,7 @@ public sealed class LoginUseCase(
 
         var accessToken = jwtProvider.GenerateAccessToken(user);
 
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
         var refreshTokenPlain = refreshTokenFactory.Generate();
         var refreshTokenHash = refreshTokenFactory.Hash(refreshTokenPlain);
         var refreshExpiresAtUtc = nowUtc.AddDays(_jwtOptions.RefreshTokenLifetimeDays);

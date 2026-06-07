@@ -9,7 +9,7 @@ using Npgsql;
 
 namespace GdeOni.Infrastructure.Persistence.Repositories;
 
-public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedRepository
+public sealed class DeceasedRepository(AppDbContext dbContext, TimeProvider timeProvider) : IDeceasedRepository
 {
     public async Task Add(Deceased deceased, CancellationToken cancellationToken)
     {
@@ -413,7 +413,7 @@ public sealed class DeceasedRepository(AppDbContext dbContext) : IDeceasedReposi
         if (deceasedIds.Count > 0)
         {
             var changesPayload = $"{{\"PreviousAuthor\":{{\"Old\":\"{fromUserEmail}\",\"New\":null}}}}";
-            var nowUtc = DateTime.UtcNow;
+            var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
             var editsToAdd = deceasedIds
                 .Select(deceasedId => DeceasedEdit.CreateReassignment(
                     deceasedId, changesPayload, nowUtc))

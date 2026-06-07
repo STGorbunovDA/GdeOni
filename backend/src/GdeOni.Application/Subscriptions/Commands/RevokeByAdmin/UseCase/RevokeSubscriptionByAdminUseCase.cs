@@ -16,7 +16,8 @@ namespace GdeOni.Application.Subscriptions.Commands.RevokeByAdmin.UseCase;
 public sealed class RevokeSubscriptionByAdminUseCase(
     IUserRepository userRepository,
     ICurrentUserService currentUserService,
-    IValidatedUseCaseExecutor validatedUseCaseExecutor)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    TimeProvider timeProvider)
     : IRevokeSubscriptionByAdminUseCase
 {
     public Task<UnitResult<Error>> Execute(
@@ -52,7 +53,7 @@ public sealed class RevokeSubscriptionByAdminUseCase(
             return Errors.Subscription.ManageSuperAdminForbidden();
         }
 
-        var revokeResult = target.RevokeSubscriptionByAdmin(DateTime.UtcNow);
+        var revokeResult = target.RevokeSubscriptionByAdmin(timeProvider.GetUtcNow().UtcDateTime);
         if (revokeResult.IsFailure)
             return revokeResult.Error;
 

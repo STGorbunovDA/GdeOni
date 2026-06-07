@@ -48,7 +48,8 @@ public sealed class AddDeceasedAtGraveUseCaseTests
             deceasedRepo.Object,
             userRepo.Object,
             currentUser.Object,
-            TestExecutor.With<AddDeceasedAtGraveCommand, AddDeceasedAtGraveCommandValidator>());
+            TestExecutor.With<AddDeceasedAtGraveCommand>(
+                new AddDeceasedAtGraveCommandValidator(TimeProvider.System)));
 
         // Act
         var result = await useCase.Execute(SampleCommand(), CancellationToken.None);
@@ -93,7 +94,8 @@ public sealed class AddDeceasedAtGraveUseCaseTests
             deceasedRepo.Object,
             userRepo.Object,
             currentUser.Object,
-            TestExecutor.With<AddDeceasedAtGraveCommand, AddDeceasedAtGraveCommandValidator>());
+            TestExecutor.With<AddDeceasedAtGraveCommand>(
+                new AddDeceasedAtGraveCommandValidator(TimeProvider.System)));
 
         var result = await useCase.Execute(SampleCommand(), CancellationToken.None);
 
@@ -124,7 +126,8 @@ public sealed class AddDeceasedAtGraveUseCaseTests
             deceasedRepo.Object,
             userRepo.Object,
             currentUser.Object,
-            TestExecutor.With<AddDeceasedAtGraveCommand, AddDeceasedAtGraveCommandValidator>());
+            TestExecutor.With<AddDeceasedAtGraveCommand>(
+                new AddDeceasedAtGraveCommandValidator(TimeProvider.System)));
 
         var result = await useCase.Execute(SampleCommand(), CancellationToken.None);
 

@@ -120,7 +120,7 @@ public sealed class GetMySubscriptionUseCaseTests
     {
         var userRepo = new Mock<IUserRepository>();
         var currentUser = new Mock<ICurrentUserService>();
-        var useCase = new GetMySubscriptionUseCase(userRepo.Object, currentUser.Object);
+        var useCase = new GetMySubscriptionUseCase(userRepo.Object, currentUser.Object, TimeProvider.System);
         return (userRepo, currentUser, useCase);
     }
 }

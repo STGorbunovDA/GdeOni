@@ -144,7 +144,8 @@ public sealed class LogoutUseCaseTests
             refreshRepo.Object,
             factory.Object,
             currentUser.Object,
-            TestExecutor.With<LogoutCommand, LogoutCommandValidator>());
+            TestExecutor.With<LogoutCommand, LogoutCommandValidator>(),
+            TimeProvider.System);
 
         return (refreshRepo, factory, useCase);
     }

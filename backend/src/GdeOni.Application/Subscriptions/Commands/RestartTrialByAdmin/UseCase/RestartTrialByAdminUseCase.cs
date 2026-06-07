@@ -18,7 +18,8 @@ public sealed class RestartTrialByAdminUseCase(
     IUserRepository userRepository,
     ICurrentUserService currentUserService,
     IOptions<SubscriptionOptions> subscriptionOptions,
-    IValidatedUseCaseExecutor validatedUseCaseExecutor)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    TimeProvider timeProvider)
     : IRestartTrialByAdminUseCase
 {
     public Task<UnitResult<Error>> Execute(
@@ -56,7 +57,7 @@ public sealed class RestartTrialByAdminUseCase(
             ? TimeSpan.FromDays(command.DurationDays.Value)
             : subscriptionOptions.Value.TrialDuration;
 
-        var restartResult = target.RestartTrialByAdmin(DateTime.UtcNow, duration);
+        var restartResult = target.RestartTrialByAdmin(timeProvider.GetUtcNow().UtcDateTime, duration);
         if (restartResult.IsFailure)
             return restartResult.Error;
 

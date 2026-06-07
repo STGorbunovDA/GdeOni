@@ -14,7 +14,8 @@ namespace GdeOni.Infrastructure.Storage;
 internal sealed class MinioOrphanCleanupService(
     IServiceProvider serviceProvider,
     IOptions<MinioOptions> options,
-    ILogger<MinioOrphanCleanupService> logger)
+    ILogger<MinioOrphanCleanupService> logger,
+    TimeProvider timeProvider)
     : BackgroundService
 {
     // Размер пачки объектов из MinIO, для которой делается один SQL-запрос
@@ -81,7 +82,7 @@ internal sealed class MinioOrphanCleanupService(
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var client = scope.ServiceProvider.GetRequiredService<IMinioClient>();
 
-        var cutoff = DateTime.UtcNow - ageThreshold;
+        var cutoff = timeProvider.GetUtcNow().UtcDateTime - ageThreshold;
 
         var buckets = new[]
         {
@@ -177,7 +178,7 @@ internal sealed class MinioOrphanCleanupService(
             cancellationToken.ThrowIfCancellationRequested();
             if (knownSet.Contains(item.Key)) continue;
 
-            var lastModified = item.LastModifiedDateTime ?? DateTime.UtcNow;
+            var lastModified = item.LastModifiedDateTime ?? timeProvider.GetUtcNow().UtcDateTime;
             if (lastModified > cutoff)
             {
                 skipped++;

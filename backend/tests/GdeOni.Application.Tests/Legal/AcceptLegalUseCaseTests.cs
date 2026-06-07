@@ -107,7 +107,8 @@ public sealed class AcceptLegalUseCaseTests
             userRepo.Object,
             currentUser.Object,
             TestExecutor.With<AcceptLegalCommand, AcceptLegalCommandValidator>(),
-            options);
+            options,
+            TimeProvider.System);
         return (userRepo, currentUser, useCase);
     }
 }

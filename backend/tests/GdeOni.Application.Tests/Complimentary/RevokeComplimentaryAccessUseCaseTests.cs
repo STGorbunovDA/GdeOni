@@ -75,7 +75,9 @@ public sealed class RevokeComplimentaryAccessUseCaseTests
         var userRepo = new Mock<IUserRepository>();
         var currentUser = new Mock<ICurrentUserService>();
         var executor = TestExecutor.With<RevokeComplimentaryAccessCommand, RevokeComplimentaryAccessCommandValidator>();
-        var useCase = new RevokeComplimentaryAccessUseCase(userRepo.Object, currentUser.Object, executor);
+        var useCase = new RevokeComplimentaryAccessUseCase(
+            userRepo.Object, currentUser.Object, executor,
+            new Mock<GdeOni.Application.Common.Security.ISecurityStampInvalidator>().Object);
         return (userRepo, currentUser, useCase);
     }
 }

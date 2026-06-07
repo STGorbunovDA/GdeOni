@@ -18,7 +18,8 @@ public sealed class RefreshUseCase(
     ICurrentUserService currentUserService,
     IOptions<JwtOptions> jwtOptions,
     IValidatedUseCaseExecutor validatedUseCaseExecutor,
-    ILogger<RefreshUseCase> logger)
+    ILogger<RefreshUseCase> logger,
+    TimeProvider timeProvider)
     : IRefreshUseCase
 {
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
@@ -40,7 +41,7 @@ public sealed class RefreshUseCase(
         if (existingToken is null)
             return Errors.RefreshToken.TokenInvalid();
 
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
 
         // Replay revoked-токена. Сценарий: токен украден до того, как
         // легит-юзер успел его прокрутить, либо после ротации старый

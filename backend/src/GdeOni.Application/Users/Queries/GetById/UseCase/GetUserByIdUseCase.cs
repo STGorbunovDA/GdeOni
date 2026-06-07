@@ -10,7 +10,8 @@ namespace GdeOni.Application.Users.Queries.GetById.UseCase;
 public sealed class GetUserByIdUseCase(
     IUserRepository userRepository,
     ICurrentUserService currentUserService,
-    IValidatedUseCaseExecutor validatedUseCaseExecutor)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    TimeProvider timeProvider)
     : IGetUserByIdUseCase
 {
     public Task<Result<GetUserByIdResponse, Error>> Execute(
@@ -57,7 +58,7 @@ public sealed class GetUserByIdUseCase(
         if (user.Role == Domain.Shared.UserRole.SuperAdmin)
             return Errors.User.UserForbidden();
 
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
 
         // Эффективный статус: если Status=Active/Trial/Cancelled, но
         // ExpiresAtUtc уже в прошлом — фактически Expired. Сырой Status

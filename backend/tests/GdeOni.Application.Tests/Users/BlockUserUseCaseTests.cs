@@ -168,7 +168,8 @@ public sealed class BlockUserUseCaseTests
             userRepo.Object,
             currentUser.Object,
             invalidator.Object,
-            TestExecutor.With<BlockUserCommand, BlockUserCommandValidator>());
+            TestExecutor.With<BlockUserCommand, BlockUserCommandValidator>(),
+            TimeProvider.System);
 
         return (userRepo, currentUser, invalidator, useCase);
     }

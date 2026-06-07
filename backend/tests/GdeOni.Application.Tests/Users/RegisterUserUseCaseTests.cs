@@ -106,7 +106,8 @@ public sealed class RegisterUserUseCaseTests
             hasher.Object,
             TestExecutor.With<RegisterUserCommand, RegisterUserCommandValidator>(),
             subscriptionOptions,
-            legalOptions);
+            legalOptions,
+            TimeProvider.System);
         return (userRepo, hasher, useCase);
     }
 }

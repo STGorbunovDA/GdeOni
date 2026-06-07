@@ -11,7 +11,8 @@ namespace GdeOni.API.Security;
 
 public sealed class JwtProvider(
     IOptions<JwtOptions> options,
-    IMemoryCache memoryCache)
+    IMemoryCache memoryCache,
+    TimeProvider timeProvider)
     : IJwtProvider
 {
     private readonly JwtOptions _options = options.Value;
@@ -36,7 +37,7 @@ public sealed class JwtProvider(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SecretKey)),
             SecurityAlgorithms.HmacSha256);
 
-        var expiresAtUtc = DateTime.UtcNow.AddMinutes(_options.AccessTokenLifetimeMinutes);
+        var expiresAtUtc = timeProvider.GetUtcNow().UtcDateTime.AddMinutes(_options.AccessTokenLifetimeMinutes);
 
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,

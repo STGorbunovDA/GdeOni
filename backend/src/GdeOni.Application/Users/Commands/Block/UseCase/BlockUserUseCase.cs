@@ -12,7 +12,8 @@ public sealed class BlockUserUseCase(
     IUserRepository userRepository,
     ICurrentUserService currentUserService,
     ISecurityStampInvalidator securityStampInvalidator,
-    IValidatedUseCaseExecutor validatedUseCaseExecutor)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    TimeProvider timeProvider)
     : IBlockUserUseCase
 {
     public Task<Result<BlockUserResponse, Error>> Execute(
@@ -52,7 +53,7 @@ public sealed class BlockUserUseCase(
         if (user.Role == UserRole.Admin && !isSuperAdmin)
             return Errors.User.BlockPeerAdminForbidden();
 
-        var blockResult = user.Block(currentUserIdResult.Value, command.Reason, DateTime.UtcNow);
+        var blockResult = user.Block(currentUserIdResult.Value, command.Reason, timeProvider.GetUtcNow().UtcDateTime);
         if (blockResult.IsFailure)
             return blockResult.Error;
 

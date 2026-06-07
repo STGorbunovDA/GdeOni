@@ -9,7 +9,8 @@ namespace GdeOni.Infrastructure.Persistence.Cleanup;
 internal sealed class RefreshTokensCleanupService(
     IServiceProvider serviceProvider,
     IOptions<RefreshTokensCleanupOptions> options,
-    ILogger<RefreshTokensCleanupService> logger)
+    ILogger<RefreshTokensCleanupService> logger,
+    TimeProvider timeProvider)
     : BackgroundService
 {
     private readonly RefreshTokensCleanupOptions _options = options.Value;
@@ -68,7 +69,7 @@ internal sealed class RefreshTokensCleanupService(
         await using var scope = serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
         var revokedCutoff = nowUtc - TimeSpan.FromDays(_options.RevokedRetentionDays);
         var expiredCutoff = nowUtc - TimeSpan.FromDays(_options.ExpiredRetentionDays);
 

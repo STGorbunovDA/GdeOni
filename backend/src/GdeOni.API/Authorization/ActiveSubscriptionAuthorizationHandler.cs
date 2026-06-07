@@ -32,7 +32,8 @@ public sealed class ActiveSubscriptionAuthorizationHandler(
     IFeatureFlagService featureFlags,
     IServiceScopeFactory scopeFactory,
     IMemoryCache memoryCache,
-    IOptions<JwtOptions> jwtOptions)
+    IOptions<JwtOptions> jwtOptions,
+    TimeProvider timeProvider)
     : AuthorizationHandler<ActiveSubscriptionRequirement>
 {
     private readonly TimeSpan _cacheTtl = TimeSpan.FromSeconds(
@@ -103,7 +104,7 @@ public sealed class ActiveSubscriptionAuthorizationHandler(
             return;
         }
 
-        var now = DateTime.UtcNow;
+        var now = timeProvider.GetUtcNow().UtcDateTime;
         var hasAccess = user.HasComplimentaryAccess(now)
             || user.HasActiveSubscription(now, featureFlags.GracePeriodDaysAfterExpiry);
 

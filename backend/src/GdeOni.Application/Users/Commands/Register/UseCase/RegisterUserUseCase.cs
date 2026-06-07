@@ -16,7 +16,8 @@ public sealed class RegisterUserUseCase(
     IPasswordHasher passwordHasher,
     IValidatedUseCaseExecutor validatedUseCaseExecutor,
     IOptions<SubscriptionOptions> subscriptionOptions,
-    IOptions<LegalOptions> legalOptions)
+    IOptions<LegalOptions> legalOptions,
+    TimeProvider timeProvider)
     : IRegisterUserUseCase
 {
     public Task<Result<RegisterUserResponse, Error>> Execute(
@@ -63,7 +64,7 @@ public sealed class RegisterUserUseCase(
         // на длительность из SubscriptionOptions (30 дней по дефолту).
         // Решение 2026-05-14: первый месяц бесплатно. StartTrial
         // idempotent — повторный вызов на не-None ничего не сделает.
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
         var trialResult = user.StartTrial(
             nowUtc,
             subscriptionOptions.Value.TrialDuration);

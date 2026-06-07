@@ -54,7 +54,8 @@ public sealed class DeceasedQueriesTests
 
         var useCase = new GetAllDeceasedUseCase(
             deceasedRepo.Object, fileStorage.Object, currentUser.Object,
-            TestExecutor.With<GetAllDeceasedQuery, GetAllDeceasedQueryValidator>());
+            TestExecutor.With<GetAllDeceasedQuery>(
+                new GetAllDeceasedQueryValidator(TimeProvider.System)));
 
         var result = await useCase.Execute(
             new GetAllDeceasedQuery("Иван", null, null, null, null, null, null, null, null, null, null, 1, 10),
@@ -84,7 +85,8 @@ public sealed class DeceasedQueriesTests
 
         var useCase = new GetAllDeceasedUseCase(
             deceasedRepo.Object, fileStorage.Object, currentUser.Object,
-            TestExecutor.With<GetAllDeceasedQuery, GetAllDeceasedQueryValidator>());
+            TestExecutor.With<GetAllDeceasedQuery>(
+                new GetAllDeceasedQueryValidator(TimeProvider.System)));
 
         var result = await useCase.Execute(
             new GetAllDeceasedQuery(null, null, null, null, null, null, null, null, null, null, null, 1, 10),

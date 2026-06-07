@@ -52,7 +52,8 @@ public sealed class DeceasedCommandsTests
 
         var useCase = new CreateDeceasedUseCase(
             deceasedRepo.Object, currentUser.Object, userRepo.Object,
-            TestExecutor.With<CreateDeceasedCommand, CreateDeceasedCommandValidator>());
+            TestExecutor.With<CreateDeceasedCommand>(
+                new CreateDeceasedCommandValidator(TimeProvider.System)));
 
         var result = await useCase.Execute(
             new CreateDeceasedCommand(
@@ -93,7 +94,8 @@ public sealed class DeceasedCommandsTests
 
         var useCase = new CreateDeceasedUseCase(
             deceasedRepo.Object, currentUser.Object, userRepo.Object,
-            TestExecutor.With<CreateDeceasedCommand, CreateDeceasedCommandValidator>());
+            TestExecutor.With<CreateDeceasedCommand>(
+                new CreateDeceasedCommandValidator(TimeProvider.System)));
 
         var result = await useCase.Execute(
             new CreateDeceasedCommand(
@@ -130,7 +132,8 @@ public sealed class DeceasedCommandsTests
 
         var useCase = new UpdateDeceasedUseCase(
             deceasedRepo.Object, currentUser.Object,
-            TestExecutor.With<UpdateDeceasedCommand, UpdateDeceasedCommandValidator>());
+            TestExecutor.With<UpdateDeceasedCommand>(
+                new UpdateDeceasedCommandValidator(TimeProvider.System)));
 
         var result = await useCase.Execute(
             new UpdateDeceasedCommand(

@@ -9,7 +9,7 @@ namespace GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.Validation;
 
 public sealed class AddDeceasedAtGraveCommandValidator : AbstractValidator<AddDeceasedAtGraveCommand>
 {
-    public AddDeceasedAtGraveCommandValidator()
+    public AddDeceasedAtGraveCommandValidator(TimeProvider timeProvider)
     {
         RuleFor(x => x.FirstName)
             .NotEmpty()
@@ -33,7 +33,7 @@ public sealed class AddDeceasedAtGraveCommandValidator : AbstractValidator<AddDe
             .WithError(Errors.LifePeriod.DeathDateRequired());
 
         RuleFor(x => x.DeathDate)
-            .Must(x => x <= DateOnly.FromDateTime(DateTime.UtcNow))
+            .Must(x => x <= DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime))
             .WithError(Errors.LifePeriod.DeathDateInFuture());
 
         RuleFor(x => x)

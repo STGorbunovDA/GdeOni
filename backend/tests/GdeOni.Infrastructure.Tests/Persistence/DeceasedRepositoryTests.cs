@@ -25,7 +25,7 @@ public sealed class DeceasedRepositoryTests
     public async Task GetPaged_SearchByName_FiltersILikeOnAllNameFields()
     {
         await using var dbContext = _fixture.CreateDbContext();
-        var repo = new DeceasedRepository(dbContext);
+        var repo = new DeceasedRepository(dbContext, TimeProvider.System);
 
         var user = TestData.SeedUser(dbContext);
         var ivanov = TestData.SeedDeceased(dbContext, user.Id, "Иван", "ИвановУникальный1");
@@ -56,7 +56,7 @@ public sealed class DeceasedRepositoryTests
     public async Task GetPaged_CountryAndCity_FilterByBurialLocation()
     {
         await using var dbContext = _fixture.CreateDbContext();
-        var repo = new DeceasedRepository(dbContext);
+        var repo = new DeceasedRepository(dbContext, TimeProvider.System);
 
         var user = TestData.SeedUser(dbContext);
         var ru = TestData.SeedDeceased(dbContext, user.Id, "Имя1", "ФамилияRu1",
@@ -83,7 +83,7 @@ public sealed class DeceasedRepositoryTests
     public async Task GetPaged_IsVerified_FiltersOnFlag()
     {
         await using var dbContext = _fixture.CreateDbContext();
-        var repo = new DeceasedRepository(dbContext);
+        var repo = new DeceasedRepository(dbContext, TimeProvider.System);
 
         var user = TestData.SeedUser(dbContext);
         var verified = TestData.SeedDeceased(dbContext, user.Id, "Имя1", "ФамилияV1");
@@ -109,7 +109,7 @@ public sealed class DeceasedRepositoryTests
     public async Task GetPaged_CreatedFromAndTo_FilterRange()
     {
         await using var dbContext = _fixture.CreateDbContext();
-        var repo = new DeceasedRepository(dbContext);
+        var repo = new DeceasedRepository(dbContext, TimeProvider.System);
 
         var user = TestData.SeedUser(dbContext);
         var marker = $"ФамилияRange{Guid.NewGuid():N}";
@@ -157,7 +157,7 @@ public sealed class DeceasedRepositoryTests
         }
 
         await using var dbContext = _fixture.CreateDbContext();
-        var repo = new DeceasedRepository(dbContext);
+        var repo = new DeceasedRepository(dbContext, TimeProvider.System);
 
         var loaded = await repo.GetByIdWithMemories(deceasedId, CancellationToken.None);
 
@@ -185,7 +185,7 @@ public sealed class DeceasedRepositoryTests
         }
 
         await using var dbContext = _fixture.CreateDbContext();
-        var repo = new DeceasedRepository(dbContext);
+        var repo = new DeceasedRepository(dbContext, TimeProvider.System);
 
         var loaded = await repo.GetByIdWithMemoryById(deceasedId, targetMemoryId, CancellationToken.None);
 
@@ -216,7 +216,7 @@ public sealed class DeceasedRepositoryTests
         }
 
         await using var dbContext = _fixture.CreateDbContext();
-        var repo = new DeceasedRepository(dbContext);
+        var repo = new DeceasedRepository(dbContext, TimeProvider.System);
 
         var loaded = await repo.GetByIdWithMediaById(deceasedId, targetMediaId, CancellationToken.None);
 
@@ -232,7 +232,7 @@ public sealed class DeceasedRepositoryTests
     public async Task ExistsBySearchKey_TrueAndFalse()
     {
         await using var dbContext = _fixture.CreateDbContext();
-        var repo = new DeceasedRepository(dbContext);
+        var repo = new DeceasedRepository(dbContext, TimeProvider.System);
 
         var user = TestData.SeedUser(dbContext);
         var d = TestData.SeedDeceased(dbContext, user.Id, "УникИмя1", "УникФамилия1");
@@ -265,7 +265,7 @@ public sealed class DeceasedRepositoryTests
         }
 
         await using var dbContext = _fixture.CreateDbContext();
-        var repo = new DeceasedRepository(dbContext);
+        var repo = new DeceasedRepository(dbContext, TimeProvider.System);
 
         var d2 = Deceased.Create(firstName, "DuplФам1", null, null, deathDate, null, userId).Value;
         dbContext.DeceasedRecords.Add(d2);

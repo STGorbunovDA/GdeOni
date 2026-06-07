@@ -42,7 +42,8 @@ public sealed class UserQueriesTests
 
         var useCase = new GetAllUsersUseCase(
             userRepo.Object, currentUser.Object,
-            TestExecutor.With<GetAllUsersQuery, GetAllUsersQueryValidator>());
+            TestExecutor.With<GetAllUsersQuery>(
+                new GetAllUsersQueryValidator(TimeProvider.System)));
 
         var result = await useCase.Execute(
             new GetAllUsersQuery(null, null, null, null, 1, 10),
@@ -69,7 +70,8 @@ public sealed class UserQueriesTests
 
         var useCase = new GetAllUsersUseCase(
             userRepo.Object, currentUser.Object,
-            TestExecutor.With<GetAllUsersQuery, GetAllUsersQueryValidator>());
+            TestExecutor.With<GetAllUsersQuery>(
+                new GetAllUsersQueryValidator(TimeProvider.System)));
 
         var result = await useCase.Execute(
             new GetAllUsersQuery(null, null, null, null, 1, 10),
@@ -101,7 +103,8 @@ public sealed class UserQueriesTests
 
         var useCase = new GetUserByIdUseCase(
             userRepo.Object, currentUser.Object,
-            TestExecutor.With<GetUserByIdQuery, GetUserByIdQueryValidator>());
+            TestExecutor.With<GetUserByIdQuery, GetUserByIdQueryValidator>(),
+            TimeProvider.System);
 
         var result = await useCase.Execute(
             new GetUserByIdQuery(user.Id),
@@ -130,7 +133,8 @@ public sealed class UserQueriesTests
 
         var useCase = new GetUserByIdUseCase(
             userRepo.Object, currentUser.Object,
-            TestExecutor.With<GetUserByIdQuery, GetUserByIdQueryValidator>());
+            TestExecutor.With<GetUserByIdQuery, GetUserByIdQueryValidator>(),
+            TimeProvider.System);
 
         var result = await useCase.Execute(
             new GetUserByIdQuery(target.Id),
