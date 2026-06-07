@@ -4,6 +4,7 @@ using GdeOni.API;
 using GdeOni.API.Extensions;
 using GdeOni.API.HealthChecks;
 using GdeOni.API.Hosting;
+using GdeOni.API.Middleware;
 using GdeOni.API.Observability;
 using GdeOni.API.Options;
 using GdeOni.API.RateLimiting;
@@ -29,6 +30,8 @@ builder.Services.AddSecurity(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddCustomCors(builder.Configuration, builder.Environment);
 builder.Services.AddCustomRateLimiting(builder.Configuration);
+builder.Services.Configure<WebhookSecurityOptions>(
+    builder.Configuration.GetSection(WebhookSecurityOptions.SectionName));
 
 // D17. Информация о версиях клиента отдаётся через /api/app/version.
 // Секция в appsettings опциональна — дефолты в самом классе.
@@ -98,6 +101,11 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseCors(GdeOni.API.DependencyInjection.CorsPolicyName);
+
+// IP-whitelist для webhook'ов. No-op если AllowedCidrs пуст —
+// затраты ~10нс на проверку Path.StartsWithSegments. См.
+// WebhookIpWhitelistMiddleware.
+app.UseMiddleware<WebhookIpWhitelistMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();

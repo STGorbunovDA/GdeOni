@@ -1,8 +1,10 @@
+using GdeOni.API.RateLimiting;
 using GdeOni.API.Response;
 using GdeOni.Application.Subscriptions.Commands.ProcessPaymentWebhook.Model;
 using GdeOni.Application.Subscriptions.Commands.ProcessPaymentWebhook.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace GdeOni.API.Controllers;
 
@@ -32,6 +34,7 @@ public sealed class PaymentsController : ApiControllerBase
     /// </summary>
     [HttpPost("yookassa/webhook")]
     [AllowAnonymous]
+    [EnableRateLimiting(WebhookRateLimitOptions.PolicyName)]
     // RequestSizeLimit: эндпоинт публичный и без rate-limit
     // (планируется в backlog). Без явного лимита body любой паразит
     // мог бы слать 100 MB JSON, мы бы буферизировали в память/tempfile

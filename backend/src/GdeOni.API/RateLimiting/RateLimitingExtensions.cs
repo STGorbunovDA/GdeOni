@@ -19,6 +19,7 @@ public static class RateLimitingExtensions
             .Get<RateLimitingOptions>() ?? new RateLimitingOptions();
 
         var auth = options.Auth;
+        var webhook = options.Webhook;
 
         services.AddRateLimiter(rl =>
         {
@@ -35,6 +36,24 @@ public static class RateLimitingExtensions
                         PermitLimit = auth.PermitLimit,
                         Window = TimeSpan.FromMinutes(auth.WindowMinutes),
                         SegmentsPerWindow = auth.SegmentsPerWindow,
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    });
+            });
+
+            // Лимит для webhook-эндпоинтов. Партиция по IP — даже без
+            // IP-whitelist (см. WebhookIpWhitelistMiddleware) атакующий
+            // не сможет завалить нас потоком webhook'ов с одного host'а.
+            rl.AddPolicy(WebhookRateLimitOptions.PolicyName, httpContext =>
+            {
+                var key = httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+                return RateLimitPartition.GetSlidingWindowLimiter(
+                    partitionKey: key,
+                    factory: _ => new SlidingWindowRateLimiterOptions
+                    {
+                        PermitLimit = webhook.PermitLimit,
+                        Window = TimeSpan.FromMinutes(webhook.WindowMinutes),
+                        SegmentsPerWindow = webhook.SegmentsPerWindow,
                         QueueLimit = 0,
                         AutoReplenishment = true
                     });
