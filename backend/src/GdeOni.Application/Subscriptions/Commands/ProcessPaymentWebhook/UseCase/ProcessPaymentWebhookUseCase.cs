@@ -53,6 +53,18 @@ public sealed class ProcessPaymentWebhookUseCase(
 
         var nowUtc = DateTime.UtcNow;
 
+        // Concurrent webhook race: YooKassa может прислать два webhook'а
+        // с одним external_payment_id (retry-механизм). Оба попадут сюда
+        // с почти одинаковым snapshot'ом payment.Status=Pending. Защита:
+        // - MarkSucceeded имеет early-return на Status=Succeeded (idempotent);
+        // - MarkCancelled — то же на Status=Cancelled;
+        // - Cancelled→Succeeded или Succeeded→Cancelled блокируется
+        //   AlreadyProcessed (409). YooKassa такой переход не делает.
+        // - unique-индекс ux_subscription_payments_external_payment_id
+        //   защищает от дубль-INSERT'а через webhook (если первый ещё
+        //   не закоммитил).
+        // Полностью атомарная сериализация — отдельный backlog
+        // "SERIALIZABLE-транзакция + retry на 40001" (см. PlanFull).
         switch (verification.Status)
         {
             case PaymentStatus.Succeeded:

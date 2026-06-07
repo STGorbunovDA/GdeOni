@@ -11,6 +11,7 @@ public sealed class UpdateUserProfileUseCase(
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
     ICurrentUserService currentUserService,
+    IPasswordHasher passwordHasher,
     ISecurityStampInvalidator securityStampInvalidator,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IUpdateUserProfileUseCase
@@ -39,6 +40,17 @@ public sealed class UpdateUserProfileUseCase(
         
         if (!isAdmin && user.Id != currentUserId)
             return Errors.User.UserForbidden();
+
+        // Current-password check: защита от vandalism через украденный
+        // access-токен. Если клиент прислал CurrentPassword — обязан
+        // совпасть. Если не прислал — пропускаем (backward-compat
+        // со старыми клиентами). Админ правит чужой профиль без
+        // проверки пароля цели — у него уже есть права.
+        if (command.CurrentPassword is not null && user.Id == currentUserId)
+        {
+            if (!passwordHasher.Verify(command.CurrentPassword, user.PasswordHash))
+                return Errors.User.CurrentPasswordInvalid();
+        }
 
         // Сравнение в нормализованной форме: "JohnDoe" → "johndoe" — это
         // тот же логин, конфликта быть не должно.

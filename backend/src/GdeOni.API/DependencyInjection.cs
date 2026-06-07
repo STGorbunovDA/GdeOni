@@ -218,12 +218,17 @@ public static class DependencyInjection
         // Read-through кеш с коротким TTL — без него SELECT security_stamp
         // FROM users WHERE id=@uid идёт на КАЖДОМ аутентифицированном запросе.
         // Trade-off задокументирован в JwtOptions.SecurityStampCacheTtlSeconds.
+        //
+        // SecurityStampStrictMode=true пропускает кеш — каждый запрос SELECT.
+        // Используется когда security-аудит требует нулевого окна
+        // invalidation при Block/ChangePassword.
         var sp = context.HttpContext.RequestServices;
         var cache = sp.GetRequiredService<IMemoryCache>();
         var jwtOptions = sp.GetRequiredService<IOptions<JwtOptions>>().Value;
         var cacheKey = SecurityStampCacheKey(userId);
 
-        if (!cache.TryGetValue<Guid?>(cacheKey, out var cachedStamp))
+        Guid? cachedStamp;
+        if (jwtOptions.SecurityStampStrictMode || !cache.TryGetValue<Guid?>(cacheKey, out cachedStamp))
         {
             var dbContext = sp.GetRequiredService<AppDbContext>();
             cachedStamp = await dbContext.Users
@@ -232,10 +237,15 @@ public static class DependencyInjection
                 .Select(u => (Guid?)u.SecurityStamp)
                 .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
 
-            cache.Set(
-                cacheKey,
-                cachedStamp,
-                TimeSpan.FromSeconds(jwtOptions.SecurityStampCacheTtlSeconds));
+            // В StrictMode кеш не используем — каждый запрос идёт в БД.
+            // Иначе сохраняем результат в кеш.
+            if (!jwtOptions.SecurityStampStrictMode)
+            {
+                cache.Set(
+                    cacheKey,
+                    cachedStamp,
+                    TimeSpan.FromSeconds(jwtOptions.SecurityStampCacheTtlSeconds));
+            }
         }
 
         if (cachedStamp is null || cachedStamp.Value != tokenStamp)

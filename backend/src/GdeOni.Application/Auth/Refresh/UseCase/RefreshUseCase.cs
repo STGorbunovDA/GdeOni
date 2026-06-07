@@ -75,6 +75,14 @@ public sealed class RefreshUseCase(
         // SecurityStamp ротируется в Block, но новый access-токен выпустится
         // с актуальным stamp и проживёт до конца своего TTL. Заодно ревокаем
         // все RT юзера, чтобы цепочка оборвалась здесь и сейчас.
+        //
+        // ИЗВЕСТНЫЙ NARROW RACE: между GetByIdReadOnly (SELECT) и коммитом
+        // BlockUseCase.Save может пройти ~миллисекунды. Если в это окно
+        // успеть выпустить новый RT, он будет валидным до RevokeAllForUser
+        // из Block use case. Эксплуатация требует попадания в это
+        // микроокно — практически невозможно. Полный фикс требует
+        // SERIALIZABLE-транзакции с retry на serialization_failure,
+        // запланирован отдельным PR (см. backlog "Refresh↔Block race").
         if (user.IsBlocked)
         {
             await refreshTokenRepository.RevokeAllForUser(user.Id, cancellationToken);

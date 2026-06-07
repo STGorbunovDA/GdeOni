@@ -26,4 +26,16 @@ public sealed class JwtOptions
     /// на каждом запросе) и временем реакции в этих остаточных сценариях.
     /// </summary>
     public int SecurityStampCacheTtlSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// StrictMode: при true кеш SecurityStamp в OnTokenValidated
+    /// отключается — каждый authenticated-запрос делает SELECT по users.
+    /// Окно invalidation после Block/ChangePassword/ChangeRole становится
+    /// нулевым, но нагрузка на БД растёт линейно с RPS.
+    ///
+    /// Включай при жёстких security-аудитах ("сессия должна закрываться
+    /// мгновенно при смене пароля") и достаточном PG-headroom. По
+    /// умолчанию false — стандартный режим с 30-сек окном.
+    /// </summary>
+    public bool SecurityStampStrictMode { get; set; } = false;
 }

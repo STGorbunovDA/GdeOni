@@ -157,11 +157,13 @@ public sealed class UpdateUserProfileUseCaseTests
         var userRepo = new Mock<IUserRepository>();
         var refreshRepo = new Mock<IRefreshTokenRepository>();
         var currentUser = new Mock<ICurrentUserService>();
+        var passwordHasher = new Mock<IPasswordHasher>();
         var invalidator = new Mock<ISecurityStampInvalidator>();
         var useCase = new UpdateUserProfileUseCase(
             userRepo.Object,
             refreshRepo.Object,
             currentUser.Object,
+            passwordHasher.Object,
             invalidator.Object,
             TestExecutor.With<UpdateUserProfileCommand, UpdateUserProfileCommandValidator>());
         return (userRepo, currentUser, invalidator, useCase);

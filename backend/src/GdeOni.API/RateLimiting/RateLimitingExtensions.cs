@@ -26,6 +26,12 @@ public static class RateLimitingExtensions
             // Sliding window per-IP. Партиционирование по
             // Connection.RemoteIpAddress — после ForwardedHeaders (D7.38)
             // это уже client IP, не proxy.
+            //
+            // KNOWN LIMITATION (CGNAT/корп-NAT): десятки реальных юзеров
+            // за одним IP делят лимит. На школьном/корп-выходе PermitLimit=10
+            // может схватываться быстро. Полный фикс — партиционировать
+            // по (email из body + IP), для этого нужен middleware который
+            // читает body Login. Backlog "RateLimiter CGNAT".
             rl.AddPolicy(AuthRateLimitOptions.PolicyName, httpContext =>
             {
                 var key = httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous";

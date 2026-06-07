@@ -46,7 +46,11 @@ public static class UsersMapping
     public static UpdateUserProfileCommand ToCommand(this UpdateUserProfileRequest request, Guid id)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return new UpdateUserProfileCommand(id, request.UserName, request.FullName);
+        return new UpdateUserProfileCommand(
+            id,
+            request.UserName,
+            request.FullName,
+            request.CurrentPassword);
     }
 
     public static ChangePasswordCommand ToCommand(this ChangePasswordRequest request, Guid id)
