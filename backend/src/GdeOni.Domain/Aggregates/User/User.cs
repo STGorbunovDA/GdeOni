@@ -4,7 +4,7 @@ using System.Net.Mail;
 
 namespace GdeOni.Domain.Aggregates.User;
 
-public sealed class User : Entity<Guid>
+public sealed partial class User : Entity<Guid>
 {
     public const int MaxEmailLength = 320;
     public const int MaxUserNameLength = 100;
@@ -443,52 +443,7 @@ public sealed class User : Entity<Guid>
         return UnitResult.Success<Error>();
     }
 
-    /// <summary>
-    /// Блокировка аккаунта админом. Ротация SecurityStamp инвалидирует
-    /// активную access-сессию (см. OnTokenValidated middleware). Reason
-    /// опционален — для аудита и UX (юзер видит на login-экране).
-    /// </summary>
-    public UnitResult<Error> Block(Guid byAdminId, string? reason, DateTime nowUtc)
-    {
-        if (byAdminId == Guid.Empty)
-            return Errors.User.AdminIdRequired();
-        if (byAdminId == Id)
-            return Errors.User.BlockSelfForbidden();
-
-        var normalizedReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
-        if (normalizedReason is not null && normalizedReason.Length > MaxBlockReasonLength)
-            return Errors.User.BlockReasonTooLong(MaxBlockReasonLength);
-
-        // No-op guard: уже заблокирован той же причиной → не дёргаем
-        // SecurityStamp/Touch, чтобы повторный POST был идемпотентен.
-        if (IsBlocked && BlockedReason == normalizedReason && BlockedByUserId == byAdminId)
-            return UnitResult.Success<Error>();
-
-        IsBlocked = true;
-        BlockedAtUtc = nowUtc;
-        BlockedByUserId = byAdminId;
-        BlockedReason = normalizedReason;
-        SecurityStamp = Guid.NewGuid();
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    /// <summary>
-    /// Разблокировка. Юзер снова может логиниться, но активная сессия
-    /// (если оставалась) уже была инвалидирована при Block — повторно
-    /// ротировать SecurityStamp смысла нет.
-    /// </summary>
-    public UnitResult<Error> Unblock()
-    {
-        if (!IsBlocked) return UnitResult.Success<Error>();
-
-        IsBlocked = false;
-        BlockedAtUtc = null;
-        BlockedByUserId = null;
-        BlockedReason = null;
-        Touch();
-        return UnitResult.Success<Error>();
-    }
+    // F17.10 Block / Unblock → User.Block.cs
 
     /// <summary>
     /// D16. Главный гейт-метод: пускать ли пользователя на endpoint'ы,
@@ -636,152 +591,6 @@ public sealed class User : Entity<Guid>
         UpdatedAtUtc = DateTime.UtcNow;
     }
 
-    public Result<TrackedDeceased, Error> TrackDeceased(
-        Guid deceasedId,
-        RelationshipType relationshipType,
-        string? personalNotes = null,
-        bool notifyOnDeathAnniversary = false,
-        bool notifyOnBirthAnniversary = false)
-    {
-        var existingTracking = _trackedDeceasedItems
-            .FirstOrDefault(x => x.DeceasedId == deceasedId);
-
-        if (existingTracking is not null)
-        {
-            var reactivateResult = existingTracking.Reactivate(
-                relationshipType,
-                personalNotes,
-                notifyOnDeathAnniversary,
-                notifyOnBirthAnniversary);
-
-            if (reactivateResult.IsFailure)
-                return reactivateResult.Error;
-
-            Touch();
-            return Result.Success<TrackedDeceased, Error>(existingTracking);
-        }
-
-        var trackedResult = TrackedDeceased.Create(
-            deceasedId,
-            relationshipType,
-            personalNotes,
-            notifyOnDeathAnniversary,
-            notifyOnBirthAnniversary);
-
-        if (trackedResult.IsFailure)
-            return trackedResult.Error;
-
-        _trackedDeceasedItems.Add(trackedResult.Value);
-        Touch();
-        return Result.Success<TrackedDeceased, Error>(trackedResult.Value);
-    }
-
-    public Result<TrackStatus, Error> GetTrackingStatus(Guid deceasedId)
-    {
-        var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
-        if (tracked is null)
-            return Errors.Tracking.NotFound(deceasedId);
-
-        return Result.Success<TrackStatus, Error>(tracked.Status);
-    }
-
-    public TrackedDeceased? GetTracking(Guid deceasedId) =>
-        _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
-
-    public UnitResult<Error> ChangeTrackingStatus(Guid deceasedId, TrackStatus status)
-    {
-        var result = status switch
-        {
-            TrackStatus.Active => ActivateTracking(deceasedId),
-            TrackStatus.Muted => MuteTracking(deceasedId),
-            TrackStatus.Archived => StopTracking(deceasedId),
-            _ => Errors.Tracking.TrackStatusTypeInvalid()
-        };
-
-        if (result.IsSuccess)
-            Touch();
-
-        return result;
-    }
-
-    public UnitResult<Error> UpdateTracking(
-        Guid deceasedId,
-        RelationshipType relationshipType,
-        string? personalNotes,
-        bool notifyOnDeathAnniversary,
-        bool notifyOnBirthAnniversary)
-    {
-        var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
-        if (tracked is null)
-            return Errors.Tracking.NotFound(deceasedId);
-
-        var relationResult = tracked.UpdateRelationship(relationshipType, personalNotes);
-        if (relationResult.IsFailure)
-            return relationResult.Error;
-
-        var notificationsResult = tracked.ChangeNotifications(
-            notifyOnDeathAnniversary,
-            notifyOnBirthAnniversary);
-
-        if (notificationsResult.IsFailure)
-            return notificationsResult;
-
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    public UnitResult<Error> RemoveTracking(Guid deceasedId)
-    {
-        var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
-        if (tracked is null)
-            return Errors.Tracking.NotFound(deceasedId);
-
-        _trackedDeceasedItems.Remove(tracked);
-        Touch();
-        return UnitResult.Success<Error>();
-    }
-
-    /// <summary>
-    /// Снимает все отслеживания юзера разом. Возвращает количество
-    /// удалённых записей. Используется админом для bulk-операции.
-    /// </summary>
-    public int RemoveAllTracking()
-    {
-        var count = _trackedDeceasedItems.Count;
-        if (count == 0) return 0;
-        _trackedDeceasedItems.Clear();
-        Touch();
-        return count;
-    }
-
-    private UnitResult<Error> StopTracking(Guid deceasedId)
-    {
-        var tracked = _trackedDeceasedItems
-            .FirstOrDefault(x => x.DeceasedId == deceasedId && x.Status != TrackStatus.Archived);
-
-        if (tracked is null)
-            return Errors.Tracking.NotFound(deceasedId);
-
-        return tracked.Archive();
-    }
-
-    private UnitResult<Error> MuteTracking(Guid deceasedId)
-    {
-        var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
-        if (tracked is null)
-            return Errors.Tracking.NotFound(deceasedId);
-
-        return tracked.Mute();
-    }
-
-    private UnitResult<Error> ActivateTracking(Guid deceasedId)
-    {
-        var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
-        if (tracked is null)
-            return Errors.Tracking.NotFound(deceasedId);
-
-        return tracked.Activate();
-    }
 
     private static Result<string, Error> NormalizeEmail(string email)
     {
