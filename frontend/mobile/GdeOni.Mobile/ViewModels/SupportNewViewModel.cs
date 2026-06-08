@@ -26,20 +26,27 @@ public partial class SupportNewViewModel(ISupportApi supportApi) : ObservableObj
         new KindOption("Другое", "Other"),
     };
 
+    // NotifyCanExecuteChangedFor дёргает SubmitCommand.NotifyCanExecuteChanged()
+    // — MAUI-Button слушает CanExecute команды, а не сам CanSubmit-property.
+    // Без этого кнопка оставалась disabled даже когда все поля заполнены.
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSubmit))]
+    [NotifyCanExecuteChangedFor(nameof(SubmitCommand))]
     private KindOption? _selectedKind;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSubmit))]
+    [NotifyCanExecuteChangedFor(nameof(SubmitCommand))]
     private string _title = "";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSubmit))]
+    [NotifyCanExecuteChangedFor(nameof(SubmitCommand))]
     private string _description = "";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSubmit))]
+    [NotifyCanExecuteChangedFor(nameof(SubmitCommand))]
     private bool _isBusy;
 
     [ObservableProperty]
