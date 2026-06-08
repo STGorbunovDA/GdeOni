@@ -22,8 +22,11 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
     public IReadOnlyList<string> SeverityOptions { get; } =
         new[] { "Обычно", "Срочно" };
 
+    // string, не Guid — Shell.GoToAsync передаёт query-параметры строками,
+    // а конвертация в Guid в setter'е вызывала JavaProxyThrowable в Shell
+    // pipeline'е на эмуляторе.
     [ObservableProperty]
-    private Guid _ticketId;
+    private string _ticketId = "";
 
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _isSaving;
@@ -98,9 +101,9 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
         OnPropertyChanged(nameof(IsResolveSelected));
     }
 
-    partial void OnTicketIdChanged(Guid value)
+    partial void OnTicketIdChanged(string value)
     {
-        if (value == Guid.Empty) return;
+        if (!Guid.TryParse(value, out _)) return;
         // Откладываем на следующий тик main thread'а — см. комментарий
         // в SupportDetailsViewModel: ANR-фикс для случая, когда
         // Shell-навигация и HTTP-запрос конфликтуют на стартовом frame.
@@ -110,12 +113,12 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
     [RelayCommand]
     public async Task LoadAsync()
     {
-        if (TicketId == Guid.Empty) return;
+        if (!Guid.TryParse(TicketId, out var id) || id == Guid.Empty) return;
         try
         {
             IsLoading = true;
             ErrorMessage = null;
-            var envelope = await supportApi.GetAdminByIdAsync(TicketId);
+            var envelope = await supportApi.GetAdminByIdAsync(id);
             if (envelope.Result is null)
             {
                 ErrorMessage = envelope.ErrorMessage ?? "Не удалось загрузить обращение.";
@@ -189,12 +192,13 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
             return;
         }
 
+        if (!Guid.TryParse(TicketId, out var id)) return;
         try
         {
             IsSaving = true;
             ErrorMessage = null;
             var resp = await supportApi.UpdateStatusAsync(
-                TicketId,
+                id,
                 new UpdateSupportTicketStatusRequest(
                     newCode,
                     newCode == "Resolved" ? NewResolutionNote.Trim() : null));
@@ -228,12 +232,13 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
         var newCode = MapSeverityLabel(SelectedSeverityOption);
         if (newCode is null) return;
 
+        if (!Guid.TryParse(TicketId, out var id)) return;
         try
         {
             IsSaving = true;
             ErrorMessage = null;
             var resp = await supportApi.UpdateSeverityAsync(
-                TicketId,
+                id,
                 new UpdateSupportTicketSeverityRequest(newCode));
 
             if (!resp.IsSuccessStatusCode)

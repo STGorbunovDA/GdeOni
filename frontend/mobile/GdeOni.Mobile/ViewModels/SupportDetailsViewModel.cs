@@ -15,8 +15,11 @@ namespace GdeOni.Mobile.ViewModels;
 [QueryProperty(nameof(TicketId), "ticketId")]
 public partial class SupportDetailsViewModel(ISupportApi supportApi) : ObservableObject
 {
+    // Принимаем как string — MAUI Shell передаёт query-параметры строками,
+    // а конвертация в Guid в setter'е (раньше было [ObservableProperty] Guid)
+    // вызывала JavaProxyThrowable в Shell pipeline'е на эмуляторе.
     [ObservableProperty]
-    private Guid _ticketId;
+    private string _ticketId = "";
 
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty]
@@ -48,9 +51,9 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
     public bool IsResolved => StatusDisplay == "Решено";
     public bool HasResolution => !string.IsNullOrWhiteSpace(ResolutionNote);
 
-    partial void OnTicketIdChanged(Guid value)
+    partial void OnTicketIdChanged(string value)
     {
-        if (value == Guid.Empty) return;
+        if (!Guid.TryParse(value, out _)) return;
         // Откладываем загрузку в следующий тик main thread'а — Shell
         // навигация ставит QueryProperty синхронно из своего pipeline,
         // и LoadAsync, начатый прямо здесь, может попасть до того, как
@@ -64,12 +67,12 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
     [RelayCommand]
     public async Task LoadAsync()
     {
-        if (TicketId == Guid.Empty) return;
+        if (!Guid.TryParse(TicketId, out var id) || id == Guid.Empty) return;
         try
         {
             IsLoading = true;
             ErrorMessage = null;
-            var envelope = await supportApi.GetMineByIdAsync(TicketId);
+            var envelope = await supportApi.GetMineByIdAsync(id);
             if (envelope.Result is null)
             {
                 ErrorMessage = envelope.ErrorMessage ?? "Не удалось загрузить обращение.";
