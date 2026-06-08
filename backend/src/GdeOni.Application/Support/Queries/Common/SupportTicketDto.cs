@@ -24,6 +24,13 @@ public sealed class SupportTicketDto
     public string? ResolutionNote { get; set; }
     public Guid? ResolvedByUserId { get; set; }
     public DateTime? ResolvedAtUtc { get; set; }
+
+    public bool AcceptedByUser { get; set; }
+    public DateTime? AcceptedByUserAtUtc { get; set; }
+    public string? LastUserReply { get; set; }
+    public DateTime? LastUserReplyAtUtc { get; set; }
+    public int ReopenedCount { get; set; }
+
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
 }

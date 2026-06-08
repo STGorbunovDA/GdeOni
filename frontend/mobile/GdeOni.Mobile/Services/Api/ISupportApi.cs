@@ -35,6 +35,25 @@ public interface ISupportApi
         Guid id,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// POST /api/support-tickets/{id}/accept — закрепить резолюцию.
+    /// Только автор, только Resolved. 409 если уже Accepted.
+    /// </summary>
+    [Post("/api/support-tickets/{id}/accept")]
+    Task<HttpResponseMessage> AcceptAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// POST /api/support-tickets/{id}/reopen — переоткрыть тикет.
+    /// Только автор, только Resolved и не Accepted.
+    /// </summary>
+    [Post("/api/support-tickets/{id}/reopen")]
+    Task<HttpResponseMessage> ReopenAsync(
+        Guid id,
+        [Body] ReopenSupportTicketRequest request,
+        CancellationToken cancellationToken = default);
+
     // ───────── Админские ─────────
 
     /// <summary>

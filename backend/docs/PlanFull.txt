@@ -10555,6 +10555,46 @@ Mobile:
     → `/support/new` (форма) и "Мои обращения" → `/support/mine`
     (зеркало mobile).
 
+D25.1. Закрепить решено / Продолжить спор (юзерская сторона):
+- Domain: SupportTicket пополнен полями AcceptedByUser (bool),
+  AcceptedByUserAtUtc (DateTime?), LastUserReply (string?, max 4000),
+  LastUserReplyAtUtc (DateTime?), ReopenedCount (int);
+- Domain методы: AcceptResolution(actingUserId, nowUtc) — только
+  автор, только Status=Resolved, повторный → AlreadyAccepted;
+  Reopen(actingUserId, userReply, nowUtc) — только автор, только
+  Resolved, если AcceptedByUser=true → блокируется (закрепил =
+  спор окончен). При Reopen Status → Open, ReopenedCount++,
+  ResolutionNote сохраняется (история не теряется).
+- API: POST /api/support-tickets/{id}/accept (204 / 401 / 403 / 404 /
+  409); POST /api/support-tickets/{id}/reopen с body {userReply: "..."}
+  (204 / 400 / 401 / 403 / 404 / 409).
+
+Mobile (юзерская карточка SupportDetailsPage):
+- Если Status=Resolved и !AcceptedByUser: две кнопки "✓ Закрепить
+  решено" (PrimaryButton) и "Продолжить спор" (GhostButton);
+  при тапе Accept — DisplayAlert подтверждение, после OK дёргаем
+  AcceptAsync и перезагружаем.
+- При тапе "Продолжить спор" — DisplayPromptAsync с placeholder'ом
+  для текста (maxLength=4000), после OK дёргаем ReopenAsync.
+- Если AcceptedByUser=true: плашка "✓ Вы подтвердили решение" +
+  дата.
+- Если ReopenedCount > 0: строка "Обращение переоткрывалось N раз".
+
+Mobile (админская карточка AdminSupportDetailsPage):
+- Под датами в header — бейдж "✓ Юзер закрепил решение" (если
+  AcceptedByUser) и "↻ Переоткрыто N раз юзером" (если ReopenedCount>0,
+  красным цветом).
+- Над "Резолюция"-карточкой — отдельный жёлтый блок "Сообщение от
+  пользователя" с LastUserReply (если есть).
+
+Веб (зеркало):
+[ ] На `/support/{id}` у юзера — кнопки "Закрепить решено" /
+    "Продолжить спор" с тем же поведением что и mobile.
+[ ] На `/admin/support-tickets/{id}` — бейджи AcceptedByUser /
+    ReopenedCount, блок LastUserReply.
+[ ] Лист `/admin/support-tickets` — колонка / иконка "переоткрывался N раз"
+    помогает админу видеть проблемные тикеты в общем списке.
+
 ВНЕ scope этого блока (отдельные D-пункты при необходимости):
 - Refund через YooKassa Refund API (минимум на текущем этапе —
   админ ставит статус и делает refund вручную через ЛК YooKassa);

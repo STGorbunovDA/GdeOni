@@ -20,6 +20,11 @@ internal static class SupportTicketMapping
             ResolutionNote = ticket.ResolutionNote,
             ResolvedByUserId = ticket.ResolvedByUserId,
             ResolvedAtUtc = ticket.ResolvedAtUtc,
+            AcceptedByUser = ticket.AcceptedByUser,
+            AcceptedByUserAtUtc = ticket.AcceptedByUserAtUtc,
+            LastUserReply = ticket.LastUserReply,
+            LastUserReplyAtUtc = ticket.LastUserReplyAtUtc,
+            ReopenedCount = ticket.ReopenedCount,
             CreatedAtUtc = ticket.CreatedAtUtc,
             UpdatedAtUtc = ticket.UpdatedAtUtc,
         };

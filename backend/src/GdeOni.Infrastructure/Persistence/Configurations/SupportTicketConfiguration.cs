@@ -67,6 +67,26 @@ public sealed class SupportTicketConfiguration : IEntityTypeConfiguration<Suppor
         builder.Property(x => x.ResolvedAtUtc)
             .HasColumnName("resolved_at_utc");
 
+        builder.Property(x => x.AcceptedByUser)
+            .HasColumnName("accepted_by_user")
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        builder.Property(x => x.AcceptedByUserAtUtc)
+            .HasColumnName("accepted_by_user_at_utc");
+
+        builder.Property(x => x.LastUserReply)
+            .HasColumnName("last_user_reply")
+            .HasMaxLength(SupportTicket.MaxUserReplyLength);
+
+        builder.Property(x => x.LastUserReplyAtUtc)
+            .HasColumnName("last_user_reply_at_utc");
+
+        builder.Property(x => x.ReopenedCount)
+            .HasColumnName("reopened_count")
+            .HasDefaultValue(0)
+            .IsRequired();
+
         builder.Property(x => x.CreatedAtUtc)
             .HasColumnName("created_at_utc")
             .IsRequired();

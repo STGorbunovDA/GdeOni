@@ -28,6 +28,7 @@ public sealed class SupportTicket : Entity<Guid>
     public const int MaxDescriptionLength = 4000;
     public const int MaxResolutionNoteLength = 4000;
     public const int MaxDetailsLength = 8000;
+    public const int MaxUserReplyLength = 4000;
 
     public Guid? UserId { get; private set; }
     public SupportTicketSource Source { get; private set; }
@@ -48,6 +49,29 @@ public sealed class SupportTicket : Entity<Guid>
     public string? ResolutionNote { get; private set; }
     public Guid? ResolvedByUserId { get; private set; }
     public DateTime? ResolvedAtUtc { get; private set; }
+
+    /// <summary>
+    /// Юзер закрепил решение админа ("Закрепить решено"). Тикет
+    /// остаётся Resolved, но получает явное подтверждение со стороны
+    /// автора — полезно для метрик и для админа (видно "решено и
+    /// согласовано" vs "решено, но юзер не подтвердил").
+    /// </summary>
+    public bool AcceptedByUser { get; private set; }
+    public DateTime? AcceptedByUserAtUtc { get; private set; }
+
+    /// <summary>
+    /// Текст, который юзер написал при последнем Reopen ("Продолжить
+    /// спор"). Перезатирается на каждом новом reopen. Описание
+    /// исходного обращения остаётся в Description.
+    /// </summary>
+    public string? LastUserReply { get; private set; }
+    public DateTime? LastUserReplyAtUtc { get; private set; }
+
+    /// <summary>
+    /// Сколько раз юзер переоткрывал тикет. Без жёсткого лимита —
+    /// админ сам решит когда эскалировать, видя счётчик.
+    /// </summary>
+    public int ReopenedCount { get; private set; }
 
     public DateTime CreatedAtUtc { get; }
     public DateTime? UpdatedAtUtc { get; private set; }
@@ -222,6 +246,71 @@ public sealed class SupportTicket : Entity<Guid>
             return UnitResult.Success<Error>();
 
         Severity = newSeverity;
+        UpdatedAtUtc = nowUtc;
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// Юзер закрепил резолюцию ("Закрепить решено"). Доступно только
+    /// автору и только если тикет уже Resolved. Идемпотентно: повторный
+    /// вызов на уже AcceptedByUser → AlreadyAccepted (юзер не может
+    /// случайно дважды "переподтвердить" с разной датой).
+    /// </summary>
+    public UnitResult<Error> AcceptResolution(Guid actingUserId, DateTime nowUtc)
+    {
+        if (UserId is null || UserId.Value != actingUserId)
+            return Errors.Support.ModifyForbidden();
+
+        if (Status != SupportTicketStatus.Resolved)
+            return Errors.Support.AcceptOnlyAfterResolved();
+
+        if (AcceptedByUser)
+            return Errors.Support.AlreadyAccepted();
+
+        AcceptedByUser = true;
+        AcceptedByUserAtUtc = nowUtc;
+        UpdatedAtUtc = nowUtc;
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// Юзер не согласен с резолюцией ("Продолжить спор"). Тикет
+    /// возвращается в Open, ResolutionNote/ResolvedByUserId/ResolvedAtUtc
+    /// сохраняются (история не теряется), userReply фиксируется как
+    /// LastUserReply, ReopenedCount инкрементится, AcceptedByUser
+    /// сбрасывается на false. Доступно только автору и только если
+    /// тикет Resolved.
+    /// </summary>
+    public UnitResult<Error> Reopen(
+        Guid actingUserId,
+        string? userReply,
+        DateTime nowUtc)
+    {
+        if (UserId is null || UserId.Value != actingUserId)
+            return Errors.Support.ModifyForbidden();
+
+        if (Status != SupportTicketStatus.Resolved)
+            return Errors.Support.ReopenOnlyAfterResolved();
+
+        // Если юзер уже закрепил "Решено" — спор окончен. Хочет
+        // новое — пусть создаёт отдельное обращение.
+        if (AcceptedByUser)
+            return Errors.Support.AlreadyAccepted();
+
+        string? trimmedReply = null;
+        if (!string.IsNullOrWhiteSpace(userReply))
+        {
+            trimmedReply = userReply.Trim();
+            if (trimmedReply.Length > MaxUserReplyLength)
+                return Errors.Support.UserReplyTooLong(MaxUserReplyLength);
+        }
+
+        Status = SupportTicketStatus.Open;
+        AcceptedByUser = false;
+        AcceptedByUserAtUtc = null;
+        LastUserReply = trimmedReply;
+        LastUserReplyAtUtc = trimmedReply is null ? null : nowUtc;
+        ReopenedCount++;
         UpdatedAtUtc = nowUtc;
         return UnitResult.Success<Error>();
     }

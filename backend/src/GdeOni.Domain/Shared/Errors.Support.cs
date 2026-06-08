@@ -58,5 +58,30 @@ public static partial class Errors
             Error.Forbidden(
                 "support_ticket.view.forbidden",
                 "You can only view your own tickets.");
+
+        public static Error AcceptOnlyAfterResolved() =>
+            Error.Conflict(
+                "support_ticket.accept.only_after_resolved",
+                "You can accept resolution only after the ticket is resolved.");
+
+        public static Error AlreadyAccepted() =>
+            Error.Conflict(
+                "support_ticket.already.accepted",
+                "You have already accepted the resolution.");
+
+        public static Error ReopenOnlyAfterResolved() =>
+            Error.Conflict(
+                "support_ticket.reopen.only_after_resolved",
+                "You can reopen the ticket only after it is resolved.");
+
+        public static Error UserReplyTooLong(int max) =>
+            Error.Validation(
+                "support_ticket.user_reply.too_long",
+                $"Your reply must not exceed {max} characters.");
+
+        public static Error ModifyForbidden() =>
+            Error.Forbidden(
+                "support_ticket.modify.forbidden",
+                "You can only accept or reopen your own tickets.");
     }
 }

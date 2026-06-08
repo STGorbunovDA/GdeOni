@@ -20,6 +20,11 @@ public sealed record SupportTicketDto(
     string? ResolutionNote,
     Guid? ResolvedByUserId,
     DateTime? ResolvedAtUtc,
+    bool AcceptedByUser,
+    DateTime? AcceptedByUserAtUtc,
+    string? LastUserReply,
+    DateTime? LastUserReplyAtUtc,
+    int ReopenedCount,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc);
 
@@ -49,3 +54,5 @@ public sealed record UpdateSupportTicketStatusRequest(
     string? ResolutionNote);
 
 public sealed record UpdateSupportTicketSeverityRequest(string Severity);
+
+public sealed record ReopenSupportTicketRequest(string? UserReply);

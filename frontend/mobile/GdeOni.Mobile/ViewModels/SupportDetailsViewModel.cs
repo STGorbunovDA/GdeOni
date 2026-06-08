@@ -2,35 +2,32 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
+using GdeOni.Mobile.Services.Api.Models;
 using GdeOni.Mobile.ViewModels.Support;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
 
 /// <summary>
-/// D25 mobile. Карточка обращения с точки зрения юзера. Read-only —
-/// никаких действий (Resolved + note выставляет админ из своей
-/// карточки).
+/// D25 mobile. Карточка обращения с точки зрения юзера. Если тикет
+/// Resolved и юзер ещё не закрепил — показываются две кнопки
+/// "Закрепить решено" и "Продолжить спор".
 /// </summary>
 [QueryProperty(nameof(TicketId), "ticketId")]
 public partial class SupportDetailsViewModel(ISupportApi supportApi) : ObservableObject
 {
-    // Принимаем как string — MAUI Shell передаёт query-параметры строками,
-    // а конвертация в Guid в setter'е (раньше было [ObservableProperty] Guid)
-    // вызывала JavaProxyThrowable в Shell pipeline'е на эмуляторе.
+    // string, не Guid — Shell передаёт query-параметры строками.
     [ObservableProperty]
     private string _ticketId = "";
 
     [ObservableProperty] private bool _isLoading;
+    [ObservableProperty] private bool _isSaving;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
     private string? _errorMessage;
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsResolved))]
-    private string? _title;
-
+    [ObservableProperty] private string? _title;
     [ObservableProperty] private string? _kindDisplay;
     [ObservableProperty] private string? _description;
     [ObservableProperty] private string? _createdAt;
@@ -41,26 +38,49 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
     [ObservableProperty] private string? _severityDisplay;
     [ObservableProperty] private string _severityColor = "#000";
 
+    // Резолюция админа
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsResolved))]
     [NotifyPropertyChangedFor(nameof(HasResolution))]
     private string? _resolutionNote;
-
     [ObservableProperty] private string? _resolvedAt;
-
-    public bool IsResolved => StatusDisplay == "Решено";
     public bool HasResolution => !string.IsNullOrWhiteSpace(ResolutionNote);
+
+    // Статусы юзерских действий
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanShowActionButtons))]
+    [NotifyPropertyChangedFor(nameof(ShowAcceptedNote))]
+    private bool _acceptedByUser;
+    [ObservableProperty] private string? _acceptedAt;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanShowActionButtons))]
+    private bool _isResolved;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasReopenedHistory))]
+    [NotifyPropertyChangedFor(nameof(ReopenedHistoryText))]
+    private int _reopenedCount;
+
+    public bool HasReopenedHistory => ReopenedCount > 0;
+    public string ReopenedHistoryText => ReopenedCount switch
+    {
+        0 => string.Empty,
+        1 => "Обращение переоткрывалось 1 раз",
+        var n => $"Обращение переоткрывалось {n} раз(а)",
+    };
+
+    /// <summary>
+    /// Кнопки "Закрепить решено" / "Продолжить спор" показываем только
+    /// если тикет уже Resolved и юзер ещё не закрепил резолюцию.
+    /// </summary>
+    public bool CanShowActionButtons => IsResolved && !AcceptedByUser;
+
+    /// <summary>Юзер уже закрепил — показываем плашку "Вы подтвердили решение".</summary>
+    public bool ShowAcceptedNote => AcceptedByUser;
 
     partial void OnTicketIdChanged(string value)
     {
         if (!Guid.TryParse(value, out _)) return;
-        // Откладываем загрузку в следующий тик main thread'а — Shell
-        // навигация ставит QueryProperty синхронно из своего pipeline,
-        // и LoadAsync, начатый прямо здесь, может попасть до того, как
-        // Shell закончит push страницы. Это вызывает зависание UI
-        // (ANR) на части эмуляторов / устройств. Дёргать BeginInvokeOnMainThread
-        // отпускает stack frame, навигация завершается, и только потом
-        // мы стартуем HTTP-вызов.
         MainThread.BeginInvokeOnMainThread(async () => await LoadAsync());
     }
 
@@ -79,22 +99,7 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
                 return;
             }
 
-            var t = envelope.Result.Ticket;
-            Title = t.Title;
-            Description = t.Description;
-            KindDisplay = SupportDisplay.Kind(t.Kind);
-            CreatedAt = t.CreatedAtUtc.ToLocalTime()
-                .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
-
-            var (sd, sc) = SupportDisplay.Status(t.Status);
-            StatusDisplay = sd; StatusColor = sc;
-
-            var (sevd, sevc) = SupportDisplay.Severity(t.Severity);
-            SeverityDisplay = sevd; SeverityColor = sevc;
-
-            ResolutionNote = t.ResolutionNote;
-            ResolvedAt = t.ResolvedAtUtc?.ToLocalTime()
-                .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+            ApplyDto(envelope.Result.Ticket);
         }
         catch (ApiException apiEx)
         {
@@ -107,11 +112,121 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
         finally
         {
             IsLoading = false;
-            OnPropertyChanged(nameof(IsResolved));
-            OnPropertyChanged(nameof(HasResolution));
+        }
+    }
+
+    /// <summary>Юзер тапнул "Закрепить решено".</summary>
+    [RelayCommand]
+    private async Task AcceptAsync()
+    {
+        if (IsSaving) return;
+        if (!Guid.TryParse(TicketId, out var id)) return;
+
+        var ok = await Shell.Current.DisplayAlert(
+            "Закрепить решение",
+            "Подтвердить, что проблема решена? После этого спорить будет нельзя.",
+            "Закрепить", "Отмена");
+        if (!ok) return;
+
+        try
+        {
+            IsSaving = true;
+            ErrorMessage = null;
+            var resp = await supportApi.AcceptAsync(id);
+            if (!resp.IsSuccessStatusCode)
+            {
+                ErrorMessage = $"HTTP {(int)resp.StatusCode}: {resp.ReasonPhrase}";
+                return;
+            }
+            await LoadAsync();
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    /// <summary>
+    /// Юзер тапнул "Продолжить спор". Просим ввести сообщение —
+    /// без него тикет тоже переоткроется (бэк позволяет), но
+    /// админу полезнее видеть контекст, поэтому UI требует текст.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReopenAsync()
+    {
+        if (IsSaving) return;
+        if (!Guid.TryParse(TicketId, out var id)) return;
+
+        var reply = await Shell.Current.DisplayPromptAsync(
+            "Продолжить спор",
+            "Опишите, почему ответ не подходит. Сообщение увидит администратор.",
+            accept: "Отправить",
+            cancel: "Отмена",
+            placeholder: "Что не так с ответом?",
+            maxLength: 4000,
+            keyboard: Keyboard.Default);
+        if (string.IsNullOrWhiteSpace(reply)) return;
+
+        try
+        {
+            IsSaving = true;
+            ErrorMessage = null;
+            var resp = await supportApi.ReopenAsync(
+                id, new ReopenSupportTicketRequest(reply.Trim()));
+            if (!resp.IsSuccessStatusCode)
+            {
+                ErrorMessage = $"HTTP {(int)resp.StatusCode}: {resp.ReasonPhrase}";
+                return;
+            }
+            await LoadAsync();
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            IsSaving = false;
         }
     }
 
     [RelayCommand]
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
+
+    private void ApplyDto(SupportTicketDto t)
+    {
+        Title = t.Title;
+        Description = t.Description;
+        KindDisplay = SupportDisplay.Kind(t.Kind);
+        CreatedAt = t.CreatedAtUtc.ToLocalTime()
+            .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+
+        var (sd, sc) = SupportDisplay.Status(t.Status);
+        StatusDisplay = sd; StatusColor = sc;
+
+        var (sevd, sevc) = SupportDisplay.Severity(t.Severity);
+        SeverityDisplay = sevd; SeverityColor = sevc;
+
+        ResolutionNote = t.ResolutionNote;
+        ResolvedAt = t.ResolvedAtUtc?.ToLocalTime()
+            .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+
+        IsResolved = t.Status == "Resolved";
+        AcceptedByUser = t.AcceptedByUser;
+        AcceptedAt = t.AcceptedByUserAtUtc?.ToLocalTime()
+            .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        ReopenedCount = t.ReopenedCount;
+    }
 }

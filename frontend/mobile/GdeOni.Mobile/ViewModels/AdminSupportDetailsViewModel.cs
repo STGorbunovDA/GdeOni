@@ -82,6 +82,28 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
     [ObservableProperty] private string? _resolvedAt;
     public bool HasResolution => !string.IsNullOrWhiteSpace(ResolutionNote);
 
+    // ───────── D25.1. Юзерские действия (Accept / Reopen) ─────────
+    [ObservableProperty] private bool _acceptedByUser;
+    [ObservableProperty] private string? _acceptedAt;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLastUserReply))]
+    private string? _lastUserReply;
+    [ObservableProperty] private string? _lastUserReplyAt;
+    public bool HasLastUserReply => !string.IsNullOrWhiteSpace(LastUserReply);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasReopenedHistory))]
+    [NotifyPropertyChangedFor(nameof(ReopenedHistoryText))]
+    private int _reopenedCount;
+    public bool HasReopenedHistory => ReopenedCount > 0;
+    public string ReopenedHistoryText => ReopenedCount switch
+    {
+        0 => string.Empty,
+        1 => "↻ Переоткрыто 1 раз юзером",
+        var n => $"↻ Переоткрыто {n} раз(а) юзером",
+    };
+
     // ───────── Picker'ы для смены ─────────
     [ObservableProperty] private string _selectedStatusOption = "Открыто";
     [ObservableProperty] private string _selectedSeverityOption = "Обычно";
@@ -157,6 +179,14 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
             ResolvedAt = t.ResolvedAtUtc?.ToLocalTime()
                 .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
             NewResolutionNote = "";
+
+            AcceptedByUser = t.AcceptedByUser;
+            AcceptedAt = t.AcceptedByUserAtUtc?.ToLocalTime()
+                .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+            LastUserReply = t.LastUserReply;
+            LastUserReplyAt = t.LastUserReplyAtUtc?.ToLocalTime()
+                .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+            ReopenedCount = t.ReopenedCount;
         }
         catch (ApiException apiEx)
         {
@@ -172,6 +202,9 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
             OnPropertyChanged(nameof(HasUser));
             OnPropertyChanged(nameof(HasResolution));
             OnPropertyChanged(nameof(IsResolved));
+            OnPropertyChanged(nameof(HasLastUserReply));
+            OnPropertyChanged(nameof(HasReopenedHistory));
+            OnPropertyChanged(nameof(ReopenedHistoryText));
         }
     }
 

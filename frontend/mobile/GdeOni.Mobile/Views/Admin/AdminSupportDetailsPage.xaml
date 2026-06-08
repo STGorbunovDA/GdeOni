@@ -65,6 +65,16 @@
                         <Label Text="{Binding UpdatedAt, StringFormat='Обновлено: {0}'}"
                                IsVisible="{Binding UpdatedAt, TargetNullValue=False}"
                                Style="{StaticResource CaptionLabel}" />
+
+                        <!-- D25.1 бейджи -->
+                        <Label Text="✓ Юзер закрепил решение"
+                               TextColor="#2E7D32"
+                               FontAttributes="Bold"
+                               IsVisible="{Binding AcceptedByUser}" />
+                        <Label Text="{Binding ReopenedHistoryText}"
+                               TextColor="#C0392B"
+                               FontAttributes="Bold"
+                               IsVisible="{Binding HasReopenedHistory}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -102,6 +112,23 @@
                                FontFamily="Courier New"
                                FontSize="12"
                                LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- D25.1. Сообщение юзера при "Продолжить спор" -->
+                <Border Style="{StaticResource CloudCard}"
+                        BackgroundColor="#FFF8E1"
+                        IsVisible="{Binding HasLastUserReply}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Сообщение от пользователя"
+                               Style="{StaticResource SubTitleLabel}"
+                               TextColor="#C0392B" />
+                        <Label Text="{Binding LastUserReply}"
+                               Style="{StaticResource BodyLabel}"
+                               LineBreakMode="WordWrap" />
+                        <Label Text="{Binding LastUserReplyAt, StringFormat='Получено: {0}'}"
+                               Style="{StaticResource CaptionLabel}"
+                               IsVisible="{Binding LastUserReplyAt, TargetNullValue=False}" />
                     </VerticalStackLayout>
                 </Border>
 

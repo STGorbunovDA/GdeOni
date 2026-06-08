@@ -2,12 +2,17 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Class="GdeOni.Mobile.Views.Support.SupportDetailsPage"
              x:DataType="vm:SupportDetailsViewModel"
              Style="{StaticResource CloudPage}"
              Shell.NavBarIsVisible="False"
              Shell.TabBarIsVisible="False"
              Title="Обращение">
+
+    <ContentPage.Resources>
+        <toolkit:InvertedBoolConverter x:Key="InvertedBool" />
+    </ContentPage.Resources>
 
     <Grid>
         <ScrollView>
@@ -53,6 +58,10 @@
                                    TextColor="{Binding StatusColor}"
                                    FontAttributes="Bold" />
                         </Grid>
+
+                        <Label Text="{Binding ReopenedHistoryText}"
+                               Style="{StaticResource CaptionLabel}"
+                               IsVisible="{Binding HasReopenedHistory}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -79,6 +88,43 @@
                                IsVisible="{Binding ResolvedAt, TargetNullValue=False}" />
                     </VerticalStackLayout>
                 </Border>
+
+                <!-- Плашка "юзер закрепил" -->
+                <Border Style="{StaticResource CloudCard}"
+                        BackgroundColor="#E8F5E9"
+                        IsVisible="{Binding ShowAcceptedNote}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="✓ Вы подтвердили решение"
+                               TextColor="#2E7D32"
+                               FontAttributes="Bold" />
+                        <Label Text="{Binding AcceptedAt, StringFormat='Закреплено: {0}'}"
+                               Style="{StaticResource CaptionLabel}"
+                               IsVisible="{Binding AcceptedAt, TargetNullValue=False}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Действия юзера (Закрепить / Спор) — только если Resolved и не Accepted -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding CanShowActionButtons}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Что делаем дальше?"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Если ответ вас устраивает — закрепите его. Если нет — продолжите спор, и администратор увидит ваше сообщение."
+                               Style="{StaticResource CaptionLabel}" />
+                        <Button Text="✓ Закрепить решено"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding AcceptCommand}"
+                                IsEnabled="{Binding IsSaving, Converter={StaticResource InvertedBool}}" />
+                        <Button Text="Продолжить спор"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding ReopenCommand}"
+                                IsEnabled="{Binding IsSaving, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <ActivityIndicator IsRunning="{Binding IsSaving}"
+                                   IsVisible="{Binding IsSaving}"
+                                   Color="{StaticResource Azure}" />
 
             </VerticalStackLayout>
         </ScrollView>
