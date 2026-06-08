@@ -50,8 +50,15 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
 
     partial void OnTicketIdChanged(Guid value)
     {
-        if (value != Guid.Empty)
-            _ = LoadAsync();
+        if (value == Guid.Empty) return;
+        // Откладываем загрузку в следующий тик main thread'а — Shell
+        // навигация ставит QueryProperty синхронно из своего pipeline,
+        // и LoadAsync, начатый прямо здесь, может попасть до того, как
+        // Shell закончит push страницы. Это вызывает зависание UI
+        // (ANR) на части эмуляторов / устройств. Дёргать BeginInvokeOnMainThread
+        // отпускает stack frame, навигация завершается, и только потом
+        // мы стартуем HTTP-вызов.
+        MainThread.BeginInvokeOnMainThread(async () => await LoadAsync());
     }
 
     [RelayCommand]

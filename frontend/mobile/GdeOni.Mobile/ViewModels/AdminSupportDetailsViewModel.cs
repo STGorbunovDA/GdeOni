@@ -100,8 +100,11 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
 
     partial void OnTicketIdChanged(Guid value)
     {
-        if (value != Guid.Empty)
-            _ = LoadAsync();
+        if (value == Guid.Empty) return;
+        // Откладываем на следующий тик main thread'а — см. комментарий
+        // в SupportDetailsViewModel: ANR-фикс для случая, когда
+        // Shell-навигация и HTTP-запрос конфликтуют на стартовом frame.
+        MainThread.BeginInvokeOnMainThread(async () => await LoadAsync());
     }
 
     [RelayCommand]
