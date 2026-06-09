@@ -89,6 +89,25 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- Моё последнее сообщение админу из "Продолжить спор".
+                     Показываю в отличающемся цвете (как пузырь
+                     в чате), чтобы юзер видел свою реплику в переписке. -->
+                <Border Style="{StaticResource CloudCard}"
+                        BackgroundColor="#FFF8E1"
+                        IsVisible="{Binding HasLastUserReply}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Моё сообщение"
+                               Style="{StaticResource SubTitleLabel}"
+                               TextColor="#B26A00" />
+                        <Label Text="{Binding LastUserReply}"
+                               Style="{StaticResource BodyLabel}"
+                               LineBreakMode="WordWrap" />
+                        <Label Text="{Binding LastUserReplyAt, StringFormat='Отправлено: {0}'}"
+                               Style="{StaticResource CaptionLabel}"
+                               IsVisible="{Binding LastUserReplyAt, TargetNullValue=False}" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <!-- Плашка "юзер закрепил" -->
                 <Border Style="{StaticResource CloudCard}"
                         BackgroundColor="#E8F5E9"

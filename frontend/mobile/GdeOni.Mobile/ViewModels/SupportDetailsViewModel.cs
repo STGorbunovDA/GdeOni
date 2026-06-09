@@ -61,6 +61,15 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
     [NotifyPropertyChangedFor(nameof(ReopenedHistoryText))]
     private int _reopenedCount;
 
+    // Моё последнее сообщение админу из "Продолжить спор". Показываю
+    // юзеру тоже — чтобы он видел, что именно отправил, и не пытался
+    // вспомнить по памяти.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLastUserReply))]
+    private string? _lastUserReply;
+    [ObservableProperty] private string? _lastUserReplyAt;
+    public bool HasLastUserReply => !string.IsNullOrWhiteSpace(LastUserReply);
+
     public bool HasReopenedHistory => ReopenedCount > 0;
     public string ReopenedHistoryText => ReopenedCount switch
     {
@@ -228,5 +237,8 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
         AcceptedAt = t.AcceptedByUserAtUtc?.ToLocalTime()
             .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
         ReopenedCount = t.ReopenedCount;
+        LastUserReply = t.LastUserReply;
+        LastUserReplyAt = t.LastUserReplyAtUtc?.ToLocalTime()
+            .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
     }
 }
