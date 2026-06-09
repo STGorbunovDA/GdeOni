@@ -62,11 +62,12 @@
                         <Label Text="{Binding ReopenedHistoryText}"
                                Style="{StaticResource CaptionLabel}"
                                IsVisible="{Binding HasReopenedHistory}" />
-                    </VerticalStackLayout>
-                </Border>
 
-                <Border Style="{StaticResource CloudCard}">
-                    <VerticalStackLayout Spacing="8">
+                        <BoxView HeightRequest="1"
+                                 Color="#E0E0E0"
+                                 HorizontalOptions="Fill"
+                                 Margin="0,6,0,6" />
+
                         <Label Text="Описание"
                                Style="{StaticResource SubTitleLabel}" />
                         <Label Text="{Binding Description}"
