@@ -83,5 +83,15 @@ public static partial class Errors
             Error.Forbidden(
                 "support_ticket.modify.forbidden",
                 "You can only accept or reopen your own tickets.");
+
+        public static Error MessageTextRequired() =>
+            Error.Validation(
+                "support_ticket.message.text.required",
+                "Message text is required.");
+
+        public static Error MessageTextTooLong(int max) =>
+            Error.Validation(
+                "support_ticket.message.text.too_long",
+                $"Message text must not exceed {max} characters.");
     }
 }

@@ -33,4 +33,10 @@ public sealed class SupportTicketDto
 
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
+
+    /// <summary>
+    /// D25.2. История переписки в хронологическом порядке ASC.
+    /// Заполняется только в GetById query, в листинге null.
+    /// </summary>
+    public List<SupportTicketMessageDto>? Messages { get; set; }
 }

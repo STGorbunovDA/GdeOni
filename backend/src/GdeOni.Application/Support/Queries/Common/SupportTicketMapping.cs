@@ -4,7 +4,10 @@ namespace GdeOni.Application.Support.Queries.Common;
 
 internal static class SupportTicketMapping
 {
-    public static SupportTicketDto ToDto(this SupportTicket ticket, string? userEmail = null) =>
+    public static SupportTicketDto ToDto(
+        this SupportTicket ticket,
+        string? userEmail = null,
+        bool includeMessages = false) =>
         new()
         {
             Id = ticket.Id,
@@ -27,5 +30,18 @@ internal static class SupportTicketMapping
             ReopenedCount = ticket.ReopenedCount,
             CreatedAtUtc = ticket.CreatedAtUtc,
             UpdatedAtUtc = ticket.UpdatedAtUtc,
+            Messages = includeMessages
+                ? ticket.Messages
+                    .OrderBy(m => m.CreatedAtUtc)
+                    .Select(m => new SupportTicketMessageDto
+                    {
+                        Id = m.Id,
+                        AuthorKind = m.AuthorKind,
+                        AuthorUserId = m.AuthorUserId,
+                        Text = m.Text,
+                        CreatedAtUtc = m.CreatedAtUtc,
+                    })
+                    .ToList()
+                : null,
         };
 }

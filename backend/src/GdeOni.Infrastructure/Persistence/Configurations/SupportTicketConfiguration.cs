@@ -107,6 +107,16 @@ public sealed class SupportTicketConfiguration : IEntityTypeConfiguration<Suppor
             .HasForeignKey(x => x.ResolvedByUserId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // D25.2. Messages — каскадное удаление при удалении тикета.
+        // Маппим публичное навигационное свойство Messages, EF Core
+        // сам найдёт backing field _messages (по конвенции имени).
+        builder.HasMany(x => x.Messages)
+            .WithOne()
+            .HasForeignKey(m => m.TicketId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(x => x.Messages)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         // "Мои обращения" юзера — выборка по user_id + сортировка по
         // CreatedAtUtc DESC.
         builder.HasIndex(x => x.UserId)

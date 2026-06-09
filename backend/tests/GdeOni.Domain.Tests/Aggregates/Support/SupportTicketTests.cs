@@ -371,6 +371,66 @@ public sealed class SupportTicketTests
         t.LastUserReply.Should().Be("second");
     }
 
+    // ───────── D25.2. Messages ─────────
+
+    [Fact]
+    public void ChangeStatus_ToResolved_AppendsAdminMessage()
+    {
+        var t = NewOpen();
+        var admin = Guid.NewGuid();
+
+        t.ChangeStatus(SupportTicketStatus.Resolved, admin, "выдали complimentary", Now.AddHours(1));
+
+        t.Messages.Should().HaveCount(1);
+        var msg = t.Messages.Single();
+        msg.AuthorKind.Should().Be(SupportTicketMessageAuthorKind.Admin);
+        msg.AuthorUserId.Should().Be(admin);
+        msg.Text.Should().Be("выдали complimentary");
+        msg.CreatedAtUtc.Should().Be(Now.AddHours(1));
+    }
+
+    [Fact]
+    public void Reopen_WithReply_AppendsUserMessage_KeepsAdminHistory()
+    {
+        var (t, author) = NewResolvedWithAuthor();
+        // 1 сообщение админа уже есть после Resolved
+
+        t.Reopen(author, "не помогло", Now.AddHours(2));
+
+        t.Messages.Should().HaveCount(2);
+        var ordered = t.Messages.OrderBy(m => m.CreatedAtUtc).ToList();
+        ordered[0].AuthorKind.Should().Be(SupportTicketMessageAuthorKind.Admin);
+        ordered[1].AuthorKind.Should().Be(SupportTicketMessageAuthorKind.User);
+        ordered[1].Text.Should().Be("не помогло");
+    }
+
+    [Fact]
+    public void Reopen_WithoutReply_DoesNotAppendEmptyMessage()
+    {
+        var (t, author) = NewResolvedWithAuthor();
+        var msgCountBefore = t.Messages.Count;
+
+        t.Reopen(author, null, Now.AddHours(2));
+
+        t.Messages.Should().HaveCount(msgCountBefore);
+    }
+
+    [Fact]
+    public void Resolve_Reopen_Resolve_BuildsFullChat()
+    {
+        var (t, author) = NewResolvedWithAuthor();         // msg 1 — admin
+        t.Reopen(author, "не помогло", Now.AddHours(2));   // msg 2 — user
+        t.ChangeStatus(SupportTicketStatus.Resolved, Guid.NewGuid(),
+            "вернули деньги", Now.AddHours(3));            // msg 3 — admin
+
+        var ordered = t.Messages.OrderBy(m => m.CreatedAtUtc).ToList();
+        ordered.Should().HaveCount(3);
+        ordered[0].AuthorKind.Should().Be(SupportTicketMessageAuthorKind.Admin);
+        ordered[1].AuthorKind.Should().Be(SupportTicketMessageAuthorKind.User);
+        ordered[2].AuthorKind.Should().Be(SupportTicketMessageAuthorKind.Admin);
+        ordered[2].Text.Should().Be("вернули деньги");
+    }
+
     private static (SupportTicket Ticket, Guid AuthorId) NewResolvedWithAuthor()
     {
         var author = Guid.NewGuid();

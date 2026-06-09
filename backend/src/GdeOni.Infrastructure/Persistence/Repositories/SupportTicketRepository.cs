@@ -14,6 +14,16 @@ public sealed class SupportTicketRepository(AppDbContext dbContext) : ISupportTi
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
+    public Task<SupportTicket?> GetByIdWithMessages(Guid id, CancellationToken cancellationToken)
+    {
+        // Include всей коллекции — в карточке тикета это всегда
+        // полная история, постранично грузить смысла нет (десятки
+        // сообщений максимум).
+        return dbContext.SupportTickets
+            .Include(x => x.Messages)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
     public async Task<(List<(SupportTicket Ticket, string? UserEmail)> Items, int TotalCount)> GetPagedForAdmin(
         Guid? userId,
         SupportTicketStatus[]? statuses,

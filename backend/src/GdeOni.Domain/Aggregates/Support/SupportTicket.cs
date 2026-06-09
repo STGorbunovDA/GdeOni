@@ -73,6 +73,15 @@ public sealed class SupportTicket : Entity<Guid>
     /// </summary>
     public int ReopenedCount { get; private set; }
 
+    /// <summary>
+    /// D25.2. История переписки. Хронология ASC по CreatedAtUtc.
+    /// Первое сообщение — это исходный Description (не дублируется
+    /// в Messages), дальше — ответы админа (резолюции) и реплики
+    /// юзера (Reopen).
+    /// </summary>
+    private readonly List<SupportTicketMessage> _messages = new();
+    public IReadOnlyCollection<SupportTicketMessage> Messages => _messages.AsReadOnly();
+
     public DateTime CreatedAtUtc { get; }
     public DateTime? UpdatedAtUtc { get; private set; }
 
@@ -218,6 +227,14 @@ public sealed class SupportTicket : Entity<Guid>
             ResolutionNote = trimmedNote;
             ResolvedByUserId = adminId == Guid.Empty ? null : adminId;
             ResolvedAtUtc = nowUtc;
+
+            // D25.2. Каждый ответ админа = сообщение в переписке.
+            // Фабрика SupportTicketMessage.CreateFromAdmin валидирует
+            // длину/пустоту — но trimmedNote уже проверен выше, повтор
+            // ловит её на уровне domain-инварианта.
+            var msg = SupportTicketMessage.CreateFromAdmin(Id, adminId, trimmedNote, nowUtc);
+            if (msg.IsFailure) return msg.Error;
+            _messages.Add(msg.Value);
         }
 
         Status = newStatus;
@@ -312,6 +329,17 @@ public sealed class SupportTicket : Entity<Guid>
         LastUserReplyAtUtc = trimmedReply is null ? null : nowUtc;
         ReopenedCount++;
         UpdatedAtUtc = nowUtc;
+
+        // D25.2. Если юзер написал текст при Reopen — это сообщение
+        // в переписке. Без текста (просто кнопка) сообщение не
+        // добавляем — иначе в чате будет пустой пузырь.
+        if (trimmedReply is not null)
+        {
+            var msg = SupportTicketMessage.CreateFromUser(Id, actingUserId, trimmedReply, nowUtc);
+            if (msg.IsFailure) return msg.Error;
+            _messages.Add(msg.Value);
+        }
+
         return UnitResult.Success<Error>();
     }
 

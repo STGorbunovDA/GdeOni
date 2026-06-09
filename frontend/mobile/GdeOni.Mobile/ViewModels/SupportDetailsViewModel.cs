@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -69,6 +70,17 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
     private string? _lastUserReply;
     [ObservableProperty] private string? _lastUserReplyAt;
     public bool HasLastUserReply => !string.IsNullOrWhiteSpace(LastUserReply);
+
+    /// <summary>
+    /// D25.2. Полная переписка в хронологии ASC. Юзер видит свои
+    /// сообщения справа (белые), админа слева (жёлтые).
+    /// </summary>
+    public ObservableCollection<ChatMessage> ChatMessages { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasChatMessages))]
+    private int _chatMessagesCount;
+    public bool HasChatMessages => ChatMessagesCount > 0;
 
     public bool HasReopenedHistory => ReopenedCount > 0;
     public string ReopenedHistoryText => ReopenedCount switch
@@ -240,5 +252,15 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
         LastUserReply = t.LastUserReply;
         LastUserReplyAt = t.LastUserReplyAtUtc?.ToLocalTime()
             .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+
+        // D25.2. Перестраиваем чат с нуля каждый раз — это надёжнее
+        // чем диффы и для десятка сообщений дешево.
+        ChatMessages.Clear();
+        if (t.Messages is not null)
+        {
+            foreach (var msg in t.Messages)
+                ChatMessages.Add(ChatMessage.ForViewer(msg, viewerIsAdmin: false));
+        }
+        ChatMessagesCount = ChatMessages.Count;
     }
 }

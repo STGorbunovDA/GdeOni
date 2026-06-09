@@ -27,7 +27,7 @@ public sealed class GetSupportTicketByIdUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        var ticket = await ticketRepository.GetById(query.TicketId, cancellationToken);
+        var ticket = await ticketRepository.GetByIdWithMessages(query.TicketId, cancellationToken);
         if (ticket is null)
             return Errors.General.NotFound("support_ticket", query.TicketId);
 
@@ -44,6 +44,6 @@ public sealed class GetSupportTicketByIdUseCase(
         }
 
         return Result.Success<GetSupportTicketByIdResponse, Error>(
-            new GetSupportTicketByIdResponse(ticket.ToDto(userEmail)));
+            new GetSupportTicketByIdResponse(ticket.ToDto(userEmail, includeMessages: true)));
     }
 }

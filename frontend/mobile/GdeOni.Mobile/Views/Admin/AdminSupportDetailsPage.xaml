@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:vmsup="clr-namespace:GdeOni.Mobile.ViewModels.Support"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Class="GdeOni.Mobile.Views.Admin.AdminSupportDetailsPage"
              x:DataType="vm:AdminSupportDetailsViewModel"
@@ -115,37 +116,41 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- D25.1. Сообщение юзера при "Продолжить спор" -->
-                <Border Style="{StaticResource CloudCard}"
-                        BackgroundColor="#FFF8E1"
-                        IsVisible="{Binding HasLastUserReply}">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="Сообщение от пользователя"
-                               Style="{StaticResource SubTitleLabel}"
-                               TextColor="#C0392B" />
-                        <Label Text="{Binding LastUserReply}"
-                               Style="{StaticResource BodyLabel}"
-                               LineBreakMode="WordWrap" />
-                        <Label Text="{Binding LastUserReplyAt, StringFormat='Получено: {0}'}"
-                               Style="{StaticResource CaptionLabel}"
-                               IsVisible="{Binding LastUserReplyAt, TargetNullValue=False}" />
-                    </VerticalStackLayout>
-                </Border>
+                <!-- D25.2. Полная переписка. Для админа: свои (Admin)
+                     белые справа, юзер (User) жёлтые слева. -->
+                <Label Text="Переписка"
+                       Style="{StaticResource SubTitleLabel}"
+                       Margin="4,8,0,0"
+                       IsVisible="{Binding HasChatMessages}" />
 
-                <!-- Существующая резолюция (если Resolved уже) -->
-                <Border Style="{StaticResource CloudCard}"
-                        IsVisible="{Binding HasResolution}">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="Резолюция"
-                               Style="{StaticResource SubTitleLabel}" />
-                        <Label Text="{Binding ResolutionNote}"
-                               Style="{StaticResource BodyLabel}"
-                               LineBreakMode="WordWrap" />
-                        <Label Text="{Binding ResolvedAt, StringFormat='Закрыто: {0}'}"
-                               Style="{StaticResource CaptionLabel}"
-                               IsVisible="{Binding ResolvedAt, TargetNullValue=False}" />
-                    </VerticalStackLayout>
-                </Border>
+                <CollectionView ItemsSource="{Binding ChatMessages}"
+                                SelectionMode="None"
+                                IsVisible="{Binding HasChatMessages}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vmsup:ChatMessage">
+                            <Border BackgroundColor="{Binding BackgroundColor}"
+                                    Stroke="#E0E0E0"
+                                    StrokeShape="RoundRectangle 12"
+                                    Padding="12"
+                                    Margin="0,0,0,8"
+                                    HorizontalOptions="{Binding HorizontalOptions}"
+                                    MaximumWidthRequest="320">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="{Binding AuthorLabel}"
+                                           TextColor="{Binding LabelColor}"
+                                           FontAttributes="Bold"
+                                           FontSize="13" />
+                                    <Label Text="{Binding Text}"
+                                           Style="{StaticResource BodyLabel}"
+                                           LineBreakMode="WordWrap" />
+                                    <Label Text="{Binding CreatedAt}"
+                                           Style="{StaticResource CaptionLabel}"
+                                           FontSize="11" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
 
                 <!-- Смена статуса (скрыта если уже Resolved) -->
                 <Border Style="{StaticResource CloudCard}"

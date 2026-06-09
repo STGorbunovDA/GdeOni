@@ -15,6 +15,12 @@ public interface ISupportTicketRepository
     Task<SupportTicket?> GetById(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
+    /// D25.2. Аналог GetById с подгрузкой Messages (Include). Для
+    /// карточки тикета (юзер/админ) — там нужна вся переписка.
+    /// </summary>
+    Task<SupportTicket?> GetByIdWithMessages(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Пагинированный список для админ-UI с фильтрами. statuses /
     /// severities — массивы для чек-боксного UI (несколько статусов
     /// одновременно). emailSearch — частичное совпадение email юзера

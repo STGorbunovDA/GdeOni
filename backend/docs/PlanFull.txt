@@ -10595,6 +10595,26 @@ Mobile (админская карточка AdminSupportDetailsPage):
 [ ] Лист `/admin/support-tickets` — колонка / иконка "переоткрывался N раз"
     помогает админу видеть проблемные тикеты в общем списке.
 
+D25.2. Полноценная история переписки:
+- Новая таблица support_ticket_messages (id, ticket_id FK Cascade,
+  author_kind enum User/Admin, author_user_id FK SetNull, text,
+  created_at_utc).
+- Domain: SupportTicketMessage entity + поле _messages в SupportTicket
+  (IReadOnlyCollection наружу). ChangeStatus(Resolved) и Reopen
+  с непустым userReply добавляют сообщение в коллекцию.
+- LastUserReply / ResolutionNote остаются как snapshot для админ-
+  листинга (бейджи "юзер написал", фильтры), но source of truth для
+  истории — messages.
+- Миграция AddSupportTicketMessages переносит существующие
+  resolution_note → Admin-сообщения и last_user_reply → User-сообщения
+  с правильными created_at, чтобы старые тикеты тоже имели читаемую
+  историю.
+- GET /api/support-tickets/{id} возвращает messages: [...] (ASC по дате).
+- Mobile: блоки "Ответ администратора" / "Моё сообщение" заменены
+  единой CollectionView "Переписка" — пузыри с указанием автора и
+  даты. Юзер видит свои справа белые, админа слева жёлтые. У админа —
+  наоборот (свои справа, юзер слева жёлтым).
+
 ВНЕ scope этого блока (отдельные D-пункты при необходимости):
 - Refund через YooKassa Refund API (минимум на текущем этапе —
   админ ставит статус и делает refund вручную через ЛК YooKassa);

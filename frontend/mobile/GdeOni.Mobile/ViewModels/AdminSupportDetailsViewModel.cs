@@ -96,6 +96,14 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
     [NotifyPropertyChangedFor(nameof(HasReopenedHistory))]
     [NotifyPropertyChangedFor(nameof(ReopenedHistoryText))]
     private int _reopenedCount;
+
+    /// <summary>D25.2. Полная переписка для админа.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<Support.ChatMessage> ChatMessages { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasChatMessages))]
+    private int _chatMessagesCount;
+    public bool HasChatMessages => ChatMessagesCount > 0;
     public bool HasReopenedHistory => ReopenedCount > 0;
     public string ReopenedHistoryText => ReopenedCount switch
     {
@@ -187,6 +195,17 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
             LastUserReplyAt = t.LastUserReplyAtUtc?.ToLocalTime()
                 .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
             ReopenedCount = t.ReopenedCount;
+
+            // D25.2. Чат для админа: свои (Admin) справа белые, юзера
+            // (User) слева жёлтые — наоборот по сравнению с юзерским
+            // экраном, чтобы каждый видел собеседника подсвеченным.
+            ChatMessages.Clear();
+            if (t.Messages is not null)
+            {
+                foreach (var msg in t.Messages)
+                    ChatMessages.Add(Support.ChatMessage.ForViewer(msg, viewerIsAdmin: true));
+            }
+            ChatMessagesCount = ChatMessages.Count;
         }
         catch (ApiException apiEx)
         {

@@ -26,7 +26,15 @@ public sealed record SupportTicketDto(
     DateTime? LastUserReplyAtUtc,
     int ReopenedCount,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    IReadOnlyList<SupportTicketMessageDto>? Messages = null);
+
+public sealed record SupportTicketMessageDto(
+    Guid Id,
+    string AuthorKind,   // "User" / "Admin"
+    Guid? AuthorUserId,
+    string Text,
+    DateTime CreatedAtUtc);
 
 public sealed record CreateSupportTicketRequest(
     string Kind,
