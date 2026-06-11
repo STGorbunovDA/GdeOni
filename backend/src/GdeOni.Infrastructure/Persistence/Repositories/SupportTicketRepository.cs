@@ -77,8 +77,10 @@ public sealed class SupportTicketRepository(AppDbContext dbContext) : ISupportTi
             var term = search.Trim();
             var pattern = $"%{term}%";
             // Ищем в title, description и email юзера. ILIKE кейс-нечувств.
-            // Это full-table scan — при росте до десятков тысяч тикетов
-            // понадобится pg_trgm + GIN (как для deceased_records, D11.5.2).
+            // D31: title и description покрыты GIN+pg_trgm индексами
+            // (ix_support_tickets_title_trgm, ix_support_tickets_description_trgm),
+            // email — ix_users_email_trgm. На больших объёмах PG-планировщик
+            // сам выберет index scan вместо seq scan.
             query = query.Where(x =>
                 EF.Functions.ILike(x.Ticket.Title, pattern)
                 || EF.Functions.ILike(x.Ticket.Description, pattern)

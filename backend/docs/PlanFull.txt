@@ -10819,10 +10819,7 @@ catch, .Result/.Wait, N+1. Нашёл два реальных пункта, ос
   на upload. На 25MB × 10 параллельных = 250MB. Когда станет
   заметно — переписать через PipeReader. Сейчас MaxRequestSize
   жёстко режет всё что больше 25MB.
-- SupportTicketRepository.GetPagedForAdmin — ILIKE full-scan
-  без pg_trgm. Сейчас тикетов ~десятки, не проблема. Когда
-  начнёт лагать на >10к — добавить GIN-индекс как для
-  deceased_records (D11.5.2).
+- SupportTicketRepository.GetPagedForAdmin — закрыто D31.
 - E23 anniversaries только на mobile (WorkManager-alarms),
   на web их нет вообще. Если решим делать — отдельный D-пункт
   под email-уведомления или web-push.
@@ -10835,6 +10832,38 @@ catch, .Result/.Wait, N+1. Нашёл два реальных пункта, ос
 - .Result / .Wait() — нет.
 - Skip'нутых или закомментированных тестов — нет.
 - new Error(...) напрямую в обход Errors.X — нет.
+
+---------------------------------------------------------------------
+D31. pg_trgm GIN-индексы для support tickets
+---------------------------------------------------------------------
+
+SupportTicketRepository.GetPagedForAdmin ILIKE'ает по title,
+description и users.email. Email уже покрыт ix_users_email_trgm
+(миграция AddPgTrgmIndexes). Не хватало двух индексов: на title
+и description.
+
+Что сделал:
+- Миграция AddPgTrgmIndexesForSupportTickets:
+  * CREATE EXTENSION IF NOT EXISTS pg_trgm (no-op, уже создан);
+  * ix_support_tickets_title_trgm GIN(title gin_trgm_ops);
+  * ix_support_tickets_description_trgm GIN(description gin_trgm_ops).
+- Применил на dev-БД через `dotnet ef database update`.
+- Обновил комментарий в SupportTicketRepository.GetPagedForAdmin —
+  убрал "понадобится pg_trgm + GIN" и явно перечислил какие
+  индексы покрывают какие поля.
+
+Запрос править не пришлось — EF.Functions.ILike генерирует SQL
+формы `column ILIKE '%term%'`, PG-планировщик сам выбирает GIN
+index scan когда селективность достаточная.
+
+Эффект: пока тикетов десятки — full-table scan занимает единицы
+ms, разницы не видно. Когда вырастет до 10k+ — без GIN'а будет
+sequential scan, с GIN'ом останется в единицах ms. Индексы
+дешёвые (несколько MB на типичный размер), поставили заранее
+чтобы потом не разбираться когда заметят пользователи.
+
+Down-миграция дропает только эти два индекса, extension не
+трогает (используется другими).
 
 ---------------------------------------------------------------------
 F17.15. Найти умершего + admin-view карточки (~ D27)
@@ -10892,10 +10921,16 @@ F17.15. Найти умершего + admin-view карточки (~ D27)
     умершего, если MainMediaId не задан — auto-call SetMainPhoto.
     Иначе в общем поиске карточка останется без превью (бэк
     отдаёт MainPhotoUrl только когда MainMediaId явно задан).
+[ ] D30: секция "Воспоминания" — список с текстом, датой,
+    ModerationStatus (Approved/Pending/Rejected) и кнопкой
+    "Удалить". Воспоминания приходят прямо в GET /:id, отдельный
+    запрос не нужен. Удаление — DELETE /memories/{id} с
+    подтверждением, после успеха перезагружаем карточку.
+    Это закрывает модерацию текстового контента — админ может
+    зачистить мат/спам/жалобы не лазая в обычную карточку юзера.
 
 Не делаем в этом блоке (отложено):
-- Воспоминания (memories) в admin-view не отображаются. Если
-  понадобится модерация прямо с этой страницы — отдельный пункт.
+- (всё уже сделано: верификация в D29, воспоминания в D30).
 
 ---------------------------------------------------------------------
 F17.99. Что НЕ делаем в админке
