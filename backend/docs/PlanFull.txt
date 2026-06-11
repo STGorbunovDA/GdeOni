@@ -10866,6 +10866,53 @@ Down-миграция дропает только эти два индекса, 
 трогает (используется другими).
 
 ---------------------------------------------------------------------
+D32. Streaming upload медиа — один проход по байтам
+---------------------------------------------------------------------
+
+Раньше FileValidator.ValidateMagicBytesAsync требовал
+Stream.CanSeek=true: читал первые 12 байт, делал Seek(0) назад,
+дальше MinIO SDK читал тот же файл ещё раз. Это работало только
+для seekable-потоков (IFormFile под капотом — FileBufferingReadStream
+который буферизует в RAM до 30KB и затем на диск) и блокировало
+будущий переход на Request.BodyReader / NetworkStream — там
+CanSeek=false.
+
+Что сделал:
+- FileValidator.ValidateMagicBytesAsync теперь возвращает
+  Result<Stream, Error> вместо UnitResult<Error>. На успехе
+  возвращает PrefixedStream — обёртка, у которой первые 12 байт
+  отдаются из in-memory буфера, а дальше она проксирует чтение
+  в оригинальный Stream без Seek.
+- Убрал требование CanSeek=true и сохранение/восстановление
+  Position — больше не нужны, поток читается за один проход.
+- UploadMediaUseCase: складывает uploadStream в UploadFileRequest.Content,
+  MinIO SDK получает PrefixedStream и стримит файл целиком за один pass.
+
+Новый файл: backend/src/GdeOni.Application/Abstractions/Storage/PrefixedStream.cs
+— read-only Stream, не поддерживает Seek/Position/Length/Write, отдаёт
+сначала префикс (прочитанные magic bytes), потом — inner stream.
+
+Контракт публичного API не изменился: контроллер всё ещё принимает
+[FromForm] IFormFile, мобильный клиент не правился.
+
+Эффект:
+- Убран лишний read первых 12 байт (раньше делался дважды: при
+  валидации и при PutObject).
+- Pipeline теперь готов к non-seekable streams — если в будущем
+  захотим взять Request.BodyReader напрямую (для обхода
+  FileBufferingReadStream), достаточно сменить контроллер, FileValidator
+  и MinioFileStorage уже работают.
+- Memory footprint снизился на ~12 байт per upload (мелочь),
+  главный профит — архитектурный.
+
+Тесты:
+- Application: все 229 тестов, включая Upload_MagicBytesMismatch,
+  Upload_SaveFails_DeletesFileFromStorageAndRethrows, Upload_Admin_AutoApprovesAndSaves —
+  зелёные.
+- Integration: 111 тестов с реальным MinIO под Testcontainers,
+  включая загрузку реальных файлов и проверку хэша — зелёные.
+
+---------------------------------------------------------------------
 F17.15. Найти умершего + admin-view карточки (~ D27)
 ---------------------------------------------------------------------
 

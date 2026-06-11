@@ -71,28 +71,41 @@ public static class FileValidator
 
     private const int MagicBytesProbeLength = 12;
 
-    public static async Task<UnitResult<Error>> ValidateMagicBytesAsync(
+    /// <summary>
+    /// Проверяет первые <see cref="MagicBytesProbeLength"/> байт потока
+    /// на соответствие декларированному <paramref name="contentType"/>.
+    /// </summary>
+    /// <returns>
+    /// Stream, который можно лить дальше в storage: прочитанные magic
+    /// bytes склеиваются с остатком оригинала через PrefixedStream, так
+    /// что вышестоящему коду не нужен <see cref="Stream.CanSeek"/>. Это
+    /// D32: убираем требование к seekable-потоку и устраняем повторное
+    /// чтение первых байт (раньше делался Seek(0) + ReadFully + Seek
+    /// назад → MinIO SDK читал заново).
+    /// </returns>
+    public static async Task<Result<Stream, Error>> ValidateMagicBytesAsync(
         Stream content,
         string contentType,
         MediaKind kind,
         CancellationToken cancellationToken)
     {
-        if (content is null || !content.CanRead || !content.CanSeek)
+        if (content is null || !content.CanRead)
             return Errors.Media.UnreadableStream();
 
         if (string.IsNullOrWhiteSpace(contentType))
             return Errors.DeceasedMedia.ContentTypeRequired();
 
         var buffer = new byte[MagicBytesProbeLength];
-        var originalPosition = content.Position;
-        content.Position = 0;
         var read = await ReadFullyAsync(content, buffer, cancellationToken);
-        content.Position = originalPosition;
 
         if (read < MagicBytesProbeLength || !MatchesSignature(buffer, contentType))
             return Errors.Media.MagicBytesMismatch(contentType);
 
-        return UnitResult.Success<Error>();
+        // Склеиваем прочитанные байты обратно с остатком оригинала —
+        // вышестоящий код получит цельный поток без необходимости
+        // делать Seek(0). Для seekable-потоков (MemoryStream в тестах /
+        // FileBufferingReadStream в проде) это работает одинаково.
+        return new PrefixedStream(buffer, content);
     }
 
     private static async Task<int> ReadFullyAsync(
