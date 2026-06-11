@@ -62,6 +62,19 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- D27. Поиск умершего по всем характеристикам и просмотр
+                     карточки без добавления в отслеживание. Полный admin-
+                     контроль над медиа и верификацией. -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Найти умершего" Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Поиск по имени, датам, городу, координатам и пр. Полный просмотр без подписки." Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Открыть"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding OpenAdminFindDeceasedCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

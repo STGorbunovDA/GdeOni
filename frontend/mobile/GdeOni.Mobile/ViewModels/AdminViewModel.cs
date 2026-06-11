@@ -27,6 +27,15 @@ public partial class AdminViewModel : ObservableObject
         => await Shell.Current.GoToAsync("admin-support");
 
     /// <summary>
+    /// D27. Поиск умершего по всем характеристикам с полным admin-просмотром
+    /// карточки (медиа, координаты, верификация) без добавления её в
+    /// отслеживание.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenAdminFindDeceasedAsync()
+        => await Shell.Current.GoToAsync("admin-find-deceased");
+
+    /// <summary>
     /// Возврат на профиль (откуда обычно попадают). ".." делает pop,
     /// если переход был через push; если AdminPage оказалась корневой
     /// в стеке — открываем профиль абсолютным путём как fallback.

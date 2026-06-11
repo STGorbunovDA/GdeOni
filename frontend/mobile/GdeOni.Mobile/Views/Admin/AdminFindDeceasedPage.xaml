@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:models="clr-namespace:GdeOni.Mobile.Services.Api.Models"
+             x:Class="GdeOni.Mobile.Views.Admin.AdminFindDeceasedPage"
+             x:Name="Page"
+             x:DataType="vm:AdminFindDeceasedViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Найти умершего">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="14">
+
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8" />
+
+                <Label Text="Найти умершего" Style="{StaticResource TitleLabel}" />
+                <Label Text="Поиск по всем характеристикам. Тап по карточке — полный admin-просмотр без подписки."
+                       Style="{StaticResource CaptionLabel}" />
+
+                <!-- Фильтры -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Фильтры" Style="{StaticResource SubTitleLabel}" FontSize="15" />
+
+                        <Entry Placeholder="Поиск по любому полю имени (search)"
+                               Text="{Binding Search}" />
+                        <Entry Placeholder="Имя" Text="{Binding FirstName}" />
+                        <Entry Placeholder="Фамилия" Text="{Binding LastName}" />
+                        <Entry Placeholder="Отчество" Text="{Binding MiddleName}" />
+                        <Entry Placeholder="Страна" Text="{Binding Country}" />
+                        <Entry Placeholder="Город" Text="{Binding City}" />
+
+                        <!-- Дата рождения -->
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                            <CheckBox Grid.Column="0" IsChecked="{Binding FilterByBirthDate}" />
+                            <Label Grid.Column="1"
+                                   Text="Дата рождения"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                        <DatePicker Date="{Binding BirthDate}"
+                                    IsEnabled="{Binding FilterByBirthDate}" />
+
+                        <!-- Дата смерти -->
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                            <CheckBox Grid.Column="0" IsChecked="{Binding FilterByDeathDate}" />
+                            <Label Grid.Column="1"
+                                   Text="Дата смерти"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                        <DatePicker Date="{Binding DeathDate}"
+                                    IsEnabled="{Binding FilterByDeathDate}" />
+
+                        <!-- Создано (диапазон) -->
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                            <CheckBox Grid.Column="0" IsChecked="{Binding FilterByCreatedFrom}" />
+                            <Label Grid.Column="1"
+                                   Text="Карточка создана с"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                        <DatePicker Date="{Binding CreatedFrom}"
+                                    IsEnabled="{Binding FilterByCreatedFrom}" />
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                            <CheckBox Grid.Column="0" IsChecked="{Binding FilterByCreatedTo}" />
+                            <Label Grid.Column="1"
+                                   Text="Карточка создана по"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                        <DatePicker Date="{Binding CreatedTo}"
+                                    IsEnabled="{Binding FilterByCreatedTo}" />
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                            <Label Grid.Column="0" Text="Верификация:"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Picker Grid.Column="1"
+                                    ItemsSource="{Binding VerifiedOptions}"
+                                    SelectedItem="{Binding SelectedVerifiedOption}" />
+                        </Grid>
+
+                        <Button Text="Найти"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ApplySearchCommand}"
+                                HorizontalOptions="Fill" />
+
+                        <Button Text="Сбросить фильтры"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding ClearFiltersCommand}"
+                                HorizontalOptions="End"
+                                Padding="14,6"
+                                FontSize="13" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding TotalCount, StringFormat='Всего: {0}'}"
+                       Style="{StaticResource CaptionLabel}" />
+
+                <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                   IsVisible="{Binding IsLoading}"
+                                   Color="{StaticResource Azure}" />
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="#C0392B"
+                       Style="{StaticResource BodyLabel}" />
+
+                <Label Text="Ничего не найдено."
+                       Style="{StaticResource CaptionLabel}"
+                       IsVisible="{Binding HasNoItems}" />
+
+                <CollectionView ItemsSource="{Binding Items}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:DeceasedSearchItem">
+                            <Border Style="{StaticResource CloudCard}" Margin="0,0,0,8">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Grid ColumnDefinitions="64,*" ColumnSpacing="10">
+                                    <!-- Маленькая аватарка слева -->
+                                    <Border Grid.Column="0"
+                                            StrokeThickness="0"
+                                            WidthRequest="56"
+                                            HeightRequest="56"
+                                            VerticalOptions="Center">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="28" />
+                                        </Border.StrokeShape>
+                                        <Grid>
+                                            <!-- Плейсхолдер всегда виден сзади. Если URL
+                                                 есть — Image сверху его закроет; если нет —
+                                                 Image ничего не отрендерит, и видно 🕊.
+                                                 IsVisible binding к строке MainPhotoUrl
+                                                 (как bool) ненадёжен — MAUI на разных
+                                                 платформах даёт разные результаты. -->
+                                            <BoxView Color="{StaticResource Sky}" />
+                                            <Label Text="🕊"
+                                                   FontSize="22"
+                                                   Opacity="0.6"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center" />
+                                            <Image Source="{Binding MainPhotoUrl}"
+                                                   Aspect="AspectFill" />
+                                        </Grid>
+                                    </Border>
+
+                                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding FullName}"
+                                                   Style="{StaticResource SubTitleLabel}"
+                                                   FontSize="15"
+                                                   LineBreakMode="TailTruncation" />
+                                            <Label Grid.Column="1"
+                                                   Text="✓"
+                                                   FontSize="14"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{StaticResource AzureDeep}"
+                                                   IsVisible="{Binding IsVerified}" />
+                                        </Grid>
+                                        <Label Style="{StaticResource CaptionLabel}">
+                                            <Label.Text>
+                                                <MultiBinding StringFormat="{}{0:dd.MM.yyyy} — {1:dd.MM.yyyy}">
+                                                    <Binding Path="BirthDate" TargetNullValue="?" />
+                                                    <Binding Path="DeathDate" />
+                                                </MultiBinding>
+                                            </Label.Text>
+                                        </Label>
+                                        <Label Text="{Binding City, TargetNullValue='—'}"
+                                               Style="{StaticResource CaptionLabel}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Button Text="Загрузить ещё"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding LoadNextPageCommand}"
+                        IsVisible="{Binding CanLoadMore}" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

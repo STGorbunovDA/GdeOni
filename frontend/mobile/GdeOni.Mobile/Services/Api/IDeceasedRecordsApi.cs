@@ -33,6 +33,9 @@ public interface IDeceasedRecordsApi
         [Query] string? city = null,
         [Query] string? birthDate = null,
         [Query] string? deathDate = null,
+        [Query] bool? isVerified = null,
+        [Query] string? createdFrom = null,
+        [Query] string? createdTo = null,
         [Query] int page = 1,
         [Query] int pageSize = 20,
         CancellationToken cancellationToken = default);
@@ -122,5 +125,22 @@ public interface IDeceasedRecordsApi
         Guid deceasedId,
         [Query] int page = 1,
         [Query] int pageSize = 20,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D29. Поставить карточке умершего флаг IsVerified=true. Только админ.
+    /// 409 если уже verified.
+    /// </summary>
+    [Put("/api/deceased-records/{deceasedId}/verify")]
+    Task<HttpResponseMessage> VerifyAsync(
+        Guid deceasedId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D29. Снять флаг IsVerified. Только админ. 409 если уже unverified.
+    /// </summary>
+    [Put("/api/deceased-records/{deceasedId}/unverified")]
+    Task<HttpResponseMessage> UnverifyAsync(
+        Guid deceasedId,
         CancellationToken cancellationToken = default);
 }

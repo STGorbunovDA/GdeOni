@@ -312,6 +312,10 @@ public static class MauiProgram
         services.AddTransient<AdminSupportViewModel>();
         services.AddTransient<AdminSupportDetailsViewModel>();
 
+        // D27 mobile. Админ-поиск умершего и admin-просмотр без отслеживания.
+        services.AddTransient<AdminFindDeceasedViewModel>();
+        services.AddTransient<AdminDeceasedViewViewModel>();
+
         services.AddTransient<LoginPage>();
         services.AddTransient<RegisterPage>();
         services.AddTransient<TrackedListPage>();
@@ -344,5 +348,12 @@ public static class MauiProgram
         services.AddTransient<GdeOni.Mobile.Views.Support.SupportDetailsPage>();
         services.AddTransient<GdeOni.Mobile.Views.Admin.AdminSupportPage>();
         services.AddTransient<GdeOni.Mobile.Views.Admin.AdminSupportDetailsPage>();
+
+        // D27 mobile. Pages админ-поиска.
+        services.AddTransient<GdeOni.Mobile.Views.Admin.AdminFindDeceasedPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Admin.AdminDeceasedViewPage>();
+
+        // D27.1. Полноэкранный просмотр фото.
+        services.AddTransient<GdeOni.Mobile.Views.Common.FullScreenPhotoPage>();
     }
 }

@@ -59,6 +59,12 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("support-details", typeof(GdeOni.Mobile.Views.Support.SupportDetailsPage));
         Routing.RegisterRoute("admin-support", typeof(GdeOni.Mobile.Views.Admin.AdminSupportPage));
         Routing.RegisterRoute("admin-support-details", typeof(GdeOni.Mobile.Views.Admin.AdminSupportDetailsPage));
+        // D27. Поиск умершего + admin-просмотр без отслеживания.
+        Routing.RegisterRoute("admin-find-deceased", typeof(GdeOni.Mobile.Views.Admin.AdminFindDeceasedPage));
+        Routing.RegisterRoute("admin-deceased-view", typeof(GdeOni.Mobile.Views.Admin.AdminDeceasedViewPage));
+        // D27.1. Полноэкранный просмотр фото — открывается по тапу на
+        // плитку фото в галерее. Доступно всем (юзеру и админу).
+        Routing.RegisterRoute("photo-viewer", typeof(GdeOni.Mobile.Views.Common.FullScreenPhotoPage));
 
         // E21: поиск умерших в радиусе вокруг текущей точки пользователя.
         Routing.RegisterRoute("nearby-search", typeof(NearbySearchPage));
