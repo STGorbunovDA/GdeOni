@@ -52,9 +52,38 @@ public sealed class RateLimitedWebAppFactory : WebApplicationFactory<Program>, I
         await _postgres.StartAsync();
         await _minio.StartAsync();
 
-        using var scope = Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await dbContext.Database.MigrateAsync();
+        // См. GdeOniWebAppFactory.InitializeAsync: env-vars выставляем
+        // после старта контейнеров и ДО первого обращения к Services,
+        // чтобы Program.cs прочитал реальные значения от Testcontainers
+        // через стандартный EnvironmentVariablesConfigurationSource.
+        var minioEndpoint = new Uri(_minio.GetConnectionString()).Authority;
+
+        Environment.SetEnvironmentVariable(
+            "ConnectionStrings__DefaultConnection",
+            _postgres.GetConnectionString());
+        Environment.SetEnvironmentVariable("Minio__Endpoint", minioEndpoint);
+        Environment.SetEnvironmentVariable("Minio__AccessKey", "minioadmin");
+        Environment.SetEnvironmentVariable("Minio__SecretKey", "minioadmin");
+        Environment.SetEnvironmentVariable("Minio__UseSsl", "false");
+        Environment.SetEnvironmentVariable("Minio__Buckets__DeceasedPhotos", "deceased-photos");
+        Environment.SetEnvironmentVariable("Minio__Buckets__GravePhotos", "grave-photos");
+        Environment.SetEnvironmentVariable("Minio__Buckets__DeceasedDocuments", "deceased-documents");
+        Environment.SetEnvironmentVariable("Minio__Cleanup__Enabled", "false");
+        Environment.SetEnvironmentVariable("RefreshTokensCleanup__Enabled", "false");
+        Environment.SetEnvironmentVariable("Cors__AllowedOrigins__0", "http://localhost:5173");
+
+        // Миграции накатываем в обход хоста — см. GdeOniWebAppFactory
+        // для деталей про fail-fast в Program.cs:66.
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseNpgsql(_postgres.GetConnectionString())
+            .UseSnakeCaseNamingConvention()
+            .Options;
+        await using (var migrateContext = new AppDbContext(options))
+        {
+            await migrateContext.Database.MigrateAsync();
+        }
+
+        _ = Services;
     }
 
     public new async Task DisposeAsync()

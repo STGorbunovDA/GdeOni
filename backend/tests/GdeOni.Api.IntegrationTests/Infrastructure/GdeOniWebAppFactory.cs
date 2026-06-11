@@ -164,11 +164,50 @@ public sealed class GdeOniWebAppFactory : WebApplicationFactory<Program>, IAsync
         await _postgres.StartAsync();
         await _minio.StartAsync();
 
-        // Триггерим Build приложения через Server, чтобы получить
-        // ServiceProvider и вызвать MigrateAsync над контейнерным Postgres.
-        using var scope = Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await dbContext.Database.MigrateAsync();
+        // КРИТИЧНО: env-vars выставляем после старта контейнеров, но
+        // ДО первого обращения к Services. WebApplicationBuilder
+        // в Program.cs читает их синхронно через стандартный
+        // EnvironmentVariablesConfigurationSource — на CI нет
+        // appsettings.Development.json (он в .gitignore), и без этих
+        // env-vars AddInfrastructure fail-fast'нет на пустой connection
+        // string ещё до того, как ConfigureAppConfiguration подменит
+        // источник. ConfigureAppConfiguration ниже — страховка для
+        // IOptions, env-vars — для snapshot-чтения при старте.
+        var minioEndpoint = new Uri(_minio.GetConnectionString()).Authority;
+
+        Environment.SetEnvironmentVariable(
+            "ConnectionStrings__DefaultConnection",
+            _postgres.GetConnectionString());
+        Environment.SetEnvironmentVariable("Minio__Endpoint", minioEndpoint);
+        Environment.SetEnvironmentVariable("Minio__AccessKey", "minioadmin");
+        Environment.SetEnvironmentVariable("Minio__SecretKey", "minioadmin");
+        Environment.SetEnvironmentVariable("Minio__UseSsl", "false");
+        Environment.SetEnvironmentVariable("Minio__Buckets__DeceasedPhotos", "deceased-photos");
+        Environment.SetEnvironmentVariable("Minio__Buckets__GravePhotos", "grave-photos");
+        Environment.SetEnvironmentVariable("Minio__Buckets__DeceasedDocuments", "deceased-documents");
+        Environment.SetEnvironmentVariable("Minio__Cleanup__Enabled", "false");
+        Environment.SetEnvironmentVariable("RefreshTokensCleanup__Enabled", "false");
+        Environment.SetEnvironmentVariable("Cors__AllowedOrigins__0", "http://localhost:5173");
+
+        // КРИТИЧНО: миграции накатываем ДО первого обращения к Services.
+        // Program.cs:66 вызывает EnsureMigrationsAppliedAsync синхронно
+        // в bootstrap'е приложения и fail-fast'ит при pending migrations.
+        // Если триггерить Build через Services без предварительного
+        // MigrateAsync — bootstrap упадёт раньше, чем тесты успеют
+        // подняться. Поэтому создаём отдельный DbContext в обход хоста,
+        // прокатываем миграции, и только потом обращаемся к Services.
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseNpgsql(_postgres.GetConnectionString())
+            .UseSnakeCaseNamingConvention()
+            .Options;
+        await using (var migrateContext = new AppDbContext(options))
+        {
+            await migrateContext.Database.MigrateAsync();
+        }
+
+        // Триггерим Build приложения — миграции уже накатаны, поэтому
+        // EnsureMigrationsAppliedAsync пройдёт.
+        _ = Services;
     }
 
     /// <summary>
