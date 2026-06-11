@@ -92,9 +92,17 @@ public sealed class ActiveSubscriptionAuthorizationHandler(
             return;
         }
 
+        // Берём cancellation token из текущего HttpContext, если он
+        // есть. Раньше тут было CancellationToken.None — handler дёргается
+        // на каждом авторизованном запросе, и при дисконнекте клиента
+        // запрос продолжал работать (graceful shutdown тоже не работал).
+        var ct = context.Resource is HttpContext httpContext
+            ? httpContext.RequestAborted
+            : CancellationToken.None;
+
         await using var scope = scopeFactory.CreateAsyncScope();
         var userRepo = scope.ServiceProvider.GetRequiredService<IUserRepository>();
-        var user = await userRepo.GetByIdReadOnly(userId, CancellationToken.None);
+        var user = await userRepo.GetByIdReadOnly(userId, ct);
         if (user is null)
         {
             // Отрицательный результат тоже кешируем — иначе атакующий
