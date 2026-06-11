@@ -103,11 +103,21 @@
                                         </Grid>
                                     </Border>
 
-                                    <Label Grid.Row="0" Grid.Column="1"
-                                           Text="{Binding FullName}"
-                                           Style="{StaticResource SubTitleLabel}"
-                                           FontSize="16"
-                                           LineBreakMode="TailTruncation" />
+                                    <!-- D29. Имя + ✓ если IsVerified. -->
+                                    <HorizontalStackLayout Grid.Row="0" Grid.Column="1"
+                                                           Spacing="6"
+                                                           VerticalOptions="Center">
+                                        <Label Text="{Binding FullName}"
+                                               Style="{StaticResource SubTitleLabel}"
+                                               FontSize="16"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Text="✓"
+                                               FontSize="14"
+                                               FontAttributes="Bold"
+                                               TextColor="{StaticResource AzureDeep}"
+                                               VerticalOptions="Center"
+                                               IsVisible="{Binding IsVerified}" />
+                                    </HorizontalStackLayout>
 
                                     <Label Grid.Row="1" Grid.Column="1"
                                            Style="{StaticResource CaptionLabel}"

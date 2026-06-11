@@ -62,7 +62,8 @@ public sealed class GetMyTrackedDeceasedListUseCase(
                     Status = tracking.Status.ToString(),
                     NotifyOnDeathAnniversary = tracking.NotifyOnDeathAnniversary,
                     NotifyOnBirthAnniversary = tracking.NotifyOnBirthAnniversary,
-                    TrackedAtUtc = tracking.TrackedAtUtc
+                    TrackedAtUtc = tracking.TrackedAtUtc,
+                    IsVerified = deceased.IsVerified
                 };
             })
             .ToList();

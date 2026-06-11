@@ -21,4 +21,5 @@ public sealed record TrackedDeceasedListItem(
     bool NotifyOnDeathAnniversary,
     bool NotifyOnBirthAnniversary,
     DateTime TrackedAtUtc,
-    Guid? MainMediaId = null);
+    Guid? MainMediaId = null,
+    bool IsVerified = false);
