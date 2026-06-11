@@ -9853,27 +9853,48 @@ F12. Воспоминания CRUD (~ E12)
 (F17), не в обычном UI юзера.
 
 ---------------------------------------------------------------------
-F13. Загрузка файлов (~ E10)
+F13. Загрузка файлов (~ E10) — admin-only write (D26)
 ---------------------------------------------------------------------
+
+D26 на бэке закрыл POST/DELETE/PATCH media под Roles=SuperAdmin,Admin.
+Web должен это зеркалить: чтение медиа доступно любому
+авторизованному, запись — только админам. Юзер видит фото и
+документы (read-only), кнопки "Загрузить" / "Удалить" / "Сделать
+главным" — скрыты. Это снимает юр.риск, как на mobile.
 
 [ ] Три галереи на карточке: Фото умершего, Фото могилы,
     Документы. GET /api/deceased-records/{id}/media с фильтром
-    по kind.
+    по kind. Доступно всем авторизованным.
 [ ] Кнопка "Загрузить" → modal с тремя кнопками "Фото
     умершего" / "Фото могилы" / "Документ" → input
     type=file → POST /media multipart/form-data с заголовком
-    kind.
+    kind. **ВИДНА ТОЛЬКО админу** (зеркало D26 mobile —
+    IsCurrentUserAdmin). Бэк всё равно вернёт 403 для не-админа,
+    UI прячет кнопку чтобы не показывать заведомо невозможное
+    действие.
 [ ] Progress: axios.onUploadProgress → progress bar (Mantine
     `<Progress>`).
-[ ] Тап на фото → modal с действиями:
-    - "Сделать главным" (только для DeceasedPhoto и если ещё
-      не main) → PUT /media/{id}/main-photo;
-    - "Удалить" → confirm → DELETE /media/{id}.
-[ ] Auto-promote main: если загрузили первое фото умершего и
-    main-photo ещё не было — auto-call SetMainPhoto (≈
-    UploadStreamAsync на mobile).
+[ ] Тап на фото:
+    - Для всех пользователей — открывается fullscreen viewer
+      (modal с тёмным фоном, фото AspectFit по центру, тап по
+      фону или ✕ закрывает) — зеркало D27.1 mobile
+      (FullScreenPhotoPage).
+    - Для админа сначала ActionSheet/dropdown с пунктами:
+      "Открыть на весь экран" (всегда), "Сделать главным"
+      (только для DeceasedPhoto и если ещё не main) → PUT
+      /media/{id}/main-photo, "Удалить" → confirm → DELETE
+      /media/{id}. Для не-админа — сразу fullscreen без меню.
+[ ] Главное фото помечается синим кружком со звёздочкой ★ в
+    правом верхнем углу плитки (как в DeceasedDetailsPage и
+    AdminDeceasedViewPage mobile).
+[ ] Auto-promote main: если админ загрузил первое фото умершего
+    и main-photo ещё не было — auto-call SetMainPhoto. Без этого
+    в общем поиске карточка не получит превью, потому что бэк
+    отдаёт MainPhotoUrl только когда MainMediaId явно задан.
 [ ] Обработка ошибок: MIME (415), размер (413), backend-
-    валидация.
+    валидация, 403 на write-операциях у не-админа (показать
+    понятный месседж "Только администраторы могут управлять
+    медиа").
 
 ---------------------------------------------------------------------
 F14. Маршрут
@@ -10615,6 +10636,21 @@ D25.2. Полноценная история переписки:
   даты. Юзер видит свои справа белые, админа слева жёлтые. У админа —
   наоборот (свои справа, юзер слева жёлтым).
 
+Веб (зеркало D25.2):
+[ ] На `/support/{id}` (юзерская карточка) и `/admin/support-tickets/{id}`
+    (админская) блок "Переписка" — chat-bubble стиль (как в Telegram
+    web-интерфейсе): свои сообщения справа белые, чужие слева жёлтые.
+    Юзер свои справа — потому что он пользователь; админ свои справа —
+    потому что он админ. Это зеркало mobile-логики
+    ChatMessage.ForViewer(dto, viewerIsAdmin).
+[ ] Под каждым пузырём — мелким шрифтом дата (dd.MM.yyyy HH:mm) и
+    имя автора ("Администратор" / "Пользователь").
+[ ] CSS: max-width пузыря ~ 60% ширины контейнера, скруглённые углы,
+    отступы между сообщениями 8px.
+[ ] LastUserReply / ResolutionNote из D25.1 НЕ дублируются как
+    отдельные блоки — они теперь часть переписки. Snapshot-поля
+    остаются на бэке для админ-листинга (фильтры, бейджи).
+
 ВНЕ scope этого блока (отдельные D-пункты при необходимости):
 - Refund через YooKassa Refund API (минимум на текущем этапе —
   админ ставит статус и делает refund вручную через ЛК YooKassa);
@@ -10623,6 +10659,234 @@ D25.2. Полноценная история переписки:
 - Прямые действия из карточки тикета типа "Выдать compli отсюда"
   (отложено: админ открывает профиль юзера через email-link и
   использует существующий F17.6).
+
+---------------------------------------------------------------------
+D26. Media умершего — только админ выкладывает и редактирует
+---------------------------------------------------------------------
+
+Мотивация: бизнес-стратегия "юр.риск минимальный" — пользователи не
+должны грузить фото/документы (свои или чужие) сами. Родственник по
+телефону/мессенджеру скидывает админу фото умершего и могилы, плюс
+скан свидетельства о смерти / справки — админ их добавляет к карточке
+сам. Карточку умершего юзер по-прежнему создаёт сам (CreateAtGrave
+у могилы), воспоминания (memories) тоже пишет сам — это текст, не
+загрузка чужого контента.
+
+Бэк (Application + API):
+- POST/DELETE/PATCH на /api/deceased-records/{id}/media и
+  /media/{mediaId}/description, /media/{mediaId}/main-photo получили
+  per-action [Authorize(Roles = "SuperAdmin,Admin")]. GET (list +
+  by-id + presigned URL) остался под обычным [Authorize].
+- UploadMediaUseCase, DeleteMediaUseCase, UpdateMediaDescriptionUseCase,
+  SetMainMediaPhotoUseCase упростили guard'ы до if (!IsAdmin())
+  Forbidden. Ветка "автор карточки тоже может" убрана.
+- UploadMediaUseCase: ветка auto-approve "автор + админ" свернулась
+  до безусловного Approve() — загрузчик всегда админ.
+- Модерация (Approve / Reject в DeceasedRecordsAdminController)
+  остаётся: она нужна для legacy-media, которое было создано до D26
+  в Pending-состоянии.
+
+Мобайл (DeceasedDetailsPage):
+- Кнопка "Загрузить фото / документ" получает
+  IsVisible="{Binding IsCurrentUserAdmin}".
+- В DeceasedDetailsViewModel.PhotoTappedAsync — ранний return для
+  не-админа. Тап по фото у юзера не открывает ActionSheet "Сделать
+  главным / Удалить" — просто игнорируется. Само изображение
+  по-прежнему открывается через FullScreenViewer (просмотр не
+  ограничен).
+
+Тесты:
+- MediaUseCaseTests: добавлены Upload_CardAuthorNonAdmin_ReturnsForbidden
+  и Upload_Admin_AutoApprovesAndSaves; существующий
+  Upload_SaveFails_DeletesFileFromStorageAndRethrows переведён на
+  admin-актора.
+- DeleteMediaUseCaseTests: добавлен Execute_CardAuthorNonAdmin_
+  ReturnsDeleteForbidden — гарантия что автор карточки тоже Forbidden.
+- UpdateMediaDescriptionUseCaseTests: FileAuthor / CardAuthor теперь
+  ожидают Forbidden вместо Success.
+- MediaIntegrationTests + AdminIntegrationTests: write-операции
+  теперь делает admin.Client. Добавлены негативные кейсы
+  Upload_AsRegularUser_Returns403 и SetMainPhoto_AsRegularUser_
+  Returns403; Delete и UpdateDescription явно проверяют что
+  CardAuthor получает 403.
+
+Не делаем в этом блоке (отложено):
+- Скрытие у юзера блоков media полностью (фото/документы остаются
+  видимыми — юр. риска нет, скрывать не надо).
+- Удаление поля UploadedByUserId / ветки модерации — оставлено
+  как есть, чтобы не ломать legacy-media в БД.
+
+Централизованный admin-поиск по умершим вынесен в D27.
+
+---------------------------------------------------------------------
+D27. Админский поиск умершего + просмотр без отслеживания
+---------------------------------------------------------------------
+
+Мотивация: после D26 ровно админ становится владельцем media-флоу.
+Для каждой карточки админу нужно: 1) найти её среди всех (юзер
+сообщил по телефону "найдите Иванов И.И. 1955–2020 Москва"); 2)
+открыть и добавить туда полученные фото/документы без необходимости
+сначала "подписаться" на эту карточку (создавать tracking-запись
+в admin-аккаунте — бесполезный шум в его персональном архиве).
+
+Mobile:
+- AdminPage.xaml: 5-я карточка "Найти умершего" после "Проблемы".
+- AdminViewModel: команда OpenAdminFindDeceasedAsync → "admin-find-deceased".
+- AdminFindDeceasedPage + AdminFindDeceasedViewModel — фильтры:
+  search, firstName, lastName, middleName, country, city,
+  birthDate (toggle + DatePicker), deathDate (toggle + DatePicker),
+  createdFrom / createdTo (toggle + DatePicker), верификация
+  (Picker "Все / Только проверенные / Только непроверенные").
+  Пагинация PageSize=20 + кнопка "Загрузить ещё". Тап по item'у →
+  GoToAsync("admin-deceased-view?deceasedId={id}").
+- AdminDeceasedViewPage + AdminDeceasedViewViewModel — полный
+  просмотр карточки + admin-управление:
+  * Hero (фото / 🕊 + имя + LifePeriod + ✓ проверено + дата создания);
+  * Описание и Биография (если есть);
+  * Локация + координаты + кнопка "Изменить координаты";
+  * 3 секции медиа (фото умершего / фото могилы / документы) с тапом
+    по карточке → ActionSheet "Сделать главным / Удалить" (для
+    DeceasedPhoto только если не main, иначе только Удалить);
+  * Кнопка "Загрузить фото / документ" — ActionSheet "Фото умершего /
+    Фото могилы / Документ" → MediaPicker / FilePicker → POST /media;
+  * Кнопка "Редактировать карточку" → edit-deceased flow;
+  * Кнопка "История правок" → edits-history;
+  * Кнопка "Удалить карточку" → DELETE /api/deceased-records/{id}.
+- ВАЖНО: страница НЕ дёргает my-tracked-deceased endpoint (404 если
+  admin не трекает), а использует публичный GET /api/deceased-records/{id}
+  (DeceasedDetailsResponse без tracking-блока).
+- IDeceasedRecordsApi.GetAllAsync расширен фильтрами isVerified,
+  createdFrom, createdTo — бэк их уже поддерживал, не было в Refit-
+  сигнатуре.
+
+Backend: новых endpoint'ов не понадобилось. Используются существующие:
+- GET /api/deceased-records (фильтры были с E17.5);
+- GET /api/deceased-records/{id};
+- POST/DELETE/PATCH /api/deceased-records/{id}/media (после D26
+  закрыты под admin-роль);
+- PATCH /api/deceased-records/{id}/burial-location, /main-info, /metadata;
+- DELETE /api/deceased-records/{id};
+- GET /api/deceased-records/{id}/edits.
+
+Не делаем в этом блоке (отложено):
+- Верификация / Снятие верификации напрямую с admin-view страницы —
+  endpoint на бэке есть (PUT /api/deceased-records/{id}/verify), но
+  Refit-метод и кнопка не добавлены, чтобы не раздувать сразу.
+- Воспоминания (memories) в admin-view — не отображаются. Если
+  понадобится модерация с этой страницы — добавим отдельную секцию.
+
+---------------------------------------------------------------------
+D28. Тех долг бэка — точечная уборка
+---------------------------------------------------------------------
+
+Прошёл по бэку, искал TODO/FIXME, CancellationToken.None, пустые
+catch, .Result/.Wait, N+1. Нашёл два реальных пункта, остальное
+оказалось ложными срабатываниями.
+
+Что починил:
+
+- ActiveSubscriptionAuthorizationHandler.cs:97 — был хардкод
+  CancellationToken.None в SELECT юзера. Handler дёргается на
+  каждом авторизованном запросе, при дисконнекте клиента запрос
+  продолжал работать. Заменил на context.Resource as HttpContext
+  → RequestAborted, с фолбэком на None если контекст не http.
+
+- Migrations/20260421211015_ChangeTable2.cs — пустая миграция,
+  сгенерированная случайно (`ef migrations add` без изменений
+  модели). Удалить нельзя — она уже в __EFMigrationsHistory
+  у dev-БД, без файла database update упадёт. Оставил пустой,
+  добавил <summary> с объяснением почему.
+
+Что НЕ трогал — ложные срабатывания при автоматическом скане:
+
+- UploadMediaUseCase.TryDeleteFromStorage и
+  DeleteDeceasedUseCase + delete files — там CancellationToken.None
+  стоит правильно. Это compensating action при откате: если
+  отменить — orphan-файл останется в MinIO навсегда. Не баг.
+
+- UserRepository.GetMyTrackedDeceasedPaged Include(d => d.MainMedia)
+  — это nullable single-row navigation (по MainMediaId), не
+  коллекция. N+1 здесь нет.
+
+Что осталось как тех долг (по плану, не критично):
+
+- D7.12 streaming OpenReadAsync — файлы буферизуются в память
+  на upload. На 25MB × 10 параллельных = 250MB. Когда станет
+  заметно — переписать через PipeReader. Сейчас MaxRequestSize
+  жёстко режет всё что больше 25MB.
+- SupportTicketRepository.GetPagedForAdmin — ILIKE full-scan
+  без pg_trgm. Сейчас тикетов ~десятки, не проблема. Когда
+  начнёт лагать на >10к — добавить GIN-индекс как для
+  deceased_records (D11.5.2).
+- E23 anniversaries только на mobile (WorkManager-alarms),
+  на web их нет вообще. Если решим делать — отдельный D-пункт
+  под email-уведомления или web-push.
+
+Что НЕ нашёл (хорошие новости):
+
+- Закомментированного кода — нет.
+- Throw NotImplementedException — нет.
+- Пустых catch { } — нет.
+- .Result / .Wait() — нет.
+- Skip'нутых или закомментированных тестов — нет.
+- new Error(...) напрямую в обход Errors.X — нет.
+
+---------------------------------------------------------------------
+F17.15. Найти умершего + admin-view карточки (~ D27)
+---------------------------------------------------------------------
+
+Зеркало mobile D27: после D26 ровно админ владеет media-флоу.
+Чтобы он мог управлять чужой карточкой, не подписываясь на неё в
+своём личном архиве, в админке нужен отдельный раздел "Найти
+умершего" + страница admin-просмотра без tracking. Это 5-я карточка
+в боковом меню админки (после "Обращения / Проблемы"), на mobile —
+5-я карточка на AdminPage.
+
+[ ] Раздел /admin/find-deceased — страница поиска.
+    Фильтры:
+    - search (по любому полю имени);
+    - firstName / lastName / middleName (отдельные Input'ы);
+    - country / city;
+    - birthDate (toggle + DatePicker);
+    - deathDate (toggle + DatePicker);
+    - createdFrom / createdTo (диапазон дат создания карточки);
+    - isVerified: Select "Все / Только проверенные / Только
+      непроверенные".
+    PageSize=20, кнопка "Загрузить ещё".
+[ ] Пагинированный список карточек: маленькая аватарка (плейсхолдер
+    🕊 если MainPhotoUrl null) + FullName + LifePeriod + город,
+    ✓ если IsVerified. GET /api/deceased-records (E17.5 фильтры
+    + isVerified/createdFrom/createdTo расширения из D27).
+[ ] Тап по карточке → /admin/deceased/{id} (admin-view). НЕ
+    обычная /deceased/{id}, потому что та дёргает my-tracked-deceased
+    endpoint (404 если admin не трекает).
+[ ] Страница /admin/deceased/{id} — admin-view:
+    - GET /api/deceased-records/{id} (публичный детальный, без
+      tracking-блока);
+    - Hero (фото или 🕊 + FullName + LifePeriod + ✓ проверено
+      + дата создания);
+    - Описание / Биография (если есть);
+    - Локация + координаты + кнопка "Изменить координаты"
+      (открывает редактор burial-location);
+    - 3 секции медиа (фото умершего / фото могилы / документы) с
+      админскими действиями через ActionSheet "Открыть на весь
+      экран / Сделать главным / Удалить" (D27.1 + D26);
+    - Кнопка "Загрузить фото / документ" — modal "Фото умершего /
+      Фото могилы / Документ" → POST /media;
+    - Кнопки "Редактировать карточку" (→ edit-deceased), "История
+      правок" (→ edits-history, F17.9), "Удалить карточку" (→
+      DELETE /api/deceased-records/{id} с подтверждением).
+[ ] Auto-promote main: после загрузки админом первого фото
+    умершего, если MainMediaId не задан — auto-call SetMainPhoto.
+    Иначе в общем поиске карточка останется без превью (бэк
+    отдаёт MainPhotoUrl только когда MainMediaId явно задан).
+
+Не делаем в этом блоке (отложено):
+- Кнопка "Верифицировать / Снять верификацию" с admin-view —
+  endpoint есть, но кнопка отложена и на mobile тоже (D27).
+  Верификация делается с F17.3.
+- Воспоминания (memories) в admin-view не отображаются. Если
+  понадобится модерация прямо с этой страницы — отдельный пункт.
 
 ---------------------------------------------------------------------
 F17.99. Что НЕ делаем в админке
@@ -10822,6 +11086,14 @@ UI:
 - Хранение данных карты на сайте (PCI-DSS не сертифицируемся —
   всё через YooKassa redirect).
 - Apple Pay / Google Pay через web (нужны merchant-аккаунты).
+- Mobile-style blocking update page как отдельный route — на web
+  не нужна: достаточно модалки + `window.location.reload(true)`.
+  APK скачивать не надо, нет offline-storage конфликтов.
+- Уведомления о годовщинах (E23 mobile / WorkManager-alarms) —
+  на web их нет. Web не может надёжно дать локальное напоминание
+  без открытой вкладки. Альтернатива — email-уведомления — это
+  отдельный D-пункт, не делаем в F22. Юзеру который хочет
+  напоминания — мобильное приложение.
 
 Tests (Vitest):
 
