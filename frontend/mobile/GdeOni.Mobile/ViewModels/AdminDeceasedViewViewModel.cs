@@ -23,7 +23,8 @@ namespace GdeOni.Mobile.ViewModels;
 [QueryProperty(nameof(DeceasedId), "deceasedId")]
 public partial class AdminDeceasedViewViewModel(
     IDeceasedRecordsApi deceasedApi,
-    IDeceasedMediaApi mediaApi) : ObservableObject
+    IDeceasedMediaApi mediaApi,
+    IDeceasedMemoriesApi memoriesApi) : ObservableObject
 {
     [ObservableProperty]
     private string _deceasedId = "";
@@ -120,6 +121,12 @@ public partial class AdminDeceasedViewViewModel(
     public ObservableCollection<MediaListItem> DeceasedPhotos { get; } = new();
     public ObservableCollection<MediaListItem> GravePhotos { get; } = new();
     public ObservableCollection<MediaListItem> Documents { get; } = new();
+
+    // D30. Воспоминания. Видны админу для модерации (увидеть жалобы,
+    // мат, спам, удалить токсичный текст) без необходимости лезть в
+    // обычную карточку юзера. Здесь храним DTO как есть — поля
+    // ModerationStatus и AuthorUserId полезны при принятии решения.
+    public ObservableCollection<DeceasedMemoryResponse> Memories { get; } = new();
     // Counters — обычные ObservableProperty: XAML binding получает
     // изменения автоматически. Геттеры HasX/HasNoX от counter'ов
     // через [NotifyPropertyChangedFor] перерасчёт триггерится сам.
@@ -144,6 +151,11 @@ public partial class AdminDeceasedViewViewModel(
     [NotifyPropertyChangedFor(nameof(HasNoDocuments))]
     private int _documentsCount;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasMemories))]
+    [NotifyPropertyChangedFor(nameof(HasNoMemories))]
+    private int _memoriesCount;
+
     public bool HasDeceasedPhotos => DeceasedPhotosCount > 0;
     public bool HasGravePhotos => GravePhotosCount > 0;
     public bool HasDocuments => DocumentsCount > 0;
@@ -151,6 +163,9 @@ public partial class AdminDeceasedViewViewModel(
     public bool HasNoDeceasedPhotos => DeceasedPhotosCount == 0;
     public bool HasNoGravePhotos => GravePhotosCount == 0;
     public bool HasNoDocuments => DocumentsCount == 0;
+
+    public bool HasMemories => MemoriesCount > 0;
+    public bool HasNoMemories => MemoriesCount == 0;
 
     public string? MainPhotoUrl => Data?.MainPhotoUrl
                                    ?? DeceasedPhotos.FirstOrDefault(p => p.IsMainPhoto)?.Url
@@ -181,6 +196,7 @@ public partial class AdminDeceasedViewViewModel(
             }
 
             Data = envelope.Result;
+            RebuildMemories();
             await LoadMediaAsync(id);
         }
         catch (ApiException apiEx)
@@ -190,6 +206,69 @@ public partial class AdminDeceasedViewViewModel(
         catch (HttpRequestException httpEx)
         {
             ErrorMessage = $"Сетевая ошибка: {httpEx.Message}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// D30. Воспоминания приходят прямо в DeceasedDetailsResponse —
+    /// отдельный endpoint не нужен. Перестраиваем коллекцию каждый раз
+    /// заново (на десяток записей дешевле чем дифф).
+    /// </summary>
+    private void RebuildMemories()
+    {
+        Memories.Clear();
+        if (Data?.Memories is not null)
+        {
+            foreach (var m in Data.Memories)
+                Memories.Add(m);
+        }
+        MemoriesCount = Memories.Count;
+    }
+
+    /// <summary>
+    /// D30. Удалить воспоминание — только админ. Бэк-endpoint позволяет
+    /// удалять автору и админу; здесь мы всегда админ. Подтверждение —
+    /// alert, обратно не вернуть.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteMemoryAsync(DeceasedMemoryResponse? memory)
+    {
+        if (memory is null || !Guid.TryParse(DeceasedId, out var deceasedId)) return;
+
+        var page = Shell.Current?.CurrentPage;
+        if (page is null) return;
+
+        var confirmed = await page.DisplayAlert(
+            "Удалить воспоминание?",
+            "Текст будет удалён без возможности восстановления.",
+            "Удалить",
+            "Отмена");
+        if (!confirmed) return;
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = null;
+
+            var resp = await memoriesApi.DeleteAsync(deceasedId, memory.Id);
+            if (!resp.IsSuccessStatusCode)
+            {
+                ErrorMessage = $"Не удалось удалить (HTTP {(int)resp.StatusCode}).";
+                return;
+            }
+
+            // Перезагружаем всю карточку — Memories обновятся через
+            // RebuildMemories. Лишний GET, но проще чем поддерживать
+            // отдельный refresh-только-memories.
+            await LoadAsync();
         }
         catch (Exception ex)
         {

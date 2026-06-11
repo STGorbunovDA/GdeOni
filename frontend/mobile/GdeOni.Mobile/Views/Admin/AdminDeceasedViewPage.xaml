@@ -244,6 +244,54 @@
                         </VerticalStackLayout>
                     </Border>
 
+                    <!-- D30. Воспоминания — админ их видит для модерации.
+                         Карточка с текстом, датой создания и кнопкой
+                         "Удалить". Pending-воспоминания тоже показываются
+                         (бэк отдаёт их админу через canSeeAllMemories). -->
+                    <Border Style="{StaticResource CloudCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Воспоминания" Style="{StaticResource SubTitleLabel}" />
+                            <Label Text="Пока нет воспоминаний."
+                                   Style="{StaticResource CaptionLabel}"
+                                   IsVisible="{Binding HasNoMemories}" />
+                            <CollectionView ItemsSource="{Binding Memories}"
+                                            SelectionMode="None"
+                                            IsVisible="{Binding HasMemories}">
+                                <CollectionView.ItemsLayout>
+                                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
+                                </CollectionView.ItemsLayout>
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="models:DeceasedMemoryResponse">
+                                        <Border Style="{StaticResource CloudCard}" Padding="10" Margin="0,0,0,4">
+                                            <VerticalStackLayout Spacing="6">
+                                                <Label Text="{Binding Text}"
+                                                       Style="{StaticResource BodyLabel}"
+                                                       LineBreakMode="WordWrap" />
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                    <Label Grid.Column="0"
+                                                           Text="{Binding CreatedAtUtc, StringFormat='{0:dd.MM.yyyy HH:mm}'}"
+                                                           Style="{StaticResource CaptionLabel}" />
+                                                    <Label Grid.Column="1"
+                                                           Text="{Binding ModerationStatus}"
+                                                           Style="{StaticResource CaptionLabel}"
+                                                           FontAttributes="Bold" />
+                                                </Grid>
+                                                <Button Text="Удалить"
+                                                        Style="{StaticResource GhostButton}"
+                                                        TextColor="#C0392B"
+                                                        Padding="14,6"
+                                                        FontSize="13"
+                                                        HorizontalOptions="End"
+                                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteMemoryCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
+
                     <!-- ====== Admin-действия ====== -->
                     <Button Text="Загрузить фото / документ"
                             Style="{StaticResource PrimaryButton}"
