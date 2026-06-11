@@ -11,10 +11,10 @@ using GdeOni.Domain.Shared;
 namespace GdeOni.Application.Tests.DeceasedRecords;
 
 /// <summary>
-/// Тесты <see cref="UpdateMediaDescriptionUseCase"/> — D8.5.
-/// Описание media может редактировать только: автор файла, автор
-/// карточки или admin. Outsider — 403. Покрываем все 4 ветки прав:
-/// fileAuthor / cardAuthor / admin / outsider.
+/// Тесты <see cref="UpdateMediaDescriptionUseCase"/>.
+/// D26: редактирование описания media разрешено только админам —
+/// наряду с выкладкой и удалением. Автор файла и автор карточки
+/// больше не имеют прав. Outsider тоже получает 403.
 /// </summary>
 public sealed class UpdateMediaDescriptionUseCaseTests
 {
@@ -23,18 +23,20 @@ public sealed class UpdateMediaDescriptionUseCaseTests
     private static readonly Guid OutsiderId = Guid.NewGuid();
 
     [Fact]
-    public async Task Execute_FileAuthor_Succeeds()
+    public async Task Execute_FileAuthorNonAdmin_ReturnsForbidden()
         => await AssertRightsScenario(
             currentUserId: FileUploaderId,
             isAdmin: false,
-            shouldSucceed: true);
+            shouldSucceed: false,
+            expectedErrorCode: "deceased_media.update_description.forbidden");
 
     [Fact]
-    public async Task Execute_CardAuthor_Succeeds()
+    public async Task Execute_CardAuthorNonAdmin_ReturnsForbidden()
         => await AssertRightsScenario(
             currentUserId: CardAuthorId,
             isAdmin: false,
-            shouldSucceed: true);
+            shouldSucceed: false,
+            expectedErrorCode: "deceased_media.update_description.forbidden");
 
     [Fact]
     public async Task Execute_Admin_Succeeds()

@@ -14,9 +14,11 @@ namespace GdeOni.Application.Tests.DeceasedRecords;
 
 /// <summary>
 /// Тесты <see cref="DeleteMediaUseCase"/> — удаление медиафайла.
-/// Главное правило: удалить файл может только автор файла, автор
-/// карточки умершего или admin. Чужой пользователь, который к этой
-/// карточке не имеет отношения, — получает 403 / `deceased_media.delete.forbidden`.
+/// D26: удалить файл может только admin (выкладка/удаление/правка
+/// медиа закрыты под админа целиком, чтобы убрать юр. риск от
+/// пользовательских загрузок чужих фото/документов). Любой другой
+/// актор — автор файла, автор карточки, outsider — получает 403 /
+/// `deceased_media.delete.forbidden`.
 /// </summary>
 public sealed class DeleteMediaUseCaseTests
 {
@@ -86,6 +88,64 @@ public sealed class DeleteMediaUseCaseTests
         // Assert: 403 / `deceased_media.delete.forbidden`. БД не
         // менялась (Save не вызывался) — изменения в change-tracker
         // не попадают в SaveChanges.
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("deceased_media.delete.forbidden");
+        deceasedRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Never);
+        fileStorage.Verify(
+            x => x.DeleteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// D26. Автор карточки больше не может удалять media — права на
+    /// удаление перешли только администраторам. Тест охраняет регрессию,
+    /// при которой кто-то вернул бы "автору карточки можно" в guard.
+    /// </summary>
+    [Fact]
+    public async Task Execute_CardAuthorNonAdmin_ReturnsDeleteForbidden()
+    {
+        var deceased = Deceased.Create(
+            firstName: "Иван",
+            lastName: "Иванов",
+            middleName: null,
+            birthDate: null,
+            deathDate: new DateOnly(2010, 1, 1),
+            burialLocation: null,
+            createdByUserId: CardAuthorId).Value;
+
+        var media = deceased.AddMedia(
+            uploadedByUserId: FileUploaderId,
+            kind: MediaKind.DeceasedPhoto,
+            originalFileName: "photo.jpg",
+            bucket: "deceased-photos",
+            storageKey: "deceased-photos/" + Guid.NewGuid() + ".jpg",
+            contentType: "image/jpeg",
+            sizeBytes: 1024).Value;
+
+        var deceasedRepo = new Mock<IDeceasedRepository>();
+        var fileStorage = new Mock<IFileStorage>();
+        var currentUser = new Mock<ICurrentUserService>();
+
+        currentUser
+            .Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(CardAuthorId));
+        currentUser.Setup(x => x.IsAdmin()).Returns(false);
+
+        deceasedRepo
+            .Setup(x => x.GetByIdWithMediaById(deceased.Id, media.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(deceased);
+
+        var useCase = new DeleteMediaUseCase(
+            deceasedRepo.Object,
+            fileStorage.Object,
+            currentUser.Object,
+            TestExecutor.With<DeleteMediaCommand, DeleteMediaCommandValidator>(),
+            NullLogger<DeleteMediaUseCase>.Instance);
+
+        var result = await useCase.Execute(
+            new DeleteMediaCommand(deceased.Id, media.Id),
+            CancellationToken.None);
+
         result.IsFailure.Should().BeTrue();
         result.Error.Code.Should().Be("deceased_media.delete.forbidden");
         deceasedRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Never);

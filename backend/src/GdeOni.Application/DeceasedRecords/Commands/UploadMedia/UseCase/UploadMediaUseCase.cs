@@ -56,8 +56,11 @@ public sealed class UploadMediaUseCase(
             return Errors.General.NotFound("deceased", command.DeceasedId);
 
         var currentUserId = currentUserIdResult.Value;
-        var isAdmin = currentUserService.IsAdmin();
-        if (!isAdmin && deceased.CreatedByUserId != currentUserId)
+        // D26. Выкладка медиа разрешена только админам — снимает юр.
+        // риск от пользовательских загрузок чужих фото/документов.
+        // Контроллер уже ограничен Roles=SuperAdmin,Admin; этот guard —
+        // вторая линия защиты на случай прямого вызова use case'а.
+        if (!currentUserService.IsAdmin())
             return Errors.DeceasedMedia.UploadForbidden();
 
         var uploadRequest = new UploadFileRequest
@@ -88,19 +91,14 @@ public sealed class UploadMediaUseCase(
             return addResult.Error;
         }
 
-        // D13: автор карточки и админ имеют право на свой контент без
-        // модерации. Иначе свежезагруженное фото остаётся Pending и его
-        // нельзя сделать main (см. Deceased.SetMainPhoto → 409
-        // MainPhotoMustBeApproved). Модерация остаётся для media, которое
-        // загрузил кто-то третий (например, родственник через свой аккаунт).
-        if (isAdmin || deceased.CreatedByUserId == currentUserId)
+        // D26. Загружать может только админ → его контент сразу
+        // Approved. Модерация остаётся для legacy-media и для media,
+        // которое было загружено до D26 в Pending-состоянии.
+        var approveResult = addResult.Value.Approve();
+        if (approveResult.IsFailure)
         {
-            var approveResult = addResult.Value.Approve();
-            if (approveResult.IsFailure)
-            {
-                await TryDeleteFromStorage(stored.Bucket, stored.ObjectKey);
-                return approveResult.Error;
-            }
+            await TryDeleteFromStorage(stored.Bucket, stored.ObjectKey);
+            return approveResult.Error;
         }
 
         try

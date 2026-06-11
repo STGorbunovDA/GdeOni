@@ -356,8 +356,6 @@
                         <VerticalStackLayout Spacing="10">
                             <Label Text="Фото умершего"
                                    Style="{StaticResource SubTitleLabel}" />
-                            <Label Text="Тап по фото — сделать главным или удалить."
-                                   Style="{StaticResource CaptionLabel}" />
                             <CollectionView ItemsSource="{Binding DeceasedPhotos}"
                                             SelectionMode="None"
                                             HeightRequest="120">
@@ -410,8 +408,6 @@
                         <VerticalStackLayout Spacing="10">
                             <Label Text="Фото могилы"
                                    Style="{StaticResource SubTitleLabel}" />
-                            <Label Text="Тап по фото — удалить."
-                                   Style="{StaticResource CaptionLabel}" />
                             <CollectionView ItemsSource="{Binding GravePhotos}"
                                             SelectionMode="None"
                                             HeightRequest="120">
@@ -490,10 +486,14 @@
                                        IsVisible="{Binding IsUploading}"
                                        Color="{StaticResource Azure}" />
 
+                    <!-- D26. Выкладка фото и документов умершего —
+                         только для администраторов (юр. риск).
+                         Backend дублирует проверку и вернёт 403. -->
                     <Button Text="Загрузить фото / документ"
                             Style="{StaticResource GhostButton}"
                             Command="{Binding UploadFileCommand}"
                             IsEnabled="{Binding IsNotBusy}"
+                            IsVisible="{Binding IsCurrentUserAdmin}"
                             HorizontalOptions="Fill" />
 
                     <!-- Архивирование (для активной карточки). -->

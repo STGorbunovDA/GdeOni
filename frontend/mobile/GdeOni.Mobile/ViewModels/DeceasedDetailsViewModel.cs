@@ -601,18 +601,34 @@ public partial class DeceasedDetailsViewModel(
     }
 
     /// <summary>
-    /// Тап по фото в галерее — показывает ActionSheet с действиями:
-    /// сделать главным (только если ещё не main), удалить.
+    /// Тап по фото в галерее. Для админа — ActionSheet с действиями
+    /// "Сделать главным" / "Удалить" (D26: write-операции с медиа
+    /// только у админа). Для остальных пользователей — открываем фото
+    /// на весь экран через FullScreenPhotoPage (D27.1). Никаких
+    /// write-действий у них нет: бэк всё равно вернёт 403, и
+    /// показывать невозможные пункты в меню бессмысленно.
     /// </summary>
     [RelayCommand]
     private async Task PhotoTappedAsync(MediaListItem? item)
     {
         if (item is null || !Guid.TryParse(DeceasedId, out var deceasedId)) return;
 
+        // D27.1. Юзер — открываем полноэкранный просмотр.
+        if (!IsCurrentUserAdmin)
+        {
+            if (string.IsNullOrEmpty(item.Url)) return;
+            var encoded = Uri.EscapeDataString(item.Url);
+            await Shell.Current.GoToAsync($"photo-viewer?url={encoded}");
+            return;
+        }
+
         var page = Shell.Current?.CurrentPage;
         if (page is null) return;
 
-        var actions = new List<string>();
+        // D27.1. Полноэкранный просмотр — первым пунктом, чтобы и
+        // админ мог посмотреть фото без необходимости открывать
+        // отдельно admin-страницу.
+        var actions = new List<string> { "Открыть на весь экран" };
         // "Сделать главным" доступна только для DeceasedPhoto и только
         // если ещё не main — на GravePhoto/Document main-photo нет смысла.
         var canBeMain = item.Kind == MediaKinds.DeceasedPhotoString && !item.IsMainPhoto;
@@ -627,6 +643,13 @@ public partial class DeceasedDetailsViewModel(
 
         switch (choice)
         {
+            case "Открыть на весь экран":
+                if (!string.IsNullOrEmpty(item.Url))
+                {
+                    var encoded = Uri.EscapeDataString(item.Url);
+                    await Shell.Current.GoToAsync($"photo-viewer?url={encoded}");
+                }
+                break;
             case "Сделать главным":
                 await SetMainPhotoAsync(deceasedId, item.Id);
                 break;

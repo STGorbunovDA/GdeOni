@@ -38,15 +38,10 @@ public sealed class UpdateMediaDescriptionUseCase(
         if (media is null)
             return Errors.DeceasedMedia.NotFound(command.MediaId);
 
-        // Право редактировать описание: автор файла, автор карточки, админ.
-        var currentUserId = currentUserIdResult.Value;
-        var isAdmin = currentUserService.IsAdmin();
-        if (!isAdmin
-            && media.UploadedByUserId != currentUserId
-            && deceased.CreatedByUserId != currentUserId)
-        {
+        // D26. Редактирование описания медиа — только админ. Контроллер уже
+        // ограничен Roles=SuperAdmin,Admin; этот guard — вторая линия.
+        if (!currentUserService.IsAdmin())
             return Errors.DeceasedMedia.UpdateDescriptionForbidden();
-        }
 
         var updateResult = deceased.UpdateMediaDescription(command.MediaId, command.Description);
         if (updateResult.IsFailure)

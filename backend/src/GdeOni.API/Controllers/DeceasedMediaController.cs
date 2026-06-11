@@ -26,18 +26,30 @@ namespace GdeOni.API.Controllers;
 /// <summary>
 /// Управление медиафайлами умершего: фото умершего, фото могилы, документы.
 /// Бинарные файлы хранятся в MinIO, метаданные — в PostgreSQL.
+///
+/// <para>
+/// D26. Запись (POST/PATCH/DELETE) разрешена только админам — снимаем юр.
+/// риск пользовательской выкладки чужих фото/документов. Чтение (GET)
+/// остаётся доступным любому авторизованному. Per-action атрибут
+/// <c>[Authorize(Roles=...)]</c> на write-эндпоинтах — контроллер же
+/// сохраняет общий <c>[Authorize]</c> для GET'ов.
+/// </para>
 /// </summary>
 [Route("api/deceased-records/{id:guid}/media")]
 [Authorize]
 [Tags("DeceasedRecords")]
 public sealed class DeceasedMediaController : ApiControllerBase
 {
+    private const string AdminRoles = "SuperAdmin,Admin";
+
     /// <summary>
     /// Загружает медиафайл и сохраняет метаданные.
     /// MIME и размер валидируются по виду файла (фото 10 MB, PDF 25 MB).
     /// При ошибке БД файл удаляется из MinIO (best-effort).
+    /// D26: доступно только администраторам.
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = AdminRoles)]
     // Лимит = max(MaxPhotoSizeBytes, MaxDocumentSizeBytes) из FileValidator.
     // Раньше было хардкод 50 MB — шире чем валидатор; атакующий мог
     // прокинуть 49 MB и съесть память до отбоя на per-kind проверке.
@@ -120,10 +132,11 @@ public sealed class DeceasedMediaController : ApiControllerBase
     }
 
     /// <summary>
-    /// Удаляет медиафайл. Доступно автору файла, автору карточки умершего и админам.
+    /// Удаляет медиафайл. D26: доступно только администраторам.
     /// Сначала удаляются метаданные из БД, затем файл из MinIO (best-effort).
     /// </summary>
     [HttpDelete("{mediaId:guid}")]
+    [Authorize(Roles = AdminRoles)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
@@ -143,10 +156,11 @@ public sealed class DeceasedMediaController : ApiControllerBase
     }
 
     /// <summary>
-    /// Обновляет описание медиафайла. Доступно автору файла, автору
-    /// карточки умершего и админам. Пустое тело очищает описание.
+    /// Обновляет описание медиафайла. D26: доступно только администраторам.
+    /// Пустое тело очищает описание.
     /// </summary>
     [HttpPatch("{mediaId:guid}/description")]
+    [Authorize(Roles = AdminRoles)]
     [ProducesResponseType(typeof(ApiResponse<UpdateMediaDescriptionResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
@@ -166,9 +180,10 @@ public sealed class DeceasedMediaController : ApiControllerBase
 
     /// <summary>
     /// Назначает фото главным фото умершего.
-    /// Только для MediaKind.DeceasedPhoto. Доступно автору карточки и админам.
+    /// Только для MediaKind.DeceasedPhoto. D26: доступно только администраторам.
     /// </summary>
     [HttpPatch("{mediaId:guid}/main-photo")]
+    [Authorize(Roles = AdminRoles)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]

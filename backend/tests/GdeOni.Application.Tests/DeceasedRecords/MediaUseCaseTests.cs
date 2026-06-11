@@ -138,16 +138,19 @@ public sealed class MediaUseCaseTests
     /// <summary>
     /// UploadMedia: Save упал после Upload → DeleteAsync best-effort
     /// rollback'ит файл. Save throw'ает → use case бросает дальше.
+    /// D26: актором обязан быть админ — после D26 выкладка для не-админов
+    /// отбивается ещё до Upload.
     /// </summary>
     [Fact]
     public async Task Upload_SaveFails_DeletesFileFromStorageAndRethrows()
     {
         var deceased = MakeDeceased();
+        var adminId = Guid.NewGuid();
 
         var (deceasedRepo, fileStorage, currentUser, _) = BuildMocks();
         currentUser.Setup(x => x.GetCurrentUserId())
-            .Returns(Result.Success<Guid, Error>(CardAuthorId));
-        currentUser.Setup(x => x.IsAdmin()).Returns(false);
+            .Returns(Result.Success<Guid, Error>(adminId));
+        currentUser.Setup(x => x.IsAdmin()).Returns(true);
         deceasedRepo.Setup(x => x.GetById(deceased.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(deceased);
         fileStorage
@@ -177,6 +180,95 @@ public sealed class MediaUseCaseTests
         fileStorage.Verify(
             x => x.DeleteAsync("deceased-photos", "key1", It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    /// <summary>
+    /// D26. Не-админ (даже автор карточки) не может загружать медиа —
+    /// бэк возвращает UploadForbidden ещё до обращения к MinIO/БД.
+    /// </summary>
+    [Fact]
+    public async Task Upload_CardAuthorNonAdmin_ReturnsUploadForbidden()
+    {
+        var deceased = MakeDeceased();
+
+        var (deceasedRepo, fileStorage, currentUser, _) = BuildMocks();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(CardAuthorId));
+        currentUser.Setup(x => x.IsAdmin()).Returns(false);
+        deceasedRepo.Setup(x => x.GetById(deceased.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(deceased);
+
+        var useCase = new UploadMediaUseCase(
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
+            TestExecutor.With<UploadMediaCommand, UploadMediaCommandValidator>(),
+            NullLogger<UploadMediaUseCase>.Instance);
+
+        var result = await useCase.Execute(new UploadMediaCommand
+        {
+            DeceasedId = deceased.Id,
+            Kind = MediaKind.DeceasedPhoto,
+            OriginalFileName = "p.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 16,
+            Content = new MemoryStream(new byte[]
+            {
+                0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            })
+        }, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("deceased_media.upload.forbidden");
+        fileStorage.Verify(
+            x => x.UploadAsync(It.IsAny<UploadFileRequest>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// D26. Админ может загружать; результат — auto-approved (модерация
+    /// больше не нужна, выкладывает только админ).
+    /// </summary>
+    [Fact]
+    public async Task Upload_Admin_AutoApprovesAndSaves()
+    {
+        var deceased = MakeDeceased();
+        var adminId = Guid.NewGuid();
+
+        var (deceasedRepo, fileStorage, currentUser, _) = BuildMocks();
+        currentUser.Setup(x => x.GetCurrentUserId())
+            .Returns(Result.Success<Guid, Error>(adminId));
+        currentUser.Setup(x => x.IsAdmin()).Returns(true);
+        deceasedRepo.Setup(x => x.GetById(deceased.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(deceased);
+        fileStorage
+            .Setup(x => x.UploadAsync(It.IsAny<UploadFileRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StoredFile(
+                "deceased-photos", "k1", "image/jpeg", 16, "p.jpg"));
+        fileStorage.Setup(x => x.GetPublicUrl("deceased-photos", "k1"))
+            .Returns("http://public/url");
+
+        var useCase = new UploadMediaUseCase(
+            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
+            TestExecutor.With<UploadMediaCommand, UploadMediaCommandValidator>(),
+            NullLogger<UploadMediaUseCase>.Instance);
+
+        var result = await useCase.Execute(new UploadMediaCommand
+        {
+            DeceasedId = deceased.Id,
+            Kind = MediaKind.DeceasedPhoto,
+            OriginalFileName = "p.jpg",
+            ContentType = "image/jpeg",
+            SizeBytes = 16,
+            Content = new MemoryStream(new byte[]
+            {
+                0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            })
+        }, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        deceasedRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Once);
+        // Загруженное админом media сразу Approved.
+        deceased.Media.Should().ContainSingle()
+            .Which.ModerationStatus.Should().Be(ModerationStatus.Approved);
     }
 
     /// <summary>

@@ -9,8 +9,16 @@ using GdeOni.Domain.Shared;
 namespace GdeOni.Api.IntegrationTests.Media;
 
 /// <summary>
-/// D9.5.4 Media-сценарии. Используем at-grave для seed-deceased,
-/// потом Upload через multipart/form-data, плюс GET / PATCH / DELETE.
+/// Media-сценарии. Используем at-grave для seed-deceased, потом Upload
+/// через multipart/form-data, плюс GET / PATCH / DELETE.
+///
+/// <para>
+/// D26. Write-операции (POST/PATCH/DELETE) разрешены только админам —
+/// бизнес-флоу теперь такой: юзер пишет, админ выкладывает медиа сам.
+/// В тестах: deceased создаёт обычный юзер (это разрешено), media
+/// добавляет admin. Негативные кейсы для обычного юзера на write —
+/// 403.
+/// </para>
 /// </summary>
 [Collection(IntegrationTestCollection.Name)]
 public sealed class MediaIntegrationTests
@@ -25,17 +33,18 @@ public sealed class MediaIntegrationTests
     public MediaIntegrationTests(GdeOniWebAppFactory factory) => _factory = factory;
 
     /// <summary>
-    /// POST /media: валидный JPEG (с правильными magic bytes) → 200 +
-    /// metadata в БД, файл в MinIO.
+    /// POST /media админом: валидный JPEG (с правильными magic bytes)
+    /// → 201 + metadata в БД, файл в MinIO.
     /// </summary>
     [Fact]
-    public async Task Upload_ValidPhoto_Returns201AndMetadata()
+    public async Task Upload_ValidPhoto_AsAdmin_Returns201AndMetadata()
     {
         var user = await _factory.RegisterAndLoginAsync();
         var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
+        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
 
         using var content = TestSeed.BuildPhotoUpload(TestSeed.BuildJpegBytes(), "photo.jpg");
-        var response = await user.Client.PostAsync(
+        var response = await admin.Client.PostAsync(
             $"/api/deceased-records/{deceasedId}/media",
             content);
 
@@ -48,7 +57,26 @@ public sealed class MediaIntegrationTests
     }
 
     /// <summary>
-    /// Upload файл с неправильным MIME (text/plain) → 400 +
+    /// D26. POST /media обычным юзером (даже автором карточки) → 403.
+    /// Атрибут [Authorize(Roles="SuperAdmin,Admin")] на контроллере
+    /// отбивает запрос до use case'а.
+    /// </summary>
+    [Fact]
+    public async Task Upload_AsRegularUser_Returns403()
+    {
+        var user = await _factory.RegisterAndLoginAsync();
+        var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
+
+        using var content = TestSeed.BuildPhotoUpload(TestSeed.BuildJpegBytes(), "photo.jpg");
+        var response = await user.Client.PostAsync(
+            $"/api/deceased-records/{deceasedId}/media",
+            content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    /// <summary>
+    /// Upload админом файла с неправильным MIME (text/plain) → 400 +
     /// media.photo.content_type.not_allowed.
     /// </summary>
     [Fact]
@@ -56,6 +84,7 @@ public sealed class MediaIntegrationTests
     {
         var user = await _factory.RegisterAndLoginAsync();
         var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
+        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
 
         using var multipart = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes("hello"));
@@ -63,7 +92,7 @@ public sealed class MediaIntegrationTests
         multipart.Add(fileContent, "file", "file.txt");
         multipart.Add(new StringContent(((int)MediaKind.DeceasedPhoto).ToString()), "kind");
 
-        var response = await user.Client.PostAsync(
+        var response = await admin.Client.PostAsync(
             $"/api/deceased-records/{deceasedId}/media",
             multipart);
 
@@ -73,19 +102,20 @@ public sealed class MediaIntegrationTests
     }
 
     /// <summary>
-    /// Upload слишком большой файл (>10 MB как Photo) → 400.
+    /// Upload админом слишком большого файла (>10 MB как Photo) → 400.
     /// </summary>
     [Fact]
     public async Task Upload_TooLargePhoto_Returns400()
     {
         var user = await _factory.RegisterAndLoginAsync();
         var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
+        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
 
         var bytes = new byte[FileValidator.MaxPhotoSizeBytes + 1024];
         bytes[0] = 0xFF; bytes[1] = 0xD8; bytes[2] = 0xFF;
 
         using var multipart = TestSeed.BuildPhotoUpload(bytes, "huge.jpg");
-        var response = await user.Client.PostAsync(
+        var response = await admin.Client.PostAsync(
             $"/api/deceased-records/{deceasedId}/media",
             multipart);
 
@@ -95,14 +125,16 @@ public sealed class MediaIntegrationTests
     }
 
     /// <summary>
-    /// GET /media возвращает список с пагинацией. После Upload — 1+ запись.
+    /// GET /media возвращает список с пагинацией обычному юзеру (чтение
+    /// не ограничено — только запись). После Upload админом — 1+ запись.
     /// </summary>
     [Fact]
     public async Task GetList_AfterUpload_ReturnsPagedItems()
     {
         var user = await _factory.RegisterAndLoginAsync();
         var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
-        await TestSeed.UploadPhotoAsync(user.Client, deceasedId);
+        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
+        await TestSeed.UploadPhotoAsync(admin.Client, deceasedId);
 
         var response = await user.Client.GetAsync(
             $"/api/deceased-records/{deceasedId}/media?page=1&pageSize=10");
@@ -122,7 +154,8 @@ public sealed class MediaIntegrationTests
     {
         var user = await _factory.RegisterAndLoginAsync();
         var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
-        var photoId = await TestSeed.UploadPhotoAsync(user.Client, deceasedId);
+        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
+        var photoId = await TestSeed.UploadPhotoAsync(admin.Client, deceasedId);
 
         var response = await user.Client.GetAsync(
             $"/api/deceased-records/{deceasedId}/media/{photoId}");
@@ -137,39 +170,56 @@ public sealed class MediaIntegrationTests
     }
 
     /// <summary>
-    /// DELETE /media/{mediaId} автором → 204; outsider → 403.
+    /// D26. DELETE /media/{mediaId} админом → 204; автором карточки → 403;
+    /// outsider → 403.
     /// </summary>
     [Fact]
-    public async Task Delete_OutsiderForbidden_AuthorOk()
+    public async Task Delete_AdminOk_RegularUsersForbidden()
     {
         var alice = await _factory.RegisterAndLoginAsync();
         var deceasedId = await TestSeed.CreateAtGraveAsync(alice.Client);
-        var mediaId = await TestSeed.UploadPhotoAsync(alice.Client, deceasedId);
+        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
+        var mediaId = await TestSeed.UploadPhotoAsync(admin.Client, deceasedId);
 
+        // Outsider — 403.
         var bob = await _factory.RegisterAndLoginAsync();
         var outsiderDelete = await bob.Client.DeleteAsync(
             $"/api/deceased-records/{deceasedId}/media/{mediaId}");
         outsiderDelete.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
+        // D26. Автор карточки — тоже 403.
         var authorDelete = await alice.Client.DeleteAsync(
             $"/api/deceased-records/{deceasedId}/media/{mediaId}");
-        authorDelete.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        authorDelete.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        // Admin — 204.
+        var adminDelete = await admin.Client.DeleteAsync(
+            $"/api/deceased-records/{deceasedId}/media/{mediaId}");
+        adminDelete.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
     /// <summary>
-    /// PATCH /media/{mediaId}/description: автор → 200, outsider → 403.
+    /// D26. PATCH /media/{mediaId}/description: admin → 200, автор
+    /// карточки → 403, outsider → 403.
     /// </summary>
     [Fact]
-    public async Task UpdateDescription_AuthorOk_OutsiderForbidden()
+    public async Task UpdateDescription_AdminOk_RegularUsersForbidden()
     {
         var alice = await _factory.RegisterAndLoginAsync();
         var deceasedId = await TestSeed.CreateAtGraveAsync(alice.Client);
-        var mediaId = await TestSeed.UploadPhotoAsync(alice.Client, deceasedId);
+        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
+        var mediaId = await TestSeed.UploadPhotoAsync(admin.Client, deceasedId);
 
-        var authorPatch = await alice.Client.PatchAsJsonAsync(
+        var adminPatch = await admin.Client.PatchAsJsonAsync(
             $"/api/deceased-records/{deceasedId}/media/{mediaId}/description",
             new { description = "Новое описание" });
-        authorPatch.StatusCode.Should().Be(HttpStatusCode.OK);
+        adminPatch.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // D26. Автор карточки больше не может править описание.
+        var authorPatch = await alice.Client.PatchAsJsonAsync(
+            $"/api/deceased-records/{deceasedId}/media/{mediaId}/description",
+            new { description = "автор пробует" });
+        authorPatch.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         var bob = await _factory.RegisterAndLoginAsync();
         var outsiderPatch = await bob.Client.PatchAsJsonAsync(
@@ -183,33 +233,33 @@ public sealed class MediaIntegrationTests
     /// — Rejected фото → 409 (Errors.DeceasedMedia.MainPhotoMustBeApproved);
     /// — GravePhoto kind → 409 (Errors.DeceasedMedia.OnlyDeceasedPhotoCanBeMain);
     /// — Approved DeceasedPhoto → 204.
-    /// D13 (auto-approve для автора карточки) убрал ветку "Pending = 409"
-    /// в обычном flow, поэтому проверяем 409 через явно Rejected media.
+    /// D26: write-операции делаем под админом.
     /// </summary>
     [Fact]
     public async Task SetMainPhoto_RejectedAndGraveAndApproved()
     {
         var user = await _factory.RegisterAndLoginAsync();
         var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
+        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
 
-        // Свежезагруженное DeceasedPhoto — Approved (D13). Чтобы получить
-        // ветку 409 MainPhotoMustBeApproved, admin его явно Reject'нёт.
-        var photoId = await TestSeed.UploadPhotoAsync(user.Client, deceasedId);
-        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(Domain.Shared.UserRole.Admin);
+        // Свежезагруженное админом DeceasedPhoto — Approved (D26: загружает
+        // только админ → auto-approve). Чтобы получить ветку 409
+        // MainPhotoMustBeApproved, admin его явно Reject'нёт.
+        var photoId = await TestSeed.UploadPhotoAsync(admin.Client, deceasedId);
 
         var rejectResp = await admin.Client.PutAsJsonAsync(
             $"/api/deceased-records/{deceasedId}/media/{photoId}/reject",
             new { });
         rejectResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        var rejectedMainResp = await user.Client.PatchAsync(
+        var rejectedMainResp = await admin.Client.PatchAsync(
             $"/api/deceased-records/{deceasedId}/media/{photoId}/main-photo",
             content: null);
         rejectedMainResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
         // GravePhoto kind: главное фото может быть только DeceasedPhoto.
-        var gravePhotoId = await TestSeed.UploadPhotoAsync(user.Client, deceasedId, MediaKind.GravePhoto);
-        var graveResp = await user.Client.PatchAsync(
+        var gravePhotoId = await TestSeed.UploadPhotoAsync(admin.Client, deceasedId, MediaKind.GravePhoto);
+        var graveResp = await admin.Client.PatchAsync(
             $"/api/deceased-records/{deceasedId}/media/{gravePhotoId}/main-photo",
             content: null);
         graveResp.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -220,9 +270,27 @@ public sealed class MediaIntegrationTests
             new { });
         approveResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        var mainResp = await user.Client.PatchAsync(
+        var mainResp = await admin.Client.PatchAsync(
             $"/api/deceased-records/{deceasedId}/media/{photoId}/main-photo",
             content: null);
         mainResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    /// <summary>
+    /// D26. PATCH /media/{mediaId}/main-photo обычным юзером → 403.
+    /// </summary>
+    [Fact]
+    public async Task SetMainPhoto_AsRegularUser_Returns403()
+    {
+        var user = await _factory.RegisterAndLoginAsync();
+        var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
+        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
+        var photoId = await TestSeed.UploadPhotoAsync(admin.Client, deceasedId);
+
+        var response = await user.Client.PatchAsync(
+            $"/api/deceased-records/{deceasedId}/media/{photoId}/main-photo",
+            content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 }

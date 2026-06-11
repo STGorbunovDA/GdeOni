@@ -121,8 +121,8 @@ public sealed class AdminIntegrationTests
 
     /// <summary>
     /// PUT /media/{id}/approve admin → 204 (FromUnitResult).
-    /// После D13 media автора карточки сразу Approved, поэтому повторный
-    /// Approve "из коробки" даст 409 AlreadyApproved. Сначала admin Reject'ит
+    /// После D26 загружать может только admin — media сразу Approved.
+    /// Чтобы получить осмысленный Approve, admin сначала Reject'ит
     /// (Approved → Rejected), затем Approve (Rejected → Approved) → 204.
     /// </summary>
     [Fact]
@@ -130,9 +130,8 @@ public sealed class AdminIntegrationTests
     {
         var user = await _factory.RegisterAndLoginAsync();
         var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
-        var mediaId = await TestSeed.UploadPhotoAsync(user.Client, deceasedId);
-
         var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
+        var mediaId = await TestSeed.UploadPhotoAsync(admin.Client, deceasedId);
 
         var reject = await admin.Client.PutAsJsonAsync(
             $"/api/deceased-records/{deceasedId}/media/{mediaId}/reject",
@@ -159,9 +158,9 @@ public sealed class AdminIntegrationTests
     {
         var user = await _factory.RegisterAndLoginAsync();
         var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
-        var mediaId = await TestSeed.UploadPhotoAsync(user.Client, deceasedId);
-
         var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
+        var mediaId = await TestSeed.UploadPhotoAsync(admin.Client, deceasedId);
+
         var reject = await admin.Client.PutAsJsonAsync(
             $"/api/deceased-records/{deceasedId}/media/{mediaId}/reject",
             new { });
