@@ -46,14 +46,26 @@ internal static class MinioBootstrap
                 cancellationToken);
 
             logger.LogInformation("MinIO: bucket '{Bucket}' создан.", bucket);
-        }
 
-        if (publicRead)
-        {
-            var policy = BuildPublicReadPolicy(bucket);
-            await client.SetPolicyAsync(
-                new SetPolicyArgs().WithBucket(bucket).WithPolicy(policy),
-                cancellationToken);
+            if (publicRead)
+            {
+                // Применяем default-policy ровно один раз — при создании
+                // bucket'а. Если bucket уже существует, ручные правки
+                // админа (через mc / консоль) не затираются на каждом
+                // рестарте API (см. D11.6.2).
+                //
+                // PRIVACY-РИСК (backlog "MinIO presigned URLs"):
+                // public-read даёт всем, кто угадает storage_key,
+                // загрузить фото без авторизации. С учётом распознаваемых
+                // лиц на надгробиях — нарушение 152-ФЗ (нужно согласие).
+                // План перехода: убрать SetPolicyAsync, генерировать
+                // presigned URL'ы в IFileStorage.GetPublicUrl,
+                // соответственно поменять контракт mobile/web.
+                var policy = BuildPublicReadPolicy(bucket);
+                await client.SetPolicyAsync(
+                    new SetPolicyArgs().WithBucket(bucket).WithPolicy(policy),
+                    cancellationToken);
+            }
         }
     }
 

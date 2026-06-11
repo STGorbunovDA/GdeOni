@@ -11,11 +11,16 @@ public static class DeceasedRecordsGetAllMapping
 
         return new GetAllDeceasedQuery(
             request.Search,
+            request.FirstName,
+            request.LastName,
+            request.MiddleName,
             request.Country,
             request.City,
             request.IsVerified,
             request.CreatedFrom,
             request.CreatedTo,
+            request.BirthDate,
+            request.DeathDate,
             request.Page,
             request.PageSize);
     }

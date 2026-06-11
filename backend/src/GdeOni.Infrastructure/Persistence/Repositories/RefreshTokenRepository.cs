@@ -6,7 +6,7 @@ using Npgsql;
 
 namespace GdeOni.Infrastructure.Persistence.Repositories;
 
-public sealed class RefreshTokenRepository(AppDbContext dbContext) : IRefreshTokenRepository
+public sealed class RefreshTokenRepository(AppDbContext dbContext, TimeProvider timeProvider) : IRefreshTokenRepository
 {
     public Task<RefreshToken?> GetByHash(string tokenHash, CancellationToken cancellationToken)
     {
@@ -24,7 +24,7 @@ public sealed class RefreshTokenRepository(AppDbContext dbContext) : IRefreshTok
         // Один SQL UPDATE через ExecuteUpdateAsync — без подгрузки строк
         // и без N round-trip'ов на SaveChanges. Коммитится сразу
         // (auto-transaction), поэтому caller'у не нужен дополнительный Save.
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
         await dbContext.RefreshTokens
             .Where(t => t.UserId == userId && t.RevokedAtUtc == null)
             .ExecuteUpdateAsync(

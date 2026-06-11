@@ -3,14 +3,29 @@ using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.Model;
+using GdeOni.Application.DeceasedRecords.Commands.ClearBurialLocation.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ClearMetadata.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Create.Model;
+using GdeOni.Application.DeceasedRecords.Commands.Delete.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMediaModeration.Model;
 using GdeOni.Application.DeceasedRecords.Commands.RejectMemory.Model;
+using GdeOni.Application.DeceasedRecords.Commands.RemoveMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.SetBurialLocationFromGps.Model;
+using GdeOni.Application.DeceasedRecords.Commands.Unverified.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMediaDescription.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadata.Model;
+using GdeOni.Application.DeceasedRecords.Commands.DeleteMedia.Model;
+using GdeOni.Application.DeceasedRecords.Commands.SetMainMediaPhoto.Model;
+using GdeOni.Application.DeceasedRecords.Commands.UploadMedia.Model;
+using GdeOni.Application.DeceasedRecords.Commands.Verify.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetAgeAtDeath.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetById.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetDistance.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.Model;
+using GdeOni.Application.DeceasedRecords.Queries.HasMemories.Model;
 
 namespace GdeOni.API.Mappers;
 
@@ -209,6 +224,16 @@ public static class DeceasedRecordsMapping
     public static ClearMetadataCommand ToClearMetadataCommand(Guid deceasedId)
         => new(deceasedId);
 
+    public static UpdateMediaDescriptionCommand ToCommand(
+        this UpdateMediaDescriptionRequest request,
+        Guid deceasedId,
+        Guid mediaId)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return new UpdateMediaDescriptionCommand(deceasedId, mediaId, request.Description);
+    }
+
     public static RejectMemoryCommand ToRejectMemoryCommand(Guid deceasedId, Guid memoryId)
         => new(deceasedId, memoryId);
 
@@ -220,4 +245,51 @@ public static class DeceasedRecordsMapping
 
     public static RejectMediaModerationCommand ToRejectMediaModerationCommand(Guid deceasedId, Guid mediaId)
         => new(deceasedId, mediaId);
+
+    public static GetDeceasedByIdQuery ToGetByIdQuery(Guid id)
+        => new(id);
+
+    public static DeleteDeceasedCommand ToDeleteCommand(Guid id)
+        => new(id);
+
+    public static ClearBurialLocationCommand ToClearBurialLocationCommand(Guid deceasedId)
+        => new(deceasedId);
+
+    public static RemoveMemoryCommand ToRemoveMemoryCommand(Guid deceasedId, Guid memoryId)
+        => new(deceasedId, memoryId);
+
+    public static VerifyDeceasedCommand ToVerifyCommand(Guid deceasedId)
+        => new(deceasedId);
+
+    public static UnverifiedDeceasedCommand ToUnverifiedCommand(Guid deceasedId)
+        => new(deceasedId);
+
+    public static GetMediaListQuery ToQuery(this GetMediaListRequest request, Guid deceasedId)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return new GetMediaListQuery(
+            deceasedId,
+            request.Kind,
+            request.ModerationStatus,
+            request.Page,
+            request.PageSize);
+    }
+
+    public static GetMediaByIdQuery ToGetMediaByIdQuery(Guid deceasedId, Guid mediaId)
+        => new(deceasedId, mediaId);
+
+    public static DeleteMediaCommand ToDeleteMediaCommand(Guid deceasedId, Guid mediaId)
+        => new(deceasedId, mediaId);
+
+    public static SetMainMediaPhotoCommand ToSetMainMediaPhotoCommand(Guid deceasedId, Guid mediaId)
+        => new(deceasedId, mediaId);
+
+    public static GetDistanceQuery ToDistanceQuery(Guid deceasedId, double latitude, double longitude)
+        => new(deceasedId, latitude, longitude);
+
+    public static GetAgeAtDeathQuery ToAgeAtDeathQuery(Guid deceasedId)
+        => new(deceasedId);
+
+    public static HasMemoriesQuery ToHasMemoriesQuery(Guid deceasedId)
+        => new(deceasedId);
 }

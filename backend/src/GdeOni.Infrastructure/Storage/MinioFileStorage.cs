@@ -1,4 +1,5 @@
 using GdeOni.Application.Abstractions.Storage;
+using GdeOni.Domain.Shared;
 using Microsoft.Extensions.Options;
 using Minio;
 using Minio.DataModel.Args;
@@ -60,34 +61,102 @@ internal sealed class MinioFileStorage : IFileStorage
         return $"{baseUrl}/{bucket}/{Uri.EscapeDataString(objectKey)}";
     }
 
-    public Task<string> GetPresignedUrlAsync(
+    public async Task<string> GetPresignedUrlAsync(
         string bucket,
         string objectKey,
         TimeSpan expiresIn,
         CancellationToken cancellationToken)
     {
+        // Clamp на MaxPresignedTtl (D11.6.3): даже если caller попросит
+        // 30 дней, выдаём не более чем сконфигурированный максимум.
+        var maxTtl = TimeSpan.FromHours(_options.MaxPresignedTtlHours);
+        var effectiveTtl = expiresIn > maxTtl ? maxTtl : expiresIn;
+        if (effectiveTtl <= TimeSpan.Zero)
+            effectiveTtl = TimeSpan.FromMinutes(1);
+
         var args = new PresignedGetObjectArgs()
             .WithBucket(bucket)
             .WithObject(objectKey)
-            .WithExpiry((int)expiresIn.TotalSeconds);
+            .WithExpiry((int)effectiveTtl.TotalSeconds);
 
-        return _presignedClient.PresignedGetObjectAsync(args);
+        var url = await _presignedClient.PresignedGetObjectAsync(args);
+
+        // D11.6.4: если PublicBaseUrl содержит path-prefix
+        // (https://files.example.com/storage), MinIO SDK теряет
+        // /storage сегмент при формировании presigned URL — он
+        // знает только host:port. Дописываем prefix вручную перед
+        // первым "/" после хоста.
+        return ApplyPublicPathPrefix(url, _options.PublicBaseUrl);
     }
 
-    private string ResolveBucket(FileKind kind) => kind switch
+    internal static string ApplyPublicPathPrefix(string presignedUrl, string? publicBaseUrl)
     {
-        FileKind.DeceasedPhoto => _options.Buckets.DeceasedPhotos,
-        FileKind.GravePhoto => _options.Buckets.GravePhotos,
-        FileKind.Document => _options.Buckets.DeceasedDocuments,
-        FileKind.Other => _options.Buckets.DeceasedDocuments,
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown file kind.")
+        if (string.IsNullOrWhiteSpace(publicBaseUrl))
+            return presignedUrl;
+        if (!Uri.TryCreate(publicBaseUrl, UriKind.Absolute, out var publicUri))
+            return presignedUrl;
+        if (!Uri.TryCreate(presignedUrl, UriKind.Absolute, out var signedUri))
+            return presignedUrl;
+
+        var prefix = publicUri.AbsolutePath.TrimEnd('/');
+        if (prefix.Length == 0)
+            return presignedUrl;
+
+        // SDK уже выставил scheme/host из _presignedClient (host:port из
+        // PublicBaseUrl). AbsolutePath даёт чистый path без query —
+        // ручной split на '?' не нужен (D11.11.2).
+        var builder = new UriBuilder(signedUri)
+        {
+            Path = prefix + signedUri.AbsolutePath,
+            Query = signedUri.Query.TrimStart('?')
+        };
+        return builder.Uri.ToString();
+    }
+
+    private string ResolveBucket(MediaKind kind) => kind switch
+    {
+        MediaKind.DeceasedPhoto => _options.Buckets.DeceasedPhotos,
+        MediaKind.GravePhoto => _options.Buckets.GravePhotos,
+        MediaKind.Document => _options.Buckets.DeceasedDocuments,
+        MediaKind.Other => _options.Buckets.DeceasedDocuments,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown media kind.")
+    };
+
+    // Whitelist расширений: всё, что не из этого набора, превращается
+    // в ".bin". Защищает от user-controlled расширений вида ".jpg%00.exe"
+    // или ".php" в storage-key (см. D11.6.1). Источник истины по
+    // content-type валидации — FileValidator на Application-слое;
+    // здесь — последний барьер именно в имени файла.
+    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".webp", ".pdf"
     };
 
     private static string BuildObjectKey(UploadFileRequest request)
     {
-        var extension = Path.GetExtension(request.OriginalFileName);
+        var extension = SanitizeExtension(request.OriginalFileName);
         var prefix = request.Kind.ToString().ToLowerInvariant();
         return $"{prefix}/{request.DeceasedId}/{Guid.NewGuid()}{extension}";
+    }
+
+    private static string SanitizeExtension(string? originalFileName)
+    {
+        if (string.IsNullOrWhiteSpace(originalFileName))
+            return ".bin";
+
+        var raw = Path.GetExtension(originalFileName);
+        if (string.IsNullOrEmpty(raw))
+            return ".bin";
+
+        // Path.GetExtension возвращает с ведущей точкой. Дополнительно
+        // отбрасываем всё после первого "странного" символа и приводим
+        // к lower — defense in depth, даже если хост-парсер пропустил
+        // экзотику.
+        var trimmed = new string(raw
+            .TakeWhile(ch => char.IsLetterOrDigit(ch) || ch == '.')
+            .ToArray());
+
+        return AllowedExtensions.Contains(trimmed) ? trimmed.ToLowerInvariant() : ".bin";
     }
 
     // Если PublicBaseUrl задан, presigned URL должен вести на публичный домен,

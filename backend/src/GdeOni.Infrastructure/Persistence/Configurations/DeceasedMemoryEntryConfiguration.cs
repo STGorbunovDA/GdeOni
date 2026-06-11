@@ -33,6 +33,9 @@ public sealed class DeceasedMemoryEntryConfiguration : IEntityTypeConfiguration<
             .HasColumnName("created_at_utc")
             .IsRequired();
 
+        builder.Property(x => x.UpdatedAtUtc)
+            .HasColumnName("updated_at_utc");
+
         builder.Property(x => x.ModerationStatus)
             .HasColumnName("moderation_status")
             .HasConversion<int>()
@@ -43,10 +46,18 @@ public sealed class DeceasedMemoryEntryConfiguration : IEntityTypeConfiguration<
             .HasForeignKey(x => x.AuthorUserId)
             .OnDelete(DeleteBehavior.SetNull);
 
-        builder.HasIndex("deceased_id")
-            .HasDatabaseName("ix_memory_entries_deceased_id");
+        // ix_memory_entries_deceased_id (single column) удалён в D11.8.5:
+        // composite ниже (deceased_id, moderation_status) с deceased_id
+        // как первой колонкой полностью покрывает запросы по deceased_id
+        // и делает single-column индекс избыточным.
 
         builder.HasIndex(x => x.AuthorUserId)
             .HasDatabaseName("ix_memory_entries_author_user_id");
+
+        // Композитный индекс под HasMemories (где filter ModerationStatus
+        // = Approved) и админ-выборку Pending по конкретной карточке
+        // (см. D11.5.6). Первое имя — shadow-FK, второе — CLR-property.
+        builder.HasIndex("deceased_id", nameof(DeceasedMemoryEntry.ModerationStatus))
+            .HasDatabaseName("ix_memory_entries_deceased_id_moderation_status");
     }
 }

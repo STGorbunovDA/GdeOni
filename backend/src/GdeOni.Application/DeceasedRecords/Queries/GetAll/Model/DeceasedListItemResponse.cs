@@ -17,4 +17,16 @@ public sealed class GetAllDeceasedItemResponse
     public string? GraveNumber { get; init; }
     public bool IsVerified { get; init; }
     public DateTime CreatedAtUtc { get; init; }
+
+    /// <summary>
+    /// Id главного фото (Approved). Нужен клиенту чтобы потом, если
+    /// он откроет редактор, знать какое сейчас выбрано.
+    /// </summary>
+    public Guid? MainMediaId { get; init; }
+
+    /// <summary>
+    /// Готовый публичный URL главного фото для превью в ленте.
+    /// Null если фото нет или оно не Approved. Лекарство от N+1.
+    /// </summary>
+    public string? MainPhotoUrl { get; init; }
 }

@@ -28,6 +28,12 @@ public sealed class Deceased : Entity<Guid>
     private readonly List<DeceasedMedia> _media = new();
     public IReadOnlyCollection<DeceasedMedia> Media => _media.AsReadOnly();
 
+    // D24. Audit log правок основных полей карточки (main-info, metadata,
+    // burial-location). Создание самой карточки тут не фиксируется —
+    // для него есть CreatedByUserId/CreatedAtUtc.
+    private readonly List<DeceasedEdit> _edits = new();
+    public IReadOnlyCollection<DeceasedEdit> Edits => _edits.AsReadOnly();
+
     public Guid? MainMediaId { get; private set; }
     public DeceasedMedia? MainMedia { get; private set; }
 
@@ -121,7 +127,14 @@ public sealed class Deceased : Entity<Guid>
         return photo;
     }
 
-    public bool HasMemories() => _memories.Count > 0;
+    /// <summary>
+    /// Видимы ли клиенту воспоминания. Возвращает true, только если есть
+    /// хотя бы одно Approved-воспоминание; Pending и Rejected не считаются
+    /// (см. D11.4.7) — иначе подписчик видел бы "есть воспоминания",
+    /// открывал карточку и обнаруживал пустоту.
+    /// </summary>
+    public bool HasMemories() =>
+        _memories.Any(x => x.ModerationStatus == ModerationStatus.Approved);
 
     public UnitResult<Error> UpdateMainInfo(
         string firstName,
@@ -130,7 +143,8 @@ public sealed class Deceased : Entity<Guid>
         DateOnly? birthDate,
         DateOnly deathDate,
         string? shortDescription,
-        string? biography)
+        string? biography,
+        Guid? editorUserId = null)
     {
         var nameResult = PersonName.Create(firstName, lastName, middleName);
         if (nameResult.IsFailure)
@@ -148,6 +162,46 @@ public sealed class Deceased : Entity<Guid>
         if (biographyResult.IsFailure)
             return biographyResult.Error;
 
+        // No-op guard (D11.10.2): PUT с теми же значениями не должен
+        // двигать UpdatedAtUtc и пересобирать SearchKey. Симметрично
+        // ChangeBurialLocation (D11.4.5). PersonName/LifePeriod —
+        // ValueObject, Equals структурный.
+        if (Equals(Name, nameResult.Value) &&
+            Equals(LifePeriod, periodResult.Value) &&
+            ShortDescription == shortDescriptionResult.Value &&
+            Biography == biographyResult.Value)
+        {
+            return UnitResult.Success<Error>();
+        }
+
+        // D24. Считаем diff ДО мутации, чтобы Old-значения отражали
+        // реальное предыдущее состояние.
+        var changes = new Dictionary<string, ChangePair>();
+        if (!Equals(Name, nameResult.Value))
+        {
+            if (Name.FirstName != nameResult.Value.FirstName)
+                changes["FirstName"] = new ChangePair(Name.FirstName, nameResult.Value.FirstName);
+            if (Name.LastName != nameResult.Value.LastName)
+                changes["LastName"] = new ChangePair(Name.LastName, nameResult.Value.LastName);
+            if (Name.MiddleName != nameResult.Value.MiddleName)
+                changes["MiddleName"] = new ChangePair(Name.MiddleName, nameResult.Value.MiddleName);
+        }
+        if (!Equals(LifePeriod, periodResult.Value))
+        {
+            if (LifePeriod.BirthDate != periodResult.Value.BirthDate)
+                changes["BirthDate"] = new ChangePair(
+                    LifePeriod.BirthDate?.ToString("yyyy-MM-dd"),
+                    periodResult.Value.BirthDate?.ToString("yyyy-MM-dd"));
+            if (LifePeriod.DeathDate != periodResult.Value.DeathDate)
+                changes["DeathDate"] = new ChangePair(
+                    LifePeriod.DeathDate.ToString("yyyy-MM-dd"),
+                    periodResult.Value.DeathDate.ToString("yyyy-MM-dd"));
+        }
+        if (ShortDescription != shortDescriptionResult.Value)
+            changes["ShortDescription"] = new ChangePair(ShortDescription, shortDescriptionResult.Value);
+        if (Biography != biographyResult.Value)
+            changes["Biography"] = new ChangePair(Biography, biographyResult.Value);
+
         Name = nameResult.Value;
         LifePeriod = periodResult.Value;
         ShortDescription = shortDescriptionResult.Value;
@@ -156,16 +210,52 @@ public sealed class Deceased : Entity<Guid>
         Touch();
         RebuildSearchKey();
 
-        return UnitResult.Success<Error>();
+        return RecordEditIfPossible(editorUserId, DeceasedEditKind.MainInfo, changes);
     }
 
-    public UnitResult<Error> ChangeBurialLocation(BurialLocation? burialLocation)
+    public UnitResult<Error> ChangeBurialLocation(BurialLocation? burialLocation, Guid? editorUserId = null)
     {
+        // No-op guard: если новое значение совпадает со старым, не двигаем
+        // UpdatedAtUtc и не пересобираем SearchKey — иначе любая повторная
+        // запись из клиента дёргает БД зря (см. D11.4.5).
+        if (Equals(BurialLocation, burialLocation))
+            return UnitResult.Success<Error>();
+
+        var changes = BuildBurialLocationDiff(BurialLocation, burialLocation);
+
         BurialLocation = burialLocation;
         Touch();
         RebuildSearchKey();
 
-        return UnitResult.Success<Error>();
+        return RecordEditIfPossible(editorUserId, DeceasedEditKind.BurialLocation, changes);
+    }
+
+    private static Dictionary<string, ChangePair> BuildBurialLocationDiff(
+        BurialLocation? oldLocation,
+        BurialLocation? newLocation)
+    {
+        var changes = new Dictionary<string, ChangePair>();
+        string? OldS(Func<BurialLocation, string?> f) => oldLocation is null ? null : f(oldLocation);
+        string? NewS(Func<BurialLocation, string?> f) => newLocation is null ? null : f(newLocation);
+
+        void AddIfChanged(string key, string? oldV, string? newV)
+        {
+            if (oldV != newV)
+                changes[key] = new ChangePair(oldV, newV);
+        }
+
+        AddIfChanged("Latitude", oldLocation?.Latitude.ToString("R"), newLocation?.Latitude.ToString("R"));
+        AddIfChanged("Longitude", oldLocation?.Longitude.ToString("R"), newLocation?.Longitude.ToString("R"));
+        AddIfChanged("AccuracyMeters", oldLocation?.AccuracyMeters?.ToString("R"), newLocation?.AccuracyMeters?.ToString("R"));
+        AddIfChanged("Accuracy", oldLocation?.Accuracy.ToString(), newLocation?.Accuracy.ToString());
+        AddIfChanged("Country", OldS(x => x.Country), NewS(x => x.Country));
+        AddIfChanged("Region", OldS(x => x.Region), NewS(x => x.Region));
+        AddIfChanged("City", OldS(x => x.City), NewS(x => x.City));
+        AddIfChanged("CemeteryName", OldS(x => x.CemeteryName), NewS(x => x.CemeteryName));
+        AddIfChanged("PlotNumber", OldS(x => x.PlotNumber), NewS(x => x.PlotNumber));
+        AddIfChanged("GraveNumber", OldS(x => x.GraveNumber), NewS(x => x.GraveNumber));
+
+        return changes;
     }
 
     public Result<DeceasedMemoryEntry, Error> AddMemory(
@@ -302,10 +392,7 @@ public sealed class Deceased : Entity<Guid>
             return Errors.DeceasedMedia.NotFound(mediaId);
 
         if (MainMediaId == mediaId)
-        {
-            MainMediaId = null;
-            MainMedia = null;
-        }
+            ClearMainMedia();
 
         _media.Remove(media);
         Touch();
@@ -335,8 +422,7 @@ public sealed class Deceased : Entity<Guid>
         if (markResult.IsFailure)
             return markResult.Error;
 
-        MainMediaId = media.Id;
-        MainMedia = media;
+        SetMainMedia(media);
         Touch();
         return UnitResult.Success<Error>();
     }
@@ -380,31 +466,101 @@ public sealed class Deceased : Entity<Guid>
             return result.Error;
 
         if (MainMediaId == mediaId)
-        {
-            MainMediaId = null;
-            MainMedia = null;
-        }
+            ClearMainMedia();
 
         Touch();
         return UnitResult.Success<Error>();
     }
 
-    public UnitResult<Error> UpdateMetadata(DeceasedMetadata metadata)
+    // Единственная точка изменения связки MainMediaId/MainMedia
+    // (D11.4.6): два поля синхронизируются вместе, риск дрейфа исключён
+    // независимо от того, какой use case вызывает мутацию.
+    private void SetMainMedia(DeceasedMedia media)
+    {
+        MainMediaId = media.Id;
+        MainMedia = media;
+    }
+
+    private void ClearMainMedia()
+    {
+        MainMediaId = null;
+        MainMedia = null;
+    }
+
+    public UnitResult<Error> UpdateMetadata(DeceasedMetadata metadata, Guid? editorUserId = null)
     {
         if (metadata is null)
             return Errors.Deceased.MetadataRequired();
 
+        // No-op guard (D11.14.1): тот же metadata структурно — не двигаем
+        // UpdatedAtUtc. ValueObject.Equals сравнивает по
+        // GetEqualityComponents, без рассинхронизации после Trim.
+        if (Equals(Metadata, metadata))
+            return UnitResult.Success<Error>();
+
+        var changes = BuildMetadataDiff(Metadata, metadata);
+
         Metadata = metadata;
         Touch();
 
-        return UnitResult.Success<Error>();
+        return RecordEditIfPossible(editorUserId, DeceasedEditKind.Metadata, changes);
     }
 
-    public UnitResult<Error> ClearMetadata()
+    public UnitResult<Error> ClearMetadata(Guid? editorUserId = null)
     {
-        Metadata = DeceasedMetadata.Empty();
+        // No-op guard (D11.14.2): уже Empty — не двигаем UpdatedAtUtc.
+        // Повторный DELETE /metadata идемпотентен и не должен дёргать БД.
+        if (Metadata.IsEmpty())
+            return UnitResult.Success<Error>();
+
+        var empty = DeceasedMetadata.Empty();
+        var changes = BuildMetadataDiff(Metadata, empty);
+
+        Metadata = empty;
         Touch();
 
+        return RecordEditIfPossible(editorUserId, DeceasedEditKind.Metadata, changes);
+    }
+
+    private static Dictionary<string, ChangePair> BuildMetadataDiff(DeceasedMetadata oldM, DeceasedMetadata newM)
+    {
+        var changes = new Dictionary<string, ChangePair>();
+        void AddIfChanged(string key, string? oldV, string? newV)
+        {
+            if (oldV != newV)
+                changes[key] = new ChangePair(oldV, newV);
+        }
+
+        AddIfChanged("Epitaph", oldM.Epitaph, newM.Epitaph);
+        AddIfChanged("Religion", oldM.Religion, newM.Religion);
+        AddIfChanged("Source", oldM.Source, newM.Source);
+        AddIfChanged("AdditionalInfo", oldM.AdditionalInfo, newM.AdditionalInfo);
+        if (oldM.IsMilitaryService != newM.IsMilitaryService)
+            changes["IsMilitaryService"] = new ChangePair(
+                oldM.IsMilitaryService.ToString().ToLowerInvariant(),
+                newM.IsMilitaryService.ToString().ToLowerInvariant());
+
+        return changes;
+    }
+
+    /// <summary>
+    /// D24. Если редактор задан и есть реальные изменения — пишем edit
+    /// в audit log. Иначе (editorUserId null — старый Create/CRUD-flow,
+    /// либо changes пустой) — silent skip.
+    /// </summary>
+    private UnitResult<Error> RecordEditIfPossible(
+        Guid? editorUserId,
+        DeceasedEditKind kind,
+        IReadOnlyDictionary<string, ChangePair> changes)
+    {
+        if (editorUserId is null || editorUserId == Guid.Empty || changes.Count == 0)
+            return UnitResult.Success<Error>();
+
+        var editResult = DeceasedEdit.Create(Id, editorUserId.Value, kind, changes);
+        if (editResult.IsFailure)
+            return editResult.Error;
+
+        _edits.Add(editResult.Value);
         return UnitResult.Success<Error>();
     }
 

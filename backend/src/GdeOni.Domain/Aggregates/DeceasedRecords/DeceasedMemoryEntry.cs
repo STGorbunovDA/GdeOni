@@ -10,6 +10,7 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
     public string Text { get; private set; }
     public Guid? AuthorUserId { get; }
     public DateTime CreatedAtUtc { get; }
+    public DateTime? UpdatedAtUtc { get; private set; }
     public ModerationStatus ModerationStatus { get; private set; }
 
     private DeceasedMemoryEntry() : base(Guid.Empty)
@@ -54,13 +55,20 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
         if (textResult.IsFailure)
             return textResult.Error;
 
+        // No-op guard (D11.9.2): автор открыл UI и нажал Save без правок —
+        // Approved-запись не должна терять статус модерации. Сравниваем
+        // нормализованные формы.
+        if (Text == textResult.Value)
+            return UnitResult.Success<Error>();
+
         Text = textResult.Value;
-        // Любая правка текста возвращает запись в Pending. Без этого
-        // обходится модерация: автор пишет одобряемое содержимое,
+        // Любая фактическая правка текста возвращает запись в Pending.
+        // Без этого обходится модерация: автор пишет одобряемое содержимое,
         // ждёт Approved, затем редактирует на произвольный текст —
         // и запись остаётся Approved. Reset при каждом EditText
         // заставляет каждый текст пройти модерацию заново.
         ModerationStatus = ModerationStatus.Pending;
+        Touch();
         return UnitResult.Success<Error>();
     }
 
@@ -70,6 +78,7 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
             return Errors.DeceasedMemory.AlreadyApproved();
 
         ModerationStatus = ModerationStatus.Approved;
+        Touch();
         return UnitResult.Success<Error>();
     }
 
@@ -79,7 +88,13 @@ public sealed class DeceasedMemoryEntry : Entity<Guid>
             return Errors.DeceasedMemory.AlreadyRejected();
 
         ModerationStatus = ModerationStatus.Rejected;
+        Touch();
         return UnitResult.Success<Error>();
+    }
+
+    private void Touch()
+    {
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 
     private static Result<string, Error> NormalizeAndValidateText(string text)

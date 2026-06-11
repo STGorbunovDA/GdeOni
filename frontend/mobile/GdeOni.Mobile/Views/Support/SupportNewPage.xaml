@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Support.SupportNewPage"
+             x:DataType="vm:SupportNewViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Новое обращение">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="16">
+
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8" />
+
+                <Label Text="Новое обращение" Style="{StaticResource TitleLabel}" />
+                <Label Text="Опишите проблему — администратор ответит в разделе «Мои обращения»."
+                       Style="{StaticResource CaptionLabel}" />
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+
+                        <Label Text="Тема обращения" Style="{StaticResource CaptionLabel}" />
+                        <Picker ItemsSource="{Binding KindOptions}"
+                                ItemDisplayBinding="{Binding Display}"
+                                SelectedItem="{Binding SelectedKind}"
+                                Title="Выберите тему" />
+
+                        <Label Text="Заголовок" Style="{StaticResource CaptionLabel}" />
+                        <Entry Placeholder="Кратко опишите проблему"
+                               MaxLength="200"
+                               Text="{Binding Title}" />
+
+                        <Label Text="Описание" Style="{StaticResource CaptionLabel}" />
+                        <Editor Placeholder="Подробное описание (что произошло, ожидаемый результат)"
+                                MaxLength="4000"
+                                HeightRequest="180"
+                                AutoSize="TextChanges"
+                                Text="{Binding Description}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="#C0392B"
+                       Style="{StaticResource BodyLabel}" />
+
+                <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                   IsVisible="{Binding IsBusy}"
+                                   Color="{StaticResource Azure}" />
+
+                <Button Text="Отправить"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding SubmitCommand}"
+                        HorizontalOptions="Fill" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

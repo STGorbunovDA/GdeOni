@@ -1,0 +1,76 @@
+# D20.3. Mobile CI — прогон mobile-тестов на каждый push/PR.
+#
+# GdeOni.Mobile.Tests и GdeOni.Mobile.Shared таргетят чистый net10.0
+# (без -android), поэтому достаточно установить только .NET 10 SDK —
+# Android workload не нужен. Полная сборка APK (с workload и JDK)
+# отделена в mobile-release.yml и запускается на тегах.
+
+name: mobile-ci
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'frontend/mobile/**'
+      - '.github/workflows/mobile-ci.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'frontend/mobile/**'
+      - '.github/workflows/mobile-ci.yml'
+
+concurrency:
+  group: mobile-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-shared:
+    name: test GdeOni.Mobile.Tests (net10.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          # Версия зафиксирована в frontend/mobile/global.json (10.0.203).
+          # setup-dotnet прочитает её и поставит ту же SDK.
+          global-json-file: frontend/mobile/global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-mobile-${{ runner.os }}-${{ hashFiles('frontend/mobile/**/*.csproj') }}
+          restore-keys: |
+            nuget-mobile-${{ runner.os }}-
+
+      # Тестовый проект ссылается только на Mobile.Shared (net10.0) —
+      # ни Mobile.csproj (-android), ни workload здесь не нужны.
+      - name: Restore Tests project
+        working-directory: frontend/mobile/GdeOni.Mobile.Tests
+        run: dotnet restore GdeOni.Mobile.Tests.csproj
+
+      - name: Build (Release, no restore)
+        working-directory: frontend/mobile/GdeOni.Mobile.Tests
+        run: dotnet build GdeOni.Mobile.Tests.csproj --configuration Release --no-restore
+
+      - name: Test
+        working-directory: frontend/mobile/GdeOni.Mobile.Tests
+        run: |
+          dotnet test GdeOni.Mobile.Tests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger "trx;LogFileName=mobile-test-results.trx" \
+            --logger "console;verbosity=normal"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-test-results
+          path: '**/TestResults/*.trx'
+          retention-days: 14

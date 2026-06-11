@@ -38,6 +38,9 @@ public sealed class ClearBurialLocationUseCase(
         if (!isAdmin && deceased.CreatedByUserId != currentUserId)
             return Errors.Deceased.ClearBurialLocationForbidden();
 
+        if (deceased.BurialLocation is null)
+            return Errors.Deceased.BurialLocationAlreadyNull();
+
         var result = deceased.ChangeBurialLocation(null);
         if (result.IsFailure)
             return result.Error;

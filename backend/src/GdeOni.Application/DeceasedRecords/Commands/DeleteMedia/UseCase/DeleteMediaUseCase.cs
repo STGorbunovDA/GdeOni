@@ -42,15 +42,11 @@ public sealed class DeleteMediaUseCase(
         if (media is null)
             return Errors.DeceasedMedia.NotFound(command.MediaId);
 
-        var currentUserId = currentUserIdResult.Value;
-        var isAdmin = currentUserService.IsAdmin();
-
-        if (!isAdmin
-            && media.UploadedByUserId != currentUserId
-            && deceased.CreatedByUserId != currentUserId)
-        {
+        // D26. Удаление медиа разрешено только админам — наряду с
+        // выкладкой и редактированием описания/main-photo. Контроллер уже
+        // ограничен Roles=SuperAdmin,Admin; этот guard — вторая линия.
+        if (!currentUserService.IsAdmin())
             return Errors.DeceasedMedia.DeleteForbidden();
-        }
 
         var bucket = media.Bucket;
         var storageKey = media.StorageKey;

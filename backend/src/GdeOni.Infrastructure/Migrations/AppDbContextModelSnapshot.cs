@@ -137,6 +137,47 @@ namespace GdeOni.Infrastructure.Migrations
                     b.ToTable("deceased_records", (string)null);
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.DeceasedRecords.DeceasedEdit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ChangesJson")
+                        .IsRequired()
+                        .HasMaxLength(8192)
+                        .HasColumnType("jsonb")
+                        .HasColumnName("changes_json");
+
+                    b.Property<Guid>("DeceasedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deceased_id");
+
+                    b.Property<DateTime>("EditedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("edited_at_utc");
+
+                    b.Property<Guid?>("EditedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("edited_by_user_id");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.HasKey("Id")
+                        .HasName("pk_deceased_edits");
+
+                    b.HasIndex("EditedByUserId")
+                        .HasDatabaseName("ix_deceased_edits_edited_by_user_id");
+
+                    b.HasIndex("DeceasedId", "EditedAtUtc")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_deceased_edits_deceased_id_edited_at_utc");
+
+                    b.ToTable("deceased_edits", (string)null);
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.DeceasedRecords.DeceasedMedia", b =>
                 {
                     b.Property<Guid>("Id")
@@ -210,8 +251,8 @@ namespace GdeOni.Infrastructure.Migrations
                     b.HasIndex("DeceasedId")
                         .HasDatabaseName("ix_deceased_media_deceased_id");
 
-                    b.HasIndex("Kind")
-                        .HasDatabaseName("ix_deceased_media_kind");
+                    b.HasIndex("ModerationStatus")
+                        .HasDatabaseName("ix_deceased_media_moderation_status");
 
                     b.HasIndex("StorageKey")
                         .IsUnique()
@@ -247,6 +288,10 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnType("character varying(5000)")
                         .HasColumnName("text");
 
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
                     b.Property<Guid>("deceased_id")
                         .HasColumnType("uuid")
                         .HasColumnName("deceased_id");
@@ -257,10 +302,247 @@ namespace GdeOni.Infrastructure.Migrations
                     b.HasIndex("AuthorUserId")
                         .HasDatabaseName("ix_memory_entries_author_user_id");
 
-                    b.HasIndex("deceased_id")
-                        .HasDatabaseName("ix_memory_entries_deceased_id");
+                    b.HasIndex("deceased_id", "ModerationStatus")
+                        .HasDatabaseName("ix_memory_entries_deceased_id_moderation_status");
 
                     b.ToTable("deceased_memory_entries", (string)null);
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Subscriptions.SubscriptionPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("AmountRub")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount_rub");
+
+                    b.Property<string>("CheckoutUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("checkout_url");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("ExternalPaymentId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("external_payment_id");
+
+                    b.Property<DateTime?>("PeriodEndUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("period_end_utc");
+
+                    b.Property<DateTime?>("PeriodStartUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("period_start_utc");
+
+                    b.Property<string>("Plan")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("plan");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_subscription_payments");
+
+                    b.HasIndex("CreatedAtUtc")
+                        .IsDescending()
+                        .HasDatabaseName("ix_subscription_payments_created_at_utc");
+
+                    b.HasIndex("ExternalPaymentId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_subscription_payments_external_payment_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_subscription_payments_status");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_subscription_payments_user_id");
+
+                    b.ToTable("subscription_payments", (string)null);
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicket", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AcceptedByUser")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("accepted_by_user");
+
+                    b.Property<DateTime?>("AcceptedByUserAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_by_user_at_utc");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("details");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("LastUserReply")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("last_user_reply");
+
+                    b.Property<DateTime?>("LastUserReplyAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_user_reply_at_utc");
+
+                    b.Property<int>("ReopenedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("reopened_count");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("resolution_note");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at_utc");
+
+                    b.Property<Guid?>("ResolvedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolved_by_user_id");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("severity");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("source");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_support_tickets");
+
+                    b.HasIndex("CreatedAtUtc")
+                        .IsDescending()
+                        .HasDatabaseName("ix_support_tickets_created_at_utc");
+
+                    b.HasIndex("Kind")
+                        .HasDatabaseName("ix_support_tickets_kind");
+
+                    b.HasIndex("ResolvedByUserId")
+                        .HasDatabaseName("ix_support_tickets_resolved_by_user_id");
+
+                    b.HasIndex("Severity")
+                        .HasDatabaseName("ix_support_tickets_severity");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_support_tickets_status");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_support_tickets_user_id");
+
+                    b.ToTable("support_tickets", (string)null);
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicketMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AuthorKind")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("author_kind");
+
+                    b.Property<Guid?>("AuthorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_user_id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("text");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_support_ticket_messages");
+
+                    b.HasIndex("AuthorUserId")
+                        .HasDatabaseName("ix_support_ticket_messages_author_user_id");
+
+                    b.HasIndex("TicketId", "CreatedAtUtc")
+                        .HasDatabaseName("ix_support_ticket_messages_ticket_id_created_at");
+
+                    b.ToTable("support_ticket_messages", (string)null);
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.User.TrackedDeceased", b =>
@@ -325,6 +607,36 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTime?>("BlockedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("blocked_at_utc");
+
+                    b.Property<Guid?>("BlockedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("blocked_by_user_id");
+
+                    b.Property<string>("BlockedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("blocked_reason");
+
+                    b.Property<DateTime?>("ComplimentaryAccessGrantedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("complimentary_access_granted_at_utc");
+
+                    b.Property<Guid?>("ComplimentaryAccessGrantedByAdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("complimentary_access_granted_by_admin_id");
+
+                    b.Property<string>("ComplimentaryAccessNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("complimentary_access_note");
+
+                    b.Property<DateTime?>("ComplimentaryAccessUntilUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("complimentary_access_until_utc");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(320)
@@ -336,6 +648,12 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnType("character varying(300)")
                         .HasColumnName("full_name");
 
+                    b.Property<bool>("IsBlocked")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_blocked");
+
                     b.Property<DateTime?>("LastLoginAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_login_at_utc");
@@ -345,6 +663,16 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("password_hash");
+
+                    b.Property<DateTime?>("PrivacyPolicyAcceptedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("privacy_policy_accepted_at_utc");
+
+                    b.Property<int>("PrivacyPolicyVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("privacy_policy_version");
 
                     b.Property<DateTime>("RegisteredAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -359,6 +687,16 @@ namespace GdeOni.Infrastructure.Migrations
                     b.Property<Guid>("SecurityStamp")
                         .HasColumnType("uuid")
                         .HasColumnName("security_stamp");
+
+                    b.Property<DateTime?>("TermsAcceptedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("terms_accepted_at_utc");
+
+                    b.Property<int>("TermsVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("terms_version");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -379,9 +717,26 @@ namespace GdeOni.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_users");
 
+                    b.HasIndex("BlockedByUserId")
+                        .HasDatabaseName("ix_users_blocked_by_user_id");
+
+                    b.HasIndex("ComplimentaryAccessGrantedByAdminId")
+                        .HasDatabaseName("ix_users_complimentary_access_granted_by_admin_id");
+
                     b.HasIndex("Email")
                         .IsUnique()
                         .HasDatabaseName("ux_users_email");
+
+                    b.HasIndex("IsBlocked")
+                        .HasDatabaseName("ix_users_is_blocked")
+                        .HasFilter("is_blocked = true");
+
+                    b.HasIndex("RegisteredAtUtc")
+                        .IsDescending()
+                        .HasDatabaseName("ix_users_registered_at_utc");
+
+                    b.HasIndex("Role")
+                        .HasDatabaseName("ix_users_role");
 
                     b.HasIndex("UserNameNormalized")
                         .IsUnique()
@@ -468,6 +823,9 @@ namespace GdeOni.Infrastructure.Migrations
                                 .HasColumnName("region");
 
                             b1.HasKey("DeceasedId");
+
+                            b1.HasIndex("Latitude", "Longitude")
+                                .HasDatabaseName("ix_deceased_burial_lat_lon");
 
                             b1.ToTable("deceased_records");
 
@@ -578,6 +936,22 @@ namespace GdeOni.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.DeceasedRecords.DeceasedEdit", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.DeceasedRecords.Deceased", null)
+                        .WithMany("Edits")
+                        .HasForeignKey("DeceasedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_deceased_edits_deceased_records_deceased_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("EditedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_deceased_edits_users_edited_by_user_id");
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.DeceasedRecords.DeceasedMedia", b =>
                 {
                     b.HasOne("GdeOni.Domain.Aggregates.DeceasedRecords.Deceased", null)
@@ -611,6 +985,37 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasConstraintName("fk_deceased_memory_entries_deceased_records_deceased_id");
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicket", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("ResolvedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_support_tickets_users_resolved_by_user_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_support_tickets_users_user_id");
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicketMessage", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_support_ticket_messages_users_author_user_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.Support.SupportTicket", null)
+                        .WithMany("Messages")
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_support_ticket_messages_support_tickets_ticket_id");
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.User.TrackedDeceased", b =>
                 {
                     b.HasOne("GdeOni.Domain.Aggregates.DeceasedRecords.Deceased", null)
@@ -628,11 +1033,85 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasConstraintName("fk_tracked_deceased_users_user_id");
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.User.User", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("BlockedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_users_users_blocked_by_user_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("ComplimentaryAccessGrantedByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_users_users_complimentary_access_granted_by_admin_id");
+
+                    b.OwnsOne("GdeOni.Domain.Aggregates.User.Subscription", "Subscription", b1 =>
+                        {
+                            b1.Property<Guid>("UserId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("id");
+
+                            b1.Property<DateTime?>("CancelledAtUtc")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("subscription_cancelled_at_utc");
+
+                            b1.Property<DateTime?>("CurrentPeriodStartedAtUtc")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("subscription_current_period_started_at_utc");
+
+                            b1.Property<DateTime?>("ExpiresAtUtc")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("subscription_expires_at_utc");
+
+                            b1.Property<string>("LastPaymentId")
+                                .HasMaxLength(100)
+                                .HasColumnType("character varying(100)")
+                                .HasColumnName("subscription_last_payment_id");
+
+                            b1.Property<string>("Plan")
+                                .HasMaxLength(50)
+                                .HasColumnType("character varying(50)")
+                                .HasColumnName("subscription_plan");
+
+                            b1.Property<string>("Status")
+                                .IsRequired()
+                                .HasMaxLength(50)
+                                .HasColumnType("character varying(50)")
+                                .HasColumnName("subscription_status");
+
+                            b1.HasKey("UserId");
+
+                            b1.HasIndex("ExpiresAtUtc")
+                                .HasDatabaseName("ix_users_subscription_expires_at_utc");
+
+                            b1.HasIndex("LastPaymentId")
+                                .HasDatabaseName("ix_users_subscription_last_payment_id");
+
+                            b1.ToTable("users");
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId")
+                                .HasConstraintName("fk_users_users_id");
+                        });
+
+                    b.Navigation("Subscription")
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.DeceasedRecords.Deceased", b =>
                 {
+                    b.Navigation("Edits");
+
                     b.Navigation("Media");
 
                     b.Navigation("Memories");
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicket", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.User.User", b =>

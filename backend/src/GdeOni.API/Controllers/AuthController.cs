@@ -1,10 +1,11 @@
+using GdeOni.API.Authorization;
+using GdeOni.API.Mappers;
 using GdeOni.API.Models.Auth;
 using GdeOni.API.Models.Users;
 using GdeOni.API.RateLimiting;
 using GdeOni.API.Response;
 using GdeOni.Application.Auth.Login.Model;
 using GdeOni.Application.Auth.Login.UseCase;
-using GdeOni.Application.Auth.Logout.Model;
 using GdeOni.Application.Auth.Logout.UseCase;
 using GdeOni.Application.Auth.Refresh.Model;
 using GdeOni.Application.Auth.Refresh.UseCase;
@@ -17,6 +18,7 @@ namespace GdeOni.API.Controllers;
 /// <summary>
 /// Контроллер авторизации.
 /// </summary>
+[Tags("Auth")]
 [Route("api/auth")]
 public sealed class AuthController : ApiControllerBase
 {
@@ -35,8 +37,7 @@ public sealed class AuthController : ApiControllerBase
         [FromServices] ILoginUseCase loginUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new LoginCommand(request.Email, request.Password);
-        var result = await loginUseCase.Execute(command, cancellationToken);
+        var result = await loginUseCase.Execute(request.ToCommand(), cancellationToken);
         return FromResult(result);
     }
 
@@ -55,8 +56,7 @@ public sealed class AuthController : ApiControllerBase
         [FromServices] IRefreshUseCase refreshUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new RefreshCommand(request.RefreshToken);
-        var result = await refreshUseCase.Execute(command, cancellationToken);
+        var result = await refreshUseCase.Execute(request.ToCommand(), cancellationToken);
         return FromResult(result);
     }
 
@@ -66,7 +66,7 @@ public sealed class AuthController : ApiControllerBase
     /// 204 без ошибки (одинаковый ответ скрывает существование чужих токенов).
     /// </summary>
     [HttpPost("logout")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
@@ -75,8 +75,7 @@ public sealed class AuthController : ApiControllerBase
         [FromServices] ILogoutUseCase logoutUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new LogoutCommand(request.RefreshToken);
-        var result = await logoutUseCase.Execute(command, cancellationToken);
+        var result = await logoutUseCase.Execute(request.ToCommand(), cancellationToken);
         return FromUnitResult(result);
     }
 }

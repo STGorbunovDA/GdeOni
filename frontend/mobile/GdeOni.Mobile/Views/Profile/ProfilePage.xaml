@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:shared="clr-namespace:GdeOni.Mobile.Views.Shared"
+             x:Class="GdeOni.Mobile.Views.Profile.ProfilePage"
+             x:DataType="vm:ProfileViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Title="{Binding Title}">
+
+    <Grid RowDefinitions="*,Auto">
+        <Ellipse Grid.Row="0"
+                 Fill="White"
+                 Opacity="0.5"
+                 WidthRequest="240"
+                 HeightRequest="130"
+                 HorizontalOptions="Start"
+                 VerticalOptions="Start"
+                 TranslationX="-70"
+                 TranslationY="40" />
+        <Ellipse Grid.Row="0"
+                 Fill="White"
+                 Opacity="0.35"
+                 WidthRequest="180"
+                 HeightRequest="100"
+                 HorizontalOptions="End"
+                 VerticalOptions="End"
+                 TranslationX="40"
+                 TranslationY="20" />
+
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Padding="24,40,24,24" Spacing="20">
+                <Label Text="Профиль"
+                       Style="{StaticResource TitleLabel}" />
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Аккаунт"
+                               Style="{StaticResource SubTitleLabel}" />
+
+                        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                           IsVisible="{Binding IsBusy}"
+                                           Color="{StaticResource Azure}" />
+
+                        <Grid ColumnDefinitions="Auto,*"
+                              RowDefinitions="Auto,Auto,Auto"
+                              ColumnSpacing="12"
+                              RowSpacing="6">
+                            <Label Grid.Row="0" Grid.Column="0"
+                                   Text="Имя:"
+                                   Style="{StaticResource CaptionLabel}" />
+                            <Label Grid.Row="0" Grid.Column="1"
+                                   Text="{Binding UserName, FallbackValue='—'}"
+                                   Style="{StaticResource BodyLabel}" />
+
+                            <Label Grid.Row="1" Grid.Column="0"
+                                   Text="Полное имя:"
+                                   Style="{StaticResource CaptionLabel}" />
+                            <Label Grid.Row="1" Grid.Column="1"
+                                   Text="{Binding FullName, FallbackValue='—'}"
+                                   Style="{StaticResource BodyLabel}" />
+
+                            <Label Grid.Row="2" Grid.Column="0"
+                                   Text="Email:"
+                                   Style="{StaticResource CaptionLabel}" />
+                            <Label Grid.Row="2" Grid.Column="1"
+                                   Text="{Binding Email, FallbackValue='—'}"
+                                   Style="{StaticResource BodyLabel}" />
+                        </Grid>
+
+                        <Label Text="{Binding ErrorMessage}"
+                               TextColor="#C0392B"
+                               FontSize="13"
+                               IsVisible="{Binding ErrorMessage, TargetNullValue=False}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding ShowSubscriptionBlock}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Подписка"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="{Binding SubscriptionSummary}"
+                               Style="{StaticResource BodyLabel}" />
+                        <Label Text="{Binding SubscriptionDetail}"
+                               FontSize="12"
+                               TextColor="#5D7282"
+                               LineBreakMode="WordWrap" />
+                        <Button Text="Управление подпиской"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding ManageSubscriptionCommand}"
+                                HorizontalOptions="Fill"
+                                Margin="0,8,0,0" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- F17.9 mobile. Кнопка видна только админам — видимость
+                     управляется IsAdmin (SuperAdmin/Admin). Бэк дублирует
+                     проверку 403. -->
+                <Button Text="Админка"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding OpenAdminCommand}"
+                        IsVisible="{Binding IsAdmin}"
+                        HorizontalOptions="Fill" />
+
+                <!-- D25 mobile. Обращения в службу поддержки — две кнопки
+                     для всех authenticated юзеров (включая админов). -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Поддержка"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Опишите проблему или посмотрите ответ администратора."
+                               Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Обращение в службу поддержки"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding NewSupportTicketCommand}"
+                                HorizontalOptions="Fill" />
+                        <Button Text="Мои обращения"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding OpenMySupportTicketsCommand}"
+                                HorizontalOptions="Fill" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button Text="Сменить пароль"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding ChangePasswordCommand}"
+                        HorizontalOptions="Fill" />
+
+                <Button Text="Выйти"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding LogoutCommand}"
+                        HorizontalOptions="Fill" />
+
+                <Label Text="{Binding AppVersion}"
+                       FontSize="11"
+                       TextColor="#7F8C8D"
+                       HorizontalOptions="Center"
+                       Margin="0,8,0,0" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <shared:AppBottomBar Grid.Row="1" SelectedTab="profile" />
+    </Grid>
+
+</ContentPage>

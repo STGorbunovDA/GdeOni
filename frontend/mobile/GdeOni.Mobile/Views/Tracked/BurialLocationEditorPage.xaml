@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Tracked.BurialLocationEditorPage"
+             x:DataType="vm:BurialLocationEditorViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Координаты">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.45"
+                 WidthRequest="220"
+                 HeightRequest="120"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="40" />
+
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="20">
+
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding CancelCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8"
+                        FontSize="14" />
+
+                <Label Text="Поправить координаты"
+                       Style="{StaticResource TitleLabel}"
+                       FontSize="24" />
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Координаты"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Нажмите «Получить координаты» либо введите значения вручную. Адрес (страна, город, кладбище) изменится не будет — здесь меняем только точку на карте."
+                               Style="{StaticResource CaptionLabel}" />
+
+                        <Grid ColumnDefinitions="Auto,*"
+                              RowDefinitions="Auto,Auto,Auto"
+                              ColumnSpacing="12"
+                              RowSpacing="6">
+                            <Label Grid.Row="0" Grid.Column="0"
+                                   Text="Широта:"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Entry Grid.Row="0" Grid.Column="1"
+                                   Placeholder="например, 55.755826"
+                                   Style="{StaticResource FormEntry}"
+                                   Text="{Binding LatitudeInput, Mode=TwoWay}" />
+
+                            <Label Grid.Row="1" Grid.Column="0"
+                                   Text="Долгота:"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Entry Grid.Row="1" Grid.Column="1"
+                                   Placeholder="например, 37.617300"
+                                   Style="{StaticResource FormEntry}"
+                                   Text="{Binding LongitudeInput, Mode=TwoWay}" />
+
+                            <Label Grid.Row="2" Grid.Column="0"
+                                   Text="Точность, м:"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Entry Grid.Row="2" Grid.Column="1"
+                                   Placeholder="необязательно"
+                                   Style="{StaticResource FormEntry}"
+                                   Text="{Binding AccuracyInput, Mode=TwoWay}" />
+                        </Grid>
+
+                        <Label IsVisible="{Binding IsAccuracyLow}"
+                               Text="⚠ Точность низкая (более 50м)."
+                               TextColor="#C77B00"
+                               FontSize="13" />
+
+                        <ActivityIndicator IsRunning="{Binding IsBusyGeo}"
+                                           IsVisible="{Binding IsBusyGeo}"
+                                           Color="{StaticResource Azure}" />
+
+                        <Label Text="{Binding GeoErrorMessage}"
+                               IsVisible="{Binding HasGeoError}"
+                               TextColor="#C0392B"
+                               FontSize="13" />
+
+                        <Button Text="Получить координаты"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding RequestLocationCommand}" />
+
+                        <Button Text="Открыть настройки приложения"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding OpenAppSettingsCommand}"
+                                IsVisible="{Binding ShowOpenSettings}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <ActivityIndicator IsRunning="{Binding IsBusySubmit}"
+                                   IsVisible="{Binding IsBusySubmit}"
+                                   Color="{StaticResource Azure}" />
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="#C0392B"
+                       FontSize="13" />
+
+                <Button Text="Сохранить"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding SubmitCommand}"
+                        IsEnabled="{Binding CanSubmit}"
+                        HorizontalOptions="Fill" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

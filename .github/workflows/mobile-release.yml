@@ -1,0 +1,122 @@
+# D20.4. Mobile release — собирает подписанный APK на тегах
+# `mobile-v1.2.3` и прикрепляет его к GitHub Release. Раздаём APK
+# через сайт (sideload), а не через Play Store (решение 2026-05-19).
+#
+# Требуемые GitHub Secrets (нужно настроить ОДИН раз в Settings →
+# Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64   — keystore.jks закодированный в base64
+#                                (`base64 -w 0 keystore.jks` на Linux,
+#                                 `[Convert]::ToBase64String([IO.File]::ReadAllBytes("keystore.jks"))`
+#                                 в PowerShell).
+#   ANDROID_KEYSTORE_PASSWORD — пароль keystore.
+#   ANDROID_KEY_ALIAS         — alias ключа внутри keystore.
+#   ANDROID_KEY_PASSWORD      — пароль alias'а.
+#
+# Без всех 4 секретов сборка упадёт. Это сознательно — публиковать
+# unsigned APK на сайте бессмысленно (старая версия не сможет
+# обновиться поверх новой при разнице подписей).
+
+name: mobile-release
+
+on:
+  push:
+    tags:
+      - 'mobile-v*'
+
+permissions:
+  contents: write  # для создания GitHub Release
+
+jobs:
+  build-apk:
+    name: build + sign APK (net10.0-android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#mobile-v}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: frontend/mobile/global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-mobile-release-${{ runner.os }}-${{ hashFiles('frontend/mobile/**/*.csproj') }}
+          restore-keys: |
+            nuget-mobile-release-${{ runner.os }}-
+
+      # MAUI Android workload — обязателен для сборки net10.0-android.
+      # Кеш workload'ов не используем: они скачиваются быстро (~30 сек)
+      # и редко меняются, поэтому overhead кеша не окупается.
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Decode keystore
+        run: |
+          mkdir -p frontend/mobile/.keystore
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > frontend/mobile/.keystore/release.jks
+
+      # Передаём signing-параметры через MSBuild-свойства. .NET MAUI
+      # подхватит их при `dotnet publish -c Release -f net10.0-android`.
+      - name: Build signed APK
+        working-directory: frontend/mobile/GdeOni.Mobile
+        run: |
+          dotnet publish GdeOni.Mobile.csproj \
+            -c Release \
+            -f net10.0-android \
+            -p:Version=${{ steps.version.outputs.version }} \
+            -p:AndroidPackageFormat=apk \
+            -p:AndroidKeyStore=true \
+            -p:AndroidSigningKeyStore="$GITHUB_WORKSPACE/frontend/mobile/.keystore/release.jks" \
+            -p:AndroidSigningStorePass="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -p:AndroidSigningKeyAlias="${{ secrets.ANDROID_KEY_ALIAS }}" \
+            -p:AndroidSigningKeyPass="${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            -o ./artifacts
+
+      - name: Locate APK
+        id: apk
+        working-directory: frontend/mobile/GdeOni.Mobile/artifacts
+        run: |
+          # Ищем -Signed.apk (обычное имя после Android signing pass'а)
+          # либо fallback на любой .apk если первичный поиск пустой.
+          apk=$(find . -name '*-Signed.apk' -print -quit)
+          if [ -z "$apk" ]; then
+            apk=$(find . -name '*.apk' -print -quit)
+          fi
+          if [ -z "$apk" ]; then
+            echo "::error::No APK produced by dotnet publish"
+            exit 1
+          fi
+          echo "path=$(pwd)/$apk" >> "$GITHUB_OUTPUT"
+
+      - name: Always wipe keystore from runner
+        if: always()
+        run: rm -rf frontend/mobile/.keystore
+
+      - name: Create GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Mobile ${{ steps.version.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          body: |
+            Android APK build для распространения через gdeoni.ru.
+            Раздаём через сайт (не Play Store) — пользователю нужно
+            разрешить "Установку из неизвестных источников".
+          files: ${{ steps.apk.outputs.path }}
+          fail_on_unmatched_files: true

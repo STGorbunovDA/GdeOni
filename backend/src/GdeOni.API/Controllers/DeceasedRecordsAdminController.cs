@@ -1,4 +1,5 @@
 ﻿using GdeOni.API.Mappers;
+using GdeOni.API.Models.Admin;
 using GdeOni.API.Response;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMemory.Model;
@@ -10,6 +11,8 @@ using GdeOni.Application.DeceasedRecords.Commands.Unverified.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Unverified.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Verify.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Verify.UseCase;
+using GdeOni.Application.DeceasedRecords.Queries.GetDeceasedEdits.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetDeceasedEdits.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,6 +22,7 @@ namespace GdeOni.API.Controllers;
 /// Контроллер для управления карточками умерших.
 /// </summary>
 [Route("api/deceased-records")]
+[Tags("DeceasedRecords")]
 public sealed class DeceasedRecordsAdminController : ApiControllerBase
 {
     /// <summary>
@@ -28,6 +32,7 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
     [HttpPut("{id:guid}/verify")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<VerifyDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -37,8 +42,9 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
         [FromServices] IVerifyDeceasedUseCase verifyDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new VerifyDeceasedCommand(id);
-        var result = await verifyDeceasedUseCase.Execute(command, cancellationToken);
+        var result = await verifyDeceasedUseCase.Execute(
+            DeceasedRecordsMapping.ToVerifyCommand(id),
+            cancellationToken);
 
         return FromResult(result);
     }
@@ -50,6 +56,7 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
     [HttpPut("{id:guid}/unverified")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<UnverifiedDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -59,8 +66,9 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
         [FromServices] IUnverifiedDeceasedUseCase unverifiedDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new UnverifiedDeceasedCommand(id);
-        var result = await unverifiedDeceasedUseCase.Execute(command, cancellationToken);
+        var result = await unverifiedDeceasedUseCase.Execute(
+            DeceasedRecordsMapping.ToUnverifiedCommand(id),
+            cancellationToken);
 
         return FromResult(result);
     }
@@ -72,6 +80,7 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
     [HttpPut("{id:guid}/memories/{memoryId:guid}/approve")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<ApproveMemoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -95,6 +104,7 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
     [HttpPut("{id:guid}/memories/{memoryId:guid}/reject")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<RejectMemoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -118,6 +128,7 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
     [HttpPut("{id:guid}/media/{mediaId:guid}/approve")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -143,6 +154,7 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
     [HttpPut("{id:guid}/media/{mediaId:guid}/reject")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -157,5 +169,28 @@ public sealed class DeceasedRecordsAdminController : ApiControllerBase
         var result = await rejectMediaModerationUseCase.Execute(command, cancellationToken);
 
         return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D24/F17.9. История правок карточки умершего: кто и когда менял
+    /// основные поля, метаданные, место захоронения. Diff в jsonb.
+    /// Доступно только админам.
+    /// </summary>
+    [HttpGet("{id:guid}/edits")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(ApiResponse<GetDeceasedEditsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetEdits(
+        [FromRoute] Guid id,
+        [FromQuery] GetDeceasedEditsRequest request,
+        [FromServices] IGetDeceasedEditsUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        // Inline clamping убран — пагинация валидируется в
+        // GetDeceasedEditsQueryValidator.
+        var result = await useCase.Execute(request.ToQuery(id), cancellationToken);
+        return FromResult(result);
     }
 }

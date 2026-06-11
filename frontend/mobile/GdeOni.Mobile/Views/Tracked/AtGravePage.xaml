@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:models="clr-namespace:GdeOni.Mobile.Services.Api.Models"
+             xmlns:sys="clr-namespace:System;assembly=netstandard"
+             x:Class="GdeOni.Mobile.Views.Tracked.AtGravePage"
+             x:DataType="vm:AtGraveViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Добавить умершего">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.45"
+                 WidthRequest="220"
+                 HeightRequest="120"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="40" />
+
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="20">
+
+                <Grid ColumnDefinitions="Auto,*">
+                    <Button Grid.Column="0"
+                            Text="Назад"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding CancelCommand}"
+                            HorizontalOptions="Start"
+                            Padding="16,8"
+                            FontSize="14" />
+                </Grid>
+
+                <Label Text="Добавить умершего"
+                       Style="{StaticResource TitleLabel}"
+                       FontSize="26"/>
+
+                <!-- VPN warning -->
+                <Border IsVisible="{Binding IsVpnActive}"
+                        BackgroundColor="#FFF4E0"
+                        Stroke="#E0B070"
+                        StrokeThickness="1"
+                        Padding="14">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <Label TextColor="#7A5200"
+                           FontSize="13">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="⚠ У вас включён VPN. " FontAttributes="Bold" />
+                                <Span Text="GPS может работать некорректно или вообще не отдавать координаты. Если получить местоположение не получается — отключите VPN и попробуйте снова." />
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
+                </Border>
+
+                <!-- Координаты -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Координаты"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Нажмите «Получить координаты» либо введите значения вручную. Допускается точка или запятая в десятичной части."
+                               Style="{StaticResource CaptionLabel}" />
+
+                        <Grid ColumnDefinitions="Auto,*"
+                              RowDefinitions="Auto,Auto,Auto"
+                              ColumnSpacing="12"
+                              RowSpacing="6">
+                            <Label Grid.Row="0" Grid.Column="0"
+                                   Text="Широта:"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Entry Grid.Row="0" Grid.Column="1"
+                                   Placeholder="например, 55.755826"
+                                   Style="{StaticResource FormEntry}"
+                                   Text="{Binding LatitudeInput, Mode=TwoWay}" />
+
+                            <Label Grid.Row="1" Grid.Column="0"
+                                   Text="Долгота:"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Entry Grid.Row="1" Grid.Column="1"
+                                   Placeholder="например, 37.617300"
+                                   Style="{StaticResource FormEntry}"
+                                   Text="{Binding LongitudeInput, Mode=TwoWay}" />
+
+                            <Label Grid.Row="2" Grid.Column="0"
+                                   Text="Точность, м:"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Entry Grid.Row="2" Grid.Column="1"
+                                   Placeholder="необязательно"
+                                   Style="{StaticResource FormEntry}"
+                                   Text="{Binding AccuracyInput, Mode=TwoWay}" />
+                        </Grid>
+
+                        <Label IsVisible="{Binding IsAccuracyLow}"
+                               Text="⚠ Точность низкая (более 50м). Когда сохраните, можно поправить координаты вручную в карточке умершего."
+                               TextColor="#C77B00"
+                               FontSize="13" />
+
+                        <ActivityIndicator IsRunning="{Binding IsBusyGeo}"
+                                           IsVisible="{Binding IsBusyGeo}"
+                                           Color="{StaticResource Azure}" />
+
+                        <Label Text="{Binding GeoErrorMessage}"
+                               IsVisible="{Binding HasGeoError}"
+                               TextColor="#C0392B"
+                               FontSize="13" />
+
+                        <Button Text="Получить координаты"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding RequestLocationCommand}" />
+
+                        <Button Text="Открыть настройки приложения"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding OpenAppSettingsCommand}"
+                                IsVisible="{Binding ShowOpenSettings}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ФИО + даты -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Кто это"
+                               Style="{StaticResource SubTitleLabel}" />
+
+                        <Entry Placeholder="Имя"
+                               Style="{StaticResource FormEntry}"
+                               Text="{Binding FirstName}" />
+                        <Entry Placeholder="Фамилия"
+                               Style="{StaticResource FormEntry}"
+                               Text="{Binding LastName}" />
+                        <Entry Placeholder="Отчество (необязательно)"
+                               Style="{StaticResource FormEntry}"
+                               Text="{Binding MiddleName}" />
+
+                        <Label Text="Дата рождения (необязательно)"
+                               Style="{StaticResource CaptionLabel}" />
+                        <DatePicker Date="{Binding BirthDate, FallbackValue={x:Null}, TargetNullValue={x:Null}}"
+                                    Format="dd.MM.yyyy" />
+
+                        <Label Text="Дата смерти"
+                               Style="{StaticResource CaptionLabel}" />
+                        <DatePicker Date="{Binding DeathDate}"
+                                    Format="dd.MM.yyyy" />
+
+                        <Editor Placeholder="Краткое описание (необязательно)"
+                                Text="{Binding ShortDescription}"
+                                AutoSize="TextChanges"
+                                BackgroundColor="{StaticResource Cloud}" />
+
+                        <Editor Placeholder="Биография (необязательно)"
+                                Text="{Binding Biography}"
+                                AutoSize="TextChanges"
+                                HeightRequest="120"
+                                BackgroundColor="{StaticResource Cloud}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Где -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Где захоронение"
+                               Style="{StaticResource SubTitleLabel}" />
+
+                        <Entry Placeholder="Страна"
+                               Style="{StaticResource FormEntry}"
+                               Text="{Binding Country}" />
+                        <Entry Placeholder="Город (необязательно)"
+                               Style="{StaticResource FormEntry}"
+                               Text="{Binding City}" />
+                        <Entry Placeholder="Кладбище (необязательно)"
+                               Style="{StaticResource FormEntry}"
+                               Text="{Binding CemeteryName}" />
+                        <Entry Placeholder="Участок (необязательно)"
+                               Style="{StaticResource FormEntry}"
+                               Text="{Binding PlotNumber}" />
+                        <Entry Placeholder="Номер могилы (необязательно)"
+                               Style="{StaticResource FormEntry}"
+                               Text="{Binding GraveNumber}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Tracking -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Кем приходится"
+                               Style="{StaticResource SubTitleLabel}" />
+
+                        <Picker ItemsSource="{Binding RelationshipOptions}"
+                                ItemDisplayBinding="{Binding Display}"
+                                SelectedItem="{Binding SelectedRelationship}"
+                                Title="Выберите"
+                                BackgroundColor="{StaticResource Cloud}" />
+
+                        <Editor Placeholder="Личные заметки (необязательно)"
+                                Text="{Binding PersonalNotes}"
+                                AutoSize="TextChanges"
+                                BackgroundColor="{StaticResource Cloud}" />
+
+                        <Grid ColumnDefinitions="*,Auto" RowSpacing="6">
+                            <Label Grid.Column="0"
+                                   Text="Напоминать в день смерти"
+                                   Style="{StaticResource BodyLabel}"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding NotifyOnDeathAnniversary}"
+                                    OnColor="{StaticResource Azure}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" RowSpacing="6"
+                              IsVisible="{Binding HasBirthDate}">
+                            <Label Grid.Column="0"
+                                   Text="Напоминать в день рождения"
+                                   Style="{StaticResource BodyLabel}"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding NotifyOnBirthAnniversary}"
+                                    OnColor="{StaticResource Azure}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Submit -->
+                <ActivityIndicator IsRunning="{Binding IsBusySubmit}"
+                                   IsVisible="{Binding IsBusySubmit}"
+                                   Color="{StaticResource Azure}" />
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="#C0392B"
+                       FontSize="13" />
+
+                <Button Text="Сохранить"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding SubmitCommand}"
+                        IsEnabled="{Binding CanSubmit}"
+                        HorizontalOptions="Fill" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

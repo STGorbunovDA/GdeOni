@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:models="clr-namespace:GdeOni.Mobile.Services.Api.Models"
+             x:Name="Page"
+             x:Class="GdeOni.Mobile.Views.Tracked.DeceasedSearchPage"
+             x:DataType="vm:DeceasedSearchViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Поиск">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.45"
+                 WidthRequest="220"
+                 HeightRequest="120"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="40" />
+
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="16">
+
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8"
+                        FontSize="14" />
+
+                <Label Text="Найти умершего"
+                       Style="{StaticResource TitleLabel}"
+                       FontSize="26" />
+
+                <Label Text="Возможно, кто-то уже добавил карточку. Сначала поищите по имени — если найдёте, просто подпишитесь на отслеживание. Так не появятся дубликаты."
+                       Style="{StaticResource BodyLabel}" />
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Entry Placeholder="Фамилия"
+                               Text="{Binding LastNameFilter, Mode=TwoWay}"
+                               ReturnType="Next"
+                               Style="{StaticResource FormEntry}" />
+
+                        <Entry Placeholder="Имя"
+                               Text="{Binding FirstNameFilter, Mode=TwoWay}"
+                               ReturnType="Next"
+                               Style="{StaticResource FormEntry}" />
+
+                        <Entry Placeholder="Отчество"
+                               Text="{Binding MiddleNameFilter, Mode=TwoWay}"
+                               ReturnType="Next"
+                               Style="{StaticResource FormEntry}" />
+
+                        <Entry Placeholder="Город (необязательно)"
+                               Text="{Binding CityFilter, Mode=TwoWay}"
+                               ReturnType="Search"
+                               ReturnCommand="{Binding SearchCommand}"
+                               Style="{StaticResource FormEntry}" />
+
+                        <!-- Дата рождения: чекбокс включает фильтр + DatePicker -->
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <CheckBox Grid.Column="0"
+                                      IsChecked="{Binding UseBirthDateFilter, Mode=TwoWay}"
+                                      Color="{StaticResource Azure}"
+                                      VerticalOptions="Center" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="По дате рождения"
+                                       Style="{StaticResource CaptionLabel}" />
+                                <DatePicker Date="{Binding BirthDate, Mode=TwoWay}"
+                                            Format="dd.MM.yyyy"
+                                            IsEnabled="{Binding UseBirthDateFilter}" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <!-- Дата смерти: чекбокс включает фильтр + DatePicker -->
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <CheckBox Grid.Column="0"
+                                      IsChecked="{Binding UseDeathDateFilter, Mode=TwoWay}"
+                                      Color="{StaticResource Azure}"
+                                      VerticalOptions="Center" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                <Label Text="По дате смерти"
+                                       Style="{StaticResource CaptionLabel}" />
+                                <DatePicker Date="{Binding DeathDate, Mode=TwoWay}"
+                                            Format="dd.MM.yyyy"
+                                            IsEnabled="{Binding UseDeathDateFilter}" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Button Text="Найти"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding SearchCommand}"
+                                IsEnabled="{Binding CanSearch}" />
+
+                        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                           IsVisible="{Binding IsBusy}"
+                                           Color="{StaticResource Azure}" />
+
+                        <Label IsVisible="{Binding HasError}"
+                               Text="{Binding ErrorMessage}"
+                               TextColor="#C0392B"
+                               FontSize="13" />
+
+                        <!-- Сводка результатов -->
+                        <Label IsVisible="{Binding HasSummary}"
+                               Text="{Binding SummaryText}"
+                               Style="{StaticResource CaptionLabel}" />
+
+                        <!-- Подсказка про уточнение, если совпадений > 50 -->
+                        <Label IsVisible="{Binding ShowTooManyHint}"
+                               Text="Слишком много совпадений. Попробуйте уточнить город или ввести фамилию полностью."
+                               TextColor="#C77B00"
+                               FontSize="12" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Results -->
+                <CollectionView ItemsSource="{Binding Results}"
+                                IsVisible="{Binding HasResults}"
+                                SelectionMode="None"
+                                ItemSizingStrategy="MeasureFirstItem">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:DeceasedSearchItem">
+                            <Border Style="{StaticResource CloudCard}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenPreviewCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+
+                                <Grid ColumnDefinitions="Auto,*,Auto"
+                                      ColumnSpacing="14"
+                                      RowDefinitions="Auto,Auto"
+                                      RowSpacing="2">
+
+                                    <Border Grid.Column="0" Grid.RowSpan="2"
+                                            StrokeThickness="0"
+                                            WidthRequest="48"
+                                            HeightRequest="48"
+                                            VerticalOptions="Center">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="24" />
+                                        </Border.StrokeShape>
+                                        <Grid>
+                                            <BoxView Color="{StaticResource Sky}" />
+                                            <Label Text="🕊"
+                                                   FontSize="22"
+                                                   Opacity="0.7"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center" />
+                                        </Grid>
+                                    </Border>
+
+                                    <Label Grid.Row="0" Grid.Column="1"
+                                           Text="{Binding FullName}"
+                                           Style="{StaticResource SubTitleLabel}"
+                                           FontSize="16"
+                                           LineBreakMode="TailTruncation" />
+
+                                    <Label Grid.Row="1" Grid.Column="1"
+                                           Style="{StaticResource CaptionLabel}"
+                                           LineBreakMode="TailTruncation">
+                                        <Label.FormattedText>
+                                            <FormattedString>
+                                                <Span Text="† " />
+                                                <Span Text="{Binding DeathDate, StringFormat='{0:dd.MM.yyyy}'}" />
+                                                <Span Text=" · " />
+                                                <Span Text="{Binding City, FallbackValue='—'}" />
+                                            </FormattedString>
+                                        </Label.FormattedText>
+                                    </Label>
+
+                                    <Label Grid.Column="2" Grid.RowSpan="2"
+                                           Text="›"
+                                           FontSize="28"
+                                           TextColor="{StaticResource AzureDeep}"
+                                           Opacity="0.6"
+                                           VerticalOptions="Center"
+                                           Margin="8,0,0,0" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <!-- Load more -->
+                <Button Text="Загрузить ещё"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding LoadMoreCommand}"
+                        IsVisible="{Binding HasMore}" />
+
+                <!-- Empty state -->
+                <Border IsVisible="{Binding ShowEmptyState}"
+                        Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Никого не нашли"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Похоже, такого умершего ещё нет в системе. Можно создать новую карточку."
+                               Style="{StaticResource BodyLabel}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Create new (всегда видна) -->
+                <Button Text="＋ Создать новую карточку"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding CreateNewCommand}" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

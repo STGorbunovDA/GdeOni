@@ -10,4 +10,6 @@ public sealed class GetAllUsersRequest
     public DateTime? LastLoginAtUtc { get; init; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
+    public DateTime? RegisteredFromUtc { get; init; }
+    public DateTime? RegisteredToUtc { get; init; }
 }

@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Name="Page"
+             x:Class="GdeOni.Mobile.Views.Tracked.NearbySearchPage"
+             x:DataType="vm:NearbySearchViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Найти рядом">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.45"
+                 WidthRequest="220"
+                 HeightRequest="120"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="40" />
+
+        <Grid RowDefinitions="Auto,*,Auto">
+
+            <!-- Header -->
+            <VerticalStackLayout Grid.Row="0" Padding="24,40,24,12" Spacing="12">
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8"
+                        FontSize="14" />
+
+                <Label Text="Найти рядом"
+                       Style="{StaticResource TitleLabel}"
+                       FontSize="24" />
+                <Label Text="Покажет карточки умерших с координатами рядом с вами. Радиус по умолчанию 100 м — если ничего не нашли, можно увеличить."
+                       Style="{StaticResource BodyLabel}" />
+
+                <!-- Radius selector -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="{Binding RadiusDisplay, StringFormat='Радиус: {0}'}"
+                               Style="{StaticResource SubTitleLabel}"
+                               FontSize="14" />
+                        <Slider Minimum="50"
+                                Maximum="500"
+                                Value="{Binding RadiusMeters, Mode=TwoWay}"
+                                MinimumTrackColor="{StaticResource Azure}"
+                                ThumbColor="{StaticResource AzureDeep}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button Text="Найти рядом"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding SearchCommand}"
+                        IsEnabled="{Binding IsNotBusy}"
+                        HorizontalOptions="Fill" />
+
+                <Button Text="Открыть настройки приложения"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding OpenAppSettingsCommand}"
+                        IsVisible="{Binding ShowOpenSettings}" />
+
+                <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                   IsVisible="{Binding IsBusy}"
+                                   Color="{StaticResource Azure}" />
+
+                <Label Text="{Binding GeoErrorMessage}"
+                       IsVisible="{Binding HasGeoError}"
+                       TextColor="#C77B00"
+                       FontSize="13" />
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="#C0392B"
+                       FontSize="13" />
+
+                <Label Text="{Binding SummaryText}"
+                       IsVisible="{Binding HasSummary}"
+                       Style="{StaticResource CaptionLabel}" />
+            </VerticalStackLayout>
+
+            <!-- Results -->
+            <Grid Grid.Row="1">
+                <CollectionView ItemsSource="{Binding Results}"
+                                SelectionMode="None"
+                                ItemSizingStrategy="MeasureFirstItem">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="12" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NearbyDeceasedRowViewModel">
+                            <Border Style="{StaticResource CloudCard}"
+                                    Margin="24,0">
+                                <Grid ColumnDefinitions="Auto,*,Auto"
+                                      ColumnSpacing="10">
+
+                                    <!-- CheckBox для batch-выбора (E21+).
+                                         Тап по чекбоксу — выбирает, тап по
+                                         остальной карточке — открывает preview. -->
+                                    <CheckBox Grid.Column="0"
+                                              IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                              VerticalOptions="Center" />
+
+                                    <Grid Grid.Column="1"
+                                          ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="14"
+                                          RowDefinitions="Auto,Auto,Auto"
+                                          RowSpacing="2">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenPreviewCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        </Grid.GestureRecognizers>
+
+                                        <Label Grid.Row="0" Grid.Column="0"
+                                               Text="{Binding FullName}"
+                                               Style="{StaticResource SubTitleLabel}"
+                                               FontSize="16"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Grid.Row="0" Grid.Column="1"
+                                               Text="{Binding DistanceText}"
+                                               Style="{StaticResource CaptionLabel}"
+                                               TextColor="{StaticResource Azure}"
+                                               VerticalOptions="Center" />
+
+                                        <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                               Text="{Binding LifePeriod}"
+                                               Style="{StaticResource CaptionLabel}" />
+
+                                        <Label Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                               Text="{Binding LocationText}"
+                                               Style="{StaticResource CaptionLabel}"
+                                               LineBreakMode="TailTruncation"
+                                               IsVisible="{Binding LocationText, TargetNullValue=False}" />
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Border IsVisible="{Binding ShowEmptyState}"
+                        Style="{StaticResource CloudCard}"
+                        Margin="24"
+                        HorizontalOptions="Center"
+                        VerticalOptions="Center">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="🕊"
+                               FontSize="36"
+                               HorizontalOptions="Center"
+                               Opacity="0.5" />
+                        <Label Text="Никого не нашли в этом радиусе. Попробуйте увеличить расстояние или проверьте, что разрешена точная геолокация."
+                               Style="{StaticResource BodyLabel}"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <!-- Sticky-блок внизу: статус добавления + кнопка "Добавить
+                 выбранных (N)". Виден когда есть выбор ИЛИ есть статус. -->
+            <VerticalStackLayout Grid.Row="2"
+                                 Padding="24,12,24,24"
+                                 Spacing="8">
+                <Label Text="{Binding AddStatusMessage}"
+                       IsVisible="{Binding HasAddStatus}"
+                       TextColor="#2E7D32"
+                       HorizontalTextAlignment="Center"
+                       Style="{StaticResource CaptionLabel}" />
+                <Button Text="{Binding AddSelectedButtonText}"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding AddSelectedCommand}"
+                        IsEnabled="{Binding IsNotBusy}"
+                        IsVisible="{Binding HasSelection}"
+                        HorizontalOptions="Fill" />
+            </VerticalStackLayout>
+        </Grid>
+    </Grid>
+
+</ContentPage>

@@ -11,6 +11,7 @@ public sealed class ChangeEmailUseCase(
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
     ICurrentUserService currentUserService,
+    ISecurityStampInvalidator securityStampInvalidator,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IChangeEmailUseCase
 {
@@ -43,9 +44,19 @@ public sealed class ChangeEmailUseCase(
         if (exists && !string.Equals(user.Email, command.Email.Trim(), StringComparison.OrdinalIgnoreCase))
             return Errors.User.EmailAlreadyExists();
 
+        var stampBefore = user.SecurityStamp;
+
         var result = user.ChangeEmail(command.Email);
         if (result.IsFailure)
             return result.Error;
+
+        // No-op (D11.8.2): тот же email, домен ничего не менял —
+        // не дёргаем Save, не отзываем токены, не сбрасываем кеш.
+        if (user.SecurityStamp == stampBefore)
+        {
+            return Result.Success<ChangeEmailResponse, Error>(
+                new ChangeEmailResponse(user.Id, user.Email));
+        }
 
         // Сначала фиксируем смену email + новый SecurityStamp,
         // затем форс-логаут всех сессий. Порядок и trade-off — как в
@@ -54,6 +65,9 @@ public sealed class ChangeEmailUseCase(
         // переживать восстановление аккаунта (D7.41).
         await userRepository.Save(cancellationToken);
         await refreshTokenRepository.RevokeAllForUser(user.Id, cancellationToken);
+        // Закрываем окно валидности access-токенов в кеше OnTokenValidated
+        // (D11.8.1) — иначе старый токен живёт ≤ SecurityStampCacheTtlSeconds.
+        securityStampInvalidator.Invalidate(user.Id);
 
         return Result.Success<ChangeEmailResponse, Error>(
             new ChangeEmailResponse(user.Id, user.Email));

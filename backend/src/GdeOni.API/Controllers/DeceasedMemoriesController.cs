@@ -1,4 +1,5 @@
-﻿using GdeOni.API.Mappers;
+﻿using GdeOni.API.Extensions;
+using GdeOni.API.Mappers;
 using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.API.Response;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.Model;
@@ -16,6 +17,7 @@ namespace GdeOni.API.Controllers;
 /// Контроллер для управления воспоминаниями умерших.
 /// </summary>
 [Route("api/deceased-records")]
+[Tags("DeceasedRecords")]
 public sealed class DeceasedMemoriesController : ApiControllerBase
 {
     /// <summary>
@@ -23,10 +25,11 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
     /// </summary>
     [HttpPost("{id:guid}/memories")]
     [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<AddMemoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<AddMemoryResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AddMemory(
         [FromRoute] Guid id,
         [FromBody] AddMemoryRequest request,
@@ -36,7 +39,9 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
         var command = request.ToCommand(id);
         var result = await addMemoryUseCase.Execute(command, cancellationToken);
 
-        return FromResult(result);
+        return FromResult(
+            result,
+            r => r.ToCreatedResponse($"/api/deceased-records/{id}/memories/{r.MemoryId}"));
     }
 
     /// <summary>
@@ -49,6 +54,7 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateMemory(
         [FromRoute] Guid id,
         [FromRoute] Guid memoryId,
@@ -67,7 +73,8 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
     /// </summary>
     [HttpDelete("{id:guid}/memories/{memoryId:guid}")]
     [Authorize]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<RemoveMemoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -77,8 +84,9 @@ public sealed class DeceasedMemoriesController : ApiControllerBase
         [FromServices] IRemoveMemoryUseCase removeMemoryUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new RemoveMemoryCommand(id, memoryId);
-        var result = await removeMemoryUseCase.Execute(command, cancellationToken);
+        var result = await removeMemoryUseCase.Execute(
+            DeceasedRecordsMapping.ToRemoveMemoryCommand(id, memoryId),
+            cancellationToken);
 
         return FromResult(result);
     }

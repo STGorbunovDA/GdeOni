@@ -14,9 +14,17 @@ using GdeOni.Application.DeceasedRecords.Commands.Delete.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Delete.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.Update.Model;
 using GdeOni.Application.DeceasedRecords.Commands.Update.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateBurialLocationByEditor.Model;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateBurialLocationByEditor.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMainInfoByEditor.Model;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMainInfoByEditor.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadataByEditor.Model;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMetadataByEditor.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetAll.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetById.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetById.UseCase;
+using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.Model;
+using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,6 +34,7 @@ namespace GdeOni.API.Controllers;
 /// Контроллер для управления карточками умерших.
 /// </summary>
 [Route("api/deceased-records")]
+[Tags("DeceasedRecords")]
 public sealed class DeceasedRecordsController : ApiControllerBase
 {
     /// <summary>
@@ -77,14 +86,14 @@ public sealed class DeceasedRecordsController : ApiControllerBase
 
     /// <summary>
     /// Возвращает список всех карточек умерших с пагинацией и фильтрацией.
-    /// Доступно только администраторам.
+    /// D15: доступно всем авторизованным (используется для поиска перед
+    /// добавлением, чтобы не плодить дубликаты).
     /// </summary>
     [HttpGet]
-    [Authorize(Roles = "SuperAdmin,Admin")]
+    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<PagedResponse<GetAllDeceasedItemResponse>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAll(
         [FromQuery] GetAllDeceasedRequest request,
         [FromServices] IGetAllDeceasedUseCase getAllDeceasedUseCase,
@@ -97,11 +106,35 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     }
 
     /// <summary>
+    /// E21. Возвращает карточки умерших в радиусе RadiusMeters от
+    /// точки (Latitude, Longitude). Авторизованные пользователи —
+    /// сценарий "стою на кладбище, хочу понять, кто рядом". Результат
+    /// отсортирован по возрастанию расстояния, каждая запись содержит
+    /// DistanceMeters до точки поиска.
+    /// </summary>
+    [HttpGet("nearby")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<PagedResponse<NearbyDeceasedItemResponse>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetNearby(
+        [FromQuery] GetNearbyDeceasedRequest request,
+        [FromServices] IGetNearbyDeceasedUseCase getNearbyDeceasedUseCase,
+        CancellationToken cancellationToken)
+    {
+        var query = request.ToQuery();
+        var result = await getNearbyDeceasedUseCase.Execute(query, cancellationToken);
+
+        return FromResult(result);
+    }
+
+    /// <summary>
     /// Возвращает карточку умершего по идентификатору.
     /// </summary>
     [HttpGet("{id:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<DeceasedDetailsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(
@@ -109,10 +142,11 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IGetDeceasedByIdUseCase getDeceasedByIdUseCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetDeceasedByIdQuery(id);
-        var result = await getDeceasedByIdUseCase.Execute(query, cancellationToken);
+        var result = await getDeceasedByIdUseCase.Execute(
+            DeceasedRecordsMapping.ToGetByIdQuery(id),
+            cancellationToken);
 
-        return FromResult(result);
+        return FromResult(result, r => r.ToDetailsResponse().ToOkResponse());
     }
 
     /// <summary>
@@ -139,12 +173,113 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     }
 
     /// <summary>
+    /// D24. Обновляет основные поля карточки (имя, даты, описание, биография).
+    /// Доступно отслеживающим карточку юзерам и админам. Изменения пишутся
+    /// в audit log (deceased_edits) с EditorUserId = текущий пользователь.
+    /// Последняя запись побеждает (last-write-wins) — конфликтов нет,
+    /// история всё покажет в админке.
+    /// </summary>
+    [HttpPatch("{id:guid}/main-info")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateMainInfoByEditor(
+        [FromRoute] Guid id,
+        [FromBody] UpdateMainInfoByEditorRequest request,
+        [FromServices] IUpdateMainInfoByEditorUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdateMainInfoByEditorCommand(
+            id,
+            request.FirstName,
+            request.LastName,
+            request.MiddleName,
+            request.BirthDate,
+            request.DeathDate,
+            request.ShortDescription,
+            request.Biography);
+
+        var result = await useCase.Execute(command, cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D24. Обновляет метаданные карточки (эпитафия, религия, источник, военная
+    /// служба, доп. инфо). Доступно отслеживающим и админам, аудит ведётся.
+    /// </summary>
+    [HttpPatch("{id:guid}/metadata")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateMetadataByEditor(
+        [FromRoute] Guid id,
+        [FromBody] UpdateMetadataByEditorRequest request,
+        [FromServices] IUpdateMetadataByEditorUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdateMetadataByEditorCommand(
+            id,
+            request.Epitaph,
+            request.Religion,
+            request.Source,
+            request.IsMilitaryService,
+            request.AdditionalInfo);
+
+        var result = await useCase.Execute(command, cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D24. Обновляет место захоронения (координаты + страна/город/кладбище/
+    /// участок/номер). Если Latitude/Longitude == null — координаты
+    /// удаляются (карточка теряет место захоронения). Доступно отслеживающим
+    /// и админам, аудит ведётся.
+    /// </summary>
+    [HttpPatch("{id:guid}/burial-location")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateBurialLocationByEditor(
+        [FromRoute] Guid id,
+        [FromBody] UpdateBurialLocationByEditorRequest request,
+        [FromServices] IUpdateBurialLocationByEditorUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdateBurialLocationByEditorCommand(
+            id,
+            request.Latitude,
+            request.Longitude,
+            request.AccuracyMeters,
+            request.Country,
+            request.Region,
+            request.City,
+            request.CemeteryName,
+            request.PlotNumber,
+            request.GraveNumber,
+            request.Accuracy);
+
+        var result = await useCase.Execute(command, cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
     /// Удаляет карточку умершего.
     /// Доступно только администраторам.
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     [ProducesResponseType(typeof(ApiResponse<DeleteDeceasedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -153,8 +288,9 @@ public sealed class DeceasedRecordsController : ApiControllerBase
         [FromServices] IDeleteDeceasedUseCase deleteDeceasedUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new DeleteDeceasedCommand(id);
-        var result = await deleteDeceasedUseCase.Execute(command, cancellationToken);
+        var result = await deleteDeceasedUseCase.Execute(
+            DeceasedRecordsMapping.ToDeleteCommand(id),
+            cancellationToken);
 
         return FromResult(result);
     }
@@ -166,16 +302,19 @@ public sealed class DeceasedRecordsController : ApiControllerBase
     [HttpDelete("{id:guid}/burial-location")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<ClearBurialLocationResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ClearBurialLocation(
         [FromRoute] Guid id,
         [FromServices] IClearBurialLocationUseCase clearBurialLocationUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new ClearBurialLocationCommand(id);
-        var result = await clearBurialLocationUseCase.Execute(command, cancellationToken);
+        var result = await clearBurialLocationUseCase.Execute(
+            DeceasedRecordsMapping.ToClearBurialLocationCommand(id),
+            cancellationToken);
 
         return FromResult(result);
     }

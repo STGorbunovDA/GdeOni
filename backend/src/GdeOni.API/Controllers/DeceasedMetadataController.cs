@@ -14,7 +14,8 @@ namespace GdeOni.API.Controllers;
 /// Контроллер для управления метаданными умерших.
 /// </summary>
 [Route("api/deceased-records")]
-public class DeceasedMetadataController : ApiControllerBase
+[Tags("DeceasedRecords")]
+public sealed class DeceasedMetadataController : ApiControllerBase
 {
     /// <summary>
     /// Обновляет метаданные карточки умершего.
@@ -44,6 +45,7 @@ public class DeceasedMetadataController : ApiControllerBase
     [HttpDelete("{id:guid}/metadata")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<ClearMetadataResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -52,8 +54,9 @@ public class DeceasedMetadataController : ApiControllerBase
         [FromServices] IClearMetadataUseCase clearMetadataUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new ClearMetadataCommand(id);
-        var result = await clearMetadataUseCase.Execute(command, cancellationToken);
+        var result = await clearMetadataUseCase.Execute(
+            DeceasedRecordsMapping.ToClearMetadataCommand(id),
+            cancellationToken);
 
         return FromResult(result);
     }

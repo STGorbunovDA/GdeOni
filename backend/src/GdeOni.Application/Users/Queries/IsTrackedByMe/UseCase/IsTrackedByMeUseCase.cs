@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Users.Queries.IsTrackedByMe.Model;
 using GdeOni.Domain.Shared;
@@ -8,10 +9,18 @@ namespace GdeOni.Application.Users.Queries.IsTrackedByMe.UseCase;
 
 public sealed class IsTrackedByMeUseCase(
     IUserRepository userRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IIsTrackedByMeUseCase
 {
-    public async Task<Result<IsTrackedByMeResponse, Error>> Execute(
+    public Task<Result<IsTrackedByMeResponse, Error>> Execute(
+        IsTrackedByMeQuery query,
+        CancellationToken cancellationToken)
+    {
+        return validatedUseCaseExecutor.Execute(query, Handle, cancellationToken);
+    }
+
+    private async Task<Result<IsTrackedByMeResponse, Error>> Handle(
         IsTrackedByMeQuery query,
         CancellationToken cancellationToken)
     {

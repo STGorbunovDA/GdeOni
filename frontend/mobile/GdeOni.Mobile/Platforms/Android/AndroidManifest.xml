@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+	<application
+		android:allowBackup="true"
+		android:icon="@mipmap/appicon"
+		android:roundIcon="@mipmap/appicon_round"
+		android:supportsRtl="true"
+		android:networkSecurityConfig="@xml/network_security_config"
+		android:usesCleartextTraffic="true"></application>
+
+	<!-- Network -->
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+	<uses-permission android:name="android.permission.INTERNET" />
+
+	<!-- Geolocation: при добавлении умершего у могилы -->
+	<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+	<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+	<!-- Камера и медиа: для загрузки фото / документов (E10) -->
+	<uses-permission android:name="android.permission.CAMERA" />
+	<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+	<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+	<!-- Для устройств с Android 12 и ниже, где нет READ_MEDIA_*. -->
+	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+		android:maxSdkVersion="32" />
+
+	<!-- E23. Локальные уведомления о годовщинах через AlarmManager.
+	     POST_NOTIFICATIONS — Android 13+ runtime permission, запрашиваем
+	     контекстно при включении тоггла anniversary. USE_EXACT_ALARM —
+	     для setExactAndAllowWhileIdle на Android 14+ (пользовательская
+	     категория calendar reminder, не требует runtime prompt). -->
+	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+	<uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+	<!-- E23 C.3. RECEIVE_BOOT_COMPLETED — после ребута телефона
+	     BootRestoreReceiver получит сигнал и восстановит annivers-alarms
+	     через AnniversariesSyncService. Без этого alarms теряются. -->
+	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+</manifest>

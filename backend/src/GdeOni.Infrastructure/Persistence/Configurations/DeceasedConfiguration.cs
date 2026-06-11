@@ -119,6 +119,14 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
                 .HasColumnName("location_accuracy")
                 .HasConversion<int>()
                 .IsRequired();
+
+            // E21: композитный B-tree индекс по (latitude, longitude) для
+            // bounding-box pre-filter в GetNearby. Postgres-планировщик
+            // умеет использовать его для range-фильтров на оба поля.
+            // Не GIST/PostGIS — наша нагрузка (несколько 10K записей)
+            // не оправдывает добавление расширения.
+            location.HasIndex(x => new { x.Latitude, x.Longitude })
+                .HasDatabaseName("ix_deceased_burial_lat_lon");
         });
 
         builder.OwnsOne(x => x.Metadata, metadata =>
@@ -141,6 +149,11 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
         builder.Navigation(x => x.Name).IsRequired();
         builder.Navigation(x => x.LifePeriod).IsRequired();
         builder.Navigation(x => x.Metadata).IsRequired();
+        // BurialLocation опционален с миграции MakeBurialLocationOptional;
+        // Latitude/Longitude/Accuracy внутри owned-типа .IsRequired(),
+        // явный IsRequired(false) на навигации убирает двусмысленность EF
+        // при чтении строк, где все три колонки NULL (см. D11.5.4).
+        builder.Navigation(x => x.BurialLocation).IsRequired(false);
 
         builder.HasOne<User>()
             .WithMany()
@@ -161,6 +174,17 @@ public sealed class DeceasedConfiguration : IEntityTypeConfiguration<Deceased>
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.Navigation(x => x.Media)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // D24. Audit log правок карточки. Cascade: если карточку физически
+        // удалят (только админ), история тоже уходит — иначе FK без ON DELETE
+        // блокирует удаление.
+        builder.HasMany(x => x.Edits)
+            .WithOne()
+            .HasForeignKey(x => x.DeceasedId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(x => x.Edits)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.Property(x => x.MainMediaId)

@@ -31,7 +31,9 @@ public sealed class TrackDeceasedUseCase(
 
         var currentUserId = currentUserIdResult.Value;
         
-        var user = await userRepository.GetByIdWithTracking(currentUserId, cancellationToken);
+        // D7.55: filtered Include — грузим только tracking по DeceasedId.
+        var user = await userRepository.GetByIdWithTrackingByDeceasedId(
+            currentUserId, command.DeceasedId, cancellationToken);
         if (user is null)
             return Errors.General.NotFound("user", currentUserId);
 

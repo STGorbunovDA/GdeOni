@@ -11,7 +11,8 @@ public sealed class LogoutUseCase(
     IRefreshTokenRepository refreshTokenRepository,
     IRefreshTokenFactory refreshTokenFactory,
     ICurrentUserService currentUserService,
-    IValidatedUseCaseExecutor validatedUseCaseExecutor)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    TimeProvider timeProvider)
     : ILogoutUseCase
 {
     public Task<UnitResult<Error>> Execute(
@@ -47,7 +48,7 @@ public sealed class LogoutUseCase(
             return UnitResult.Success<Error>();
         }
 
-        var revokeResult = existingToken.Revoke(DateTime.UtcNow);
+        var revokeResult = existingToken.Revoke(timeProvider.GetUtcNow().UtcDateTime);
         if (revokeResult.IsFailure)
             return revokeResult.Error;
 

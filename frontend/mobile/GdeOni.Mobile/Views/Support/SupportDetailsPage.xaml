@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:vmsup="clr-namespace:GdeOni.Mobile.ViewModels.Support"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             x:Class="GdeOni.Mobile.Views.Support.SupportDetailsPage"
+             x:DataType="vm:SupportDetailsViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Обращение">
+
+    <ContentPage.Resources>
+        <toolkit:InvertedBoolConverter x:Key="InvertedBool" />
+    </ContentPage.Resources>
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="14">
+
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8" />
+
+                <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                   IsVisible="{Binding IsLoading}"
+                                   Color="{StaticResource Azure}" />
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="#C0392B"
+                       Style="{StaticResource BodyLabel}" />
+
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="{Binding Title}"
+                               Style="{StaticResource TitleLabel}"
+                               FontSize="20" />
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0"
+                                   Text="{Binding KindDisplay}"
+                                   Style="{StaticResource CaptionLabel}" />
+                            <Label Grid.Column="1"
+                                   Text="{Binding SeverityDisplay}"
+                                   TextColor="{Binding SeverityColor}"
+                                   FontAttributes="Bold" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0"
+                                   Text="{Binding CreatedAt}"
+                                   Style="{StaticResource CaptionLabel}" />
+                            <Label Grid.Column="1"
+                                   Text="{Binding StatusDisplay}"
+                                   TextColor="{Binding StatusColor}"
+                                   FontAttributes="Bold" />
+                        </Grid>
+
+                        <Label Text="{Binding ReopenedHistoryText}"
+                               Style="{StaticResource CaptionLabel}"
+                               IsVisible="{Binding HasReopenedHistory}" />
+
+                        <BoxView HeightRequest="1"
+                                 Color="#E0E0E0"
+                                 HorizontalOptions="Fill"
+                                 Margin="0,6,0,6" />
+
+                        <Label Text="Описание"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="{Binding Description}"
+                               Style="{StaticResource BodyLabel}"
+                               LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- D25.2. Полная переписка. Каждое сообщение —
+                     отдельная карточка-"пузырь". -->
+                <Label Text="Переписка"
+                       Style="{StaticResource SubTitleLabel}"
+                       Margin="4,8,0,0"
+                       IsVisible="{Binding HasChatMessages}" />
+
+                <CollectionView ItemsSource="{Binding ChatMessages}"
+                                SelectionMode="None"
+                                IsVisible="{Binding HasChatMessages}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vmsup:ChatMessage">
+                            <Border BackgroundColor="{Binding BackgroundColor}"
+                                    Stroke="#E0E0E0"
+                                    StrokeShape="RoundRectangle 12"
+                                    Padding="12"
+                                    Margin="0,0,0,8"
+                                    HorizontalOptions="{Binding HorizontalOptions}"
+                                    MaximumWidthRequest="320">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="{Binding AuthorLabel}"
+                                           TextColor="{Binding LabelColor}"
+                                           FontAttributes="Bold"
+                                           FontSize="13" />
+                                    <Label Text="{Binding Text}"
+                                           Style="{StaticResource BodyLabel}"
+                                           LineBreakMode="WordWrap" />
+                                    <Label Text="{Binding CreatedAt}"
+                                           Style="{StaticResource CaptionLabel}"
+                                           FontSize="11" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <!-- Плашка "юзер закрепил" -->
+                <Border Style="{StaticResource CloudCard}"
+                        BackgroundColor="#E8F5E9"
+                        IsVisible="{Binding ShowAcceptedNote}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="✓ Вы подтвердили решение"
+                               TextColor="#2E7D32"
+                               FontAttributes="Bold" />
+                        <Label Text="{Binding AcceptedAt, StringFormat='Закреплено: {0}'}"
+                               Style="{StaticResource CaptionLabel}"
+                               IsVisible="{Binding AcceptedAt, TargetNullValue=False}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Действия юзера (Закрепить / Спор) — только если Resolved и не Accepted -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding CanShowActionButtons}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Что делаем дальше?"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Если ответ вас устраивает — закрепите его. Если нет — продолжите спор, и администратор увидит ваше сообщение."
+                               Style="{StaticResource CaptionLabel}" />
+                        <Button Text="✓ Закрепить решено"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding AcceptCommand}"
+                                IsEnabled="{Binding IsSaving, Converter={StaticResource InvertedBool}}" />
+                        <Button Text="Продолжить спор"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding ReopenCommand}"
+                                IsEnabled="{Binding IsSaving, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <ActivityIndicator IsRunning="{Binding IsSaving}"
+                                   IsVisible="{Binding IsSaving}"
+                                   Color="{StaticResource Azure}" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

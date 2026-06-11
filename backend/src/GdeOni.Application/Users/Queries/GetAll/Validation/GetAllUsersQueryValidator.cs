@@ -11,7 +11,7 @@ public sealed class GetAllUsersQueryValidator : AbstractValidator<GetAllUsersQue
     private const int MaxPageSize = 100;
     private const int MaxSearchLength = 200;
 
-    public GetAllUsersQueryValidator()
+    public GetAllUsersQueryValidator(TimeProvider timeProvider)
     {
         RuleFor(x => x.Page)
             .GreaterThan(0)
@@ -31,13 +31,21 @@ public sealed class GetAllUsersQueryValidator : AbstractValidator<GetAllUsersQue
             .WithError(Errors.User.RoleInvalid())
             .When(x => x.Role.HasValue);
 
+        // Sentinel Unknown (D11.1.4) валиден для enum, но как фильтр
+        // бессмыслен — таких пользователей нет. Возвращаем 400 явно
+        // (D11.9.4), а не пустой список без объяснения.
+        RuleFor(x => x.Role)
+            .NotEqual(UserRole.Unknown)
+            .WithError(Errors.User.RoleInvalid())
+            .When(x => x.Role.HasValue);
+
         RuleFor(x => x.RegisteredAtUtc)
-            .LessThanOrEqualTo(_ => DateTime.UtcNow)
+            .LessThanOrEqualTo(_ => timeProvider.GetUtcNow().UtcDateTime)
             .WithError(Errors.User.RegisteredAtUtcInFuture())
             .When(x => x.RegisteredAtUtc.HasValue);
 
         RuleFor(x => x.LastLoginAtUtc)
-            .LessThanOrEqualTo(_ => DateTime.UtcNow)
+            .LessThanOrEqualTo(_ => timeProvider.GetUtcNow().UtcDateTime)
             .WithError(Errors.User.LastLoginAtUtcInFuture())
             .When(x => x.LastLoginAtUtc.HasValue);
     }

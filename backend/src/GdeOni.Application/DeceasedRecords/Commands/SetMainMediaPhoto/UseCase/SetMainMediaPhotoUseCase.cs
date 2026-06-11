@@ -32,10 +32,9 @@ public sealed class SetMainMediaPhotoUseCase(
         if (deceased is null)
             return Errors.General.NotFound("deceased", command.DeceasedId);
 
-        var currentUserId = currentUserIdResult.Value;
-        var isAdmin = currentUserService.IsAdmin();
-
-        if (!isAdmin && deceased.CreatedByUserId != currentUserId)
+        // D26. Назначение главного фото — только админ. Контроллер уже
+        // ограничен Roles=SuperAdmin,Admin; этот guard — вторая линия.
+        if (!currentUserService.IsAdmin())
             return Errors.DeceasedMedia.SetMainPhotoForbidden();
 
         var result = deceased.SetMainPhoto(command.MediaId);

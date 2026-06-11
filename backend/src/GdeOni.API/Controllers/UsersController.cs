@@ -1,8 +1,14 @@
-﻿using GdeOni.API.Extensions;
+using GdeOni.API.Authorization;
+using GdeOni.API.Extensions;
+using GdeOni.API.Mappers;
 using GdeOni.API.Models.Users;
 using GdeOni.API.RateLimiting;
 using GdeOni.API.Response;
 using GdeOni.Application.Common.Shared;
+using GdeOni.Application.Legal.Commands.AcceptLegal.Model;
+using GdeOni.Application.Legal.Commands.AcceptLegal.UseCase;
+using GdeOni.Application.Users.Commands.Block.Model;
+using GdeOni.Application.Users.Commands.Block.UseCase;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
 using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
 using GdeOni.Application.Users.Commands.ChangePassword.Model;
@@ -13,6 +19,8 @@ using GdeOni.Application.Users.Commands.Delete.Model;
 using GdeOni.Application.Users.Commands.Delete.UseCase;
 using GdeOni.Application.Users.Commands.Register.Model;
 using GdeOni.Application.Users.Commands.Register.UseCase;
+using GdeOni.Application.Users.Commands.Unblock.Model;
+using GdeOni.Application.Users.Commands.Unblock.UseCase;
 using GdeOni.Application.Users.Commands.UpdateProfile.Model;
 using GdeOni.Application.Users.Commands.UpdateProfile.UseCase;
 using GdeOni.Application.Users.Queries.GetAll.Model;
@@ -30,6 +38,7 @@ namespace GdeOni.API.Controllers;
 /// <summary>
 /// Пользователи
 /// </summary>
+[Tags("Users")]
 [Route("api/users")]
 public sealed class UsersController : ApiControllerBase
 {
@@ -47,13 +56,7 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IRegisterUserUseCase registerUserUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new RegisterUserCommand(
-            request.Email,
-            request.UserName,
-            request.FullName,
-            request.Password);
-
-        var result = await registerUserUseCase.Execute(command, cancellationToken);
+        var result = await registerUserUseCase.Execute(request.ToCommand(), cancellationToken);
 
         return FromResult(
             result,
@@ -65,7 +68,7 @@ public sealed class UsersController : ApiControllerBase
     /// Идентификатор пользователя берётся только из JWT.
     /// </summary>
     [HttpGet("me")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
     [ProducesResponseType(typeof(ApiResponse<GetCurrentUserResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -92,15 +95,7 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IGetAllUsersUseCase getAllUsersUseCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetAllUsersQuery(
-            request.Search,
-            request.Role,
-            request.RegisteredAtUtc,
-            request.LastLoginAtUtc,
-            request.Page,
-            request.PageSize);
-
-        var result = await getAllUsersUseCase.Execute(query, cancellationToken);
+        var result = await getAllUsersUseCase.Execute(request.ToQuery(), cancellationToken);
         return FromResult(result);
     }
 
@@ -110,6 +105,7 @@ public sealed class UsersController : ApiControllerBase
     [HttpGet("{id:guid}")]
     [Authorize]
     [ProducesResponseType(typeof(ApiResponse<GetUserByIdResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -118,8 +114,9 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IGetUserByIdUseCase getUserByIdUseCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetUserByIdQuery(id);
-        var result = await getUserByIdUseCase.Execute(query, cancellationToken);
+        var result = await getUserByIdUseCase.Execute(
+            UsersMapping.ToGetByIdQuery(id),
+            cancellationToken);
 
         return FromResult(result);
     }
@@ -129,7 +126,7 @@ public sealed class UsersController : ApiControllerBase
     /// Доступен текущему пользователю или администратору.
     /// </summary>
     [HttpPatch("{id:guid}")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
     [ProducesResponseType(typeof(ApiResponse<UpdateUserProfileResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
@@ -142,9 +139,7 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IUpdateUserProfileUseCase updateUserProfileUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new UpdateUserProfileCommand(id, request.UserName, request.FullName);
-        var result = await updateUserProfileUseCase.Execute(command, cancellationToken);
-
+        var result = await updateUserProfileUseCase.Execute(request.ToCommand(id), cancellationToken);
         return FromResult(result);
     }
 
@@ -153,7 +148,7 @@ public sealed class UsersController : ApiControllerBase
     /// Доступен текущему пользователю или администратору.
     /// </summary>
     [HttpPut("{id:guid}/password")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
     [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
     [ProducesResponseType(typeof(ApiResponse<ChangePasswordResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
@@ -167,9 +162,7 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IChangePasswordUseCase changePasswordUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new ChangePasswordCommand(id, request.CurrentPassword, request.NewPassword);
-        var result = await changePasswordUseCase.Execute(command, cancellationToken);
-
+        var result = await changePasswordUseCase.Execute(request.ToCommand(id), cancellationToken);
         return FromResult(result);
     }
 
@@ -178,7 +171,7 @@ public sealed class UsersController : ApiControllerBase
     /// Доступен текущему пользователю или администратору.
     /// </summary>
     [HttpPut("{id:guid}/email")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
     [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
     [ProducesResponseType(typeof(ApiResponse<ChangeEmailResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
@@ -193,9 +186,7 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IChangeEmailUseCase changeEmailUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new ChangeEmailCommand(id, request.Email);
-        var result = await changeEmailUseCase.Execute(command, cancellationToken);
-
+        var result = await changeEmailUseCase.Execute(request.ToCommand(id), cancellationToken);
         return FromResult(result);
     }
 
@@ -216,19 +207,41 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IChangeRoleUseCase changeRoleUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new ChangeRoleCommand(id, request.UserRole);
-        var result = await changeRoleUseCase.Execute(command, cancellationToken);
-
+        var result = await changeRoleUseCase.Execute(request.ToCommand(id), cancellationToken);
         return FromResult(result);
     }
 
     /// <summary>
-    /// Удаление пользователя.
-    /// Доступно только администраторам.
+    /// D19. Принятие текущих версий Privacy Policy и Terms of Use
+    /// текущим пользователем. Whitelist'нуто от subscription-гейта —
+    /// иначе юзер, у которого истекла подписка, не смог бы принять
+    /// обновлённые документы.
+    /// </summary>
+    [HttpPost("me/accept-legal")]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AcceptLegal(
+        [FromBody] AcceptLegalRequest request,
+        [FromServices] IAcceptLegalUseCase acceptLegalUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await acceptLegalUseCase.Execute(request.ToCommand(), cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// Жёсткое удаление пользователя со всеми связанными данными.
+    /// Доступно ТОЛЬКО SuperAdmin'у — это необратимая операция, обычный
+    /// Admin не должен иметь к ней доступа.
     /// </summary>
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
+    [Authorize(Roles = "SuperAdmin")]
     [ProducesResponseType(typeof(ApiResponse<DeleteUserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -237,8 +250,59 @@ public sealed class UsersController : ApiControllerBase
         [FromServices] IDeleteUserUseCase deleteUserUseCase,
         CancellationToken cancellationToken)
     {
-        var command = new DeleteUserCommand(id);
-        var result = await deleteUserUseCase.Execute(command, cancellationToken);
+        var result = await deleteUserUseCase.Execute(
+            UsersMapping.ToDeleteCommand(id),
+            cancellationToken);
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// F17.10. Заблокировать пользователя навсегда. Доступ к API мгновенно
+    /// закрывается (ротируется SecurityStamp + invalidation кеша). Reason
+    /// опциональный — попадёт в сообщение об отказе при попытке логина.
+    /// SuperAdmin блокировать нельзя; Admin не может блокировать другого
+    /// Admin (только SuperAdmin может).
+    /// </summary>
+    [HttpPut("{id:guid}/block")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(ApiResponse<BlockUserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Block(
+        [FromRoute] Guid id,
+        [FromBody] BlockUserRequest request,
+        [FromServices] IBlockUserUseCase blockUserUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await blockUserUseCase.Execute(
+            request.ToBlockCommand(id),
+            cancellationToken);
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// F17.10. Разблокировать пользователя. Идемпотентен: на не-заблокированном
+    /// возвращает 200 без изменений в БД (no-op guard в домене).
+    /// </summary>
+    [HttpDelete("{id:guid}/block")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(typeof(ApiResponse<UnblockUserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Unblock(
+        [FromRoute] Guid id,
+        [FromServices] IUnblockUserUseCase unblockUserUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await unblockUserUseCase.Execute(
+            UsersMapping.ToUnblockCommand(id),
+            cancellationToken);
 
         return FromResult(result);
     }

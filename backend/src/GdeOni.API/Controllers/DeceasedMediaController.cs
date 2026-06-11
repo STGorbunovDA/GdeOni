@@ -1,4 +1,6 @@
 using CSharpFunctionalExtensions;
+using GdeOni.API.Extensions;
+using GdeOni.API.Mappers;
 using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.API.Response;
 using GdeOni.Application.Abstractions.Storage;
@@ -7,6 +9,8 @@ using GdeOni.Application.DeceasedRecords.Commands.DeleteMedia.Model;
 using GdeOni.Application.DeceasedRecords.Commands.DeleteMedia.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.SetMainMediaPhoto.Model;
 using GdeOni.Application.DeceasedRecords.Commands.SetMainMediaPhoto.UseCase;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMediaDescription.Model;
+using GdeOni.Application.DeceasedRecords.Commands.UpdateMediaDescription.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.UploadMedia.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UploadMedia.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.Model;
@@ -22,19 +26,36 @@ namespace GdeOni.API.Controllers;
 /// <summary>
 /// Управление медиафайлами умершего: фото умершего, фото могилы, документы.
 /// Бинарные файлы хранятся в MinIO, метаданные — в PostgreSQL.
+///
+/// <para>
+/// D26. Запись (POST/PATCH/DELETE) разрешена только админам — снимаем юр.
+/// риск пользовательской выкладки чужих фото/документов. Чтение (GET)
+/// остаётся доступным любому авторизованному. Per-action атрибут
+/// <c>[Authorize(Roles=...)]</c> на write-эндпоинтах — контроллер же
+/// сохраняет общий <c>[Authorize]</c> для GET'ов.
+/// </para>
 /// </summary>
 [Route("api/deceased-records/{id:guid}/media")]
 [Authorize]
+[Tags("DeceasedRecords")]
 public sealed class DeceasedMediaController : ApiControllerBase
 {
+    private const string AdminRoles = "SuperAdmin,Admin";
+
     /// <summary>
     /// Загружает медиафайл и сохраняет метаданные.
     /// MIME и размер валидируются по виду файла (фото 10 MB, PDF 25 MB).
     /// При ошибке БД файл удаляется из MinIO (best-effort).
+    /// D26: доступно только администраторам.
     /// </summary>
     [HttpPost]
-    [RequestSizeLimit(50L * 1024 * 1024)]
-    [ProducesResponseType(typeof(ApiResponse<UploadMediaResponse>), StatusCodes.Status200OK)]
+    [Authorize(Roles = AdminRoles)]
+    // Лимит = max(MaxPhotoSizeBytes, MaxDocumentSizeBytes) из FileValidator.
+    // Раньше было хардкод 50 MB — шире чем валидатор; атакующий мог
+    // прокинуть 49 MB и съесть память до отбоя на per-kind проверке.
+    // Теперь сервер ASP.NET сам отрубает запросы > 25 MB на уровне TCP.
+    [RequestSizeLimit(FileValidator.MaxDocumentSizeBytes)]
+    [ProducesResponseType(typeof(ApiResponse<UploadMediaResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
@@ -43,7 +64,7 @@ public sealed class DeceasedMediaController : ApiControllerBase
     public async Task<IActionResult> Upload(
         [FromRoute] Guid id,
         [FromForm] IFormFile file,
-        [FromForm] FileKind kind,
+        [FromForm] MediaKind kind,
         [FromForm] string? description,
         [FromServices] IUploadMediaUseCase useCase,
         CancellationToken cancellationToken)
@@ -65,7 +86,9 @@ public sealed class DeceasedMediaController : ApiControllerBase
         };
 
         var result = await useCase.Execute(command, cancellationToken);
-        return FromResult(result);
+        return FromResult(
+            result,
+            r => r.ToCreatedResponse($"/api/deceased-records/{id}/media/{r.MediaId}"));
     }
 
     /// <summary>
@@ -82,14 +105,7 @@ public sealed class DeceasedMediaController : ApiControllerBase
         [FromServices] IGetMediaListUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetMediaListQuery(
-            id,
-            request.Kind,
-            request.ModerationStatus,
-            request.Page,
-            request.PageSize);
-
-        var result = await useCase.Execute(query, cancellationToken);
+        var result = await useCase.Execute(request.ToQuery(id), cancellationToken);
         return FromResult(result);
     }
 
@@ -99,6 +115,7 @@ public sealed class DeceasedMediaController : ApiControllerBase
     /// </summary>
     [HttpGet("{mediaId:guid}")]
     [ProducesResponseType(typeof(ApiResponse<MediaDetailsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(
@@ -107,17 +124,21 @@ public sealed class DeceasedMediaController : ApiControllerBase
         [FromServices] IGetMediaByIdUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var query = new GetMediaByIdQuery(id, mediaId);
-        var result = await useCase.Execute(query, cancellationToken);
+        var result = await useCase.Execute(
+            DeceasedRecordsMapping.ToGetMediaByIdQuery(id, mediaId),
+            cancellationToken);
+
         return FromResult(result);
     }
 
     /// <summary>
-    /// Удаляет медиафайл. Доступно автору файла, автору карточки умершего и админам.
+    /// Удаляет медиафайл. D26: доступно только администраторам.
     /// Сначала удаляются метаданные из БД, затем файл из MinIO (best-effort).
     /// </summary>
     [HttpDelete("{mediaId:guid}")]
+    [Authorize(Roles = AdminRoles)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -127,17 +148,44 @@ public sealed class DeceasedMediaController : ApiControllerBase
         [FromServices] IDeleteMediaUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var command = new DeleteMediaCommand(id, mediaId);
-        var result = await useCase.Execute(command, cancellationToken);
+        var result = await useCase.Execute(
+            DeceasedRecordsMapping.ToDeleteMediaCommand(id, mediaId),
+            cancellationToken);
+
         return FromUnitResult(result);
     }
 
     /// <summary>
+    /// Обновляет описание медиафайла. D26: доступно только администраторам.
+    /// Пустое тело очищает описание.
+    /// </summary>
+    [HttpPatch("{mediaId:guid}/description")]
+    [Authorize(Roles = AdminRoles)]
+    [ProducesResponseType(typeof(ApiResponse<UpdateMediaDescriptionResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateDescription(
+        [FromRoute] Guid id,
+        [FromRoute] Guid mediaId,
+        [FromBody] UpdateMediaDescriptionRequest request,
+        [FromServices] IUpdateMediaDescriptionUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var command = request.ToCommand(id, mediaId);
+        var result = await useCase.Execute(command, cancellationToken);
+        return FromResult(result);
+    }
+
+    /// <summary>
     /// Назначает фото главным фото умершего.
-    /// Только для MediaKind.DeceasedPhoto. Доступно автору карточки и админам.
+    /// Только для MediaKind.DeceasedPhoto. D26: доступно только администраторам.
     /// </summary>
     [HttpPatch("{mediaId:guid}/main-photo")]
+    [Authorize(Roles = AdminRoles)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -148,8 +196,10 @@ public sealed class DeceasedMediaController : ApiControllerBase
         [FromServices] ISetMainMediaPhotoUseCase useCase,
         CancellationToken cancellationToken)
     {
-        var command = new SetMainMediaPhotoCommand(id, mediaId);
-        var result = await useCase.Execute(command, cancellationToken);
+        var result = await useCase.Execute(
+            DeceasedRecordsMapping.ToSetMainMediaPhotoCommand(id, mediaId),
+            cancellationToken);
+
         return FromUnitResult(result);
     }
 }

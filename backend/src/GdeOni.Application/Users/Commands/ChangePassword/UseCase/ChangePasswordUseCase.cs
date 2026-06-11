@@ -12,6 +12,7 @@ public sealed class ChangePasswordUseCase(
     IRefreshTokenRepository refreshTokenRepository,
     IPasswordHasher passwordHasher,
     ICurrentUserService currentUserService,
+    ISecurityStampInvalidator securityStampInvalidator,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IChangePasswordUseCase
 {
@@ -56,6 +57,16 @@ public sealed class ChangePasswordUseCase(
                 return Errors.User.CurrentPasswordInvalid();
         }
 
+        // No-op guard (D11.8.2): новый пароль идентичен текущему —
+        // не дёргаем Hash (стоит CPU при WorkFactor=12) и не ротируем
+        // SecurityStamp + RevokeAllForUser. Пользователь не получит
+        // force-logout от случайного "сменить на тот же".
+        if (passwordHasher.Verify(command.NewPassword, user.PasswordHash))
+        {
+            return Result.Success<ChangePasswordResponse, Error>(
+                new ChangePasswordResponse(user.Id));
+        }
+
         var newPasswordHash = passwordHasher.Hash(command.NewPassword);
 
         var result = user.ChangePasswordHash(newPasswordHash);
@@ -72,6 +83,8 @@ public sealed class ChangePasswordUseCase(
         // через SecurityStamp-mismatch (D7.34, TTL ≤ 30s).
         await userRepository.Save(cancellationToken);
         await refreshTokenRepository.RevokeAllForUser(user.Id, cancellationToken);
+        // D11.8.1: сбрасываем закешированный SecurityStamp.
+        securityStampInvalidator.Invalidate(user.Id);
 
         return Result.Success<ChangePasswordResponse, Error>(
             new ChangePasswordResponse(user.Id));

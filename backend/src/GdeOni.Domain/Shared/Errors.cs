@@ -1,6 +1,6 @@
 ﻿namespace GdeOni.Domain.Shared;
 
-public static class Errors
+public static partial class Errors
 {
     public static class General
     {
@@ -84,7 +84,7 @@ public static class Errors
             Error.Validation("life_period.death_date.in_future", "Death date cannot be in the future");
 
         public static Error BirthDateAfterDeathDate() =>
-            Error.Validation("life_period.birth_date.invalid", "Birth date cannot be later than death date");
+            Error.Validation("life_period.birth_date.after_death_date", "Birth date cannot be later than death date");
     }
 
     public static class BurialLocation
@@ -136,12 +136,12 @@ public static class Errors
 
         public static Error UpdateMemoryForbidden() =>
             Error.Forbidden(
-                "deceased_memory.author.forbidden",
+                "deceased_memory.update.forbidden",
                 "You cannot update a memory on behalf of another user.");
-        
+
         public static Error DeleteMemoryForbidden() =>
             Error.Forbidden(
-                "deceased_memory.author.forbidden",
+                "deceased_memory.delete.forbidden",
                 "You cannot delete a memory on behalf of another user.");
         
         public static Error UpdateForbidden() =>
@@ -158,6 +158,11 @@ public static class Errors
             Error.Forbidden(
                 "deceased.burial_location.clear.forbidden",
                 "You cannot clear the burial location on behalf of another user.");
+
+        public static Error BurialLocationAlreadyNull() =>
+            Error.Conflict(
+                "deceased.burial_location.already_null",
+                "Burial location is already null and cannot be cleared again.");
 
         public static Error AlreadyVerified() =>
             Error.Conflict("deceased.already.verified", "Deceased record is already verified");
@@ -177,7 +182,7 @@ public static class Errors
                 $"Biography must be at most {maxLength} characters");
         
         public static Error InsufficientPermissionsToViewAllDeceased() =>
-            Error.Unauthorized("deceased.insufficient_permissions.view_all", 
+            Error.Forbidden("deceased.insufficient_permissions.view_all",
                 "You don't have permission to view all deceased. Admin or SuperAdmin rights are required.");
 
         public static Error EpitaphTooLong(int maxLength) =>
@@ -224,8 +229,8 @@ public static class Errors
         
         public static Error UnverifiedForbidden() =>
             Error.Forbidden(
-                "deceased.unverified.forbidden",
-                "You do not have permission to verify the deceased's account.");
+                "deceased.unverify.forbidden",
+                "You do not have permission to unverify the deceased's account.");
     }
     
     public static class DeceasedMetadata
@@ -237,8 +242,31 @@ public static class Errors
         
         public static Error DeleteDeceasedMetadataForbidden() =>
             Error.Forbidden(
-                "deceased_metadata.author.forbidden",
+                "deceased_metadata.delete.forbidden",
                 "You cannot delete a deceased person's metadata card on behalf of another user.");
+    }
+
+    public static class DeceasedEdit
+    {
+        public static Error NotEditor() =>
+            Error.Forbidden(
+                "deceased_edit.editor.forbidden",
+                "Only users tracking this deceased and admins can edit the card.");
+
+        public static Error EditorIdRequired() =>
+            Error.Validation("deceased_edit.editor_id.required", "Editor user id is required.");
+
+        public static Error DeceasedIdRequired() =>
+            Error.Validation("deceased_edit.deceased_id.required", "Deceased id is required.");
+
+        public static Error NoChanges() =>
+            Error.Validation("deceased_edit.changes.empty",
+                "DeceasedEdit cannot be created without actual changes.");
+
+        public static Error ChangesJsonTooLarge(int maxBytes) =>
+            Error.Validation(
+                "deceased_edit.changes.too_large",
+                $"Changes payload exceeds {maxBytes} bytes.");
     }
 
     public static class DeceasedMemory
@@ -248,12 +276,12 @@ public static class Errors
 
         public static Error ApproveMemoryForbidden() =>
             Error.Forbidden(
-                "deceased_memory_approve.verify.forbidden",
+                "deceased_memory.approve.forbidden",
                 "You have no right to verify the authenticity of a deceased person's recording.");
-        
+
         public static Error RejectMemoryForbidden() =>
             Error.Forbidden(
-                "deceased_memory_reject.verify.forbidden",
+                "deceased_memory.reject.forbidden",
                 "You have no right to verify the authenticity of a deceased person's recording.");
 
         public static Error NotFound(Guid? id = null) =>
@@ -271,95 +299,7 @@ public static class Errors
             Error.Validation("deceased_memory.text.too_long", $"Memory text must be at most {maxLength} characters");
     }
 
-    public static class User
-    {
-        public static Error IdRequired() =>
-            Error.Validation("user.id.required", "User id is required");
-
-        public static Error EmailRequired() =>
-            Error.Validation("user.email.required", "Email is required");
-
-        public static Error EmailInvalid() =>
-            Error.Validation("user.email.invalid", "Email is invalid");
-
-        public static Error EmailTooLong(int maxLength) =>
-            Error.Validation("user.email.too_long", $"Email must be at most {maxLength} characters");
-
-        public static Error UserNameRequired() =>
-            Error.Validation("user.user_name.required", "User name is required");
-
-        public static Error UserNameTooLong(int maxLength) =>
-            Error.Validation("user.user_name.too_long", $"User name must be at most {maxLength} characters");
-
-        public static Error FullNameTooLong(int maxLength) =>
-            Error.Validation("user.full_name.too_long", $"Full name must be at most {maxLength} characters");
-
-        public static Error PasswordHashRequired() =>
-            Error.Validation("user.password_hash.required", "Password hash is required");
-
-        public static Error PasswordRequired() =>
-            Error.Validation("user.password.required", "Password is required");
-
-        public static Error PasswordTooShort(int minLength) =>
-            Error.Validation("user.password.too_short", $"Password must be at least {minLength} characters long");
-
-        public static Error EmailAlreadyExists() =>
-            Error.Conflict("user.email.already.exists", "User with this email already exists");
-
-        public static Error UserNameAlreadyExists() =>
-            Error.Conflict("user.user_name.already.exists", "User with this user name already exists");
-
-        public static Error InvalidCredentials() =>
-            Error.Unauthorized("user.invalid.credentials", "Invalid email or password");
-
-        public static Error CurrentPasswordInvalid() =>
-            Error.Unauthorized("user.current_password.invalid", "Current password is invalid");
-
-        public static Error RoleInvalid() =>
-            Error.Validation("user.role.invalid", "User role is invalid");
-        
-        public static Error UserForbidden() =>
-            Error.Validation("user.forbidden", "You do not have permission to access the current user.");
-
-        public static Error ChangeSuperAdminRoleForbidden() =>
-            Error.Forbidden(
-                "user.role.change.super_admin.forbidden",
-                "Only a SuperAdmin can change the role of another SuperAdmin.");
-
-        public static Error ChangePeerAdminRoleForbidden() =>
-            Error.Forbidden(
-                "user.role.change.peer_admin.forbidden",
-                "An Admin cannot change the role of another Admin. Only a SuperAdmin can.");
-
-        public static Error DeleteSuperAdminForbidden() =>
-            Error.Forbidden(
-                "user.delete.super_admin.forbidden",
-                "SuperAdmin cannot be deleted.");
-
-        public static Error DeleteSelfForbidden() =>
-            Error.Forbidden(
-                "user.delete.self.forbidden",
-                "You cannot delete your own account.");
-
-        public static Error RoleUnknownNotAllowed() =>
-            Error.Validation("user.role.unknown.not_allowed", "The role cannot be Unknown");
-
-        public static Error RoleSuperAdminNotAllowed() =>
-            Error.Validation("user.role.super_admin.not_allowed", "The SuperAdmin role cannot be assigned");
-
-        public static Error SearchTooLong(int maxLength) =>
-            Error.Validation("user.search.too_long", $"Search must be at most {maxLength} characters");
-
-        public static Error RegisteredAtUtcInFuture() =>
-            Error.Validation("user.registered_at_utc.in_future", "RegisteredAtUtc cannot be in the future");
-
-        public static Error LastLoginAtUtcInFuture() =>
-            Error.Validation("user.last_login_at_utc.in_future", "LastLoginAtUtc cannot be in the future");
-        
-        public static Error InsufficientPermissionsToViewAllUsers() =>
-            Error.Unauthorized("user.insufficient_permissions.view_all", 
-                "You don't have permission to view all users. Admin or SuperAdmin rights are required.");
-    }
+    // User errors → Errors.User.cs
 
     public static class Tracking
     {
@@ -392,10 +332,25 @@ public static class Errors
         public static Error AlreadyActive() =>
             Error.Conflict("tracking.already.active", "Tracking is already active");
 
+        /// <summary>
+        /// Срабатывает по unique-индексу (user_id, deceased_id) — race-condition
+        /// при параллельных запросах "отслеживать" одной и той же карточки.
+        /// </summary>
+        public static Error AlreadyExists() =>
+            Error.Conflict(
+                "tracking.already.exists",
+                "You are already tracking this deceased.");
+
         public static Error NotTracked() =>
-            Error.Forbidden(
+            Error.NotFound(
                 "tracking.not_tracked",
                 "Current user does not track this deceased.");
+    }
+
+    public static class Routing
+    {
+        public static Error RoutingModeInvalid() =>
+            Error.Validation("routing.mode.invalid", "Routing mode is invalid.");
     }
 
     public static class Pagination
@@ -407,6 +362,14 @@ public static class Errors
             Error.Validation("pagination.page_size.invalid", $"PageSize must be between {min} and {max}");
     }
 
+    public static class NearbySearch
+    {
+        public static Error RadiusOutOfRange(int min, int max) =>
+            Error.Validation("nearby_search.radius.invalid", $"RadiusMeters must be between {min} and {max}");
+    }
+
+    // Subscription / Payment / Complimentary / Legal errors → Errors.Subscription.cs
+
     public static class UniqueConstraint
     {
         public static Error FromName(string? constraintName) =>
@@ -416,6 +379,9 @@ public static class Errors
                 DbConstraints.UxUsersName => User.UserNameAlreadyExists(),
                 DbConstraints.DeceasedSearchKey => Deceased.AlreadyExists(),
                 DbConstraints.UxDeceasedMediaStorageKey => DeceasedMedia.DuplicateStorageKey(),
+                DbConstraints.UxRefreshTokensTokenHash => RefreshToken.TokenHashAlreadyExists(),
+                DbConstraints.UxSubscriptionPaymentsExternalPaymentId => Subscription.PaymentDuplicate(),
+                DbConstraints.UxTrackedDeceasedUserIdDeceasedId => Tracking.AlreadyExists(),
                 _ => Error.Conflict(
                     "conflict.unique_constraint",
                     "A unique constraint was violated.")
@@ -426,6 +392,9 @@ public static class Errors
     {
         public static Error NotFound(Guid mediaId) =>
             Error.NotFound("deceased_media.not.found", $"Deceased media not found for Id '{mediaId}'");
+
+        public static Error IdRequired() =>
+            Error.Validation("deceased_media.id.required", "Media id is required");
 
         public static Error DeceasedIdRequired() =>
             Error.Validation("deceased_media.deceased_id.required", "DeceasedId is required");
@@ -492,6 +461,11 @@ public static class Errors
             Error.Forbidden(
                 "deceased_media.delete.forbidden",
                 "You don't have permission to delete this media.");
+
+        public static Error UpdateDescriptionForbidden() =>
+            Error.Forbidden(
+                "deceased_media.update_description.forbidden",
+                "You don't have permission to update description for this media.");
 
         public static Error SetMainPhotoForbidden() =>
             Error.Forbidden(
@@ -570,5 +544,10 @@ public static class Errors
             Error.Unauthorized(
                 "refresh_token.replay_detected",
                 "Refresh token replay detected. All active sessions have been revoked.");
+
+        public static Error TokenHashAlreadyExists() =>
+            Error.Conflict(
+                "refresh_token.token_hash.duplicate",
+                "Refresh token hash collision detected.");
     }
 }

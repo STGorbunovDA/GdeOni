@@ -7,11 +7,43 @@ namespace GdeOni.Application.Abstractions.Persistence;
 public interface IUserRepository
 {
     Task<User?> GetById(Guid userId, CancellationToken cancellationToken);
-    Task<User?> GetByIdWithTracking(Guid userId, CancellationToken cancellationToken);
+    Task<User?> GetByIdReadOnly(Guid userId, CancellationToken cancellationToken);
+    Task<User?> GetByIdWithTrackingByDeceasedId(Guid userId, Guid deceasedId, CancellationToken cancellationToken);
     Task<(User User, int TrackingCount)?> GetByIdWithTrackingCount(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// User с полной коллекцией TrackedDeceasedItems — для bulk-операций
+    /// (например, админский RemoveAllTracking).
+    /// </summary>
+    Task<User?> GetByIdWithAllTracking(Guid userId, CancellationToken cancellationToken);
     Task<User?> GetByEmail(string email, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Лёгкий lookup только email'а по id. Нужен для отображения "кто
+    /// заблокировал" в GetUserById — поднимать второй User entity
+    /// ради одного string'а избыточно.
+    /// </summary>
+    Task<string?> GetEmailById(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// D16. Поиск пользователя по <c>Subscription.LastPaymentId</c>.
+    /// Используется <c>ProcessPaymentWebhookUseCase</c> чтобы найти,
+    /// кого активировать после webhook YooKassa. Возвращает null
+    /// если paymentId не известен (например, webhook от устаревшего
+    /// или подделанного платежа).
+    /// </summary>
+    Task<User?> GetBySubscriptionPaymentId(string externalPaymentId, CancellationToken cancellationToken);
+    /// <summary>
+    /// Список юзеров с пагинацией. <paramref name="includeSuperAdmins"/>
+    /// контролирует видимость SuperAdmin'ов: false — обычные админы
+    /// не должны их видеть. <paramref name="excludeUserId"/> — id юзера
+    /// которого надо исключить (типичный случай: текущий админ не должен
+    /// видеть сам себя в списке).
+    /// </summary>
     Task<(List<(User User, int TrackingCount)> Items, int TotalCount)> GetPaged(
         GetAllUsersQuery query,
+        bool includeSuperAdmins,
+        Guid? excludeUserId,
         CancellationToken cancellationToken);
     Task<bool> ExistsById(Guid userId, CancellationToken cancellationToken);
     Task<bool> ExistsByEmail(string email, CancellationToken cancellationToken);

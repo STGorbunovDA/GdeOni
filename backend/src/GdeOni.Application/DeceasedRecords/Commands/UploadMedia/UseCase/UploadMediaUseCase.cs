@@ -33,15 +33,16 @@ public sealed class UploadMediaUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        var domainKind = MapKind(command.Kind);
-        var validationResult = FileValidator.ValidateForKind(domainKind, command.ContentType, command.SizeBytes);
+        // После D11.3.4 FileKind удалён — UploadMediaCommand.Kind
+        // напрямую MediaKind, MapKind не нужен.
+        var validationResult = FileValidator.ValidateForKind(command.Kind, command.ContentType, command.SizeBytes);
         if (validationResult.IsFailure)
             return validationResult.Error;
 
         var magicBytesResult = await FileValidator.ValidateMagicBytesAsync(
             command.Content,
             command.ContentType,
-            domainKind,
+            command.Kind,
             cancellationToken);
         if (magicBytesResult.IsFailure)
             return magicBytesResult.Error;
@@ -55,8 +56,11 @@ public sealed class UploadMediaUseCase(
             return Errors.General.NotFound("deceased", command.DeceasedId);
 
         var currentUserId = currentUserIdResult.Value;
-        var isAdmin = currentUserService.IsAdmin();
-        if (!isAdmin && deceased.CreatedByUserId != currentUserId)
+        // D26. Выкладка медиа разрешена только админам — снимает юр.
+        // риск от пользовательских загрузок чужих фото/документов.
+        // Контроллер уже ограничен Roles=SuperAdmin,Admin; этот guard —
+        // вторая линия защиты на случай прямого вызова use case'а.
+        if (!currentUserService.IsAdmin())
             return Errors.DeceasedMedia.UploadForbidden();
 
         var uploadRequest = new UploadFileRequest
@@ -73,7 +77,7 @@ public sealed class UploadMediaUseCase(
 
         var addResult = deceased.AddMedia(
             currentUserId,
-            domainKind,
+            command.Kind,
             stored.OriginalFileName,
             stored.Bucket,
             stored.ObjectKey,
@@ -85,6 +89,16 @@ public sealed class UploadMediaUseCase(
         {
             await TryDeleteFromStorage(stored.Bucket, stored.ObjectKey);
             return addResult.Error;
+        }
+
+        // D26. Загружать может только админ → его контент сразу
+        // Approved. Модерация остаётся для legacy-media и для media,
+        // которое было загружено до D26 в Pending-состоянии.
+        var approveResult = addResult.Value.Approve();
+        if (approveResult.IsFailure)
+        {
+            await TryDeleteFromStorage(stored.Bucket, stored.ObjectKey);
+            return approveResult.Error;
         }
 
         try
@@ -145,12 +159,4 @@ public sealed class UploadMediaUseCase(
         }
     }
 
-    private static MediaKind MapKind(FileKind kind) => kind switch
-    {
-        FileKind.DeceasedPhoto => MediaKind.DeceasedPhoto,
-        FileKind.GravePhoto => MediaKind.GravePhoto,
-        FileKind.Document => MediaKind.Document,
-        FileKind.Other => MediaKind.Other,
-        _ => MediaKind.Other
-    };
 }

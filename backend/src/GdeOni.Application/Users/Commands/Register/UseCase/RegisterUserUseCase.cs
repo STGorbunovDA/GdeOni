@@ -2,16 +2,22 @@
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
+using GdeOni.Application.Legal;
+using GdeOni.Application.Subscriptions;
 using GdeOni.Application.Users.Commands.Register.Model;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
+using Microsoft.Extensions.Options;
 
 namespace GdeOni.Application.Users.Commands.Register.UseCase;
 
 public sealed class RegisterUserUseCase(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
-    IValidatedUseCaseExecutor validatedUseCaseExecutor)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    IOptions<SubscriptionOptions> subscriptionOptions,
+    IOptions<LegalOptions> legalOptions,
+    TimeProvider timeProvider)
     : IRegisterUserUseCase
 {
     public Task<Result<RegisterUserResponse, Error>> Execute(
@@ -32,11 +38,10 @@ public sealed class RegisterUserUseCase(
         if (emailExists)
             return Errors.User.EmailAlreadyExists();
 
-        // Вычисляем эффективный username для проверки уникальности
-        // (домен применяет ту же логику при создании пользователя)
-        var effectiveUserName = string.IsNullOrWhiteSpace(command.UserName)
-            ? command.Email.Trim().ToLowerInvariant().Split('@')[0]
-            : command.UserName.Trim().ToLowerInvariant();
+        // Единый источник истины для normalized-формы — Domain.User
+        // (D11.8.3): иначе при изменении правил нормализации Application
+        // и Domain могут разойтись.
+        var effectiveUserName = User.ComputeNormalizedUserName(command.UserName, command.Email);
 
         var userNameExists = await userRepository.ExistsByUserName(effectiveUserName, cancellationToken);
         if (userNameExists)
@@ -55,9 +60,31 @@ public sealed class RegisterUserUseCase(
 
         var user = userResult.Value;
 
+        // D16. Каждый новый пользователь сразу получает Trial-период
+        // на длительность из SubscriptionOptions (30 дней по дефолту).
+        // Решение 2026-05-14: первый месяц бесплатно. StartTrial
+        // idempotent — повторный вызов на не-None ничего не сделает.
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
+        var trialResult = user.StartTrial(
+            nowUtc,
+            subscriptionOptions.Value.TrialDuration);
+        if (trialResult.IsFailure)
+            return trialResult.Error;
+
+        // D19. 152-ФЗ: фиксируем версии Privacy/Terms на момент
+        // регистрации. Чекбоксы в DTO уже провалидированы (см.
+        // RegisterUserCommandValidator); сюда мы доходим только если
+        // PrivacyPolicyAccepted=true и TermsAccepted=true.
+        var legal = legalOptions.Value;
+        var legalResult = user.AcceptLegal(
+            legal.CurrentPrivacyPolicyVersion,
+            legal.CurrentTermsVersion,
+            nowUtc);
+        if (legalResult.IsFailure)
+            return legalResult.Error;
+
         await userRepository.Add(user, cancellationToken);
         await userRepository.Save(cancellationToken);
         return Result.Success<RegisterUserResponse, Error>(new RegisterUserResponse(user.Id));
-        
     }
 }

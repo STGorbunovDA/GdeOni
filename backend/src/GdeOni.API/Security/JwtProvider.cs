@@ -11,20 +11,25 @@ namespace GdeOni.API.Security;
 
 public sealed class JwtProvider(
     IOptions<JwtOptions> options,
-    IMemoryCache memoryCache)
+    IMemoryCache memoryCache,
+    TimeProvider timeProvider)
     : IJwtProvider
 {
     private readonly JwtOptions _options = options.Value;
 
     public AccessToken GenerateAccessToken(User user)
     {
+        // PII в JWT — это утечка: токен живёт в local storage клиента
+        // и читается через base64 без расшифровки. Email и UserName
+        // никем не используются (CurrentUserService берёт только id+role),
+        // их можно получить отдельным /users/me. 152-ФЗ + принцип
+        // минимизации PII требуют не таскать лишнее в долгоживущих
+        // артефактах.
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(JwtClaimNames.SecurityStamp, user.SecurityStamp.ToString()),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Email, user.Email),
-            new(ClaimTypes.Name, user.UserName),
             new(ClaimTypes.Role, user.Role.ToString())
         };
 
@@ -32,7 +37,7 @@ public sealed class JwtProvider(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SecretKey)),
             SecurityAlgorithms.HmacSha256);
 
-        var expiresAtUtc = DateTime.UtcNow.AddMinutes(_options.AccessTokenLifetimeMinutes);
+        var expiresAtUtc = timeProvider.GetUtcNow().UtcDateTime.AddMinutes(_options.AccessTokenLifetimeMinutes);
 
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,

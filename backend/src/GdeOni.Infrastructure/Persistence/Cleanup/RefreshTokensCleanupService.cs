@@ -9,7 +9,8 @@ namespace GdeOni.Infrastructure.Persistence.Cleanup;
 internal sealed class RefreshTokensCleanupService(
     IServiceProvider serviceProvider,
     IOptions<RefreshTokensCleanupOptions> options,
-    ILogger<RefreshTokensCleanupService> logger)
+    ILogger<RefreshTokensCleanupService> logger,
+    TimeProvider timeProvider)
     : BackgroundService
 {
     private readonly RefreshTokensCleanupOptions _options = options.Value;
@@ -22,9 +23,16 @@ internal sealed class RefreshTokensCleanupService(
             return;
         }
 
+        // Джиттер до InitialDelayMinutes минут — реплики, стартующие
+        // одновременно, не лезут в БД в одну секунду каждый цикл
+        // (см. D11.7.4). Random — instance-уникальный, на каждый
+        // BackgroundService свой seed.
+        var jitter = Random.Shared.Next(_options.InitialDelayMinutes * 60);
         try
         {
-            await Task.Delay(TimeSpan.FromMinutes(_options.InitialDelayMinutes), stoppingToken);
+            await Task.Delay(
+                TimeSpan.FromMinutes(_options.InitialDelayMinutes) + TimeSpan.FromSeconds(jitter),
+                stoppingToken);
         }
         catch (OperationCanceledException)
         {
@@ -61,7 +69,7 @@ internal sealed class RefreshTokensCleanupService(
         await using var scope = serviceProvider.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
         var revokedCutoff = nowUtc - TimeSpan.FromDays(_options.RevokedRetentionDays);
         var expiredCutoff = nowUtc - TimeSpan.FromDays(_options.ExpiredRetentionDays);
 

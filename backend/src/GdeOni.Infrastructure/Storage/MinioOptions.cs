@@ -18,6 +18,13 @@ public sealed class MinioOptions
     public MinioBucketsOptions Buckets { get; set; } = new();
 
     public MinioCleanupOptions Cleanup { get; set; } = new();
+
+    /// <summary>
+    /// Максимальный TTL для presigned URL (в часах). Caller может попросить
+    /// меньше, но не больше — иначе ссылка может «прожить» дольше, чем
+    /// допустимо политикой ресурса (см. D11.6.3). По умолчанию 1 час.
+    /// </summary>
+    public int MaxPresignedTtlHours { get; set; } = 1;
 }
 
 public sealed class MinioCleanupOptions

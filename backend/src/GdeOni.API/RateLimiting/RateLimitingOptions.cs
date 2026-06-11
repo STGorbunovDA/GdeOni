@@ -5,6 +5,7 @@ public sealed class RateLimitingOptions
     public const string SectionName = "RateLimiting";
 
     public AuthRateLimitOptions Auth { get; set; } = new();
+    public WebhookRateLimitOptions Webhook { get; set; } = new();
 }
 
 public sealed class AuthRateLimitOptions
@@ -29,5 +30,21 @@ public sealed class AuthRateLimitOptions
     /// Количество сегментов в sliding window. Чем больше, тем
     /// плавнее «амортизация» лимита по времени. 6 — стандарт.
     /// </summary>
+    public int SegmentsPerWindow { get; set; } = 6;
+}
+
+/// <summary>
+/// Лимит для webhook-эндпоинтов (платёжные провайдеры). Эндпоинт
+/// AllowAnonymous, без него атакующий мог бы бомбить webhook
+/// валидным payload'ом — каждый запрос пишет в БД, отправляет
+/// pull-verify к провайдеру. 60/мин per-IP — щедрый потолок для
+/// retry-механики YooKassa.
+/// </summary>
+public sealed class WebhookRateLimitOptions
+{
+    public const string PolicyName = "webhook";
+
+    public int PermitLimit { get; set; } = 60;
+    public int WindowMinutes { get; set; } = 1;
     public int SegmentsPerWindow { get; set; } = 6;
 }

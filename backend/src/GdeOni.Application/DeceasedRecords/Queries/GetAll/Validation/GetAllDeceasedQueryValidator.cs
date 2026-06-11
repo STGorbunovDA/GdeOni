@@ -12,7 +12,7 @@ public sealed class GetAllDeceasedQueryValidator : AbstractValidator<GetAllDecea
     private const int MaxPageSize = 100;
     private const int MaxSearchLength = 200;
 
-    public GetAllDeceasedQueryValidator()
+    public GetAllDeceasedQueryValidator(TimeProvider timeProvider)
     {
         RuleFor(x => x.Page)
             .GreaterThan(0)
@@ -42,12 +42,12 @@ public sealed class GetAllDeceasedQueryValidator : AbstractValidator<GetAllDecea
             .WithError(Errors.Deceased.CreatedFromMustBeLessOrEqualToCreatedTo());
 
         RuleFor(x => x.CreatedFrom)
-            .LessThanOrEqualTo(_ => DateTime.UtcNow)
+            .LessThanOrEqualTo(_ => timeProvider.GetUtcNow().UtcDateTime)
             .WithError(Errors.Deceased.CreatedFromInFuture())
             .When(x => x.CreatedFrom.HasValue);
 
         RuleFor(x => x.CreatedTo)
-            .LessThanOrEqualTo(_ => DateTime.UtcNow)
+            .LessThanOrEqualTo(_ => timeProvider.GetUtcNow().UtcDateTime)
             .WithError(Errors.Deceased.CreatedToInFuture())
             .When(x => x.CreatedTo.HasValue);
     }

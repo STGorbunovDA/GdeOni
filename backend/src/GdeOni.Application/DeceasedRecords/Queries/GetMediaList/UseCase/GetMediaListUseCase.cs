@@ -32,7 +32,7 @@ public sealed class GetMediaListUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        var deceased = await deceasedRepository.GetById(query.DeceasedId, cancellationToken);
+        var deceased = await deceasedRepository.GetByIdReadOnly(query.DeceasedId, cancellationToken);
         if (deceased is null)
             return Errors.General.NotFound("deceased", query.DeceasedId);
 

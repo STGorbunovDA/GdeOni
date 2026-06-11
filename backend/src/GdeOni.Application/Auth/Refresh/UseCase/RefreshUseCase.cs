@@ -18,7 +18,8 @@ public sealed class RefreshUseCase(
     ICurrentUserService currentUserService,
     IOptions<JwtOptions> jwtOptions,
     IValidatedUseCaseExecutor validatedUseCaseExecutor,
-    ILogger<RefreshUseCase> logger)
+    ILogger<RefreshUseCase> logger,
+    TimeProvider timeProvider)
     : IRefreshUseCase
 {
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
@@ -40,7 +41,7 @@ public sealed class RefreshUseCase(
         if (existingToken is null)
             return Errors.RefreshToken.TokenInvalid();
 
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
 
         // Replay revoked-токена. Сценарий: токен украден до того, как
         // легит-юзер успел его прокрутить, либо после ротации старый
@@ -65,9 +66,29 @@ public sealed class RefreshUseCase(
         if (existingToken.IsExpired(nowUtc))
             return Errors.RefreshToken.TokenExpired();
 
-        var user = await userRepository.GetById(existingToken.UserId, cancellationToken);
+        var user = await userRepository.GetByIdReadOnly(existingToken.UserId, cancellationToken);
         if (user is null)
             return Errors.RefreshToken.TokenInvalid();
+
+        // F17.10. Гейт блокировки симметрично LoginUseCase. Без этого
+        // у заблокированного юзера refresh-токен жил бы до своего истечения
+        // (default 14 дней) — атакующий бесконечно продлевал бы сессию
+        // SecurityStamp ротируется в Block, но новый access-токен выпустится
+        // с актуальным stamp и проживёт до конца своего TTL. Заодно ревокаем
+        // все RT юзера, чтобы цепочка оборвалась здесь и сейчас.
+        //
+        // ИЗВЕСТНЫЙ NARROW RACE: между GetByIdReadOnly (SELECT) и коммитом
+        // BlockUseCase.Save может пройти ~миллисекунды. Если в это окно
+        // успеть выпустить новый RT, он будет валидным до RevokeAllForUser
+        // из Block use case. Эксплуатация требует попадания в это
+        // микроокно — практически невозможно. Полный фикс требует
+        // SERIALIZABLE-транзакции с retry на serialization_failure,
+        // запланирован отдельным PR (см. backlog "Refresh↔Block race").
+        if (user.IsBlocked)
+        {
+            await refreshTokenRepository.RevokeAllForUser(user.Id, cancellationToken);
+            return Errors.User.AccountBlocked(user.BlockedReason);
+        }
 
         var accessToken = jwtProvider.GenerateAccessToken(user);
 

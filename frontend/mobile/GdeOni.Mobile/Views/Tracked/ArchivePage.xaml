@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:models="clr-namespace:GdeOni.Mobile.Services.Api.Models"
+             x:Name="Page"
+             x:Class="GdeOni.Mobile.Views.Tracked.ArchivePage"
+             x:DataType="vm:ArchiveViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Архив">
+
+    <Grid>
+        <Ellipse Fill="White"
+                 Opacity="0.5"
+                 WidthRequest="240"
+                 HeightRequest="130"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="40" />
+
+        <RefreshView IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}"
+                     Command="{Binding RefreshCommand}"
+                     RefreshColor="{StaticResource Azure}">
+
+            <CollectionView ItemsSource="{Binding Items}"
+                            SelectionMode="None"
+                            ItemSizingStrategy="MeasureFirstItem">
+
+                <CollectionView.Header>
+                    <VerticalStackLayout Padding="24,40,24,8" Spacing="16">
+                        <Button Text="‹ Назад"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding BackCommand}"
+                                HorizontalOptions="Start"
+                                Padding="16,8"
+                                FontSize="14" />
+                        <Label Text="Архив"
+                               Style="{StaticResource TitleLabel}" />
+                        <Label Text="Карточки, которые вы перенесли в архив. Тап на карточку — можно вернуть."
+                               Style="{StaticResource BodyLabel}" />
+
+                        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                           IsVisible="{Binding IsBusy}"
+                                           Color="{StaticResource Azure}" />
+
+                        <Label Text="{Binding ErrorMessage}"
+                               IsVisible="{Binding HasError}"
+                               TextColor="#C0392B"
+                               FontSize="13" />
+                    </VerticalStackLayout>
+                </CollectionView.Header>
+
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="12" />
+                </CollectionView.ItemsLayout>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:TrackedDeceasedListItem">
+                        <SwipeView>
+                            <SwipeView.RightItems>
+                                <SwipeItems Mode="Reveal">
+                                    <SwipeItem Text="Удалить навсегда"
+                                               BackgroundColor="#C0392B"
+                                               Command="{Binding Source={x:Reference Page}, Path=BindingContext.UntrackForeverCommand}"
+                                               CommandParameter="{Binding .}" />
+                                </SwipeItems>
+                            </SwipeView.RightItems>
+
+                            <Border Style="{StaticResource CloudCard}"
+                                    Margin="24,0">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenItemCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+
+                                <Grid ColumnDefinitions="Auto,*,Auto"
+                                      ColumnSpacing="14"
+                                      RowDefinitions="Auto,Auto,Auto"
+                                      RowSpacing="2">
+
+                                    <Border Grid.Column="0" Grid.RowSpan="3"
+                                            StrokeThickness="0"
+                                            WidthRequest="56"
+                                            HeightRequest="56"
+                                            VerticalOptions="Center"
+                                            Opacity="0.7">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="28" />
+                                        </Border.StrokeShape>
+                                        <Grid>
+                                            <BoxView Color="{StaticResource Mist}" />
+                                            <Label Text="🕊"
+                                                   FontSize="24"
+                                                   Opacity="0.6"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center" />
+                                            <Image Source="{Binding MainPhotoUrl}"
+                                                   Aspect="AspectFill" />
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- D29. Имя + ✓ если IsVerified. -->
+                                    <HorizontalStackLayout Grid.Row="0" Grid.Column="1"
+                                                           Spacing="6"
+                                                           VerticalOptions="Center">
+                                        <Label Text="{Binding FullName}"
+                                               Style="{StaticResource SubTitleLabel}"
+                                               FontSize="16"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Text="✓"
+                                               FontSize="14"
+                                               FontAttributes="Bold"
+                                               TextColor="{StaticResource AzureDeep}"
+                                               VerticalOptions="Center"
+                                               IsVisible="{Binding IsVerified}" />
+                                    </HorizontalStackLayout>
+
+                                    <Label Grid.Row="1" Grid.Column="1"
+                                           Style="{StaticResource CaptionLabel}"
+                                           LineBreakMode="TailTruncation">
+                                        <Label.FormattedText>
+                                            <FormattedString>
+                                                <Span Text="{Binding RelationshipType, Converter={StaticResource RelationshipDisplay}}" />
+                                                <Span Text=" · " />
+                                                <Span Text="{Binding DeathDate, StringFormat='†&#160;{0:dd.MM.yyyy}'}" />
+                                            </FormattedString>
+                                        </Label.FormattedText>
+                                    </Label>
+
+                                    <Label Grid.Row="2" Grid.Column="1"
+                                           Text="Свайп влево — удалить навсегда"
+                                           FontSize="10"
+                                           TextColor="{StaticResource AzureDeep}"
+                                           Opacity="0.6" />
+
+                                    <Label Grid.Column="2" Grid.RowSpan="3"
+                                           Text="›"
+                                           FontSize="28"
+                                           TextColor="{StaticResource AzureDeep}"
+                                           Opacity="0.6"
+                                           VerticalOptions="Center"
+                                           Margin="8,0,0,0" />
+                                </Grid>
+                            </Border>
+                        </SwipeView>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+                <CollectionView.Footer>
+                    <VerticalStackLayout Padding="24,20,24,40" Spacing="12">
+                        <Border Style="{StaticResource CloudCard}"
+                                IsVisible="{Binding ShowEmptyState}">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="Архив пустой"
+                                       Style="{StaticResource SubTitleLabel}" />
+                                <Label Text="Здесь будут карточки, которые вы перенесёте в архив. Они не пропадут — можно вернуть."
+                                       Style="{StaticResource BodyLabel}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                </CollectionView.Footer>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+
+</ContentPage>

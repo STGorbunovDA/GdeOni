@@ -12,6 +12,7 @@ public sealed class ChangeRoleUseCase(
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
     ICurrentUserService currentUserService,
+    ISecurityStampInvalidator securityStampInvalidator,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IChangeRoleUseCase
 {
@@ -51,9 +52,25 @@ public sealed class ChangeRoleUseCase(
         if (user.Role == UserRole.Admin && !isSuperAdmin)
             return Errors.User.ChangePeerAdminRoleForbidden();
 
+        // Admin не может выдавать роль Admin или SuperAdmin — только
+        // повысить до Manager или вернуть обратно в RegularUser. Только
+        // SuperAdmin вправе назначать админов.
+        if (!isSuperAdmin && command.UserRole is UserRole.Admin or UserRole.SuperAdmin)
+            return Errors.User.AssignAdminRoleForbidden();
+
+        var stampBefore = user.SecurityStamp;
+
         var result = user.ChangeRole(command.UserRole);
         if (result.IsFailure)
             return result.Error;
+
+        // No-op (D11.8.2): та же роль — не выкидываем сессии и не
+        // сбрасываем кеш.
+        if (user.SecurityStamp == stampBefore)
+        {
+            return Result.Success<ChangeRoleResponse, Error>(
+                new ChangeRoleResponse(user.Id));
+        }
 
         // Сначала фиксируем смену роли + новый SecurityStamp, затем
         // форс-логаут всех сессий. ChangeRole — security-event:
@@ -62,6 +79,8 @@ public sealed class ChangeRoleUseCase(
         // продолжать жить с прежним claim'ом роли (D7.41).
         await userRepository.Save(cancellationToken);
         await refreshTokenRepository.RevokeAllForUser(user.Id, cancellationToken);
+        // D11.8.1: сбрасываем закешированный SecurityStamp.
+        securityStampInvalidator.Invalidate(user.Id);
 
         return Result.Success<ChangeRoleResponse, Error>(
             new ChangeRoleResponse(user.Id));

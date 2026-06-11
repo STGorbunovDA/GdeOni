@@ -17,7 +17,8 @@ public sealed class LoginUseCase(
     IRefreshTokenFactory refreshTokenFactory,
     ICurrentUserService currentUserService,
     IOptions<JwtOptions> jwtOptions,
-    IValidatedUseCaseExecutor validatedUseCaseExecutor)
+    IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    TimeProvider timeProvider)
     : ILoginUseCase
 {
     private readonly JwtOptions _jwtOptions = jwtOptions.Value;
@@ -48,11 +49,16 @@ public sealed class LoginUseCase(
         if (!passwordHasher.Verify(command.Password, user.PasswordHash))
             return Errors.User.InvalidCredentials();
 
+        // Гейт блокировки: после успешной проверки пароля (чтобы атакующий
+        // не отличал "блокировка" от "несуществующий email" по таймингу).
+        if (user.IsBlocked)
+            return Errors.User.AccountBlocked(user.BlockedReason);
+
         user.MarkLogin();
 
         var accessToken = jwtProvider.GenerateAccessToken(user);
 
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
         var refreshTokenPlain = refreshTokenFactory.Generate();
         var refreshTokenHash = refreshTokenFactory.Hash(refreshTokenPlain);
         var refreshExpiresAtUtc = nowUtc.AddDays(_jwtOptions.RefreshTokenLifetimeDays);

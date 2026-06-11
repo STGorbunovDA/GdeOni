@@ -10,4 +10,10 @@ public sealed class GetAllUsersResponse
     public DateTime RegisteredAtUtc { get; init; }
     public DateTime? LastLoginAtUtc { get; init; }
     public int TrackingCount { get; init; }
+
+    /// <summary>
+    /// F17.10. Признак блокировки — чтобы UI листинга мог отметить
+    /// заблокированных красным/значком, не загружая детали.
+    /// </summary>
+    public bool IsBlocked { get; init; }
 }

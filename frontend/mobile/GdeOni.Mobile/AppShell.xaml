@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="GdeOni.Mobile.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:auth="clr-namespace:GdeOni.Mobile.Views.Auth"
+    xmlns:tracked="clr-namespace:GdeOni.Mobile.Views.Tracked"
+    xmlns:route="clr-namespace:GdeOni.Mobile.Views.Route"
+    xmlns:profile="clr-namespace:GdeOni.Mobile.Views.Profile"
+    xmlns:updates="clr-namespace:GdeOni.Mobile.Views.Updates"
+    xmlns:subs="clr-namespace:GdeOni.Mobile.Views.Subscriptions"
+    Title="GdeOni"
+    FlyoutBehavior="Disabled"
+    Shell.NavBarIsVisible="False"
+    Shell.TabBarIsVisible="False">
+
+    <!-- Стартовая страница: Login. Если токен есть, AppShell.OnAppearing
+         сразу перенаправит на //main/tracked. -->
+    <ShellContent
+        Route="login"
+        ContentTemplate="{DataTemplate auth:LoginPage}" />
+
+    <!-- Главный TabBar — доступен только после логина. -->
+    <TabBar Route="main">
+        <ShellContent
+            Route="tracked"
+            ContentTemplate="{DataTemplate tracked:TrackedListPage}" />
+        <ShellContent
+            Route="route"
+            ContentTemplate="{DataTemplate route:RoutePage}" />
+        <ShellContent
+            Route="profile"
+            ContentTemplate="{DataTemplate profile:ProfilePage}" />
+    </TabBar>
+
+    <!-- E22. Top-level blocking-update page (без TabBar / Back).
+         AppShell.OnAppearing проверяет /api/app/version и при
+         ForceUpdate переводит сюда. -->
+    <ShellContent
+        Route="blocking-update"
+        ContentTemplate="{DataTemplate updates:BlockingUpdatePage}" />
+
+    <!-- E22.6. Глобальный paywall. Юзер попадает сюда:
+         - после логина если SubscriptionEnabled && !IsActiveNow && !IsAdmin;
+         - в середине сессии когда backend ответил 403 subscription.required
+           (см. SubscriptionGateHandler). -->
+    <ShellContent
+        Route="subscription-required"
+        ContentTemplate="{DataTemplate subs:SubscriptionRequiredPage}" />
+
+</Shell>

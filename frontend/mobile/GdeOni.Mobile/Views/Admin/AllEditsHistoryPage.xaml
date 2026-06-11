@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Admin.AllEditsHistoryPage"
+             x:DataType="vm:AllEditsHistoryViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="История правок">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="16">
+
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8" />
+
+                <Label Text="История правок" Style="{StaticResource TitleLabel}" />
+                <Label Text="Все правки карточек умерших по системе, от свежих к старым."
+                       Style="{StaticResource CaptionLabel}" />
+
+                <!-- Фильтры. Поиск по умершему/редактору — client-side
+                     по уже загруженным страницам. Дата — server-side. -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Фильтры" Style="{StaticResource SubTitleLabel}" FontSize="15" />
+
+                        <Entry Placeholder="Поиск по ФИО умершего"
+                               Text="{Binding DeceasedSearch}" />
+                        <Entry Placeholder="Поиск по email/имени редактора"
+                               Text="{Binding EditorSearch}" />
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalOptions="Center">
+                            <Label Grid.Column="0"
+                                   Text="Фильтр по дате изменения"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding IsDateFilterEnabled}"
+                                    OnColor="{StaticResource Azure}" />
+                        </Grid>
+
+                        <VerticalStackLayout IsVisible="{Binding IsDateFilterEnabled}" Spacing="6">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                                <Label Grid.Column="0" Text="От:"
+                                       Style="{StaticResource CaptionLabel}"
+                                       VerticalOptions="Center" />
+                                <DatePicker Grid.Column="1"
+                                            Date="{Binding EditedFrom}"
+                                            MaximumDate="{Binding EditedTo}"
+                                            Format="dd.MM.yyyy" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                                <Label Grid.Column="0" Text="До:"
+                                       Style="{StaticResource CaptionLabel}"
+                                       VerticalOptions="Center" />
+                                <DatePicker Grid.Column="1"
+                                            Date="{Binding EditedTo}"
+                                            MinimumDate="{Binding EditedFrom}"
+                                            Format="dd.MM.yyyy" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <Button Text="Сбросить фильтры"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding ClearFiltersCommand}"
+                                HorizontalOptions="End"
+                                Padding="14,6"
+                                FontSize="13" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding TotalCount, StringFormat='Всего правок: {0}'}"
+                       Style="{StaticResource CaptionLabel}" />
+
+                <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                   IsVisible="{Binding IsLoading}"
+                                   Color="{StaticResource Azure}" />
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="#C0392B"
+                       Style="{StaticResource BodyLabel}" />
+
+                <Label Text="Правок пока нет."
+                       Style="{StaticResource CaptionLabel}"
+                       IsVisible="{Binding HasNoItems}" />
+
+                <CollectionView ItemsSource="{Binding Edits}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AllEditsEntry">
+                            <Border Style="{StaticResource CloudCard}" Margin="0,0,0,12">
+                                <VerticalStackLayout Spacing="6">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Label Grid.Column="0"
+                                               Text="{Binding DeceasedFullName}"
+                                               Style="{StaticResource SubTitleLabel}"
+                                               FontSize="16" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding EditedAt}"
+                                               Style="{StaticResource CaptionLabel}"
+                                               VerticalOptions="Center" />
+                                    </Grid>
+
+                                    <Label Text="{Binding KindDisplay}"
+                                           Style="{StaticResource CaptionLabel}"
+                                           FontAttributes="Bold" />
+
+                                    <Label Text="{Binding Editor}"
+                                           Style="{StaticResource CaptionLabel}" />
+
+                                    <BoxView Color="{StaticResource Sky}" HeightRequest="1" Margin="0,4" />
+
+                                    <CollectionView ItemsSource="{Binding Changes}" SelectionMode="None">
+                                        <CollectionView.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:ChangeRow">
+                                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" Padding="0,4">
+                                                    <Label Grid.Column="0"
+                                                           Text="{Binding Field}"
+                                                           Style="{StaticResource CaptionLabel}"
+                                                           FontAttributes="Bold" />
+                                                    <Label Grid.Column="1"
+                                                           Text="{Binding Old}"
+                                                           Style="{StaticResource BodyLabel}"
+                                                           TextColor="#7F8C8D"
+                                                           LineBreakMode="TailTruncation" />
+                                                    <Label Grid.Column="2"
+                                                           Text="{Binding New}"
+                                                           Style="{StaticResource BodyLabel}"
+                                                           LineBreakMode="TailTruncation" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </CollectionView.ItemTemplate>
+                                    </CollectionView>
+
+                                    <Button Text="Открыть карточку"
+                                            Style="{StaticResource GhostButton}"
+                                            HorizontalOptions="End"
+                                            Padding="14,6"
+                                            FontSize="13"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AllEditsHistoryViewModel}}, Path=OpenDeceasedCommand}"
+                                            CommandParameter="{Binding .}" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Button Text="Загрузить ещё"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding LoadNextPageCommand}"
+                        IsVisible="{Binding CanLoadMore}" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

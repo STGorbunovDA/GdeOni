@@ -33,6 +33,19 @@ public sealed class RegisterUserCommandValidator : AbstractValidator<RegisterUse
             .NotEmpty()
             .WithError(Errors.User.PasswordRequired())
             .MinimumLength(PasswordPolicy.MinPasswordLength)
-            .WithError(Errors.User.PasswordTooShort(PasswordPolicy.MinPasswordLength));
+            .WithError(Errors.User.PasswordTooShort(PasswordPolicy.MinPasswordLength))
+            .MaximumLength(PasswordPolicy.MaxPasswordLength)
+            .WithError(Errors.User.PasswordTooLong(PasswordPolicy.MaxPasswordLength));
+
+        // D19. 152-ФЗ: регистрация невозможна без явного согласия
+        // с Privacy Policy и Terms of Use. UI обязан показать чекбоксы
+        // с inline-ссылками на оба документа.
+        RuleFor(x => x.PrivacyPolicyAccepted)
+            .Equal(true)
+            .WithError(Errors.Legal.PrivacyPolicyNotAccepted());
+
+        RuleFor(x => x.TermsAccepted)
+            .Equal(true)
+            .WithError(Errors.Legal.TermsNotAccepted());
     }
 }

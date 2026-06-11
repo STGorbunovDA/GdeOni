@@ -14,7 +14,8 @@ namespace GdeOni.Infrastructure.Storage;
 internal sealed class MinioOrphanCleanupService(
     IServiceProvider serviceProvider,
     IOptions<MinioOptions> options,
-    ILogger<MinioOrphanCleanupService> logger)
+    ILogger<MinioOrphanCleanupService> logger,
+    TimeProvider timeProvider)
     : BackgroundService
 {
     // Размер пачки объектов из MinIO, для которой делается один SQL-запрос
@@ -34,9 +35,15 @@ internal sealed class MinioOrphanCleanupService(
             return;
         }
 
+        // Джиттер до InitialDelayMinutes минут — не даём репликам
+        // дёргать MinIO+БД в одну секунду каждый цикл (см. D11.8.4,
+        // паттерн скопирован из RefreshTokensCleanupService).
+        var jitter = Random.Shared.Next(cleanup.InitialDelayMinutes * 60);
         try
         {
-            await Task.Delay(TimeSpan.FromMinutes(cleanup.InitialDelayMinutes), stoppingToken);
+            await Task.Delay(
+                TimeSpan.FromMinutes(cleanup.InitialDelayMinutes) + TimeSpan.FromSeconds(jitter),
+                stoppingToken);
         }
         catch (OperationCanceledException)
         {
@@ -75,7 +82,7 @@ internal sealed class MinioOrphanCleanupService(
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var client = scope.ServiceProvider.GetRequiredService<IMinioClient>();
 
-        var cutoff = DateTime.UtcNow - ageThreshold;
+        var cutoff = timeProvider.GetUtcNow().UtcDateTime - ageThreshold;
 
         var buckets = new[]
         {
@@ -164,9 +171,14 @@ internal sealed class MinioOrphanCleanupService(
 
         foreach (var item in batch)
         {
+            // Между удалениями проверяем shutdown — иначе SIGTERM
+            // в середине batch заставляет нас доделывать всю пачку
+            // ещё несколько секунд, даже если ASP.NET уже хочет
+            // graceful-stop'нуть.
+            cancellationToken.ThrowIfCancellationRequested();
             if (knownSet.Contains(item.Key)) continue;
 
-            var lastModified = item.LastModifiedDateTime ?? DateTime.UtcNow;
+            var lastModified = item.LastModifiedDateTime ?? timeProvider.GetUtcNow().UtcDateTime;
             if (lastModified > cutoff)
             {
                 skipped++;

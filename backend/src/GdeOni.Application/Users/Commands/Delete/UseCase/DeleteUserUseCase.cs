@@ -10,7 +10,9 @@ namespace GdeOni.Application.Users.Commands.Delete.UseCase;
 
 public sealed class DeleteUserUseCase(
     IUserRepository userRepository,
+    IDeceasedRepository deceasedRepository,
     ICurrentUserService currentUserService,
+    ISecurityStampInvalidator securityStampInvalidator,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
     : IDeleteUserUseCase
 {
@@ -47,10 +49,46 @@ public sealed class DeleteUserUseCase(
         if (user.Role == UserRole.SuperAdmin)
             return Errors.User.DeleteSuperAdminForbidden();
 
+        // Admin не может удалить другого Admin — симметрично с
+        // ChangeRoleUseCase (D7.18). Защищает от admin-vs-admin войн
+        // и тихого "выпиливания" коллег. Снять Admin может только
+        // SuperAdmin. См. D7.70.
+        var isSuperAdmin = currentUserService.IsInRole(nameof(UserRole.SuperAdmin));
+        if (user.Role == UserRole.Admin && !isSuperAdmin)
+            return Errors.User.DeletePeerAdminForbidden();
+
+        // FK guard через reassign: у Deceased.CreatedByUserId и
+        // DeceasedMedia.UploadedByUserId стоит OnDelete=Restrict, поэтому
+        // перед удалением переуступаем весь контент текущему SuperAdmin'у.
+        // Для каждой карточки создаётся audit-запись DeceasedEditKind.Reassignment
+        // с email удалённого юзера в diff'е — историю "кто реально создал"
+        // не теряем.
+        //
+        // Гард на пустого юзера: ReassignContent делает 3 ExecuteUpdateAsync
+        // даже когда у юзера 0 карточек/медиа. Для типичного "удалил тестового
+        // регистранта без активности" — это 3 лишних SQL-запроса. Дешёвая
+        // проверка HasContentByUser (один EXISTS) спасает их.
+        // Trackings всё равно уйдут Cascade при Delete(user) — для них
+        // ReassignContent не нужен ради сохранения данных.
+        if (await deceasedRepository.HasContentByUser(user.Id, cancellationToken))
+        {
+            await deceasedRepository.ReassignContent(
+                fromUserId: user.Id,
+                fromUserEmail: user.Email,
+                toUserId: currentUserIdResult.Value,
+                cancellationToken);
+        }
+
         userRepository.Delete(user);
         // Refresh-токены удаляемого пользователя уйдут сами по
         // OnDelete Cascade (RefreshTokenConfiguration).
         await userRepository.Save(cancellationToken);
+        // D11.10.1: после удаления user'а access-токены у атакующего
+        // живут до истечения SecurityStampCacheTtlSeconds, потому что
+        // OnTokenValidated проверяет stamp по кешу. Cache.Remove
+        // закрывает окно: следующий запрос пойдёт в БД, увидит, что
+        // юзера нет, и завалит токен.
+        securityStampInvalidator.Invalidate(user.Id);
 
         return Result.Success<DeleteUserResponse, Error>(
             new DeleteUserResponse(command.UserId));

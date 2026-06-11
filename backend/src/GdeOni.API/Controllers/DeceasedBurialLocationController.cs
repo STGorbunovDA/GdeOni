@@ -12,6 +12,7 @@ namespace GdeOni.API.Controllers;
 /// Контроллер для управления местом захоронения умершего.
 /// </summary>
 [Route("api/deceased-records")]
+[Tags("DeceasedRecords")]
 public sealed class DeceasedBurialLocationController : ApiControllerBase
 {
     /// <summary>
@@ -26,6 +27,7 @@ public sealed class DeceasedBurialLocationController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> SetFromGps(
         [FromRoute] Guid id,
         [FromBody] SetBurialLocationFromGpsRequest request,

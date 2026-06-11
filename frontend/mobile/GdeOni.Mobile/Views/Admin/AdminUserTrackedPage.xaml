@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Class="GdeOni.Mobile.Views.Admin.AdminUserTrackedPage"
+             x:DataType="vm:AdminUserTrackedViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             Title="Отслеживания">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="24,40,24,40" Spacing="14">
+
+                <Button Text="‹ Назад"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding BackCommand}"
+                        HorizontalOptions="Start"
+                        Padding="16,8" />
+
+                <Label Text="Отслеживания пользователя" Style="{StaticResource TitleLabel}" />
+                <Label Text="{Binding TotalCount, StringFormat='Всего: {0}'}"
+                       Style="{StaticResource CaptionLabel}" />
+
+                <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                   IsVisible="{Binding IsLoading}"
+                                   Color="{StaticResource Azure}" />
+
+                <Label Text="{Binding StatusMessage}"
+                       IsVisible="{Binding HasStatus}"
+                       TextColor="#2E7D32"
+                       Style="{StaticResource BodyLabel}" />
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="#C0392B"
+                       Style="{StaticResource BodyLabel}" />
+
+                <Label Text="Отслеживаний нет."
+                       Style="{StaticResource CaptionLabel}"
+                       IsVisible="{Binding HasNoItems}" />
+
+                <Button Text="Снять все отслеживания"
+                        Style="{StaticResource GhostButton}"
+                        BackgroundColor="#C0392B"
+                        TextColor="White"
+                        Command="{Binding RemoveAllCommand}"
+                        IsVisible="{Binding HasItems}" />
+
+                <CollectionView ItemsSource="{Binding Items}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TrackedEntry">
+                            <Border Style="{StaticResource CloudCard}" Margin="0,0,0,8">
+                                <Grid ColumnDefinitions="*,Auto" RowSpacing="2">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                        <Label Text="{Binding FullName}"
+                                               Style="{StaticResource SubTitleLabel}"
+                                               FontSize="15" />
+                                        <Label Text="{Binding LifePeriod}" Style="{StaticResource CaptionLabel}" />
+                                        <Label Text="{Binding Relationship, StringFormat='Отношение: {0}'}"
+                                               Style="{StaticResource CaptionLabel}" />
+                                        <Label Text="{Binding Status, StringFormat='Статус: {0}'}"
+                                               Style="{StaticResource CaptionLabel}" />
+                                    </VerticalStackLayout>
+                                    <Button Grid.Column="1"
+                                            Text="Снять"
+                                            Style="{StaticResource GhostButton}"
+                                            BackgroundColor="#C0392B"
+                                            TextColor="White"
+                                            FontSize="13"
+                                            Padding="12,6"
+                                            VerticalOptions="Start"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AdminUserTrackedViewModel}}, Path=RemoveOneCommand}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Button Text="Загрузить ещё"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding LoadNextPageCommand}"
+                        IsVisible="{Binding CanLoadMore}" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

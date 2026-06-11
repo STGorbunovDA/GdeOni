@@ -14,12 +14,47 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 
     public Task<User?> GetById(Guid userId, CancellationToken cancellationToken)
     {
+        // Tracked-вариант для use case-ов, мутирующих User
+        // (ChangeEmail / ChangePassword / ChangeRole / UpdateProfile /
+        // Delete / AddDeceasedAtGrave). Для read-only сценариев —
+        // GetByIdReadOnly (D7.67).
         return UsersQuery()
             .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
     }
 
-    public Task<User?> GetByIdWithTracking(Guid userId, CancellationToken cancellationToken)
+    public Task<User?> GetByIdReadOnly(Guid userId, CancellationToken cancellationToken)
     {
+        // AsNoTracking: query-use-case'ы (RefreshUseCase, GetCurrentUserUseCase)
+        // читают User и не вызывают Save — change-tracker не нужен.
+        // Аналог DeceasedRepository.GetByIdReadOnly (D7.58). См. D7.67.
+        return UsersQuery()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
+    }
+
+    public Task<User?> GetByIdWithTrackingByDeceasedId(
+        Guid userId,
+        Guid deceasedId,
+        CancellationToken cancellationToken)
+    {
+        // Filtered Include — User + одна tracking (по DeceasedId).
+        // Доменные методы (TrackDeceased / UpdateTracking / RemoveTracking)
+        // ищут tracking через `_trackedDeceasedItems.FirstOrDefault(x =>
+        // x.DeceasedId == deceasedId)` и корректно работают на коллекции
+        // из 0/1 элемента: если найдена — мутируется, если нет — Add
+        // нового. EF трекает изменения только этой одной записи. Аналог
+        // D7.46 (memory) и D7.47 (media) для tracking. См. D7.55.
+        return dbContext.Users
+            .Include(x => x.TrackedDeceasedItems
+                .Where(t => t.DeceasedId == deceasedId))
+            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
+    }
+
+    public Task<User?> GetByIdWithAllTracking(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        // Full Include для bulk-операций (RemoveAllTracking).
         return dbContext.Users
             .Include(x => x.TrackedDeceasedItems)
             .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
@@ -49,18 +84,48 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
     }
 
+    public Task<string?> GetEmailById(Guid userId, CancellationToken cancellationToken)
+    {
+        return dbContext.Users
+            .AsNoTracking()
+            .Where(x => x.Id == userId)
+            .Select(x => x.Email)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<User?> GetBySubscriptionPaymentId(
+        string externalPaymentId,
+        CancellationToken cancellationToken)
+    {
+        // D16. Поиск по subscription.last_payment_id для
+        // ProcessPaymentWebhookUseCase. Tracked — use case будет
+        // вызывать ActivateSubscription, нужен change-tracker.
+        // Индекс ix_users_subscription_last_payment_id обеспечивает
+        // SELECT по одному значению без full-scan.
+        return UsersQuery()
+            .FirstOrDefaultAsync(
+                x => x.Subscription.LastPaymentId == externalPaymentId,
+                cancellationToken);
+    }
+
     public Task<bool> ExistsById(Guid userId, CancellationToken cancellationToken)
     {
-        return UsersQuery().AnyAsync(x => x.Id == userId, cancellationToken);
+        // D8.13: AsNoTracking — EXISTS-only, материализация и change-tracker
+        // не нужны. Согласовано с DeceasedRepository.ExistsById.
+        return UsersQuery()
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == userId, cancellationToken);
     }
 
     public Task<bool> ExistsByEmail(string email, CancellationToken cancellationToken)
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
 
-        return UsersQuery().AnyAsync(
-            x => x.Email == normalizedEmail,
-            cancellationToken);
+        return UsersQuery()
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.Email == normalizedEmail,
+                cancellationToken);
     }
 
     public Task<bool> ExistsByUserName(string userName, CancellationToken cancellationToken)
@@ -69,9 +134,11 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .Trim()
             .ToLowerInvariant();
 
-        return UsersQuery().AnyAsync(
-            x => x.UserNameNormalized == normalizedUserName,
-            cancellationToken);
+        return UsersQuery()
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.UserNameNormalized == normalizedUserName,
+                cancellationToken);
     }
     
     public void Delete(User user)
@@ -130,14 +197,20 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 
     public async Task<(List<(User User, int TrackingCount)> Items, int TotalCount)> GetPaged(
         GetAllUsersQuery query,
+        bool includeSuperAdmins,
+        Guid? excludeUserId,
         CancellationToken cancellationToken)
     {
         // Без Include(TrackedDeceasedItems) — раньше тянули всю коллекцию
         // подписок ради одного .Count в response. Сейчас COUNT делается
         // в SQL через subquery в Select.
-        var dbQuery = UsersQuery()
-            .Where(x => x.Role != UserRole.SuperAdmin)
-            .AsNoTracking();
+        var dbQuery = UsersQuery().AsNoTracking();
+
+        if (!includeSuperAdmins)
+            dbQuery = dbQuery.Where(x => x.Role != UserRole.SuperAdmin);
+
+        if (excludeUserId.HasValue)
+            dbQuery = dbQuery.Where(x => x.Id != excludeUserId.Value);
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -163,6 +236,20 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             dbQuery = dbQuery.Where(x =>
                 x.RegisteredAtUtc >= date &&
                 x.RegisteredAtUtc < nextDate);
+        }
+
+        // Range-фильтр: From включительно, To включительно (на полный день).
+        if (query.RegisteredFromUtc.HasValue)
+        {
+            var from = DateTime.SpecifyKind(query.RegisteredFromUtc.Value.Date, DateTimeKind.Utc);
+            dbQuery = dbQuery.Where(x => x.RegisteredAtUtc >= from);
+        }
+
+        if (query.RegisteredToUtc.HasValue)
+        {
+            // То = конец указанного дня (включительно), т.е. начало следующего.
+            var toExclusive = DateTime.SpecifyKind(query.RegisteredToUtc.Value.Date.AddDays(1), DateTimeKind.Utc);
+            dbQuery = dbQuery.Where(x => x.RegisteredAtUtc < toExclusive);
         }
 
         if (query.LastLoginAtUtc.HasValue)

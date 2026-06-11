@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:shared="clr-namespace:GdeOni.Mobile.Views.Shared"
+             x:Name="Page"
+             x:Class="GdeOni.Mobile.Views.Route.RoutePage"
+             x:DataType="vm:RouteViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+
+        <Ellipse Grid.Row="0"
+                 Fill="White"
+                 Opacity="0.45"
+                 WidthRequest="240"
+                 HeightRequest="130"
+                 HorizontalOptions="End"
+                 VerticalOptions="Start"
+                 TranslationX="60"
+                 TranslationY="40" />
+
+        <!-- Header -->
+        <VerticalStackLayout Grid.Row="0" Padding="24,40,24,12" Spacing="6">
+            <Label Text="Маршрут"
+                   Style="{StaticResource TitleLabel}" />
+            <Label Text="Отметьте могилы, которые хотите обойти сегодня. Приложение построит оптимальный порядок и откроет маршрут в выбранных картах."
+                   Style="{StaticResource BodyLabel}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               Color="{StaticResource Azure}" />
+            <Label IsVisible="{Binding HasError}"
+                   Text="{Binding ErrorMessage}"
+                   TextColor="#C0392B"
+                   FontSize="13" />
+        </VerticalStackLayout>
+
+        <!-- Список -->
+        <Grid Grid.Row="1">
+
+            <CollectionView ItemsSource="{Binding Candidates}"
+                            IsVisible="{Binding HasCandidates}"
+                            SelectionMode="None"
+                            ItemSizingStrategy="MeasureFirstItem">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="12" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RouteCandidateViewModel">
+                        <Border Style="{StaticResource CloudCard}"
+                                Margin="24,0">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnCandidateTapped" />
+                            </Border.GestureRecognizers>
+
+                            <Grid ColumnDefinitions="Auto,*"
+                                  ColumnSpacing="12"
+                                  RowDefinitions="Auto,Auto"
+                                  RowSpacing="2">
+
+                                <CheckBox Grid.Column="0" Grid.RowSpan="2"
+                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                          Color="{StaticResource Azure}"
+                                          VerticalOptions="Center" />
+
+                                <Label Grid.Row="0" Grid.Column="1"
+                                       Text="{Binding FullName}"
+                                       Style="{StaticResource SubTitleLabel}"
+                                       FontSize="16"
+                                       LineBreakMode="TailTruncation" />
+
+                                <Label Grid.Row="1" Grid.Column="1"
+                                       Text="{Binding Subtitle}"
+                                       Style="{StaticResource CaptionLabel}"
+                                       LineBreakMode="TailTruncation" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <!-- Empty state -->
+            <Border IsVisible="{Binding HasNoCandidates}"
+                    Style="{StaticResource CloudCard}"
+                    Margin="24"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="🕊"
+                           FontSize="36"
+                           HorizontalOptions="Center"
+                           Opacity="0.5" />
+                    <Label Text="{Binding EmptyText}"
+                           Style="{StaticResource BodyLabel}"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <!-- Action buttons -->
+        <VerticalStackLayout Grid.Row="2"
+                             Padding="24,8,24,8"
+                             Spacing="6">
+            <Button Text="{Binding BuildButtonText}"
+                    Style="{StaticResource PrimaryButton}"
+                    IsEnabled="{Binding HasSelection}"
+                    Clicked="OnBuildRouteClicked" />
+            <Button Text="Сбросить выбор"
+                    Style="{StaticResource GhostButton}"
+                    IsVisible="{Binding HasSelection}"
+                    Command="{Binding ClearSelectionCommand}" />
+        </VerticalStackLayout>
+
+        <shared:AppBottomBar Grid.Row="3" SelectedTab="route" />
+    </Grid>
+
+</ContentPage>

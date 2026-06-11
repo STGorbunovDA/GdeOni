@@ -22,6 +22,9 @@
         <PackageReference Include="Serilog.Sinks.Http" Version="8.0.0" />
         <PackageReference Include="Serilog.Sinks.Seq" Version="9.0.0" />
         <PackageReference Include="Serilog.Sinks.Trace" Version="4.0.0" />
+        <!-- D21. Sentry .NET для backend crash reporting / observability.
+             4.x — последняя ветка с full-support для .NET 8 (5.x требует .NET 9+). -->
+        <PackageReference Include="Sentry.AspNetCore" Version="4.13.0" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
             <PrivateAssets>all</PrivateAssets>

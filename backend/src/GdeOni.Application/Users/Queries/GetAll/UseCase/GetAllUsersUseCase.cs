@@ -34,8 +34,17 @@ public sealed class GetAllUsersUseCase(
 
         if (!currentUserService.IsAdmin())
             return Errors.User.InsufficientPermissionsToViewAllUsers();
-        
-        var (items, totalCount) = await userRepository.GetPaged(query, cancellationToken);
+
+        // SuperAdmin'ы намеренно скрыты ОТ ВСЕХ через UI-листинг, включая
+        // других SuperAdmin'ов. Управление SuperAdmin-аккаунтами идёт
+        // только через bootstrap-скрипт / прямые запросы к БД. Также
+        // исключаем самого админа из списка — нет смысла видеть свою
+        // карточку при модерации других юзеров.
+        var (items, totalCount) = await userRepository.GetPaged(
+            query,
+            includeSuperAdmins: false,
+            excludeUserId: currentUserIdResult.Value,
+            cancellationToken);
 
         var responseItems = items.Select(row => new GetAllUsersResponse
         {
@@ -46,7 +55,8 @@ public sealed class GetAllUsersUseCase(
             Role = row.User.Role.ToString(),
             RegisteredAtUtc = row.User.RegisteredAtUtc,
             LastLoginAtUtc = row.User.LastLoginAtUtc,
-            TrackingCount = row.TrackingCount
+            TrackingCount = row.TrackingCount,
+            IsBlocked = row.User.IsBlocked,
         }).ToList();
 
         var response = new PagedResponse<GetAllUsersResponse>

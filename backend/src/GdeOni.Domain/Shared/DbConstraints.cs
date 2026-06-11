@@ -7,4 +7,6 @@ public static class DbConstraints
     public const string UxUsersName = "ux_users_user_name";
     public const string UxRefreshTokensTokenHash = "ux_refresh_tokens_token_hash";
     public const string UxDeceasedMediaStorageKey = "ux_deceased_media_storage_key";
+    public const string UxSubscriptionPaymentsExternalPaymentId = "ux_subscription_payments_external_payment_id";
+    public const string UxTrackedDeceasedUserIdDeceasedId = "ux_tracked_deceased_user_id_deceased_id";
 }

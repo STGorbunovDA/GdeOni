@@ -16,12 +16,18 @@ public sealed class LifePeriod : ValueObject
         DeathDate = deathDate;
     }
 
-    public static Result<LifePeriod, Error> Create(DateOnly? birthDate, DateOnly deathDate)
+    public static Result<LifePeriod, Error> Create(
+        DateOnly? birthDate,
+        DateOnly deathDate,
+        DateTime? nowUtc = null)
     {
         if (deathDate == default)
             return Errors.LifePeriod.DeathDateRequired();
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        // nowUtc-аргумент позволяет передать фиксированное "сейчас" из
+        // вызывающего слоя (чтобы тесты не плыли на границе суток UTC,
+        // см. D11.4.1). По дефолту берём DateTime.UtcNow.
+        var today = DateOnly.FromDateTime(nowUtc ?? DateTime.UtcNow);
         if (deathDate > today)
             return Errors.LifePeriod.DeathDateInFuture();
 
