@@ -9769,6 +9769,9 @@ F9. Список отслеживаемых (~ E8)
     ФИО, даты, relationshipType (display через ту же таблицу
     что на mobile RelationshipTypes.All), наличие координат,
     кнопка "Открыть" → /tracked/:id.
+[ ] D29: рядом с ФИО маленькая синяя галочка ✓ если IsVerified=true.
+    Бэк отдаёт это поле в /me/tracked-deceased. Юзер так видит
+    какие карточки прошли модерацию админом.
 [ ] Pull-to-refresh — на web заменяем на кнопку "Обновить"
     или auto-refetch через TanStack Query.
 [ ] Pagination — `<Pagination>` Mantine, как в F6.
@@ -9788,6 +9791,8 @@ F10. Архив отслеживаемых (~ E9.1 + E17.2)
 
 [ ] GET /api/users/me/tracked-deceased?status=Archived → список
     архивных карточек (backend поддерживает фильтр по статусу).
+[ ] D29: в архивных карточках тоже галочка ✓ рядом с ФИО если
+    IsVerified — поведение зеркало F9.
 [ ] Каждая карточка — Mantine Card с двумя действиями:
     - "Восстановить" → PATCH /tracked-deceased/{id} с
       Status=Active → исчезает из архива (E9.1).
@@ -10876,15 +10881,19 @@ F17.15. Найти умершего + admin-view карточки (~ D27)
     - Кнопки "Редактировать карточку" (→ edit-deceased), "История
       правок" (→ edits-history, F17.9), "Удалить карточку" (→
       DELETE /api/deceased-records/{id} с подтверждением).
+[ ] D29: кнопка "Подтвердить карточку / Снять подтверждение".
+    Текст переключается через computed-свойство по IsVerified.
+    Дёргает PUT /verify или PUT /unverified. 409 от бэка показываем
+    как обычную ошибку (редкая гонка двух админов).
+    Это зеркало AdminDeceasedViewViewModel.ToggleVerifyAsync mobile.
+    На вебе кнопка одна и та же — текст и endpoint выбираем по
+    текущему IsVerified из ответа GET /:id.
 [ ] Auto-promote main: после загрузки админом первого фото
     умершего, если MainMediaId не задан — auto-call SetMainPhoto.
     Иначе в общем поиске карточка останется без превью (бэк
     отдаёт MainPhotoUrl только когда MainMediaId явно задан).
 
 Не делаем в этом блоке (отложено):
-- Кнопка "Верифицировать / Снять верификацию" с admin-view —
-  endpoint есть, но кнопка отложена и на mobile тоже (D27).
-  Верификация делается с F17.3.
 - Воспоминания (memories) в admin-view не отображаются. Если
   понадобится модерация прямо с этой страницы — отдельный пункт.
 
