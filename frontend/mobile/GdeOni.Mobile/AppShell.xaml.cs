@@ -65,8 +65,6 @@ public partial class AppShell : Shell
         // D27.1. Полноэкранный просмотр фото — открывается по тапу на
         // плитку фото в галерее. Доступно всем (юзеру и админу).
         Routing.RegisterRoute("photo-viewer", typeof(GdeOni.Mobile.Views.Common.FullScreenPhotoPage));
-        // D35. Inline-просмотр PDF в WebView (для вложений тикетов).
-        Routing.RegisterRoute("pdf-preview", typeof(GdeOni.Mobile.Views.Common.PdfPreviewPage));
 
         // E21: поиск умерших в радиусе вокруг текущей точки пользователя.
         Routing.RegisterRoute("nearby-search", typeof(NearbySearchPage));

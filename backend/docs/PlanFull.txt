@@ -11161,22 +11161,28 @@ A. Promote attachment к main photo.
      true-long-press в MAUI и совпадает с iOS / Material паттерном
      "тап на превью → меню действий".
 
-B. Inline PDF preview.
-   Раньше PDF из вложения открывался через Launcher.OpenAsync
-   (системный браузер или сторонний PDF-вьюер) — юзер выходил
-   из приложения. Теперь:
-   — Новая страница Views/Common/PdfPreviewPage.xaml с WebView
-     Source=presignedUrl. На Android 13+ Chrome WebView рендерит
-     PDF inline без download.
-   — Route "pdf-preview" с query ?url={escaped}&fileName={escaped}.
-   — Заголовок страницы — имя файла, кнопка ✕ закрывает.
-   — SupportDetailsViewModel и AdminSupportDetailsViewModel:
-     OpenAttachmentAsync теперь маршрутизирует по contentType:
-       image/* → photo-viewer (D27.1, FullScreenPhotoPage);
-       application/pdf → pdf-preview;
-       прочее → Launcher.OpenAsync (fallback).
-   Пока только для вложений тикетов — media-документы умершего
-   продолжают открываться через Launcher. Расширим если понадобится.
+B. Inline PDF preview — НЕ делаем.
+   Попробовал через WebView (PdfPreviewPage) — оказалось, что
+   Android WebView (android.webkit.WebView) НЕ рендерит PDF
+   inline. Это не desktop Chrome — PDF viewer в Chrome browser
+   app живёт отдельно. Результат: белый экран при открытии PDF.
+   Откатил, файлы удалены (PdfPreviewPage.xaml и route
+   "pdf-preview").
+   Альтернативы:
+   — Google Docs Viewer (?embedded=true&url={presignedUrl}) —
+     отправляет presigned URL на серверы Google. В тикетах могут
+     быть паспортные данные / свидетельства о наследстве, утечка
+     к третьей стороне недопустима.
+   — Syncfusion.Maui.PdfViewer / PDFTron — платная лицензия
+     (~$995/year), оверкилл для нишевого сценария.
+   Решение: оставляем Launcher.OpenAsync — юзер выходит в
+   системный PDF-вьюер (Adobe Reader / Drive / Файлы), но это
+   безопасно и работает везде. Внутри-приложения остаётся только
+   inline-просмотр фото.
+
+   В OpenAttachmentAsync маршрутизация по contentType:
+     image/* → photo-viewer (D27.1, FullScreenPhotoPage);
+     application/pdf и прочее → Launcher.OpenAsync.
 
 C. Локальный лимит 10MB фото при загрузке media.
    FileValidator.ValidatePhoto на бэке ловил >10MB только после
@@ -11208,10 +11214,11 @@ A. Promote attachment к main photo (web).
     promote-to-main-photo?deceasedId={id}.
 [ ] После успеха — toast / уведомление "Главное фото обновлено".
 
-B. Inline PDF preview (web).
+B. Inline PDF preview (web) — рабочее решение для веба.
 [ ] PDF вложения открывать в новой вкладке (target="_blank") —
-    стандартный Chrome PDF Viewer работает inline. WebView-страница
-    как в mobile не нужна.
+    desktop Chrome PDF Viewer и Firefox PDF.js работают inline
+    из коробки, в отличие от Android WebView. Поэтому для web
+    мы можем делать встроенный preview, в отличие от mobile.
 [ ] Фото — fullscreen overlay (уже планировалось в F33).
 
 C. Локальный лимит 10MB фото (web).

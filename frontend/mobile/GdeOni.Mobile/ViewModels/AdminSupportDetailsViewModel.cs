@@ -486,20 +486,18 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
 
     private static async Task OpenByContentTypeAsync(Support.AttachmentDisplayItem item, string presignedUrl)
     {
-        var ct = item.ContentType ?? "";
-        var encodedUrl = Uri.EscapeDataString(presignedUrl);
-
-        if (ct.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        // Фото — fullscreen-просмотр внутри приложения.
+        if ((item.ContentType ?? "").StartsWith("image/", StringComparison.OrdinalIgnoreCase))
         {
+            var encodedUrl = Uri.EscapeDataString(presignedUrl);
             await Shell.Current.GoToAsync($"photo-viewer?url={encodedUrl}");
             return;
         }
-        if (string.Equals(ct, "application/pdf", StringComparison.OrdinalIgnoreCase))
-        {
-            var encodedName = Uri.EscapeDataString(item.FileName ?? "Документ");
-            await Shell.Current.GoToAsync($"pdf-preview?url={encodedUrl}&fileName={encodedName}");
-            return;
-        }
+
+        // PDF и прочее — системный Launcher. Android WebView не умеет
+        // рендерить PDF inline (это не desktop Chrome), а проксировать
+        // через Google Docs Viewer нельзя из-за приватности (в тикетах
+        // могут быть паспортные данные / свидетельства).
         await Launcher.OpenAsync(new Uri(presignedUrl));
     }
 
