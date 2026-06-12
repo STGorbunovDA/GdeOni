@@ -1,14 +1,15 @@
 using GdeOni.API.Mappers;
 using GdeOni.API.Models.Support;
 using GdeOni.API.Response;
-using GdeOni.Application.Support.Commands.PromoteAttachmentToMainPhoto.Model;
-using GdeOni.Application.Support.Commands.PromoteAttachmentToMainPhoto.UseCase;
+using GdeOni.Application.Support.Commands.CopyAttachmentToDeceasedMedia.Model;
+using GdeOni.Application.Support.Commands.CopyAttachmentToDeceasedMedia.UseCase;
 using GdeOni.Application.Support.Commands.UpdateSeverity.UseCase;
 using GdeOni.Application.Support.Commands.UpdateStatus.UseCase;
 using GdeOni.Application.Support.Queries.GetAll.Model;
 using GdeOni.Application.Support.Queries.GetAll.UseCase;
 using GdeOni.Application.Support.Queries.GetById.Model;
 using GdeOni.Application.Support.Queries.GetById.UseCase;
+using GdeOni.Domain.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -103,26 +104,32 @@ public sealed class AdminSupportTicketsController : ApiControllerBase
     }
 
     /// <summary>
-    /// D35. Сделать вложение тикета (фото) главным фото указанного
-    /// умершего. MinIO server-side copy support-attachments →
-    /// deceased-photos, новое media auto-approve + SetMainPhoto.
-    /// Вложение в тикете остаётся (история).
+    /// D35. Скопировать вложение тикета в media указанного умершего.
+    /// Универсальная ручка с параметрами:
+    ///   - mediaKind = DeceasedPhoto | GravePhoto | Document;
+    ///   - makeMain = true (только для DeceasedPhoto) — сделать главным.
+    /// MinIO server-side copy support-attachments → bucket для kind;
+    /// новое media auto-approve, при makeMain — SetMainPhoto.
+    /// Вложение в тикете остаётся.
     /// </summary>
-    [HttpPost("{ticketId:guid}/attachments/{attachmentId:guid}/promote-to-main-photo")]
-    [ProducesResponseType(typeof(ApiResponse<PromoteAttachmentToMainPhotoResponse>), StatusCodes.Status200OK)]
+    [HttpPost("{ticketId:guid}/attachments/{attachmentId:guid}/copy-to-deceased")]
+    [ProducesResponseType(typeof(ApiResponse<CopyAttachmentToDeceasedMediaResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> PromoteAttachmentToMainPhoto(
+    public async Task<IActionResult> CopyAttachmentToDeceased(
         Guid ticketId,
         Guid attachmentId,
         [FromQuery] Guid deceasedId,
-        [FromServices] IPromoteAttachmentToMainPhotoUseCase useCase,
+        [FromQuery] MediaKind mediaKind,
+        [FromQuery] bool makeMain,
+        [FromServices] ICopyAttachmentToDeceasedMediaUseCase useCase,
         CancellationToken cancellationToken)
     {
         var result = await useCase.Execute(
-            new PromoteAttachmentToMainPhotoCommand(ticketId, attachmentId, deceasedId),
+            new CopyAttachmentToDeceasedMediaCommand(
+                ticketId, attachmentId, deceasedId, mediaKind, makeMain),
             cancellationToken);
         return FromResult(result);
     }

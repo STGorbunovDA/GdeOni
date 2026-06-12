@@ -1,3 +1,5 @@
+using GdeOni.Domain.Shared;
+
 namespace GdeOni.Application.Abstractions.Storage;
 
 public interface IFileStorage
@@ -31,6 +33,22 @@ public interface IFileStorage
         string sourceObjectKey,
         string destBucket,
         string destKeyPrefix,
+        string fileName,
+        string contentType,
+        long sizeBytes,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// D35. Перегрузка CopyObjectAsync, которая сама выбирает целевой
+    /// bucket по MediaKind (тот же резолвер, что и в UploadAsync).
+    /// Используется в CopyAttachmentToDeceasedMediaUseCase, чтобы
+    /// Application слой не знал имён bucket'ов.
+    /// </summary>
+    Task<StoredFile> CopyObjectByKindAsync(
+        string sourceBucket,
+        string sourceObjectKey,
+        MediaKind destKind,
+        Guid deceasedId,
         string fileName,
         string contentType,
         long sizeBytes,

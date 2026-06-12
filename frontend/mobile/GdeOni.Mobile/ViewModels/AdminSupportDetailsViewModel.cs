@@ -368,23 +368,27 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
     }
 
     /// <summary>
-    /// D35. Long-press на вложении в тикете — ActionSheet:
-    /// — "Открыть на весь экран" — переиспользует OpenAttachment.
-    /// — "Сделать главным фото умершего" — только если в тикете
-    ///   есть DeceasedRefId и вложение — фото (image/*).
-    /// Долго жмать на PDF — тоже выдаём sheet, но без "Сделать главным".
+    /// D35. Тап на вложении в админ-просмотре тикета — ActionSheet.
+    /// Состав зависит от типа вложения и наличия привязки к карточке:
+    ///   Фото без DeceasedRefId:
+    ///     - Открыть на весь экран.
+    ///   Фото с DeceasedRefId:
+    ///     - Открыть на весь экран;
+    ///     - Сделать главным фото умершего;
+    ///     - Добавить в галерею умершего;
+    ///     - Добавить как фото могилы.
+    ///   PDF без DeceasedRefId:
+    ///     - Открыть (Launcher).
+    ///   PDF с DeceasedRefId:
+    ///     - Открыть (Launcher);
+    ///     - Добавить как документ умершего.
     /// </summary>
     [RelayCommand]
     private async Task PhotoLongPressAsync(Support.AttachmentDisplayItem? item)
     {
         if (item is null) return;
 
-        var canPromote = item.IsImage && HasDeceasedRef;
-
-        string[] options = canPromote
-            ? new[] { "Открыть на весь экран", "Сделать главным фото умершего" }
-            : new[] { "Открыть на весь экран" };
-
+        var options = BuildActionSheetOptions(item);
         var action = await Shell.Current.DisplayActionSheet(
             title: item.FileName,
             cancel: "Отмена",
@@ -393,46 +397,88 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
 
         if (string.IsNullOrEmpty(action) || action == "Отмена") return;
 
-        if (action == "Открыть на весь экран")
+        switch (action)
         {
-            await OpenAttachmentAsync(item);
-            return;
-        }
-
-        if (action == "Сделать главным фото умершего")
-        {
-            await PromoteToMainPhotoAsync(item);
+            case "Открыть на весь экран":
+            case "Открыть":
+                await OpenAttachmentAsync(item);
+                break;
+            case "Сделать главным фото умершего":
+                await CopyToDeceasedAsync(item, "DeceasedPhoto", makeMain: true,
+                    confirmText: $"Установить «{item.FileName}» как главное фото умершего?",
+                    successText: "Фото установлено как главное.");
+                break;
+            case "Добавить в галерею умершего":
+                await CopyToDeceasedAsync(item, "DeceasedPhoto", makeMain: false,
+                    confirmText: $"Добавить «{item.FileName}» в галерею фото умершего?",
+                    successText: "Фото добавлено в галерею.");
+                break;
+            case "Добавить как фото могилы":
+                await CopyToDeceasedAsync(item, "GravePhoto", makeMain: false,
+                    confirmText: $"Добавить «{item.FileName}» как фото могилы?",
+                    successText: "Фото добавлено как фото могилы.");
+                break;
+            case "Добавить как документ умершего":
+                await CopyToDeceasedAsync(item, "Document", makeMain: false,
+                    confirmText: $"Добавить «{item.FileName}» как документ умершего?",
+                    successText: "Документ добавлен.");
+                break;
         }
     }
 
-    private async Task PromoteToMainPhotoAsync(Support.AttachmentDisplayItem item)
+    private string[] BuildActionSheetOptions(Support.AttachmentDisplayItem item)
+    {
+        var canCopy = HasDeceasedRef;
+        if (item.IsImage)
+        {
+            return canCopy
+                ? new[]
+                {
+                    "Открыть на весь экран",
+                    "Сделать главным фото умершего",
+                    "Добавить в галерею умершего",
+                    "Добавить как фото могилы",
+                }
+                : new[] { "Открыть на весь экран" };
+        }
+
+        // PDF / прочее. Используем заголовок "Открыть" (а не "на весь
+        // экран") — это Launcher, не fullscreen-внутренний.
+        return canCopy
+            ? new[] { "Открыть", "Добавить как документ умершего" }
+            : new[] { "Открыть" };
+    }
+
+    private async Task CopyToDeceasedAsync(
+        Support.AttachmentDisplayItem item,
+        string mediaKind,
+        bool makeMain,
+        string confirmText,
+        string successText)
     {
         if (!Guid.TryParse(TicketId, out var tid)) return;
         if (DeceasedRefId is not { } deceasedId) return;
 
         var confirm = await Shell.Current.DisplayAlert(
-            "Сделать главным фото",
-            $"Установить «{item.FileName}» как главное фото умершего? Файл останется в этом обращении.",
-            "Установить", "Отмена");
+            "Подтверждение",
+            confirmText + " Файл останется в этом обращении.",
+            "Да", "Отмена");
         if (!confirm) return;
 
         try
         {
             IsSaving = true;
             ErrorMessage = null;
-            var envelope = await supportApi.PromoteAttachmentToMainPhotoAsync(
-                tid, item.Id, deceasedId);
+            var envelope = await supportApi.CopyAttachmentToDeceasedAsync(
+                tid, item.Id, deceasedId, mediaKind, makeMain);
 
             if (envelope.Result is null)
             {
-                ErrorMessage = envelope.ErrorMessage ?? "Не удалось установить главное фото.";
+                ErrorMessage = envelope.ErrorMessage ?? "Операция не удалась.";
                 return;
             }
 
-            await Shell.Current.DisplayAlert(
-                "Готово",
-                "Фото установлено как главное в карточке умершего.",
-                "ОК");
+            await Shell.Current.DisplayAlert("Готово", successText, "ОК");
         }
         catch (ApiException apiEx)
         {

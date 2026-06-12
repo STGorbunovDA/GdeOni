@@ -11124,42 +11124,52 @@ D35. Action sheet на вложении тикета + PDF preview + лимит 
 
 Три связанные UX-доработки поверх D33.
 
-A. Promote attachment к main photo.
-   Сценарий: админ видит в тикете фото умершего, которое юзер
-   прикрепил по теме "Фото" — хочет одним тапом сделать его
-   главным фото в карточке. Без D35 пришлось бы скачать, потом
-   зайти в admin-deceased-view, потом загрузить заново.
+A. Copy attachment в media умершего.
+   Сценарий: админ видит в тикете 3 фото и PDF, прикреплённых
+   юзером по теме "Фото". Одно фото нужно сделать главным,
+   второе — в галерею, третье — как фото могилы, PDF — как
+   документ. Всё через ActionSheet, без скачивания и
+   повторной загрузки.
 
-   Backend:
-   — IFileStorage.CopyObjectAsync: server-side copy через MinIO
+   Backend (одна универсальная ручка вместо четырёх):
+   — IFileStorage.CopyObjectAsync: server-side MinIO copy через
      CopyObjectAsync(CopyObjectArgs(WithCopyObjectSource(...))).
-     Файл не качается клиенту и не уезжает повторно — экономия
-     трафика и времени, особенно на больших фото.
-   — PromoteAttachmentToMainPhotoUseCase: only-admin guard;
-     загружает SupportTicket с Attachments, проверяет image/*;
-     загружает Deceased с Media; server-side copy в
-     deceased-photos (имя bucket берётся от существующего фото
-     умершего, fallback "deceased-photos"); deceased.AddMedia →
-     Approve → SetMainPhoto; rollback (DeleteAsync копии) при
-     ошибке. PDF нельзя — OnlyDeceasedPhotoCanBeMain.
-   — POST /api/admin/support-tickets/{ticketId}/attachments/{attId}/promote-to-main-photo
-     с query ?deceasedId={id}. Возвращает MediaId созданного фото.
-   — Вложение в тикете остаётся как было (запрос пользователя:
-     дублирование для истории).
+     Файл не качается клиенту.
+   — IFileStorage.CopyObjectByKindAsync: перегрузка, которая
+     сама выбирает целевой bucket по MediaKind через тот же
+     ResolveBucket-резолвер, что и UploadAsync — Application
+     не знает имён bucket'ов.
+   — CopyAttachmentToDeceasedMediaUseCase: only-admin;
+     загружает SupportTicket с Attachments; проверяет
+     согласование contentType ↔ MediaKind
+       (image/* → DeceasedPhoto или GravePhoto;
+        application/pdf → Document);
+     загружает Deceased; server-side copy в нужный bucket;
+     AddMedia → Approve → опционально SetMainPhoto при
+     makeMain=true; rollback DeleteAsync копии при ошибке.
+   — POST /api/admin/support-tickets/{ticketId}/attachments/{attId}/copy-to-deceased
+     с query ?deceasedId={id}&mediaKind={kind}&makeMain={bool}.
+     makeMain допустим только при mediaKind=DeceasedPhoto
+     (ловит CopyAttachmentToDeceasedMediaCommandValidator).
+   — Вложение в тикете остаётся (дублирование для истории).
+   — Старый POST .../promote-to-main-photo удалён вместе с
+     PromoteAttachmentToMainPhotoUseCase — заменён универсальным.
 
    Mobile:
    — AdminSupportDetailsViewModel.PhotoLongPressCommand: тап на
      вложение в админ-просмотре открывает ActionSheet.
-       Опции:
-       — "Открыть на весь экран" — всегда;
-       — "Сделать главным фото умершего" — только если
-         HasDeceasedRef и item.IsImage.
-     Подтверждение через DisplayAlert, потом
-     ISupportApi.PromoteAttachmentToMainPhotoAsync.
-   — Названо PhotoLongPress (исторически long-press), но фактически
-     срабатывает на одиночный тап → ActionSheet. Это надёжнее
-     true-long-press в MAUI и совпадает с iOS / Material паттерном
-     "тап на превью → меню действий".
+     Состав опций зависит от типа и наличия DeceasedRefId
+     (см. BuildActionSheetOptions):
+       Фото без DeceasedRefId: "Открыть на весь экран".
+       Фото с DeceasedRefId: + "Сделать главным фото",
+         "Добавить в галерею умершего", "Добавить как фото могилы".
+       PDF без DeceasedRefId: "Открыть" (Launcher).
+       PDF с DeceasedRefId: + "Добавить как документ умершего".
+     Подтверждение через DisplayAlert + текст с именем файла,
+     потом ISupportApi.CopyAttachmentToDeceasedAsync.
+   — Названо PhotoLongPress исторически — фактически срабатывает
+     на одиночный тап → ActionSheet. Это надёжнее true-long-press
+     в MAUI.
 
 B. Inline PDF preview — НЕ делаем.
    Попробовал через WebView (PdfPreviewPage) — оказалось, что
@@ -11205,14 +11215,18 @@ F35. Action sheet на вложении + PDF preview + лимит фото (web
 
 Зеркало mobile D35 для веб-клиента.
 
-A. Promote attachment к main photo (web).
-[ ] В админ-просмотре тикета — кнопка / меню "..." на каждом
-    вложении-фото. При наличии deceasedRefId (parsed из Description)
-    появляется пункт "Сделать главным фото умершего".
-[ ] Подтверждающий диалог → POST на уже существующую ручку
-    /api/admin/support-tickets/{ticketId}/attachments/{attId}/
-    promote-to-main-photo?deceasedId={id}.
-[ ] После успеха — toast / уведомление "Главное фото обновлено".
+A. Copy attachment в media умершего (web).
+[ ] В админ-просмотре тикета — меню "..." на каждом вложении.
+    При наличии deceasedRefId (parsed из Description) состав меню
+    зависит от типа:
+      Фото: "Открыть", "Сделать главным фото умершего",
+        "Добавить в галерею умершего", "Добавить как фото могилы".
+      PDF: "Открыть", "Добавить как документ умершего".
+[ ] Подтверждающий диалог → POST
+    /api/admin/support-tickets/{ticketId}/attachments/{attId}/copy-to-deceased
+    ?deceasedId={id}&mediaKind={kind}&makeMain={bool}.
+    makeMain=true допустим только при mediaKind=DeceasedPhoto.
+[ ] После успеха — toast "Готово".
 
 B. Inline PDF preview (web) — рабочее решение для веба.
 [ ] PDF вложения открывать в новой вкладке (target="_blank") —

@@ -125,14 +125,20 @@ public interface ISupportApi
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// D35. POST /api/admin/support-tickets/{ticketId}/attachments/{attId}/promote-to-main-photo
-    /// — сделать фото-вложение главным фото указанного умершего.
+    /// D35. POST /api/admin/support-tickets/{ticketId}/attachments/{attId}/copy-to-deceased
+    /// — скопировать вложение в media умершего:
+    ///   mediaKind=DeceasedPhoto + makeMain=true → главное фото;
+    ///   mediaKind=DeceasedPhoto + makeMain=false → в галерею;
+    ///   mediaKind=GravePhoto → фото могилы;
+    ///   mediaKind=Document (для PDF) → документ умершего.
     /// Только админ. Вложение в тикете остаётся.
     /// </summary>
-    [Post("/api/admin/support-tickets/{ticketId}/attachments/{attachmentId}/promote-to-main-photo")]
-    Task<ApiEnvelope<PromoteAttachmentToMainPhotoResponse>> PromoteAttachmentToMainPhotoAsync(
+    [Post("/api/admin/support-tickets/{ticketId}/attachments/{attachmentId}/copy-to-deceased")]
+    Task<ApiEnvelope<CopyAttachmentToDeceasedMediaResponse>> CopyAttachmentToDeceasedAsync(
         Guid ticketId,
         Guid attachmentId,
         [Query] Guid deceasedId,
+        [Query] string mediaKind,
+        [Query] bool makeMain,
         CancellationToken cancellationToken = default);
 }

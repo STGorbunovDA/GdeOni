@@ -54,9 +54,9 @@ using GdeOni.Application.Subscriptions.Queries.GetAdminPayments.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMyPayments.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMySubscription.UseCase;
 using GdeOni.Application.Support.Commands.AcceptResolution.UseCase;
+using GdeOni.Application.Support.Commands.CopyAttachmentToDeceasedMedia.UseCase;
 using GdeOni.Application.Support.Commands.Create.UseCase;
 using GdeOni.Application.Support.Commands.CreateWithAttachments.UseCase;
-using GdeOni.Application.Support.Commands.PromoteAttachmentToMainPhoto.UseCase;
 using GdeOni.Application.Support.Commands.Reopen.UseCase;
 using GdeOni.Application.Support.Queries.GetAttachmentById.UseCase;
 using GdeOni.Application.Support.Commands.UpdateSeverity.UseCase;
@@ -209,10 +209,11 @@ public static class DependencyInjection
             IGetSupportAttachmentByIdUseCase,
             GetSupportAttachmentByIdUseCase>();
 
-        // D35. Сделать вложение тикета главным фото умершего.
+        // D35. Универсальное копирование вложения тикета в media умершего:
+        // главное фото / галерея / фото могилы / документ.
         services.AddScoped<
-            IPromoteAttachmentToMainPhotoUseCase,
-            PromoteAttachmentToMainPhotoUseCase>();
+            ICopyAttachmentToDeceasedMediaUseCase,
+            CopyAttachmentToDeceasedMediaUseCase>();
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;

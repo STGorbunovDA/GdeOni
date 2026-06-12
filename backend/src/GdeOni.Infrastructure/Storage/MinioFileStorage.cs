@@ -106,6 +106,29 @@ internal sealed class MinioFileStorage : IFileStorage
             fileName);
     }
 
+    public Task<StoredFile> CopyObjectByKindAsync(
+        string sourceBucket,
+        string sourceObjectKey,
+        MediaKind destKind,
+        Guid deceasedId,
+        string fileName,
+        string contentType,
+        long sizeBytes,
+        CancellationToken cancellationToken)
+    {
+        var destBucket = ResolveBucket(destKind);
+        var keyPrefix = $"{destKind.ToString().ToLowerInvariant()}/{deceasedId}";
+        return CopyObjectAsync(
+            sourceBucket,
+            sourceObjectKey,
+            destBucket,
+            keyPrefix,
+            fileName,
+            contentType,
+            sizeBytes,
+            cancellationToken);
+    }
+
     public Task DeleteAsync(string bucket, string objectKey, CancellationToken cancellationToken)
     {
         var args = new RemoveObjectArgs()
