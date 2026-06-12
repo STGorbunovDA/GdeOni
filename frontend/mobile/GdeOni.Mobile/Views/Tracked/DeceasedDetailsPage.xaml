@@ -350,6 +350,22 @@
                         </VerticalStackLayout>
                     </Border>
 
+                    <!-- D34. Написать в поддержку с контекстом текущей
+                         карточки. SupportNewPage сам подставит имя и
+                         даты в готовый шаблон Description. -->
+                    <Border Style="{StaticResource CloudCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Нужна помощь по этой карточке?"
+                                   Style="{StaticResource SubTitleLabel}" />
+                            <Label Text="Например, нет фото или ошибка в данных. Администратор увидит ваше обращение в админ-панели."
+                                   Style="{StaticResource CaptionLabel}" />
+                            <Button Text="Написать в поддержку"
+                                    Style="{StaticResource GhostButton}"
+                                    Command="{Binding OpenSupportFromDeceasedCommand}"
+                                    HorizontalOptions="Fill" />
+                        </VerticalStackLayout>
+                    </Border>
+
                     <!-- Фото умершего -->
                     <Border Style="{StaticResource CloudCard}"
                             IsVisible="{Binding HasDeceasedPhotos}">

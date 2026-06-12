@@ -1122,4 +1122,24 @@ public partial class DeceasedDetailsViewModel(
                 new AnniversaryReminder(deceasedId, fullName, Data.Deceased.DeathDate, AnniversaryKind.Death));
         }
     }
+
+    /// <summary>
+    /// D34. Перейти на создание обращения с контекстом текущего умершего.
+    /// SupportNewPage сам распознает deceasedId/deceasedFullName/lifePeriod
+    /// и заполнит готовый шаблон в Description (юзеру остаётся выбрать
+    /// тему и дописать суть проблемы).
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenSupportFromDeceasedAsync()
+    {
+        if (Data is null) return;
+        var d = Data.Deceased;
+        var query = new Dictionary<string, object>
+        {
+            ["deceasedId"] = d.Id.ToString(),
+            ["deceasedFullName"] = d.FullName ?? "",
+            ["deceasedLifePeriod"] = LifePeriod,
+        };
+        await Shell.Current.GoToAsync("support-new", query);
+    }
 }

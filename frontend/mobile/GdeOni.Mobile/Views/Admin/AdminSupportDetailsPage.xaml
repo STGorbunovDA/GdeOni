@@ -92,6 +92,23 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- D34. Если тикет создан с карточки умершего — кнопка
+                     быстрого перехода. Парсится из Description маркером
+                     "ID карточки: {guid}". -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding HasDeceasedRef}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Связанная карточка умершего"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Это обращение пришло из карточки умершего. Открыть карточку?"
+                               Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Открыть карточку"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding OpenDeceasedCommand}"
+                                HorizontalOptions="Fill" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <!-- Описание -->
                 <Border Style="{StaticResource CloudCard}">
                     <VerticalStackLayout Spacing="8">

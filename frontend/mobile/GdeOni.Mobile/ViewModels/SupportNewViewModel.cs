@@ -16,9 +16,62 @@ namespace GdeOni.Mobile.ViewModels;
 /// При Submit:
 ///  — если вложений нет → старая ручка POST /api/support-tickets (JSON);
 ///  — иначе → POST /api/support-tickets/with-attachments (multipart).
+///
+/// D34. Если открыли с карточки умершего (через
+/// OpenSupportFromDeceasedCommand), query-параметры
+/// deceasedId/deceasedFullName/deceasedLifePeriod подставляются в
+/// готовый шаблон Description. Маркер "ID карточки: {guid}" админ
+/// потом распознаёт в AdminSupportDetailsViewModel и открывает
+/// карточку одним тапом.
 /// </summary>
+[QueryProperty(nameof(DeceasedId), "deceasedId")]
+[QueryProperty(nameof(DeceasedFullName), "deceasedFullName")]
+[QueryProperty(nameof(DeceasedLifePeriod), "deceasedLifePeriod")]
 public partial class SupportNewViewModel(ISupportApi supportApi) : ObservableObject
 {
+    // D34. Маркер, по которому админ потом находит deceasedId
+    // в Description. Менять формат — синхронно с
+    // SupportDeceasedRefParser.
+    public const string DeceasedIdMarker = "ID карточки:";
+
+    [ObservableProperty] private string? _deceasedId;
+    [ObservableProperty] private string? _deceasedFullName;
+    [ObservableProperty] private string? _deceasedLifePeriod;
+
+    partial void OnDeceasedIdChanged(string? value) => TryApplyDeceasedTemplate();
+    partial void OnDeceasedFullNameChanged(string? value) => TryApplyDeceasedTemplate();
+    partial void OnDeceasedLifePeriodChanged(string? value) => TryApplyDeceasedTemplate();
+
+    private bool _templateApplied;
+
+    /// <summary>
+    /// D34. Когда все query-параметры пришли, один раз заполняем
+    /// готовый шаблон в Description. Юзеру остаётся выбрать тему
+    /// и дописать суть проблемы после "Опишите проблему ниже:".
+    /// </summary>
+    private void TryApplyDeceasedTemplate()
+    {
+        if (_templateApplied) return;
+        if (string.IsNullOrWhiteSpace(DeceasedId)) return;
+        if (string.IsNullOrWhiteSpace(DeceasedFullName)) return;
+
+        var period = !string.IsNullOrWhiteSpace(DeceasedLifePeriod)
+            ? $"\nЖизнь: {DeceasedLifePeriod}"
+            : "";
+
+        Description =
+            $"Карточка умершего: {DeceasedFullName}{period}\n" +
+            $"{DeceasedIdMarker} {DeceasedId}\n" +
+            "\n" +
+            "---\n" +
+            "\n" +
+            "Опишите проблему ниже:\n";
+
+        Title = $"По карточке: {DeceasedFullName}";
+        _templateApplied = true;
+    }
+
+
     private const int MaxAttachments = 5;
     private const long MaxPhotoBytes = 10L * 1024 * 1024;
     private const long MaxPdfBytes = 25L * 1024 * 1024;

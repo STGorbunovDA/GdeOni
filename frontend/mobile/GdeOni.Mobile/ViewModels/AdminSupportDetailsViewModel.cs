@@ -112,6 +112,16 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
     [NotifyPropertyChangedFor(nameof(HasAttachments))]
     private int _attachmentsCount;
     public bool HasAttachments => AttachmentsCount > 0;
+
+    /// <summary>
+    /// D34. Если тикет создан с карточки умершего — в Description
+    /// есть маркер "ID карточки: {guid}". Парсим и показываем
+    /// кнопку быстрого перехода в карточку.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDeceasedRef))]
+    private Guid? _deceasedRefId;
+    public bool HasDeceasedRef => DeceasedRefId is not null;
     public bool HasReopenedHistory => ReopenedCount > 0;
     public string ReopenedHistoryText => ReopenedCount switch
     {
@@ -223,6 +233,9 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
                     Attachments.Add(Support.AttachmentDisplayItem.From(att));
             }
             AttachmentsCount = Attachments.Count;
+
+            // D34. Распознаём ссылку на карточку умершего в Description.
+            DeceasedRefId = Support.SupportDeceasedRefParser.TryExtract(t.Description);
         }
         catch (ApiException apiEx)
         {
@@ -339,6 +352,19 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
         // Переиспользуем существующую админ-страницу профиля юзера
         // (F17.7) — её параметр уже называется userId.
         await Shell.Current.GoToAsync($"admin-user-details?userId={id}");
+    }
+
+    /// <summary>
+    /// D34. Открыть карточку умершего, на которую ссылается тикет.
+    /// Если юзер пришёл из карточки умершего — переход одной кнопкой.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenDeceasedAsync()
+    {
+        if (DeceasedRefId is not { } id || id == Guid.Empty) return;
+        // Используем admin-deceased-view (D27) — админ-режим без
+        // требования трекинга, в отличие от обычной карточки.
+        await Shell.Current.GoToAsync($"admin-deceased-view?deceasedId={id}");
     }
 
     [RelayCommand]
