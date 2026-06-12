@@ -1,31 +1,17 @@
 namespace GdeOni.Mobile.Services.Media;
 
 /// <summary>
-/// D35. Локальные лимиты на размер media-файлов — зеркало
-/// бэкендовских FileValidator.Max*SizeBytes. Без локальной проверки
-/// юзер тратит трафик/время на загрузку 15MB фото, получая 400
-/// от бэка только после полного аплоада.
+/// D35. Re-export shared-лимитов. Логика в GdeOni.Mobile.Shared.Media
+/// и покрыта тестами; кроссплатформенно используется и вебом.
 /// </summary>
 internal static class MediaSizeLimits
 {
-    public const long MaxPhotoSizeBytes = 10L * 1024 * 1024;
-    public const long MaxDocumentSizeBytes = 25L * 1024 * 1024;
+    public const long MaxPhotoSizeBytes = Shared.Media.MediaSizeLimits.MaxPhotoSizeBytes;
+    public const long MaxDocumentSizeBytes = Shared.Media.MediaSizeLimits.MaxDocumentSizeBytes;
 
-    /// <summary>
-    /// Возвращает сообщение об ошибке, если фото больше лимита,
-    /// иначе null. contentType начинается с "image/" — считаем фото.
-    /// </summary>
-    public static string? CheckPhoto(long sizeBytes)
-    {
-        if (sizeBytes > MaxPhotoSizeBytes)
-            return "Фото больше 10 МБ — выберите файл поменьше.";
-        return null;
-    }
+    public static string? CheckPhoto(long sizeBytes) =>
+        Shared.Media.MediaSizeLimits.CheckPhoto(sizeBytes);
 
-    public static string? CheckDocument(long sizeBytes)
-    {
-        if (sizeBytes > MaxDocumentSizeBytes)
-            return "Документ больше 25 МБ — выберите файл поменьше.";
-        return null;
-    }
+    public static string? CheckDocument(long sizeBytes) =>
+        Shared.Media.MediaSizeLimits.CheckDocument(sizeBytes);
 }
