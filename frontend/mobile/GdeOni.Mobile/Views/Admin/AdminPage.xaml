@@ -54,7 +54,7 @@
 
                 <Border Style="{StaticResource CloudCard}">
                     <VerticalStackLayout Spacing="12">
-                        <Label Text="Проблемы" Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Обращения" Style="{StaticResource SubTitleLabel}" />
                         <Label Text="Обращения пользователей и автоматические инциденты." Style="{StaticResource CaptionLabel}" />
                         <Button Text="Открыть"
                                 Style="{StaticResource PrimaryButton}"
