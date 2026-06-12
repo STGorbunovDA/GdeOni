@@ -94,7 +94,8 @@ public partial class RouteViewModel(
                     item.FullName,
                     BuildSubtitle(item),
                     lat,
-                    lon)
+                    lon,
+                    item.MainPhotoUrl)
                 {
                     IsSelected = previouslySelected.Contains(item.DeceasedId)
                 };
@@ -243,6 +244,7 @@ public partial class RouteCandidateViewModel : ObservableObject
     public string Subtitle { get; }
     public double Latitude { get; }
     public double Longitude { get; }
+    public string? MainPhotoUrl { get; }
 
     [ObservableProperty]
     private bool _isSelected;
@@ -252,12 +254,14 @@ public partial class RouteCandidateViewModel : ObservableObject
         string fullName,
         string subtitle,
         double latitude,
-        double longitude)
+        double longitude,
+        string? mainPhotoUrl)
     {
         DeceasedId = deceasedId;
         FullName = fullName;
         Subtitle = subtitle;
         Latitude = latitude;
         Longitude = longitude;
+        MainPhotoUrl = mainPhotoUrl;
     }
 }
