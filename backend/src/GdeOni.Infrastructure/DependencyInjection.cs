@@ -153,6 +153,10 @@ public static class DependencyInjection
 
         services.AddSingleton<IFileStorage, MinioFileStorage>();
 
+        // D33. Резолвер bucket'а для вложений в обращения. Отдельный
+        // singleton без состояния — читает из MinioOptions.
+        services.AddSingleton<ISupportAttachmentsBucketResolver, SupportAttachmentsBucketResolver>();
+
         // D8.2: deep-link провайдеры карт. Singleton — без состояния,
         // только форматируют URL без сетевых вызовов.
         services.AddSingleton<IRouteLinkProvider, YandexRouteLinkProvider>();

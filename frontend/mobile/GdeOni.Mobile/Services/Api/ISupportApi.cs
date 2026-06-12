@@ -19,6 +19,32 @@ public interface ISupportApi
         [Body] CreateSupportTicketRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// D33. POST /api/support-tickets/with-attachments — создать обращение
+    /// с 1..5 вложениями (JPEG/PNG до 10MB, PDF до 25MB, суммарно ≤50MB).
+    /// Дёргается только когда юзер реально выбрал файлы — без файлов
+    /// идёт обычный CreateAsync (без multipart-overhead'а).
+    /// </summary>
+    [Multipart]
+    [Post("/api/support-tickets/with-attachments")]
+    Task<ApiEnvelope<CreateSupportTicketWithAttachmentsResponse>> CreateWithAttachmentsAsync(
+        [AliasAs("kind")] string kind,
+        [AliasAs("title")] string title,
+        [AliasAs("description")] string description,
+        [AliasAs("files")] IEnumerable<StreamPart> files,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D33. GET /api/support-tickets/{ticketId}/attachments/{attachmentId} —
+    /// presigned URL для скачивания/просмотра вложения. Юзер видит
+    /// только своё, админ — любое. 404 при отсутствии доступа.
+    /// </summary>
+    [Get("/api/support-tickets/{ticketId}/attachments/{attachmentId}")]
+    Task<ApiEnvelope<GetSupportAttachmentByIdResponse>> GetAttachmentAsync(
+        Guid ticketId,
+        Guid attachmentId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>GET /api/support-tickets/mine — лента моих обращений.</summary>
     [Get("/api/support-tickets/mine")]
     Task<ApiEnvelope<GetMySupportTicketsResponse>> GetMineAsync(

@@ -82,6 +82,14 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
     private int _chatMessagesCount;
     public bool HasChatMessages => ChatMessagesCount > 0;
 
+    /// <summary>D33. Вложения, которые юзер приложил при создании тикета.</summary>
+    public ObservableCollection<AttachmentDisplayItem> Attachments { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAttachments))]
+    private int _attachmentsCount;
+    public bool HasAttachments => AttachmentsCount > 0;
+
     public bool HasReopenedHistory => ReopenedCount > 0;
     public string ReopenedHistoryText => ReopenedCount switch
     {
@@ -226,6 +234,38 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
     [RelayCommand]
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
 
+    /// <summary>
+    /// D33. Открыть вложение: запрашиваем presigned URL и открываем
+    /// его в системном браузере (Launcher.OpenAsync). Браузер сам
+    /// решает — показать картинку / PDF inline, или предложить
+    /// скачать. Это покрывает оба сценария (юзера и админа) одной
+    /// командой.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenAttachmentAsync(AttachmentDisplayItem? item)
+    {
+        if (item is null) return;
+        if (!Guid.TryParse(TicketId, out var tid)) return;
+        try
+        {
+            var envelope = await supportApi.GetAttachmentAsync(tid, item.Id);
+            if (envelope.Result is null)
+            {
+                ErrorMessage = envelope.ErrorMessage ?? "Не удалось получить файл.";
+                return;
+            }
+            await Launcher.OpenAsync(new Uri(envelope.Result.PresignedUrl));
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+    }
+
     private void ApplyDto(SupportTicketDto t)
     {
         Title = t.Title;
@@ -262,5 +302,14 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
                 ChatMessages.Add(ChatMessage.ForViewer(msg, viewerIsAdmin: false));
         }
         ChatMessagesCount = ChatMessages.Count;
+
+        // D33. Перестраиваем список вложений.
+        Attachments.Clear();
+        if (t.Attachments is not null)
+        {
+            foreach (var att in t.Attachments)
+                Attachments.Add(AttachmentDisplayItem.From(att));
+        }
+        AttachmentsCount = Attachments.Count;
     }
 }

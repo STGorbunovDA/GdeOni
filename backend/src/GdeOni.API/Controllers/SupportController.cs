@@ -1,16 +1,24 @@
+using CSharpFunctionalExtensions;
 using GdeOni.API.Mappers;
 using GdeOni.API.Models.Support;
 using GdeOni.API.Response;
+using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Support.Commands.AcceptResolution.Model;
 using GdeOni.Application.Support.Commands.AcceptResolution.UseCase;
 using GdeOni.Application.Support.Commands.Create.Model;
 using GdeOni.Application.Support.Commands.Create.UseCase;
+using GdeOni.Application.Support.Commands.CreateWithAttachments.Model;
+using GdeOni.Application.Support.Commands.CreateWithAttachments.UseCase;
 using GdeOni.Application.Support.Commands.Reopen.Model;
 using GdeOni.Application.Support.Commands.Reopen.UseCase;
+using GdeOni.Application.Support.Queries.GetAttachmentById.Model;
+using GdeOni.Application.Support.Queries.GetAttachmentById.UseCase;
 using GdeOni.Application.Support.Queries.GetById.Model;
 using GdeOni.Application.Support.Queries.GetById.UseCase;
 using GdeOni.Application.Support.Queries.GetMine.Model;
 using GdeOni.Application.Support.Queries.GetMine.UseCase;
+using GdeOni.Domain.Aggregates.Support;
+using GdeOni.Domain.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -41,6 +49,84 @@ public sealed class SupportController : ApiControllerBase
         CancellationToken cancellationToken)
     {
         var result = await useCase.Execute(request.ToCommand(), cancellationToken);
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// D33. Создать обращение с вложениями (1..5 файлов: JPEG/PNG до 10MB
+    /// или PDF до 25MB, суммарно ≤50MB). Mobile дёргает эту ручку только
+    /// когда юзер реально приложил файлы — без вложений идёт обычный
+    /// POST /api/support-tickets (JSON, без multipart-overhead'а).
+    /// </summary>
+    [HttpPost("with-attachments")]
+    // Лимит запроса = 50 MB суммарно (см. SupportTicket.MaxAttachmentsTotalSizeBytes).
+    [RequestSizeLimit(SupportTicket.MaxAttachmentsTotalSizeBytes)]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(ApiResponse<CreateSupportTicketWithAttachmentsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> CreateWithAttachments(
+        [FromForm] SupportTicketKind kind,
+        [FromForm] string title,
+        [FromForm] string description,
+        [FromForm] IFormFileCollection files,
+        [FromServices] ICreateSupportTicketWithAttachmentsUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        if (files is null || files.Count == 0)
+        {
+            return FromResult(
+                Result.Failure<CreateSupportTicketWithAttachmentsResponse, Error>(
+                    Error.Validation(
+                        "support_ticket.attachments.empty",
+                        "Use the non-multipart endpoint when there are no attachments.")));
+        }
+
+        // Открываем потоки и докидываем их в команду — Stream'ы живут
+        // до конца запроса (Kestrel держит form-data в FileBufferingReadStream).
+        var attachments = new List<AttachmentUploadItem>(files.Count);
+        foreach (var file in files)
+        {
+            attachments.Add(new AttachmentUploadItem
+            {
+                OriginalFileName = file.FileName,
+                ContentType = file.ContentType,
+                SizeBytes = file.Length,
+                Content = file.OpenReadStream(),
+            });
+        }
+
+        var command = new CreateSupportTicketWithAttachmentsCommand
+        {
+            Kind = kind,
+            Title = title,
+            Description = description,
+            Attachments = attachments,
+        };
+
+        var result = await useCase.Execute(command, cancellationToken);
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// D33. Получить вложение тикета — presigned URL для скачивания
+    /// (TTL 1 час). Юзеру выдаётся только своё; админу — любое.
+    /// Если тикет/вложение не найдено или нет доступа — 404 (не
+    /// подсвечиваем существование чужих файлов).
+    /// </summary>
+    [HttpGet("{ticketId:guid}/attachments/{attachmentId:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<GetSupportAttachmentByIdResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAttachment(
+        Guid ticketId,
+        Guid attachmentId,
+        [FromServices] IGetSupportAttachmentByIdUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new GetSupportAttachmentByIdQuery(ticketId, attachmentId),
+            cancellationToken);
         return FromResult(result);
     }
 

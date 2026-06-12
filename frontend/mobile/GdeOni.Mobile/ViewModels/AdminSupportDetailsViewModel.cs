@@ -104,6 +104,14 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
     [NotifyPropertyChangedFor(nameof(HasChatMessages))]
     private int _chatMessagesCount;
     public bool HasChatMessages => ChatMessagesCount > 0;
+
+    /// <summary>D33. Вложения тикета — фото и PDF от юзера.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<Support.AttachmentDisplayItem> Attachments { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAttachments))]
+    private int _attachmentsCount;
+    public bool HasAttachments => AttachmentsCount > 0;
     public bool HasReopenedHistory => ReopenedCount > 0;
     public string ReopenedHistoryText => ReopenedCount switch
     {
@@ -206,6 +214,15 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
                     ChatMessages.Add(Support.ChatMessage.ForViewer(msg, viewerIsAdmin: true));
             }
             ChatMessagesCount = ChatMessages.Count;
+
+            // D33. Вложения тикета.
+            Attachments.Clear();
+            if (t.Attachments is not null)
+            {
+                foreach (var att in t.Attachments)
+                    Attachments.Add(Support.AttachmentDisplayItem.From(att));
+            }
+            AttachmentsCount = Attachments.Count;
         }
         catch (ApiException apiEx)
         {
@@ -326,6 +343,36 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
 
     [RelayCommand]
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
+
+    /// <summary>
+    /// D33. Открыть вложение тикета: получить presigned URL и открыть
+    /// в браузере. Браузер сам решает inline-показ (для фото / PDF)
+    /// или скачивание — это удобно админу, ему нужны оба сценария.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenAttachmentAsync(Support.AttachmentDisplayItem? item)
+    {
+        if (item is null) return;
+        if (!Guid.TryParse(TicketId, out var tid)) return;
+        try
+        {
+            var envelope = await supportApi.GetAttachmentAsync(tid, item.Id);
+            if (envelope.Result is null)
+            {
+                ErrorMessage = envelope.ErrorMessage ?? "Не удалось получить файл.";
+                return;
+            }
+            await Launcher.OpenAsync(new Uri(envelope.Result.PresignedUrl));
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+    }
 
     private static string? MapStatusLabel(string label) => label switch
     {

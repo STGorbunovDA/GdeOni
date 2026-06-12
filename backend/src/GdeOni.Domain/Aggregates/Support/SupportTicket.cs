@@ -30,6 +30,12 @@ public sealed class SupportTicket : Entity<Guid>
     public const int MaxDetailsLength = 8000;
     public const int MaxUserReplyLength = 4000;
 
+    /// <summary>D33. Максимум вложений на тикет.</summary>
+    public const int MaxAttachmentsPerTicket = 5;
+
+    /// <summary>D33. Суммарный размер всех вложений (50 MB).</summary>
+    public const long MaxAttachmentsTotalSizeBytes = 50L * 1024 * 1024;
+
     public Guid? UserId { get; private set; }
     public SupportTicketSource Source { get; private set; }
     public SupportTicketKind Kind { get; private set; }
@@ -81,6 +87,13 @@ public sealed class SupportTicket : Entity<Guid>
     /// </summary>
     private readonly List<SupportTicketMessage> _messages = new();
     public IReadOnlyCollection<SupportTicketMessage> Messages => _messages.AsReadOnly();
+
+    /// <summary>
+    /// D33. Файлы, которые юзер приложил при создании тикета (до 5).
+    /// Reopen не добавляет вложения — только initial.
+    /// </summary>
+    private readonly List<SupportTicketAttachment> _attachments = new();
+    public IReadOnlyCollection<SupportTicketAttachment> Attachments => _attachments.AsReadOnly();
 
     public DateTime CreatedAtUtc { get; }
     public DateTime? UpdatedAtUtc { get; private set; }
@@ -341,6 +354,38 @@ public sealed class SupportTicket : Entity<Guid>
         }
 
         return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D33. Добавить вложение к тикету. Вызывается use case'ом после
+    /// успешной загрузки файла в MinIO. Проверяет:
+    /// — лимит количества (5);
+    /// — суммарный размер (50 MB, с учётом уже добавленных).
+    /// Per-файл валидация MIME/magic-bytes/размер делается на
+    /// Application слое через FileValidator до вызова.
+    /// </summary>
+    public Result<SupportTicketAttachment, Error> AddAttachment(
+        string originalFileName,
+        string bucket,
+        string storageKey,
+        string contentType,
+        long sizeBytes,
+        DateTime nowUtc)
+    {
+        if (_attachments.Count >= MaxAttachmentsPerTicket)
+            return Errors.Support.AttachmentsLimitExceeded(MaxAttachmentsPerTicket);
+
+        var totalSizeAfter = _attachments.Sum(a => a.SizeBytes) + sizeBytes;
+        if (totalSizeAfter > MaxAttachmentsTotalSizeBytes)
+            return Errors.Support.AttachmentsTotalSizeExceeded(MaxAttachmentsTotalSizeBytes);
+
+        var created = SupportTicketAttachment.Create(
+            Id, originalFileName, bucket, storageKey, contentType, sizeBytes, nowUtc);
+        if (created.IsFailure)
+            return created.Error;
+
+        _attachments.Add(created.Value);
+        return created.Value;
     }
 
     private static Result<(string Title, string Description), Error> ValidateContent(

@@ -55,7 +55,9 @@ using GdeOni.Application.Subscriptions.Queries.GetMyPayments.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMySubscription.UseCase;
 using GdeOni.Application.Support.Commands.AcceptResolution.UseCase;
 using GdeOni.Application.Support.Commands.Create.UseCase;
+using GdeOni.Application.Support.Commands.CreateWithAttachments.UseCase;
 using GdeOni.Application.Support.Commands.Reopen.UseCase;
+using GdeOni.Application.Support.Queries.GetAttachmentById.UseCase;
 using GdeOni.Application.Support.Commands.UpdateSeverity.UseCase;
 using GdeOni.Application.Support.Commands.UpdateStatus.UseCase;
 using GdeOni.Application.Support.Queries.GetAll.UseCase;
@@ -197,6 +199,14 @@ public static class DependencyInjection
         services.AddScoped<IUpdateSupportTicketSeverityUseCase, UpdateSupportTicketSeverityUseCase>();
         services.AddScoped<IAcceptSupportTicketResolutionUseCase, AcceptSupportTicketResolutionUseCase>();
         services.AddScoped<IReopenSupportTicketUseCase, ReopenSupportTicketUseCase>();
+
+        // D33. Тикет с вложениями (multipart) + скачивание вложений.
+        services.AddScoped<
+            ICreateSupportTicketWithAttachmentsUseCase,
+            CreateSupportTicketWithAttachmentsUseCase>();
+        services.AddScoped<
+            IGetSupportAttachmentByIdUseCase,
+            GetSupportAttachmentByIdUseCase>();
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;

@@ -27,6 +27,13 @@ internal static class MinioBootstrap
 
         await EnsureBucketAsync(
             client, options.Buckets.DeceasedDocuments, publicRead: false, logger, cancellationToken);
+
+        // D33. Вложения в обращения в поддержку. publicRead: false —
+        // доступ строго через presigned URL, даже фото (могут содержать
+        // паспортные данные / свидетельства, утечка по прямой ссылке
+        // недопустима).
+        await EnsureBucketAsync(
+            client, options.Buckets.SupportAttachments, publicRead: false, logger, cancellationToken);
     }
 
     private static async Task EnsureBucketAsync(

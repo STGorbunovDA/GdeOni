@@ -43,6 +43,36 @@ internal sealed class MinioFileStorage : IFileStorage
             request.OriginalFileName);
     }
 
+    public async Task<StoredFile> UploadToBucketAsync(
+        string bucket,
+        string keyPrefix,
+        string originalFileName,
+        string contentType,
+        long sizeBytes,
+        Stream content,
+        CancellationToken cancellationToken)
+    {
+        var extension = SanitizeExtension(originalFileName);
+        var safePrefix = string.IsNullOrWhiteSpace(keyPrefix) ? "misc" : keyPrefix.Trim('/');
+        var objectKey = $"{safePrefix}/{Guid.NewGuid()}{extension}";
+
+        var args = new PutObjectArgs()
+            .WithBucket(bucket)
+            .WithObject(objectKey)
+            .WithStreamData(content)
+            .WithObjectSize(sizeBytes)
+            .WithContentType(contentType);
+
+        await _client.PutObjectAsync(args, cancellationToken);
+
+        return new StoredFile(
+            bucket,
+            objectKey,
+            contentType,
+            sizeBytes,
+            originalFileName);
+    }
+
     public Task DeleteAsync(string bucket, string objectKey, CancellationToken cancellationToken)
     {
         var args = new RemoveObjectArgs()

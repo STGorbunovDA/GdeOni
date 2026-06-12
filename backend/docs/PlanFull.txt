@@ -10913,6 +10913,136 @@ CanSeek=false.
   включая загрузку реальных файлов и проверку хэша — зелёные.
 
 ---------------------------------------------------------------------
+D33. Вложения в обращения в поддержку (mobile)
+---------------------------------------------------------------------
+
+Сценарий: юзер добавил умершего, увидел что фото нет — пишет
+обращение в поддержку, прикладывает доки наследства + фото
+умершего. Админ открывает тикет, видит превью, открывает фото на
+весь экран / скачивает PDF, потом руками добавляет к карточке
+умершего через обычный media-флоу (D26).
+
+Лимиты:
+- До 5 файлов на тикет.
+- Форматы: JPEG / PNG / PDF.
+- Размер: фото ≤10 MB, PDF ≤25 MB, суммарно ≤50 MB.
+- Magic-bytes валидация и per-MIME allow-list (как для media в D26).
+
+Новая тема: SupportTicketKind.Photo = 6. В UI: "Фото" в пикере
+после "Вопрос", перед "Другое". Бэк-фильтры (kind = "Photo")
+автоматически работают через существующий
+GetPagedForAdmin(SupportTicketKind?).
+
+Архитектура:
+- Domain: SupportTicketAttachment entity, коллекция _attachments
+  в SupportTicket, метод AddAttachment с guard'ами
+  MaxAttachmentsPerTicket=5 и MaxAttachmentsTotalSizeBytes=50MB.
+- Errors.Support.Attachment* — 7 новых кодов
+  (limit_exceeded, total_size_exceeded, file_name.*, content_type.*,
+  size.invalid, not_found).
+- Infrastructure:
+  * SupportTicketAttachmentConfiguration — таблица
+    support_ticket_attachments (FK на support_tickets, ON DELETE CASCADE,
+    unique storage_key).
+  * Bucket support-attachments в MinioBucketsOptions, создаётся в
+    MinioBootstrap с publicRead: false — доступ строго через
+    presigned URL (потенциальные ПД в файлах).
+  * IFileStorage.UploadToBucketAsync — новый метод для загрузки в
+    произвольный bucket с явно заданным prefix'ом storage key.
+    UseCase'ы media продолжают использовать UploadAsync(kind),
+    support — новый метод. Тот же MinioFileStorage, тот же
+    PrefixedStream pipeline из D32.
+  * ISupportAttachmentsBucketResolver / SupportAttachmentsBucketResolver
+    — Application не знает про MinioOptions, читает имя bucket'а
+    через резолвер.
+- Application:
+  * CreateSupportTicketWithAttachmentsUseCase — multipart upload,
+    per-файл валидация через FileValidator (DeceasedPhoto для image/*
+    или Document для application/pdf), создание тикета, загрузка
+    каждого файла в support-attachments, AddAttachment, Save в одну
+    транзакцию. При ошибке — best-effort DeleteAsync всех загруженных
+    файлов.
+  * GetSupportAttachmentByIdUseCase — возвращает presigned URL (TTL
+    1 час). Юзеру выдаётся только своё, админу — любое; 404 при
+    отсутствии доступа (не подсвечиваем существование чужих файлов).
+- API:
+  * POST /api/support-tickets/with-attachments — multipart/form-data,
+    поля kind/title/description + files[]. Старая JSON-ручка
+    POST /api/support-tickets остаётся без изменений — клиент дёргает
+    её когда вложений нет.
+  * GET /api/support-tickets/{ticketId}/attachments/{attachmentId}
+    — presigned URL для скачивания.
+- SupportTicketDto.Attachments в GetById response (юзер и админ
+  видят список метаданных без URL'ов; URL'ы клиент запрашивает
+  отдельным запросом по тапу).
+- GetByIdWithAttachments — облегчённый аналог GetByIdWithMessages
+  для скачивания (Include только Attachments).
+- Миграция: D33_AddSupportTicketAttachments.
+
+Mobile:
+- ISupportApi: CreateWithAttachmentsAsync (Refit Multipart с
+  StreamPart) + GetAttachmentAsync.
+- SupportNewViewModel:
+  * Новая тема "Фото" в KindOptions.
+  * ObservableCollection<PickedAttachment> Attachments — выбранные
+    через FilePicker файлы (хранятся в byte[] до отправки).
+  * PickAttachmentCommand — открывает FilePicker, валидирует
+    MIME / per-file size / total size локально (fail-fast до бэка).
+  * RemoveAttachmentCommand — убирает выбранный файл.
+  * SubmitAsync — если Attachments.Count == 0, идёт по старой JSON-
+    ручке (без multipart-overhead'а); иначе CreateWithAttachmentsAsync.
+- SupportNewPage.xaml: секция "Файлы" с кнопкой "Прикрепить файл
+  (N/5)" + горизонтальный CollectionView миниатюр (🖼 для фото,
+  📄 для PDF, размер, кнопка ✕).
+- SupportDetailsViewModel + AdminSupportDetailsViewModel:
+  ObservableCollection<AttachmentDisplayItem> + OpenAttachmentCommand
+  (GetAttachmentAsync → Launcher.OpenAsync — браузер сам решает
+  inline-показ или скачивание).
+- SupportDetailsPage.xaml + AdminSupportDetailsPage.xaml: секция
+  "Вложения" перед "Переписка". Та же DataTemplate с миниатюрой.
+- SupportDisplay.Kind: добавлен mapping "Photo" → "Фото".
+
+Тесты:
+- Domain 215, Application 229, Integration 111 — зелёные.
+
+---------------------------------------------------------------------
+F33. Вложения в обращения в поддержку (web)
+---------------------------------------------------------------------
+
+Зеркало mobile D33 для веб-клиента. Бэк-ручки уже есть и
+переиспользуются: POST /api/support-tickets/with-attachments и
+GET /api/support-tickets/{ticketId}/attachments/{attachmentId}.
+
+Юзерская часть:
+[ ] В форме создания обращения добавить блок "Файлы" с кнопкой
+    "Прикрепить файл (N/5)". На клик — открыть system file picker
+    с accept="image/jpeg,image/png,application/pdf".
+[ ] Локальная валидация перед отправкой: 5 файлов max, per-file
+    лимит (фото 10 MB, PDF 25 MB), суммарно ≤50 MB. Показывать
+    inline-ошибку при превышении.
+[ ] Горизонтальный grid превью: для фото — реальный thumbnail
+    через URL.createObjectURL(file), для PDF — иконка 📄.
+    Кнопка ✕ для удаления.
+[ ] При Submit:
+    - если выбранных файлов 0 → POST /api/support-tickets (JSON);
+    - иначе → POST /api/support-tickets/with-attachments
+      (FormData с files[]).
+[ ] Новая тема "Фото" в селекте темы обращения (см. SupportTicketKind.Photo).
+[ ] На странице "Мои обращения / детали" — секция "Вложения"
+    с миниатюрами. Тап → GET attachments/{id} → window.open(presignedUrl).
+
+Админская часть:
+[ ] В фильтрах админ-листинга тикетов — опция "Тема: Фото"
+    автоматически работает через GetPagedForAdmin(kind=Photo).
+[ ] В админской карточке тикета — та же секция "Вложения" с
+    миниатюрами (для фото — реальный preview через GET attachment;
+    для PDF — иконка).
+[ ] Тап на фото → fullscreen overlay (или открыть в новой вкладке).
+    Тап на PDF → window.open в новой вкладке.
+[ ] Кнопка "Скачать": <a href={presignedUrl} download={fileName}>
+    — стандартное браузерное скачивание.
+
+---------------------------------------------------------------------
 F17.15. Найти умершего + admin-view карточки (~ D27)
 ---------------------------------------------------------------------
 

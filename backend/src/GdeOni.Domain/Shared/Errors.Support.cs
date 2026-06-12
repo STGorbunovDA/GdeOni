@@ -93,5 +93,42 @@ public static partial class Errors
             Error.Validation(
                 "support_ticket.message.text.too_long",
                 $"Message text must not exceed {max} characters.");
+
+        // D33. Вложения в тикет.
+
+        public static Error AttachmentsLimitExceeded(int max) =>
+            Error.Validation(
+                "support_ticket.attachments.limit_exceeded",
+                $"Ticket cannot have more than {max} attachments.");
+
+        public static Error AttachmentsTotalSizeExceeded(long maxBytes) =>
+            Error.Validation(
+                "support_ticket.attachments.total_size_exceeded",
+                $"Total attachments size must not exceed {maxBytes} bytes.");
+
+        public static Error AttachmentFileNameRequired() =>
+            Error.Validation(
+                "support_ticket.attachment.file_name.required",
+                "Attachment file name is required.");
+
+        public static Error AttachmentFileNameTooLong(int max) =>
+            Error.Validation(
+                "support_ticket.attachment.file_name.too_long",
+                $"Attachment file name must not exceed {max} characters.");
+
+        public static Error AttachmentContentTypeRequired() =>
+            Error.Validation(
+                "support_ticket.attachment.content_type.required",
+                "Attachment content type is required.");
+
+        public static Error AttachmentSizeInvalid() =>
+            Error.Validation(
+                "support_ticket.attachment.size.invalid",
+                "Attachment size must be greater than zero.");
+
+        public static Error AttachmentNotFound() =>
+            Error.NotFound(
+                "support_ticket.attachment.not_found",
+                "Attachment was not found.");
     }
 }
