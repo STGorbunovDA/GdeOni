@@ -123,4 +123,16 @@ public interface ISupportApi
         Guid id,
         [Body] UpdateSupportTicketSeverityRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D35. POST /api/admin/support-tickets/{ticketId}/attachments/{attId}/promote-to-main-photo
+    /// — сделать фото-вложение главным фото указанного умершего.
+    /// Только админ. Вложение в тикете остаётся.
+    /// </summary>
+    [Post("/api/admin/support-tickets/{ticketId}/attachments/{attachmentId}/promote-to-main-photo")]
+    Task<ApiEnvelope<PromoteAttachmentToMainPhotoResponse>> PromoteAttachmentToMainPhotoAsync(
+        Guid ticketId,
+        Guid attachmentId,
+        [Query] Guid deceasedId,
+        CancellationToken cancellationToken = default);
 }

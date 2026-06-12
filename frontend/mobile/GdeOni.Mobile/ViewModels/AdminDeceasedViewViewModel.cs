@@ -467,6 +467,23 @@ public partial class AdminDeceasedViewViewModel(
             if (photo is null) return;
 
             await using var stream = await photo.OpenReadAsync();
+
+            // D35. Локальная проверка лимита 10MB ДО отправки на бэк.
+            // Без неё юзер тратит трафик на полную загрузку, чтобы
+            // получить 400 (FileValidator на сервере). Если stream
+            // не поддерживает Length (редко на Android, но возможно
+            // для contentprovider:// URI) — проверку пропускаем,
+            // бэк всё равно отобьёт.
+            if (stream.CanSeek)
+            {
+                var error = Services.Media.MediaSizeLimits.CheckPhoto(stream.Length);
+                if (error is not null)
+                {
+                    ErrorMessage = error;
+                    return;
+                }
+            }
+
             await UploadStreamAsync(deceasedId, stream, photo.FileName, photo.ContentType, kind);
         }
         catch (PermissionException)
@@ -496,6 +513,18 @@ public partial class AdminDeceasedViewViewModel(
             if (doc is null) return;
 
             await using var stream = await doc.OpenReadAsync();
+
+            // D35. Лимит документа 25MB локально, симметрично UploadPhoto.
+            if (stream.CanSeek)
+            {
+                var error = Services.Media.MediaSizeLimits.CheckDocument(stream.Length);
+                if (error is not null)
+                {
+                    ErrorMessage = error;
+                    return;
+                }
+            }
+
             await UploadStreamAsync(deceasedId, stream, doc.FileName, doc.ContentType, MediaKinds.Document);
         }
         catch (Exception ex)

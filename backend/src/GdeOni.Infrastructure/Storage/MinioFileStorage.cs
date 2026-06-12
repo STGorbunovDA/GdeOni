@@ -73,6 +73,39 @@ internal sealed class MinioFileStorage : IFileStorage
             originalFileName);
     }
 
+    public async Task<StoredFile> CopyObjectAsync(
+        string sourceBucket,
+        string sourceObjectKey,
+        string destBucket,
+        string destKeyPrefix,
+        string fileName,
+        string contentType,
+        long sizeBytes,
+        CancellationToken cancellationToken)
+    {
+        var extension = SanitizeExtension(fileName);
+        var safePrefix = string.IsNullOrWhiteSpace(destKeyPrefix) ? "misc" : destKeyPrefix.Trim('/');
+        var destObjectKey = $"{safePrefix}/{Guid.NewGuid()}{extension}";
+
+        var source = new CopySourceObjectArgs()
+            .WithBucket(sourceBucket)
+            .WithObject(sourceObjectKey);
+
+        var args = new CopyObjectArgs()
+            .WithBucket(destBucket)
+            .WithObject(destObjectKey)
+            .WithCopyObjectSource(source);
+
+        await _client.CopyObjectAsync(args, cancellationToken);
+
+        return new StoredFile(
+            destBucket,
+            destObjectKey,
+            contentType,
+            sizeBytes,
+            fileName);
+    }
+
     public Task DeleteAsync(string bucket, string objectKey, CancellationToken cancellationToken)
     {
         var args = new RemoveObjectArgs()

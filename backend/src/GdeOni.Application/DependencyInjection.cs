@@ -56,6 +56,7 @@ using GdeOni.Application.Subscriptions.Queries.GetMySubscription.UseCase;
 using GdeOni.Application.Support.Commands.AcceptResolution.UseCase;
 using GdeOni.Application.Support.Commands.Create.UseCase;
 using GdeOni.Application.Support.Commands.CreateWithAttachments.UseCase;
+using GdeOni.Application.Support.Commands.PromoteAttachmentToMainPhoto.UseCase;
 using GdeOni.Application.Support.Commands.Reopen.UseCase;
 using GdeOni.Application.Support.Queries.GetAttachmentById.UseCase;
 using GdeOni.Application.Support.Commands.UpdateSeverity.UseCase;
@@ -207,6 +208,11 @@ public static class DependencyInjection
         services.AddScoped<
             IGetSupportAttachmentByIdUseCase,
             GetSupportAttachmentByIdUseCase>();
+
+        // D35. Сделать вложение тикета главным фото умершего.
+        services.AddScoped<
+            IPromoteAttachmentToMainPhotoUseCase,
+            PromoteAttachmentToMainPhotoUseCase>();
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;

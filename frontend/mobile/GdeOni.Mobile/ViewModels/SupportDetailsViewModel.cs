@@ -235,11 +235,10 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
 
     /// <summary>
-    /// D33. Открыть вложение: запрашиваем presigned URL и открываем
-    /// его в системном браузере (Launcher.OpenAsync). Браузер сам
-    /// решает — показать картинку / PDF inline, или предложить
-    /// скачать. Это покрывает оба сценария (юзера и админа) одной
-    /// командой.
+    /// D33+D35. Открыть вложение:
+    /// — фото → fullscreen-просмотр (photo-viewer);
+    /// — PDF → inline-просмотр внутри приложения (pdf-preview);
+    /// — прочее → системный Launcher (fallback).
     /// </summary>
     [RelayCommand]
     private async Task OpenAttachmentAsync(AttachmentDisplayItem? item)
@@ -254,7 +253,7 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
                 ErrorMessage = envelope.ErrorMessage ?? "Не удалось получить файл.";
                 return;
             }
-            await Launcher.OpenAsync(new Uri(envelope.Result.PresignedUrl));
+            await OpenByContentTypeAsync(item, envelope.Result.PresignedUrl);
         }
         catch (ApiException apiEx)
         {
@@ -264,6 +263,25 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
         {
             ErrorMessage = $"Ошибка: {ex.Message}";
         }
+    }
+
+    private static async Task OpenByContentTypeAsync(AttachmentDisplayItem item, string presignedUrl)
+    {
+        var ct = item.ContentType ?? "";
+        var encodedUrl = Uri.EscapeDataString(presignedUrl);
+
+        if (ct.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            await Shell.Current.GoToAsync($"photo-viewer?url={encodedUrl}");
+            return;
+        }
+        if (string.Equals(ct, "application/pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            var encodedName = Uri.EscapeDataString(item.FileName ?? "Документ");
+            await Shell.Current.GoToAsync($"pdf-preview?url={encodedUrl}&fileName={encodedName}");
+            return;
+        }
+        await Launcher.OpenAsync(new Uri(presignedUrl));
     }
 
     private void ApplyDto(SupportTicketDto t)

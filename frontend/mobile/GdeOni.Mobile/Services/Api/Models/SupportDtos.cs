@@ -65,6 +65,8 @@ public sealed record CreateSupportTicketResponse(Guid TicketId);
 
 public sealed record CreateSupportTicketWithAttachmentsResponse(Guid TicketId, int AttachmentsCount);
 
+public sealed record PromoteAttachmentToMainPhotoResponse(Guid MediaId);
+
 public sealed record GetMySupportTicketsResponse(
     IReadOnlyList<SupportTicketDto> Items,
     int TotalCount,

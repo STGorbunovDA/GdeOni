@@ -158,9 +158,13 @@
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="10" />
                                 </Border.StrokeShape>
+                                <!-- D35. Тап показывает ActionSheet:
+                                     "Открыть на весь экран" / "Сделать
+                                     главным фото умершего" (если есть
+                                     DeceasedRefId и это фото). -->
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer
-                                        Command="{Binding Source={x:Reference AttachmentsList}, Path=BindingContext.OpenAttachmentCommand}"
+                                        Command="{Binding Source={x:Reference AttachmentsList}, Path=BindingContext.PhotoLongPressCommand}"
                                         CommandParameter="{Binding .}" />
                                 </Border.GestureRecognizers>
                                 <Grid RowDefinitions="*,Auto">

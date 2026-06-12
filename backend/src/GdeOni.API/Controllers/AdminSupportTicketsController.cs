@@ -1,6 +1,8 @@
 using GdeOni.API.Mappers;
 using GdeOni.API.Models.Support;
 using GdeOni.API.Response;
+using GdeOni.Application.Support.Commands.PromoteAttachmentToMainPhoto.Model;
+using GdeOni.Application.Support.Commands.PromoteAttachmentToMainPhoto.UseCase;
 using GdeOni.Application.Support.Commands.UpdateSeverity.UseCase;
 using GdeOni.Application.Support.Commands.UpdateStatus.UseCase;
 using GdeOni.Application.Support.Queries.GetAll.Model;
@@ -98,5 +100,30 @@ public sealed class AdminSupportTicketsController : ApiControllerBase
     {
         var result = await useCase.Execute(request.ToCommand(id), cancellationToken);
         return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D35. Сделать вложение тикета (фото) главным фото указанного
+    /// умершего. MinIO server-side copy support-attachments →
+    /// deceased-photos, новое media auto-approve + SetMainPhoto.
+    /// Вложение в тикете остаётся (история).
+    /// </summary>
+    [HttpPost("{ticketId:guid}/attachments/{attachmentId:guid}/promote-to-main-photo")]
+    [ProducesResponseType(typeof(ApiResponse<PromoteAttachmentToMainPhotoResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PromoteAttachmentToMainPhoto(
+        Guid ticketId,
+        Guid attachmentId,
+        [FromQuery] Guid deceasedId,
+        [FromServices] IPromoteAttachmentToMainPhotoUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new PromoteAttachmentToMainPhotoCommand(ticketId, attachmentId, deceasedId),
+            cancellationToken);
+        return FromResult(result);
     }
 }

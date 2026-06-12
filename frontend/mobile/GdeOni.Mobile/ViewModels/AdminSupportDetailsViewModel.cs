@@ -367,13 +367,97 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
         await Shell.Current.GoToAsync($"admin-deceased-view?deceasedId={id}");
     }
 
+    /// <summary>
+    /// D35. Long-press на вложении в тикете — ActionSheet:
+    /// — "Открыть на весь экран" — переиспользует OpenAttachment.
+    /// — "Сделать главным фото умершего" — только если в тикете
+    ///   есть DeceasedRefId и вложение — фото (image/*).
+    /// Долго жмать на PDF — тоже выдаём sheet, но без "Сделать главным".
+    /// </summary>
+    [RelayCommand]
+    private async Task PhotoLongPressAsync(Support.AttachmentDisplayItem? item)
+    {
+        if (item is null) return;
+
+        var canPromote = item.IsImage && HasDeceasedRef;
+
+        string[] options = canPromote
+            ? new[] { "Открыть на весь экран", "Сделать главным фото умершего" }
+            : new[] { "Открыть на весь экран" };
+
+        var action = await Shell.Current.DisplayActionSheet(
+            title: item.FileName,
+            cancel: "Отмена",
+            destruction: null,
+            buttons: options);
+
+        if (string.IsNullOrEmpty(action) || action == "Отмена") return;
+
+        if (action == "Открыть на весь экран")
+        {
+            await OpenAttachmentAsync(item);
+            return;
+        }
+
+        if (action == "Сделать главным фото умершего")
+        {
+            await PromoteToMainPhotoAsync(item);
+        }
+    }
+
+    private async Task PromoteToMainPhotoAsync(Support.AttachmentDisplayItem item)
+    {
+        if (!Guid.TryParse(TicketId, out var tid)) return;
+        if (DeceasedRefId is not { } deceasedId) return;
+
+        var confirm = await Shell.Current.DisplayAlert(
+            "Сделать главным фото",
+            $"Установить «{item.FileName}» как главное фото умершего? Файл останется в этом обращении.",
+            "Установить", "Отмена");
+        if (!confirm) return;
+
+        try
+        {
+            IsSaving = true;
+            ErrorMessage = null;
+            var envelope = await supportApi.PromoteAttachmentToMainPhotoAsync(
+                tid, item.Id, deceasedId);
+
+            if (envelope.Result is null)
+            {
+                ErrorMessage = envelope.ErrorMessage ?? "Не удалось установить главное фото.";
+                return;
+            }
+
+            await Shell.Current.DisplayAlert(
+                "Готово",
+                "Фото установлено как главное в карточке умершего.",
+                "ОК");
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
     [RelayCommand]
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
 
     /// <summary>
-    /// D33. Открыть вложение тикета: получить presigned URL и открыть
-    /// в браузере. Браузер сам решает inline-показ (для фото / PDF)
-    /// или скачивание — это удобно админу, ему нужны оба сценария.
+    /// D33+D35. Открыть вложение тикета:
+    /// — фото → fullscreen photo-viewer;
+    /// — PDF → inline pdf-preview;
+    /// — прочее → системный Launcher.
+    /// Long-press на фото отдельной командой даёт ActionSheet
+    /// "На весь экран / Сделать главным" (см. PhotoLongPressAsync).
     /// </summary>
     [RelayCommand]
     private async Task OpenAttachmentAsync(Support.AttachmentDisplayItem? item)
@@ -388,7 +472,7 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
                 ErrorMessage = envelope.ErrorMessage ?? "Не удалось получить файл.";
                 return;
             }
-            await Launcher.OpenAsync(new Uri(envelope.Result.PresignedUrl));
+            await OpenByContentTypeAsync(item, envelope.Result.PresignedUrl);
         }
         catch (ApiException apiEx)
         {
@@ -398,6 +482,25 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
         {
             ErrorMessage = $"Ошибка: {ex.Message}";
         }
+    }
+
+    private static async Task OpenByContentTypeAsync(Support.AttachmentDisplayItem item, string presignedUrl)
+    {
+        var ct = item.ContentType ?? "";
+        var encodedUrl = Uri.EscapeDataString(presignedUrl);
+
+        if (ct.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            await Shell.Current.GoToAsync($"photo-viewer?url={encodedUrl}");
+            return;
+        }
+        if (string.Equals(ct, "application/pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            var encodedName = Uri.EscapeDataString(item.FileName ?? "Документ");
+            await Shell.Current.GoToAsync($"pdf-preview?url={encodedUrl}&fileName={encodedName}");
+            return;
+        }
+        await Launcher.OpenAsync(new Uri(presignedUrl));
     }
 
     private static string? MapStatusLabel(string label) => label switch

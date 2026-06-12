@@ -730,6 +730,18 @@ public partial class DeceasedDetailsViewModel(
             if (photo is null) return;
 
             await using var stream = await photo.OpenReadAsync();
+
+            // D35. Локальная проверка лимита 10MB до отправки на бэк.
+            if (stream.CanSeek)
+            {
+                var error = Services.Media.MediaSizeLimits.CheckPhoto(stream.Length);
+                if (error is not null)
+                {
+                    ErrorMessage = error;
+                    return;
+                }
+            }
+
             await UploadStreamAsync(deceasedId, stream, photo.FileName, photo.ContentType, kind);
         }
         catch (PermissionException)
@@ -759,6 +771,18 @@ public partial class DeceasedDetailsViewModel(
             if (doc is null) return;
 
             await using var stream = await doc.OpenReadAsync();
+
+            // D35. Лимит документа 25MB локально.
+            if (stream.CanSeek)
+            {
+                var error = Services.Media.MediaSizeLimits.CheckDocument(stream.Length);
+                if (error is not null)
+                {
+                    ErrorMessage = error;
+                    return;
+                }
+            }
+
             await UploadStreamAsync(deceasedId, stream, doc.FileName, doc.ContentType, MediaKinds.Document);
         }
         catch (Exception ex)

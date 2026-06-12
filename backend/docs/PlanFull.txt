@@ -11119,6 +11119,108 @@ F34. Быстрый переход в поддержку из карточки �
     /ID карточки:\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/
 
 ---------------------------------------------------------------------
+D35. Action sheet на вложении тикета + PDF preview + лимит фото (mobile)
+---------------------------------------------------------------------
+
+Три связанные UX-доработки поверх D33.
+
+A. Promote attachment к main photo.
+   Сценарий: админ видит в тикете фото умершего, которое юзер
+   прикрепил по теме "Фото" — хочет одним тапом сделать его
+   главным фото в карточке. Без D35 пришлось бы скачать, потом
+   зайти в admin-deceased-view, потом загрузить заново.
+
+   Backend:
+   — IFileStorage.CopyObjectAsync: server-side copy через MinIO
+     CopyObjectAsync(CopyObjectArgs(WithCopyObjectSource(...))).
+     Файл не качается клиенту и не уезжает повторно — экономия
+     трафика и времени, особенно на больших фото.
+   — PromoteAttachmentToMainPhotoUseCase: only-admin guard;
+     загружает SupportTicket с Attachments, проверяет image/*;
+     загружает Deceased с Media; server-side copy в
+     deceased-photos (имя bucket берётся от существующего фото
+     умершего, fallback "deceased-photos"); deceased.AddMedia →
+     Approve → SetMainPhoto; rollback (DeleteAsync копии) при
+     ошибке. PDF нельзя — OnlyDeceasedPhotoCanBeMain.
+   — POST /api/admin/support-tickets/{ticketId}/attachments/{attId}/promote-to-main-photo
+     с query ?deceasedId={id}. Возвращает MediaId созданного фото.
+   — Вложение в тикете остаётся как было (запрос пользователя:
+     дублирование для истории).
+
+   Mobile:
+   — AdminSupportDetailsViewModel.PhotoLongPressCommand: тап на
+     вложение в админ-просмотре открывает ActionSheet.
+       Опции:
+       — "Открыть на весь экран" — всегда;
+       — "Сделать главным фото умершего" — только если
+         HasDeceasedRef и item.IsImage.
+     Подтверждение через DisplayAlert, потом
+     ISupportApi.PromoteAttachmentToMainPhotoAsync.
+   — Названо PhotoLongPress (исторически long-press), но фактически
+     срабатывает на одиночный тап → ActionSheet. Это надёжнее
+     true-long-press в MAUI и совпадает с iOS / Material паттерном
+     "тап на превью → меню действий".
+
+B. Inline PDF preview.
+   Раньше PDF из вложения открывался через Launcher.OpenAsync
+   (системный браузер или сторонний PDF-вьюер) — юзер выходил
+   из приложения. Теперь:
+   — Новая страница Views/Common/PdfPreviewPage.xaml с WebView
+     Source=presignedUrl. На Android 13+ Chrome WebView рендерит
+     PDF inline без download.
+   — Route "pdf-preview" с query ?url={escaped}&fileName={escaped}.
+   — Заголовок страницы — имя файла, кнопка ✕ закрывает.
+   — SupportDetailsViewModel и AdminSupportDetailsViewModel:
+     OpenAttachmentAsync теперь маршрутизирует по contentType:
+       image/* → photo-viewer (D27.1, FullScreenPhotoPage);
+       application/pdf → pdf-preview;
+       прочее → Launcher.OpenAsync (fallback).
+   Пока только для вложений тикетов — media-документы умершего
+   продолжают открываться через Launcher. Расширим если понадобится.
+
+C. Локальный лимит 10MB фото при загрузке media.
+   FileValidator.ValidatePhoto на бэке ловил >10MB только после
+   полной загрузки на сервер — юзер тратил трафик и время на
+   аплоад 15MB фото, чтобы получить 400. Теперь:
+   — Services/Media/MediaSizeLimits — константы MaxPhotoSizeBytes
+     (10MB) и MaxDocumentSizeBytes (25MB) + helper'ы CheckPhoto /
+     CheckDocument возвращающие пользовательский текст ошибки.
+   — DeceasedDetailsViewModel.UploadPhotoAsync /
+     AdminDeceasedViewViewModel.UploadPhotoAsync: проверка
+     stream.Length до отправки на бэк (только если stream.CanSeek;
+     content-provider:// streams без Length оставляем на серверную
+     проверку — fallback).
+   — Сообщение: "Фото больше 10 МБ — выберите файл поменьше."
+     ("документ" — аналогично для документа > 25 МБ).
+
+---------------------------------------------------------------------
+F35. Action sheet на вложении + PDF preview + лимит фото (web)
+---------------------------------------------------------------------
+
+Зеркало mobile D35 для веб-клиента.
+
+A. Promote attachment к main photo (web).
+[ ] В админ-просмотре тикета — кнопка / меню "..." на каждом
+    вложении-фото. При наличии deceasedRefId (parsed из Description)
+    появляется пункт "Сделать главным фото умершего".
+[ ] Подтверждающий диалог → POST на уже существующую ручку
+    /api/admin/support-tickets/{ticketId}/attachments/{attId}/
+    promote-to-main-photo?deceasedId={id}.
+[ ] После успеха — toast / уведомление "Главное фото обновлено".
+
+B. Inline PDF preview (web).
+[ ] PDF вложения открывать в новой вкладке (target="_blank") —
+    стандартный Chrome PDF Viewer работает inline. WebView-страница
+    как в mobile не нужна.
+[ ] Фото — fullscreen overlay (уже планировалось в F33).
+
+C. Локальный лимит 10MB фото (web).
+[ ] При выборе фото через <input type="file"> — JS проверка
+    file.size > 10*1024*1024 до отправки. Inline-сообщение
+    "Фото больше 10 МБ — выберите файл поменьше.".
+[ ] Симметрично для документа > 25 МБ.
+
+---------------------------------------------------------------------
 F17.15. Найти умершего + admin-view карточки (~ D27)
 ---------------------------------------------------------------------
 

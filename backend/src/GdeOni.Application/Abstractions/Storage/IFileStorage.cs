@@ -19,6 +19,23 @@ public interface IFileStorage
         Stream content,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// D35. Storage-to-storage copy. MinIO server-side copy без
+    /// скачивания / повторной загрузки — нужно для "сделать вложение
+    /// тикета главным фото умершего": один файл в support-attachments
+    /// и в deceased-photos одновременно, дешевле чем copy через
+    /// клиента.
+    /// </summary>
+    Task<StoredFile> CopyObjectAsync(
+        string sourceBucket,
+        string sourceObjectKey,
+        string destBucket,
+        string destKeyPrefix,
+        string fileName,
+        string contentType,
+        long sizeBytes,
+        CancellationToken cancellationToken);
+
     Task DeleteAsync(string bucket, string objectKey, CancellationToken cancellationToken);
 
     string GetPublicUrl(string bucket, string objectKey);
