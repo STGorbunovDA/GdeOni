@@ -38,9 +38,10 @@
                             Padding="16,8"
                             FontSize="14" />
 
-                    <!-- E26. Кнопка перехода на EditDeceasedPage. Видимость
-                         не управляется тут — 403 от бэка обработает страница
-                         редактирования (см. ICanEditDeceasedPolicy на бэке). -->
+                    <!-- E26. Кнопка перехода на EditDeceasedPage — только
+                         админам. Обычный юзер правит карточку через
+                         "Написать в поддержку" (карточка ссылается на
+                         deceasedId в шаблоне обращения). -->
                     <Button Grid.Column="2"
                             Text="Изменить"
                             Style="{StaticResource PrimaryButton}"
@@ -48,7 +49,7 @@
                             HorizontalOptions="End"
                             Padding="16,8"
                             FontSize="14"
-                            IsVisible="{Binding HasData}" />
+                            IsVisible="{Binding IsCurrentUserAdmin}" />
 
                     <!-- Удаление карточки — только админам. Backend дублирует
                          проверку роли независимо от UI. -->
