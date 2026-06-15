@@ -1,16 +1,11 @@
 /**
- * F3. Базовые DTO, общие для всех ответов backend.
+ * F3 / F4. Базовые DTO, общие для всех ответов backend.
  * Соответствуют ApiResponse<T> из backend/src/GdeOni.API/Extensions/ResponseExtensions.cs.
  *
  * Точные эндпоинт-DTO добавляются в src/api/endpoints/<feature>/types.ts
  * по мере появления F4-F17.
  */
 
-/**
- * Стандартная обёртка успешного ответа: { result, errorCode, errorMessage, errors, timeGenerated }.
- * Все поля кроме result обычно null/undefined при HTTP 200.
- * При ошибочных кодах (4xx/5xx) бэк отдаёт ту же оболочку с заполнёнными errorCode + errorMessage.
- */
 export type ApiEnvelope<T> = {
   result: T | null;
   errorCode: string | null;
@@ -19,17 +14,12 @@ export type ApiEnvelope<T> = {
   timeGenerated: string;
 };
 
-/** Деталь ошибки валидации FluentValidation. */
 export type ValidationErrorDetail = {
   propertyName: string;
   errorMessage: string;
   attemptedValue?: unknown;
 };
 
-/**
- * Пагинированный ответ. Соответствует PagedResponse<T> на бэке.
- * Все list-эндпоинты с пагинацией возвращают этот тип внутри ApiEnvelope.
- */
 export type PagedResponse<T> = {
   items: T[];
   totalCount: number;
@@ -38,23 +28,57 @@ export type PagedResponse<T> = {
 };
 
 /**
- * Login/Refresh ответ. Соответствует AuthTokensResponse на бэке.
- * Используется в F3 для refresh interceptor и в F4 для login flow.
+ * Ответ POST /api/auth/login. Соответствует LoginResponse на бэке
+ * (backend/src/GdeOni.Application/Auth/Login/Model/LoginResponse.cs).
+ *
+ * Важно: ответ содержит ВСЁ что нужно для заполнения store за один
+ * запрос — отдельный GET /users/me после login делать не надо.
  */
-export type AuthTokensResponse = {
-  accessToken: string;
-  refreshToken: string;
-  /** ISO-8601 UTC. Поле опциональное — бэк может его не отдавать. */
-  expiresAtUtc?: string;
-};
-
-/**
- * Минимальный профиль текущего юзера, который F3 использует для проверки сессии.
- * Полный профиль (с подпиской, флагами, etc.) появится в F16.
- */
-export type CurrentUserSummary = {
+export type LoginResponse = {
   id: string;
   email: string;
   userName: string;
+  fullName: string | null;
   role: 'User' | 'Admin' | 'SuperAdmin';
+  accessToken: string;
+  accessTokenExpiresAtUtc: string;
+  refreshToken: string;
+  refreshTokenExpiresAtUtc: string;
+};
+
+/**
+ * Ответ POST /api/auth/refresh. Контракт уже зеркало LoginResponse
+ * (см. RefreshResponse на бэке), но мы используем только токены —
+ * остальное остаётся неизменным в store.
+ */
+export type RefreshResponse = {
+  accessToken: string;
+  accessTokenExpiresAtUtc: string;
+  refreshToken: string;
+  refreshTokenExpiresAtUtc: string;
+};
+
+/**
+ * Ответ POST /api/users (register). Содержит только Id — токены
+ * НЕ возвращаются. После успешной регистрации фронт должен сам
+ * сделать login с тем же email/password.
+ */
+export type RegisterResponse = {
+  id: string;
+};
+
+/**
+ * Ответ GET /api/users/me. Соответствует GetCurrentUserResponse.
+ * Используется при startup-refresh для подтягивания актуальной
+ * роли и legal-флагов.
+ */
+export type CurrentUserResponse = {
+  id: string;
+  email: string;
+  userName: string;
+  fullName: string | null;
+  role: 'User' | 'Admin' | 'SuperAdmin';
+  privacyPolicyVersion: number;
+  termsVersion: number;
+  hasOutdatedLegalAcceptance: boolean;
 };

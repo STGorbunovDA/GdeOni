@@ -1,23 +1,23 @@
 import { apiClient, unwrap } from '../client';
 import type {
   ApiEnvelope,
-  AuthTokensResponse,
-  CurrentUserSummary,
+  CurrentUserResponse,
+  LoginResponse,
+  RegisterResponse,
 } from '../types';
+import { useAuthStore } from '../../auth/authStore';
 
 /**
- * F3. Минимальный auth API. Реальный UI login появится в F4 — там же
- * добавится /api/auth/register.
+ * F4. Auth-эндпоинты + helper'ы для логина/регистрации/logout.
  */
-
 export const authApi = {
   /**
-   * POST /api/auth/login. Возвращает access + refresh.
-   * F4 будет хранить токены в Zustand store через authStore.setSession().
+   * POST /api/auth/login. Возвращает полный профиль + пару токенов.
+   * Отдельно дёргать /users/me НЕ надо — все нужные поля уже здесь.
    */
-  async login(email: string, password: string): Promise<AuthTokensResponse> {
+  async login(email: string, password: string): Promise<LoginResponse> {
     return unwrap(
-      apiClient.post<ApiEnvelope<AuthTokensResponse>>('/api/auth/login', {
+      apiClient.post<ApiEnvelope<LoginResponse>>('/api/auth/login', {
         email,
         password,
       }),
@@ -25,28 +25,53 @@ export const authApi = {
   },
 
   /**
-   * POST /api/auth/logout. Best-effort: сервер инвалидирует refresh,
-   * но клиент в любом случае чистит локальное состояние. Ошибки не
-   * критичны (например, токен уже истёк).
+   * POST /api/auth/logout. Best-effort: сервер отзывает refresh,
+   * клиент в любом случае чистит локальный state. Принимает текущий
+   * refresh-токен в body (бэк проверяет принадлежность юзеру).
    */
   async logout(): Promise<void> {
+    const refresh = useAuthStore.getState().refreshToken;
+    if (!refresh) return;
     try {
-      await apiClient.post('/api/auth/logout');
+      await apiClient.post('/api/auth/logout', { refreshToken: refresh });
     } catch {
-      // Игнорируем — клиент всё равно вычистит local state.
+      // Игнорируем — клиент всё равно чистит local state.
     }
   },
 };
 
 /**
- * GET /api/users/me — минимальная сводка по текущему юзеру.
- * Используется F3 для проверки авторизации и F4 для заполнения профиля
- * сразу после логина.
+ * D19 / F24. POST /api/users — регистрация. Бэк требует
+ * privacyPolicyAccepted и termsAccepted (152-ФЗ): без галочки
+ * use case вернёт ошибку валидации. Возвращает только Id —
+ * сразу после успеха делаем login для получения токенов.
  */
-export const userApi = {
-  async me(): Promise<CurrentUserSummary> {
+export const usersApi = {
+  async register(input: {
+    email: string;
+    password: string;
+    userName?: string;
+    fullName?: string;
+  }): Promise<RegisterResponse> {
     return unwrap(
-      apiClient.get<ApiEnvelope<CurrentUserSummary>>('/api/users/me'),
+      apiClient.post<ApiEnvelope<RegisterResponse>>('/api/users', {
+        email: input.email,
+        password: input.password,
+        userName: input.userName,
+        fullName: input.fullName,
+        privacyPolicyAccepted: true,
+        termsAccepted: true,
+      }),
+    );
+  },
+
+  /**
+   * GET /api/users/me. Используется при startup-refresh для
+   * подтягивания актуальной роли/legal-флагов.
+   */
+  async me(): Promise<CurrentUserResponse> {
+    return unwrap(
+      apiClient.get<ApiEnvelope<CurrentUserResponse>>('/api/users/me'),
     );
   },
 };

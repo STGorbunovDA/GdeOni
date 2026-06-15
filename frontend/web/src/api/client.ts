@@ -59,13 +59,12 @@ function performRefresh(): Promise<string | null> {
   refreshInFlight = refreshTokens(currentRefresh)
     .then((tokens) => {
       if (!tokens) return null;
-      // Роль не приходит в /auth/refresh — берём текущую из store
-      // (она не меняется при refresh; ChangeRole на бэке инвалидирует
-      // SecurityStamp и тогда refresh упадёт раньше).
-      const currentRole = useAuthStore.getState().role ?? 'User';
+      // Refresh обновляет только токены. User-инфо (роль, email)
+      // не меняется при refresh; ChangeRole на бэке инвалидирует
+      // SecurityStamp и тогда refresh упадёт раньше.
       useAuthStore
         .getState()
-        .setSession(tokens.accessToken, tokens.refreshToken, currentRole);
+        .setTokens(tokens.accessToken, tokens.refreshToken);
       return tokens.accessToken;
     })
     .finally(() => {

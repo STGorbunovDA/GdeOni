@@ -5,21 +5,24 @@ import {
   CloudCard,
   TitleLabel,
 } from '../../components/ui';
+import { useAuthStore } from '../../auth/authStore';
 
 /**
- * F2.1. Главная защищённая страница. Здесь должен быть список tracked
- * deceased — придёт в F9. Сейчас просто маркер "роут работает".
- *
- * Навигация и выход — в sidebar (AppLayout), здесь их не дублируем.
+ * F2.1 / F4. Главная защищённая страница. Здесь должен быть список
+ * tracked deceased — придёт в F9. Сейчас просто маркер "роут работает"
+ * и приветствие текущего юзера (после F4 login flow).
  */
 export function TrackedListPage() {
+  const user = useAuthStore((s) => s.user);
+
   return (
     <Stack gap="lg">
       <Stack gap="xs">
         <TitleLabel>Отслеживаемые</TitleLabel>
         <CaptionLabel>
-          Заглушка для F9. Если ты видишь sidebar слева (или гамбургер
-          сверху на узком экране) — F2.1 работает.
+          {user
+            ? `Привет, ${user.userName || user.email} (${user.role}).`
+            : 'Заглушка для F9.'}
         </CaptionLabel>
       </Stack>
 
@@ -30,8 +33,8 @@ export function TrackedListPage() {
             живёт в sidebar — клик по пунктам должен подсвечивать активный.
           </BodyLabel>
           <CaptionLabel>
-            Пункт "Админка" виден только если ты залогинился как админ
-            (используй кнопку "Войти как админ" на /login).
+            Пункт "Админка" виден только если у текущего юзера роль
+            Admin или SuperAdmin.
           </CaptionLabel>
         </Stack>
       </CloudCard>

@@ -8,8 +8,9 @@ import {
 } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { Archive, Cloud, LogOut, Map, Shield, User, Users } from 'lucide-react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore, useIsAdmin } from '../../auth/authStore';
+import { authApi } from '../../api/endpoints/authApi';
 import { cloudColors } from '../../design/theme';
 import { CaptionLabel } from '../ui/Labels';
 import { NavItem } from './NavItem';
@@ -42,6 +43,17 @@ export function AppLayout() {
   const isMobile = useMediaQuery(MOBILE_BREAKPOINT);
   const isAdmin = useIsAdmin();
   const clear = useAuthStore((s) => s.clear);
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    close();
+    // POST /api/auth/logout — best-effort, серверу нужен refresh-token
+    // для ревокации. Если упадёт (например, 401 от просроченного access)
+    // — игнорируем, главное вычистить локальное состояние.
+    await authApi.logout();
+    clear();
+    navigate('/login', { replace: true });
+  }
 
   return (
     <AppShell
@@ -126,14 +138,7 @@ export function AppLayout() {
 
         <AppShell.Section>
           <Stack gap="xs" mt="md">
-            <NavItem
-              icon={LogOut}
-              label="Выйти"
-              onClick={() => {
-                clear();
-                close();
-              }}
-            />
+            <NavItem icon={LogOut} label="Выйти" onClick={handleLogout} />
             <CaptionLabel>Версия: {APP_VERSION_PLACEHOLDER}</CaptionLabel>
           </Stack>
         </AppShell.Section>

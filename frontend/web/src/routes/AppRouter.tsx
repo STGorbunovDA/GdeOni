@@ -18,7 +18,6 @@ import { AdminSupportPage } from '../pages/admin/AdminSupportPage';
 import { AdminFindDeceasedPage } from '../pages/admin/AdminFindDeceasedPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { StyleDemoPage } from '../pages/StyleDemoPage';
-import { ApiDemoPage } from '../pages/ApiDemoPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
@@ -40,8 +39,6 @@ export function AppRouter() {
         <Route path="/register" element={<RegisterPage />} />
         {/* F2. Demo дизайн-системы — публичный роут для визуальной проверки. */}
         <Route path="/style-demo" element={<StyleDemoPage />} />
-        {/* F3. Demo HTTP-клиента + interceptors. Уберём после F4. */}
-        <Route path="/api-demo" element={<ApiDemoPage />} />
 
         {/* Приватные: ProtectedRoute → AppLayout → конкретная страница */}
         <Route element={<ProtectedRoute />}>
