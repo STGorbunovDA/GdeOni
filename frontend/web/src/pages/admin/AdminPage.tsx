@@ -1,25 +1,25 @@
-import { Stack } from '@mantine/core';
+import { Stack, UnstyledButton } from '@mantine/core';
 import { useNavigate } from 'react-router-dom';
 import {
   BodyLabel,
   CaptionLabel,
   CloudCard,
-  PrimaryButton,
   SubTitleLabel,
   TitleLabel,
 } from '../../components/ui';
+import { cloudColors } from '../../design/theme';
+import { useState } from 'react';
 
 /**
- * F2.1. Главная страница админки. Список карточек-разделов — строго
- * как в mobile (frontend/mobile/.../Views/Admin/AdminPage.xaml):
- *   1. История правок
- *   2. Пользователи
- *   3. Платежи
- *   4. Обращения
- *   5. Найти умершего
+ * F2.1. Главная страница админки. Список разделов — строго как в
+ * mobile AdminPage.xaml (5 пунктов, заголовки и описания дословно).
+ * Реальные страницы за каждой карточкой — заглушки, наполнятся в F17.
  *
- * Заголовки и описания скопированы один-в-один. Реальные страницы
- * за каждой кнопкой "Открыть" — заглушки, наполнятся в F17.
+ * Web-нюанс: вся карточка кликабельна (заголовок + описание).
+ * Кнопки 'Открыть' нет — это лишний шум на desktop, где клик по
+ * заголовку — нормальный UX-паттерн. На mobile XAML кнопка нужна,
+ * потому что тап по тексту в MAUI не очевиден; на вебе hover/cursor
+ * сразу намекают, что карточка кликабельна.
  */
 type AdminSection = {
   title: string;
@@ -57,8 +57,6 @@ const SECTIONS: AdminSection[] = [
 ];
 
 export function AdminPage() {
-  const navigate = useNavigate();
-
   return (
     <Stack gap="lg">
       <Stack gap="xs">
@@ -69,16 +67,43 @@ export function AdminPage() {
       </Stack>
 
       {SECTIONS.map((section) => (
-        <CloudCard key={section.to}>
-          <Stack gap="sm">
-            <SubTitleLabel>{section.title}</SubTitleLabel>
-            <BodyLabel>{section.description}</BodyLabel>
-            <PrimaryButton onClick={() => navigate(section.to)}>
-              Открыть
-            </PrimaryButton>
-          </Stack>
-        </CloudCard>
+        <SectionCard key={section.to} section={section} />
       ))}
     </Stack>
+  );
+}
+
+/**
+ * Кликабельная карточка раздела. Hover-эффект через локальный state
+ * (вместо CSS-модулей — единственная hover-зависимая карточка в F2.1,
+ * не оправдано тащить отдельный CSS-файл).
+ */
+function SectionCard({ section }: { section: AdminSection }) {
+  const navigate = useNavigate();
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <UnstyledButton
+      onClick={() => navigate(section.to)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ display: 'block', width: '100%', textAlign: 'left' }}
+    >
+      <CloudCard
+        style={{
+          cursor: 'pointer',
+          transition: 'box-shadow 120ms ease, border-color 120ms ease',
+          boxShadow: hovered
+            ? '0 6px 18px rgba(30, 58, 95, 0.14)'
+            : '0 4px 14px rgba(30, 58, 95, 0.08)',
+          borderColor: hovered ? cloudColors.azure : cloudColors.cloudBorder,
+        }}
+      >
+        <Stack gap="xs">
+          <SubTitleLabel>{section.title}</SubTitleLabel>
+          <BodyLabel>{section.description}</BodyLabel>
+        </Stack>
+      </CloudCard>
+    </UnstyledButton>
   );
 }
