@@ -16,62 +16,59 @@ import { usersApi } from '../api/endpoints/authApi';
  * чтобы ProtectedRoute не редиректил преждевременно. Аналог
  * AppShell.OnAppearing.HasSessionAsync на mobile.
  *
- * bootstrapStarted на module-level: React 18 в StrictMode вызывает
- * useEffect дважды в dev для отлова side-effect багов. Без этого
- * флага бэкенд получает два запроса refresh подряд при каждом старте,
- * это сжирает rate-limit-квоту (10 req/min на /auth).
+ * Singleflight через module-level Promise: React 18 в StrictMode
+ * вызывает useEffect дважды в dev, а Vite HMR может перемонтировать
+ * SessionBootstrap. Шарим одну Promise, чтобы:
+ *  - не делать два запроса /auth/refresh (сжирает rate-limit квоту);
+ *  - и при этом обязательно дождаться завершения и снять
+ *    isBootstrapping=false, даже если первое монтирование было
+ *    отменено React'ом.
  */
-let bootstrapStarted = false;
+let bootstrapPromise: Promise<void> | null = null;
+
+async function runBootstrap(): Promise<void> {
+  const { refreshToken, setTokens, setSession, clear, setBootstrapping } =
+    useAuthStore.getState();
+
+  if (!refreshToken) {
+    setBootstrapping(false);
+    return;
+  }
+
+  try {
+    const tokens = await refreshTokens(refreshToken);
+    if (!tokens) {
+      clear();
+      return;
+    }
+    // Применяем токены ДО /users/me, чтобы request interceptor
+    // подложил свежий access.
+    setTokens(tokens.accessToken, tokens.refreshToken);
+
+    const me = await usersApi.me();
+    setSession(tokens.accessToken, tokens.refreshToken, {
+      id: me.id,
+      email: me.email,
+      userName: me.userName,
+      fullName: me.fullName,
+      role: me.role,
+    });
+  } catch {
+    clear();
+  } finally {
+    setBootstrapping(false);
+  }
+}
 
 export function SessionBootstrap({ children }: { children: ReactNode }) {
   useEffect(() => {
-    if (bootstrapStarted) return;
-    bootstrapStarted = true;
-
-    let cancelled = false;
-
-    async function bootstrap() {
-      const { refreshToken, setTokens, setSession, clear, setBootstrapping } =
-        useAuthStore.getState();
-
-      if (!refreshToken) {
-        setBootstrapping(false);
-        return;
-      }
-
-      try {
-        const tokens = await refreshTokens(refreshToken);
-        if (cancelled) return;
-        if (!tokens) {
-          clear();
-          setBootstrapping(false);
-          return;
-        }
-        // Применяем токены ДО /users/me, чтобы request interceptor
-        // подложил свежий access.
-        setTokens(tokens.accessToken, tokens.refreshToken);
-
-        const me = await usersApi.me();
-        if (cancelled) return;
-        setSession(tokens.accessToken, tokens.refreshToken, {
-          id: me.id,
-          email: me.email,
-          userName: me.userName,
-          fullName: me.fullName,
-          role: me.role,
-        });
-      } catch {
-        if (cancelled) return;
-        clear();
-      } finally {
-        if (!cancelled) setBootstrapping(false);
-      }
+    if (!bootstrapPromise) {
+      bootstrapPromise = runBootstrap();
     }
-
-    bootstrap();
-    return () => {
-      cancelled = true;
-    };
+    // Не нужен cleanup: даже если компонент размонтируется (StrictMode,
+    // HMR), bootstrap должен дойти до конца и снять isBootstrapping —
+    // это глобальное состояние, не привязанное к жизненному циклу
+    // компонента.
   }, []);
 
   return <>{children}</>;
