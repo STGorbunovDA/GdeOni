@@ -5,20 +5,24 @@ import {
   BodyLabel,
   CaptionLabel,
   CloudCard,
+  GhostButton,
   PrimaryButton,
   TitleLabel,
 } from '../../components/ui';
 
 /**
- * F2. Заглушка логина с применёнными Cloud-стилями. Реальная форма —
- * в F4 (React Hook Form + Zod + POST /api/auth/login).
+ * F2. Заглушка логина с Cloud-стилями.
+ * F2.1: две кнопки — "войти как юзер" и "войти как админ" — чтобы
+ * можно было проверить, что пункт "Админка" в sidebar появляется
+ * только у админа. В F4 это станет реальной формой login + role
+ * из JWT-claim.
  */
 export function LoginPage() {
   const navigate = useNavigate();
-  const setTokens = useAuthStore((s) => s.setTokens);
+  const setSession = useAuthStore((s) => s.setSession);
 
-  function handleFakeLogin() {
-    setTokens('fake-access-token-f1', 'fake-refresh-token-f1');
+  function loginAs(role: 'User' | 'Admin') {
+    setSession('fake-access-token-f2', 'fake-refresh-token-f2', role);
     navigate('/tracked', { replace: true });
   }
 
@@ -28,15 +32,18 @@ export function LoginPage() {
         <Stack gap="md">
           <TitleLabel>Вход</TitleLabel>
           <BodyLabel>
-            Это временный экран (F2). Настоящая форма с email + паролем
-            появится в F4. Сейчас просто кнопка, чтобы проверить
-            ProtectedRoute и стили.
+            Это временный экран (F2.1). Настоящая форма с email + паролем
+            появится в F4. Сейчас две кнопки для проверки роли в sidebar.
           </BodyLabel>
-          <PrimaryButton onClick={handleFakeLogin}>
-            Войти как тест-юзер
+          <PrimaryButton onClick={() => loginAs('User')}>
+            Войти как юзер
           </PrimaryButton>
+          <GhostButton onClick={() => loginAs('Admin')}>
+            Войти как админ
+          </GhostButton>
           <CaptionLabel>
-            Реальный логин — в F4. До тех пор — fake-токены в localStorage.
+            Реальный логин — в F4. До тех пор — fake-токены и role
+            в localStorage (ключ "gdeoni-auth").
           </CaptionLabel>
         </Stack>
       </CloudCard>

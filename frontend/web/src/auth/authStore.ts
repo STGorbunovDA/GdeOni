@@ -2,15 +2,21 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 /**
- * F1. Минимальный auth store на Zustand. Хранит access + refresh
- * токены в localStorage (persist middleware). Для F1 — только для того,
- * чтобы ProtectedRoute мог проверить isAuthenticated. Реальный
- * login/logout flow приходит в F4. На mobile аналог — AuthService.
+ * F1 / F2.1. Auth store на Zustand. Хранит токены + роль в
+ * localStorage (persist middleware).
+ *
+ * F2.1: добавлено поле `role` — пока mock. В F4 значение будет
+ * приходить из JWT-claim `ClaimTypes.Role`. Mobile-аналог —
+ * AuthService.CurrentRole. На вебе используется в AppLayout для
+ * показа пункта "Админка" только админам.
  */
+export type UserRole = 'User' | 'Admin' | 'SuperAdmin';
+
 type AuthState = {
   accessToken: string | null;
   refreshToken: string | null;
-  setTokens: (access: string, refresh: string) => void;
+  role: UserRole | null;
+  setSession: (access: string, refresh: string, role: UserRole) => void;
   clear: () => void;
 };
 
@@ -19,8 +25,10 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       accessToken: null,
       refreshToken: null,
-      setTokens: (access, refresh) => set({ accessToken: access, refreshToken: refresh }),
-      clear: () => set({ accessToken: null, refreshToken: null }),
+      role: null,
+      setSession: (access, refresh, role) =>
+        set({ accessToken: access, refreshToken: refresh, role }),
+      clear: () => set({ accessToken: null, refreshToken: null, role: null }),
     }),
     { name: 'gdeoni-auth' },
   ),
@@ -28,3 +36,7 @@ export const useAuthStore = create<AuthState>()(
 
 export const useIsAuthenticated = () =>
   useAuthStore((s) => s.accessToken !== null);
+
+/** True для Admin или SuperAdmin. Зеркало ICurrentUserService.IsAdmin() на бэке. */
+export const useIsAdmin = () =>
+  useAuthStore((s) => s.role === 'Admin' || s.role === 'SuperAdmin');
