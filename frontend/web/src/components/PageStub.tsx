@@ -1,9 +1,14 @@
-import { Link } from 'react-router-dom';
+import { Container, Group, Stack } from '@mantine/core';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft } from 'lucide-react';
+import {
+  BodyLabel,
+  CaptionLabel,
+  CloudCard,
+  GhostButton,
+  TitleLabel,
+} from './ui';
 
-/**
- * F1. Универсальная заглушка страницы. Реальные страницы появятся
- * в F4-F17. Здесь — только маркер "роут работает" + ссылка обратно.
- */
 type Props = {
   title: string;
   fBlock: string;
@@ -11,15 +16,34 @@ type Props = {
 };
 
 export function PageStub({ title, fBlock, back = '/tracked' }: Props) {
+  const navigate = useNavigate();
+
   return (
-    <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif' }}>
-      <h1 style={{ marginBottom: 8 }}>{title}</h1>
-      <p style={{ color: '#666', marginBottom: 16 }}>
-        Заглушка для блока <b>{fBlock}</b>. Реальная страница — в следующем этапе.
-      </p>
-      <Link to={back} style={{ color: '#4A90E2' }}>
-        ← Назад
-      </Link>
-    </div>
+    <Container size="md" py="xl">
+      <Stack gap="lg">
+        <Group>
+          <GhostButton
+            onClick={() => navigate(back)}
+            leftSection={<ChevronLeft size={16} />}
+          >
+            Назад
+          </GhostButton>
+        </Group>
+
+        <CloudCard>
+          <Stack gap="sm">
+            <TitleLabel>{title}</TitleLabel>
+            <BodyLabel>
+              Заглушка для блока <b>{fBlock}</b>. Реальная страница
+              появится в следующем этапе.
+            </BodyLabel>
+            <CaptionLabel>
+              Если ты видишь эту страницу с Cloud-стилем (мягким облачным
+              фоном и закруглённой карточкой) — значит, F2 theme работает.
+            </CaptionLabel>
+          </Stack>
+        </CloudCard>
+      </Stack>
+    </Container>
   );
 }

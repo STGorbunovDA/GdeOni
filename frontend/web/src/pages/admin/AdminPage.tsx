@@ -1,21 +1,35 @@
+import { Container, List, Stack } from '@mantine/core';
 import { Link } from 'react-router-dom';
+import {
+  BodyLabel,
+  CaptionLabel,
+  CloudCard,
+  TitleLabel,
+} from '../../components/ui';
 
-/**
- * F1. Заглушка админ-меню. Реальные карточки разделов — в F17.
- */
 export function AdminPage() {
   return (
-    <div style={{ padding: 24, fontFamily: 'system-ui' }}>
-      <h1>Админка (F1 заглушка)</h1>
-      <p style={{ color: '#666' }}>
-        Полные разделы — в F17. Сейчас только проверяем роутинг.
-      </p>
+    <Container size="md" py="xl">
+      <Stack gap="lg">
+        <Stack gap="xs">
+          <TitleLabel>Админка</TitleLabel>
+          <CaptionLabel>
+            Полные разделы появятся в F17. Сейчас только заглушки для
+            проверки маршрутов.
+          </CaptionLabel>
+        </Stack>
 
-      <ul style={{ lineHeight: 1.8 }}>
-        <li><Link to="/admin/all">Все карточки</Link> (F17.1)</li>
-        <li><Link to="/admin/users">Пользователи</Link> (F17.7)</li>
-        <li><Link to="/tracked">← Назад в обычную часть</Link></li>
-      </ul>
-    </div>
+        <CloudCard>
+          <Stack gap="sm">
+            <BodyLabel>Разделы:</BodyLabel>
+            <List spacing="xs">
+              <List.Item><Link to="/admin/all">Все карточки</Link> (F17.1)</List.Item>
+              <List.Item><Link to="/admin/users">Пользователи</Link> (F17.7)</List.Item>
+              <List.Item><Link to="/tracked">← Назад в обычную часть</Link></List.Item>
+            </List>
+          </Stack>
+        </CloudCard>
+      </Stack>
+    </Container>
   );
 }

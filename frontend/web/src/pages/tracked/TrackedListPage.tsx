@@ -1,47 +1,68 @@
+import { Container, Group, List, Stack } from '@mantine/core';
 import { Link } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
 import { useAuthStore } from '../../auth/authStore';
+import {
+  BodyLabel,
+  CaptionLabel,
+  CloudCard,
+  GhostButton,
+  SubTitleLabel,
+  TitleLabel,
+} from '../../components/ui';
 
-/**
- * F1. Главная защищённая страница — сюда юзер попадает после логина.
- * Реальный список tracked-карточек — в F9.
- */
 export function TrackedListPage() {
   const clear = useAuthStore((s) => s.clear);
 
   return (
-    <div style={{ padding: 24, fontFamily: 'system-ui' }}>
-      <h1>Отслеживаемые (F1 заглушка)</h1>
-      <p style={{ color: '#666' }}>
-        Реальный список появится в F9. Сейчас проверяем, что после "входа"
-        нас сюда пускают, а без токена редиректит на /login.
-      </p>
+    <Container size="md" py="xl">
+      <Stack gap="lg">
+        <Stack gap="xs">
+          <TitleLabel>Отслеживаемые</TitleLabel>
+          <CaptionLabel>
+            Заглушка для F9. Сейчас здесь проверяем, что Cloud-стиль
+            применяется и что ProtectedRoute пускает залогиненного юзера.
+          </CaptionLabel>
+        </Stack>
 
-      <div style={{ marginTop: 24 }}>
-        <h3>Навигация (заглушки):</h3>
-        <ul style={{ lineHeight: 1.8 }}>
-          <li><Link to="/route">Маршрут</Link> (F14)</li>
-          <li><Link to="/search">Поиск</Link> (F6)</li>
-          <li><Link to="/at-grave">Добавить умершего</Link> (F8)</li>
-          <li><Link to="/profile">Профиль</Link> (F16)</li>
-          <li><Link to="/admin">Админка</Link> (F17)</li>
-          <li><Link to="/tracked/00000000-0000-0000-0000-000000000000">Карточка (тест-id)</Link> (F11)</li>
-        </ul>
-      </div>
+        <CloudCard>
+          <Stack gap="sm">
+            <SubTitleLabel>Навигация (F1 / F2 заглушки)</SubTitleLabel>
+            <BodyLabel>
+              Все ссылки ведут на стабовые страницы — там видно, что
+              ссылка/роутинг работает.
+            </BodyLabel>
+            <List spacing="xs">
+              <List.Item><Link to="/route">Маршрут</Link> (F14)</List.Item>
+              <List.Item><Link to="/search">Поиск</Link> (F6)</List.Item>
+              <List.Item><Link to="/at-grave">Добавить умершего</Link> (F8)</List.Item>
+              <List.Item><Link to="/profile">Профиль</Link> (F16)</List.Item>
+              <List.Item><Link to="/admin">Админка</Link> (F17)</List.Item>
+              <List.Item>
+                <Link to="/tracked/00000000-0000-0000-0000-000000000000">
+                  Карточка (тест-id)
+                </Link>{' '}
+                (F11)
+              </List.Item>
+              <List.Item>
+                <Link to="/style-demo">Демо дизайн-системы</Link> (F2, публичная)
+              </List.Item>
+            </List>
+          </Stack>
+        </CloudCard>
 
-      <button
-        onClick={clear}
-        style={{
-          marginTop: 24,
-          padding: '8px 16px',
-          background: 'transparent',
-          color: '#C0392B',
-          border: '1px solid #C0392B',
-          borderRadius: 8,
-          cursor: 'pointer',
-        }}
-      >
-        Выйти (clear токенов)
-      </button>
-    </div>
+        <Group>
+          <GhostButton
+            onClick={clear}
+            leftSection={<LogOut size={16} />}
+            color="red"
+            c="red"
+            style={{ borderColor: '#C0392B' }}
+          >
+            Выйти (clear токенов)
+          </GhostButton>
+        </Group>
+      </Stack>
+    </Container>
   );
 }

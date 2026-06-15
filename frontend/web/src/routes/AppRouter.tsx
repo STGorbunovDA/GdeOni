@@ -13,6 +13,7 @@ import { AdminPage } from '../pages/admin/AdminPage';
 import { AdminAllPage } from '../pages/admin/AdminAllPage';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
+import { StyleDemoPage } from '../pages/StyleDemoPage';
 import { ProtectedRoute } from './ProtectedRoute';
 
 /**
@@ -27,6 +28,8 @@ export function AppRouter() {
         {/* Публичные */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        {/* F2. Demo дизайн-системы — публичный роут для визуальной проверки. */}
+        <Route path="/style-demo" element={<StyleDemoPage />} />
 
         {/* Приватные */}
         <Route element={<ProtectedRoute />}>

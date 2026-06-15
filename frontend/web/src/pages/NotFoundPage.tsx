@@ -1,13 +1,21 @@
+import { Container, Stack } from '@mantine/core';
 import { Link } from 'react-router-dom';
+import {
+  BodyLabel,
+  CloudCard,
+  TitleLabel,
+} from '../components/ui';
 
 export function NotFoundPage() {
   return (
-    <div style={{ padding: 24, fontFamily: 'system-ui', textAlign: 'center', marginTop: 80 }}>
-      <h1 style={{ fontSize: 48 }}>404</h1>
-      <p style={{ color: '#666', marginBottom: 16 }}>Страница не найдена.</p>
-      <Link to="/tracked" style={{ color: '#4A90E2' }}>
-        На главную
-      </Link>
-    </div>
+    <Container size="xs" pt={64}>
+      <CloudCard>
+        <Stack gap="sm" align="center">
+          <TitleLabel>404</TitleLabel>
+          <BodyLabel>Страница не найдена.</BodyLabel>
+          <Link to="/tracked">На главную</Link>
+        </Stack>
+      </CloudCard>
+    </Container>
   );
 }
