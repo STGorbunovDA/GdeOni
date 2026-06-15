@@ -15,9 +15,19 @@ import { usersApi } from '../api/endpoints/authApi';
  * isBootstrapping в store держится в true пока этот процесс идёт,
  * чтобы ProtectedRoute не редиректил преждевременно. Аналог
  * AppShell.OnAppearing.HasSessionAsync на mobile.
+ *
+ * bootstrapStarted на module-level: React 18 в StrictMode вызывает
+ * useEffect дважды в dev для отлова side-effect багов. Без этого
+ * флага бэкенд получает два запроса refresh подряд при каждом старте,
+ * это сжирает rate-limit-квоту (10 req/min на /auth).
  */
+let bootstrapStarted = false;
+
 export function SessionBootstrap({ children }: { children: ReactNode }) {
   useEffect(() => {
+    if (bootstrapStarted) return;
+    bootstrapStarted = true;
+
     let cancelled = false;
 
     async function bootstrap() {

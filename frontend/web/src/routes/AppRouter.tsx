@@ -19,6 +19,7 @@ import { AdminFindDeceasedPage } from '../pages/admin/AdminFindDeceasedPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { StyleDemoPage } from '../pages/StyleDemoPage';
 import { ProtectedRoute } from './ProtectedRoute';
+import { AdminRoute } from './AdminRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
 /**
@@ -58,16 +59,18 @@ export function AppRouter() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/change-password" element={<ChangePasswordPage />} />
 
-            {/* F1 / F2.1: проверка роли на UI только в AppLayout (sidebar
-                не показывает пункт). Защита роута в коде — F17.
-                Сейчас юзер может зайти по прямому URL — это OK.
+            {/* F4. Admin-роуты защищены AdminRoute — не-админа редиректит
+                на /tracked. На бэке те же эндпоинты дополнительно охраняются
+                [Authorize(Roles="SuperAdmin,Admin")] на контроллерах.
                 Структура и названия — строго как в mobile AdminPage. */}
-            <Route path="/admin" element={<AdminPage />} />
-            <Route path="/admin/edits" element={<AdminEditsPage />} />
-            <Route path="/admin/users" element={<AdminUsersPage />} />
-            <Route path="/admin/payments" element={<AdminPaymentsPage />} />
-            <Route path="/admin/support-tickets" element={<AdminSupportPage />} />
-            <Route path="/admin/find-deceased" element={<AdminFindDeceasedPage />} />
+            <Route element={<AdminRoute />}>
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/edits" element={<AdminEditsPage />} />
+              <Route path="/admin/users" element={<AdminUsersPage />} />
+              <Route path="/admin/payments" element={<AdminPaymentsPage />} />
+              <Route path="/admin/support-tickets" element={<AdminSupportPage />} />
+              <Route path="/admin/find-deceased" element={<AdminFindDeceasedPage />} />
+            </Route>
           </Route>
         </Route>
 
