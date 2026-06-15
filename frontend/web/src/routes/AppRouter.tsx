@@ -18,6 +18,7 @@ import { AdminSupportPage } from '../pages/admin/AdminSupportPage';
 import { AdminFindDeceasedPage } from '../pages/admin/AdminFindDeceasedPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { StyleDemoPage } from '../pages/StyleDemoPage';
+import { GeoDemoPage } from '../pages/GeoDemoPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { AdminRoute } from './AdminRoute';
 import { AppLayout } from '../components/layout/AppLayout';
@@ -40,6 +41,8 @@ export function AppRouter() {
         <Route path="/register" element={<RegisterPage />} />
         {/* F2. Demo дизайн-системы — публичный роут для визуальной проверки. */}
         <Route path="/style-demo" element={<StyleDemoPage />} />
+        {/* F5. Demo геолокации — публичный, для ручного теста. */}
+        <Route path="/geo-demo" element={<GeoDemoPage />} />
 
         {/* Приватные: ProtectedRoute → AppLayout → конкретная страница */}
         <Route element={<ProtectedRoute />}>
