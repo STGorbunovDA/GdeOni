@@ -7,7 +7,7 @@ import {
   Text,
 } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
-import { Archive, LogOut, Map, Shield, User, Users } from 'lucide-react';
+import { Archive, Cloud, LogOut, Map, Shield, User, Users } from 'lucide-react';
 import { Outlet } from 'react-router-dom';
 import { useAuthStore, useIsAdmin } from '../../auth/authStore';
 import { cloudColors } from '../../design/theme';
@@ -62,9 +62,12 @@ export function AppLayout() {
         >
           <Group h="100%" px="md" gap="md">
             <Burger opened={opened} onClick={toggle} size="sm" />
-            <Text fw={700} c={cloudColors.inkBlue}>
-              GdeOni
-            </Text>
+            <Group gap={8}>
+              <Cloud size={22} color={cloudColors.azureDeep} />
+              <Text fw={700} c={cloudColors.inkBlue}>
+                GdeOni
+              </Text>
+            </Group>
           </Group>
         </AppShell.Header>
       )}
@@ -76,21 +79,26 @@ export function AppLayout() {
           borderRight: `1px solid ${cloudColors.cloudBorder}`,
         }}
       >
-        {/* Логотип/название поверх меню. На десктопе он также служит
-            "брендингом" в шапке (header'а на desktop нет). */}
+        {/* Логотип = облачко + название. На десктопе он также служит
+            "брендингом" в шапке (header'а на desktop нет). Облачко —
+            визуальный якорь Cloud-стиля, общий с mobile-приложением. */}
         <AppShell.Section>
-          <Group justify="space-between" mb="md">
-            <Text
-              fz={22}
-              fw={800}
-              c={cloudColors.azureDeep}
-              component="a"
-              href="/"
-              style={{ textDecoration: 'none' }}
-            >
+          <a
+            href="/"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 16,
+              textDecoration: 'none',
+              color: 'inherit',
+            }}
+          >
+            <Cloud size={28} color={cloudColors.azureDeep} />
+            <Text fz={22} fw={800} c={cloudColors.azureDeep}>
               GdeOni
             </Text>
-          </Group>
+          </a>
         </AppShell.Section>
 
         <AppShell.Section grow component={ScrollArea}>

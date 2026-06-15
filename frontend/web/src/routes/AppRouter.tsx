@@ -11,8 +11,11 @@ import { RoutePage } from '../pages/route/RoutePage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 import { ChangePasswordPage } from '../pages/profile/ChangePasswordPage';
 import { AdminPage } from '../pages/admin/AdminPage';
-import { AdminAllPage } from '../pages/admin/AdminAllPage';
+import { AdminEditsPage } from '../pages/admin/AdminEditsPage';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
+import { AdminPaymentsPage } from '../pages/admin/AdminPaymentsPage';
+import { AdminSupportPage } from '../pages/admin/AdminSupportPage';
+import { AdminFindDeceasedPage } from '../pages/admin/AdminFindDeceasedPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { StyleDemoPage } from '../pages/StyleDemoPage';
 import { ProtectedRoute } from './ProtectedRoute';
@@ -57,10 +60,14 @@ export function AppRouter() {
 
             {/* F1 / F2.1: проверка роли на UI только в AppLayout (sidebar
                 не показывает пункт). Защита роута в коде — F17.
-                Сейчас юзер может зайти по прямому URL — это OK. */}
+                Сейчас юзер может зайти по прямому URL — это OK.
+                Структура и названия — строго как в mobile AdminPage. */}
             <Route path="/admin" element={<AdminPage />} />
-            <Route path="/admin/all" element={<AdminAllPage />} />
+            <Route path="/admin/edits" element={<AdminEditsPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/admin/payments" element={<AdminPaymentsPage />} />
+            <Route path="/admin/support-tickets" element={<AdminSupportPage />} />
+            <Route path="/admin/find-deceased" element={<AdminFindDeceasedPage />} />
           </Route>
         </Route>
 
