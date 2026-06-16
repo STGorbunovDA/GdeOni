@@ -47,10 +47,29 @@ export type UseGeolocationResult = {
   reset: () => void;
 };
 
-const DEFAULT_OPTIONS: PositionOptions = {
+/**
+ * Стратегия запроса:
+ *  1. Сначала high-accuracy с коротким таймаутом (8s) — пытаемся
+ *     получить честный GPS-fix, если есть GPS-чип.
+ *  2. На TIMEOUT (но не на PERMISSION_DENIED) — фоллбэк на
+ *     low-accuracy с большим таймаутом (20s) и допуском кэша 1мин.
+ *     На desktop без GPS-чипа Chrome определяет по WiFi-сетям —
+ *     этому достаточно low-accuracy.
+ *
+ * Для типичного сценария 'поправить координаты могилы' точность
+ * важна только когда юзер физически у могилы с телефоном; на
+ * desktop приближённая позиция — норма.
+ */
+const HIGH_ACCURACY_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,
-  timeout: 15_000,
+  timeout: 8_000,
   maximumAge: 0,
+};
+
+const LOW_ACCURACY_OPTIONS: PositionOptions = {
+  enableHighAccuracy: false,
+  timeout: 20_000,
+  maximumAge: 60_000,
 };
 
 function mapBrowserError(err: GeolocationPositionError): GeoError {
@@ -71,7 +90,7 @@ function mapBrowserError(err: GeolocationPositionError): GeoError {
       return {
         code: 'timeout',
         message:
-          'Превышено время ожидания GPS. Попробуйте ещё раз на открытом месте.',
+          'Не удалось определить местоположение за отведённое время. На телефоне выйдите на открытое место, на desktop попробуйте ещё раз.',
       };
     default:
       return { code: 'position_unavailable', message: err.message };
@@ -98,20 +117,38 @@ export function useGeolocation(): UseGeolocationResult {
     setStatus('requesting');
     setError(null);
 
+    const onSuccess = (pos: GeolocationPosition) => {
+      setPosition({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracyMeters: pos.coords.accuracy,
+      });
+      setStatus('success');
+    };
+
+    const onLowAccuracyError = (err: GeolocationPositionError) => {
+      setError(mapBrowserError(err));
+      setStatus('error');
+    };
+
+    // 1. Пытаемся high-accuracy с коротким таймаутом.
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setPosition({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracyMeters: pos.coords.accuracy,
-        });
-        setStatus('success');
-      },
+      onSuccess,
       (err) => {
-        setError(mapBrowserError(err));
-        setStatus('error');
+        // PERMISSION_DENIED не лечится фоллбэком — сразу отдаём ошибку.
+        if (err.code === err.PERMISSION_DENIED) {
+          setError(mapBrowserError(err));
+          setStatus('error');
+          return;
+        }
+        // 2. TIMEOUT/POSITION_UNAVAILABLE — пробуем low-accuracy.
+        navigator.geolocation.getCurrentPosition(
+          onSuccess,
+          onLowAccuracyError,
+          LOW_ACCURACY_OPTIONS,
+        );
       },
-      DEFAULT_OPTIONS,
+      HIGH_ACCURACY_OPTIONS,
     );
   }, [status]);
 
