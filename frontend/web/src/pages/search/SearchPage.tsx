@@ -9,7 +9,7 @@ import {
 import { DatePickerInput } from '@mantine/dates';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, UserRound } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -355,8 +355,12 @@ function ResultCard({
 
 /**
  * Круглая аватарка 64×64. Если URL есть — показываем фото cover'ом
- * с фоллбэком на 🕊 при ошибке загрузки. Если URL нет — сразу 🕊
- * на голубом фоне.
+ * с фоллбэком на иконку UserRound при ошибке загрузки. Если URL
+ * пустой — сразу иконка на голубом фоне.
+ *
+ * Иконка из lucide (а не эмодзи 🕊) — на Windows в Яндекс.Браузере
+ * Color Emoji иногда не подгружается из системного шрифта и эмодзи
+ * рендерится пустым прямоугольником.
  */
 function Avatar({ url }: { url: string | null }) {
   const [failed, setFailed] = useState(false);
@@ -374,7 +378,6 @@ function Avatar({ url }: { url: string | null }) {
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
-        fontSize: 28,
         color: cloudColors.azureDeep,
       }}
     >
@@ -388,7 +391,7 @@ function Avatar({ url }: { url: string | null }) {
           onError={() => setFailed(true)}
         />
       ) : (
-        <span aria-hidden>🕊</span>
+        <UserRound size={32} strokeWidth={1.5} />
       )}
     </div>
   );
