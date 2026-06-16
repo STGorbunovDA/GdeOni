@@ -5,10 +5,6 @@
  * в /api/app/features.mediaBaseUrl. Каждый клиент сам строит финальный
  * URL под свою сеть — web→localhost, Android-эмулятор→10.0.2.2,
  * production→CDN-домен. Это снимает проблему "один URL для всех клиентов".
- *
- * Использование:
- *   const features = useAppFeatures();
- *   const url = buildMediaUrl(features.data?.mediaBaseUrl, item.mainPhotoBucket, item.mainPhotoStorageKey);
  */
 export function buildMediaUrl(
   mediaBaseUrl: string | undefined,
@@ -16,6 +12,24 @@ export function buildMediaUrl(
   storageKey: string | null | undefined,
 ): string | null {
   if (!mediaBaseUrl || !bucket || !storageKey) return null;
-  const base = mediaBaseUrl.replace(/\/+$/, '');
+  const base = applyDevHostFix(mediaBaseUrl).replace(/\/+$/, '');
   return `${base}/${bucket}/${encodeURIComponent(storageKey)}`;
+}
+
+/**
+ * Dev-only workaround: локально бэк сконфигурирован под Android-эмулятор
+ * (Minio:PublicBaseUrl=http://10.0.2.2:9000). Web-браузер в Windows
+ * этот IP не понимает — подменяем на localhost.
+ *
+ * На production бэк отдаёт публичный домен MinIO/CDN (https://files.gdeoni.ru)
+ * — этот хост не матчится, функция становится no-op.
+ *
+ * До D36-миграции mobile (когда mobile сам начнёт строить URL из
+ * bucket+key через свой PublicHostsService с дефолтом 10.0.2.2 для DEBUG)
+ * — этот фикс остаётся жить только в dev на вебе.
+ */
+function applyDevHostFix(url: string): string {
+  return url
+    .replace(/^http:\/\/10\.0\.2\.2(?=[:/]|$)/, 'http://localhost')
+    .replace(/^https:\/\/10\.0\.2\.2(?=[:/]|$)/, 'https://localhost');
 }
