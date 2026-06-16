@@ -346,6 +346,12 @@ function ResultCard({
             </Group>
             <BodyLabel>{lifePeriod}</BodyLabel>
             {locationParts && <CaptionLabel>{locationParts}</CaptionLabel>}
+            {/* DEBUG F6: показываем сырой URL чтобы понять, что отдал
+                бэкенд. Удалить когда фото будут стабильно работать. */}
+            <CaptionLabel c="dimmed" style={{ fontSize: 10 }}>
+              debug: mainMediaId={String(item.mainMediaId)} mainPhotoUrl=
+              {item.mainPhotoUrl ? item.mainPhotoUrl : 'null'}
+            </CaptionLabel>
           </Stack>
         </Group>
       </CloudCard>
