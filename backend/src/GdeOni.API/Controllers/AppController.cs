@@ -4,6 +4,7 @@ using GdeOni.API.Models.App;
 using GdeOni.API.Options;
 using GdeOni.API.Response;
 using GdeOni.Application.Abstractions.Features;
+using GdeOni.Application.Abstractions.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -52,11 +53,17 @@ public sealed class AppController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<AppFeaturesResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     public IActionResult GetFeatures(
-        [FromServices] IFeatureFlagService featureFlags)
+        [FromServices] IFeatureFlagService featureFlags,
+        [FromServices] IFileStorage fileStorage)
     {
+        // D36: mediaBaseUrl приходит из MinioOptions.PublicBaseUrl и
+        // отдаётся клиентам без bucket/key — каждый клиент сам строит
+        // финальный URL. Это снимает проблему "один URL для всех клиентов",
+        // когда mobile-эмулятор и web имеют разные хост-маппинги.
         var response = new AppFeaturesResponse(
             featureFlags.IsSubscriptionEnabled,
-            featureFlags.GracePeriodDaysAfterExpiry);
+            featureFlags.GracePeriodDaysAfterExpiry,
+            fileStorage.GetMediaBaseUrl());
 
         return response.ToOkResponse();
     }

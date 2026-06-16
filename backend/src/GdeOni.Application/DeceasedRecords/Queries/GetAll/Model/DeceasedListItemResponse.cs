@@ -25,8 +25,21 @@ public sealed class GetAllDeceasedItemResponse
     public Guid? MainMediaId { get; init; }
 
     /// <summary>
-    /// Готовый публичный URL главного фото для превью в ленте.
-    /// Null если фото нет или оно не Approved. Лекарство от N+1.
+    /// D36. Bucket + storage key главного фото. Клиент сам строит
+    /// URL через `${mediaBaseUrl}/${bucket}/${encodeURIComponent(key)}`,
+    /// где mediaBaseUrl приходит из <c>/api/app/features</c> и
+    /// различается для web/mobile/iOS. Null если фото нет или не
+    /// Approved.
+    /// </summary>
+    public string? MainPhotoBucket { get; init; }
+    public string? MainPhotoStorageKey { get; init; }
+
+    /// <summary>
+    /// DEPRECATED (D36): абсолютный URL хардкодит host из серверного
+    /// конфига и работает только для одного типа клиента (mobile или
+    /// web, не оба сразу). Используйте MainPhotoBucket+MainPhotoStorageKey.
+    /// Поле сохранено для обратной совместимости со старыми клиентами;
+    /// после выкатки новых клиентов будет удалено.
     /// </summary>
     public string? MainPhotoUrl { get; init; }
 }

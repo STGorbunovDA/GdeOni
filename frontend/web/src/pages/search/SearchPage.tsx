@@ -26,7 +26,8 @@ import {
   type SearchDeceasedParams,
 } from '../../api/endpoints/deceasedApi';
 import { formatError } from '../../auth/errorMessages';
-import { rewriteEmulatorHost } from '../../utils/mediaUrl';
+import { buildMediaUrl } from '../../utils/mediaUrl';
+import { useAppFeatures } from '../../hooks/useAppFeatures';
 
 import '@mantine/dates/styles.css';
 
@@ -100,6 +101,7 @@ export function SearchPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [activeForm, setActiveForm] = useState<FormState | null>(null);
   const [page, setPage] = useState(1);
+  const features = useAppFeatures();
 
   const canSearch = hasAnyFilter(form);
 
@@ -253,6 +255,7 @@ export function SearchPage() {
                 key={item.id}
                 item={item}
                 onClick={() => navigate(`/preview/${item.id}`)}
+                mediaBaseUrl={features.data?.mediaBaseUrl}
               />
             ))
           )}
@@ -306,9 +309,11 @@ export function SearchPage() {
 function ResultCard({
   item,
   onClick,
+  mediaBaseUrl,
 }: {
   item: DeceasedListItem;
   onClick: () => void;
+  mediaBaseUrl: string | undefined;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -316,6 +321,11 @@ function ResultCard({
   const locationParts = [item.country, item.city, item.cemeteryName]
     .filter(Boolean)
     .join(', ');
+  const photoUrl = buildMediaUrl(
+    mediaBaseUrl,
+    item.mainPhotoBucket,
+    item.mainPhotoStorageKey,
+  );
 
   return (
     <UnstyledButton
@@ -335,7 +345,7 @@ function ResultCard({
         }}
       >
         <Group align="center" gap="md" wrap="nowrap">
-          <Avatar url={rewriteEmulatorHost(item.mainPhotoUrl)} />
+          <Avatar url={photoUrl} />
           <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
             <Group justify="space-between">
               <SubTitleLabel>{item.fullName}</SubTitleLabel>

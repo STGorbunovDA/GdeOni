@@ -1,17 +1,21 @@
 /**
- * F6. Dev-only workaround: бэкенд в локальной разработке отдаёт media-
- * URL'ы с хостом 10.0.2.2 — это специальный IP Android-эмулятора,
- * по которому он достигает хост-машину. Web-браузер в Windows этого
- * IP не понимает (нет ADB-проксирования), поэтому подменяем хост
- * на localhost.
+ * D36 / F6. Построение media URL на клиенте.
  *
- * На production бэк должен отдавать публичный домен MinIO/CDN —
- * туда веб попадёт нормально. Тогда эта функция станет no-op
- * (никаких 10.0.2.2 в URL не будет).
+ * Бэк отдаёт bucket+storage_key в DTO листингов и базовый URL хранилища
+ * в /api/app/features.mediaBaseUrl. Каждый клиент сам строит финальный
+ * URL под свою сеть — web→localhost, Android-эмулятор→10.0.2.2,
+ * production→CDN-домен. Это снимает проблему "один URL для всех клиентов".
+ *
+ * Использование:
+ *   const features = useAppFeatures();
+ *   const url = buildMediaUrl(features.data?.mediaBaseUrl, item.mainPhotoBucket, item.mainPhotoStorageKey);
  */
-export function rewriteEmulatorHost(url: string | null): string | null {
-  if (!url) return url;
-  return url
-    .replace(/^http:\/\/10\.0\.2\.2(?=[:/])/, 'http://localhost')
-    .replace(/^https:\/\/10\.0\.2\.2(?=[:/])/, 'https://localhost');
+export function buildMediaUrl(
+  mediaBaseUrl: string | undefined,
+  bucket: string | null | undefined,
+  storageKey: string | null | undefined,
+): string | null {
+  if (!mediaBaseUrl || !bucket || !storageKey) return null;
+  const base = mediaBaseUrl.replace(/\/+$/, '');
+  return `${base}/${bucket}/${encodeURIComponent(storageKey)}`;
 }

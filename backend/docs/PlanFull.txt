@@ -11446,6 +11446,81 @@ C. Локальный лимит 10MB фото при загрузке media.
      ("документ" — аналогично для документа > 25 МБ).
 
 ---------------------------------------------------------------------
+D36. Endpoint-aware media URL contract
+---------------------------------------------------------------------
+
+Проблема (обнаружена 2026-06-12 при тестировании F6 на web):
+бэк отдаёт абсолютные media-URL с хостом MinIO, прочитанным из
+appsettings.Development.json (Minio:PublicBaseUrl=http://10.0.2.2:9000).
+10.0.2.2 — это специальный IP Android-эмулятора, по которому он
+достигает хост-машину. Mobile видит фото нормально, web-браузер в
+Windows такого IP не понимает.
+
+Сейчас (workaround) на web живёт src/utils/mediaUrl.ts:rewriteEmulatorHost,
+который подменяет 10.0.2.2 → localhost при чтении ответа. На production
+он станет no-op, потому что PublicBaseUrl будет домен CDN/MinIO.
+Помечено как dev-only.
+
+Что хочется убрать к prod-релизу:
+- Бэк не должен решать host за клиента. Сейчас один и тот же
+  DeceasedListItem.MainPhotoUrl содержит host который работает
+  только для одного типа клиента.
+- iOS-симулятор (когда добавим в I8) будет иметь свой маппинг —
+  третья замена хоста на web нелогична.
+- Production-конфиг хрупкий: забыли поставить PublicBaseUrl=https://files.gdeoni.ru
+  → MinIO выдаст внутренний docker-hostname (minio:9000) → никто
+  не увидит фото и об этом узнаем только в прод.
+
+Решение: разнести **identification** медиа (что это за файл) и
+**delivery** (как до него добраться). Бэк отдаёт bucket+key, каждый
+клиент строит URL под свою сеть из конфига mediaBaseUrl.
+
+Backend contract migration:
+
+[ ] Добавить в DTO листингов и детальных ответов поля:
+    - MediaBucket: string  ("deceased-photos" | "grave-photos" |
+      "deceased-documents" | "support-attachments")
+    - MediaStorageKey: string  (объектный ключ внутри bucket)
+    Это касается:
+    - GetAllDeceasedItemResponse.MainPhoto*
+    - MyTrackedDeceasedDetailsResponse.MainPhoto* + Media[]
+    - NearbyDeceasedItemResponse.MainPhoto*
+    - GetDeceasedByIdResult.MainPhoto* + Media[]
+    - SupportTicketDetailsResponse.Attachments[]
+[ ] MainPhotoUrl сохраняем как deprecated (computed на бэке как и
+    сейчас) на 1-2 релизных цикла, чтобы старые клиенты не сломались.
+    После выхода новых клиентов — удалить.
+[ ] Endpoint конфиг (новое поле AppFeaturesResponse, D17):
+    - MediaBaseUrl: string  ("https://files.gdeoni.ru" в prod,
+      "http://localhost:9000" / "http://10.0.2.2:9000" в dev).
+    Клиент тянет один раз и кеширует — F22 на web и E22 на mobile
+    уже забирают /api/app/features.
+
+Client behavior:
+
+[ ] Web (web/src/utils/mediaUrl.ts):
+    - getMediaUrl(bucket, key) = `${mediaBaseUrl}/${bucket}/${encodeURIComponent(key)}`
+    - rewriteEmulatorHost удалить.
+[ ] Mobile (E22 PublicHostsService):
+    - Тот же getMediaUrl, но с дефолтом 10.0.2.2 для DEBUG-сборок
+      без VITE-аналога.
+[ ] Production deploy:
+    - MediaBaseUrl в bootstrap-чеклисте (F18/D-deploy): без него
+      /api/app/features валится fail-fast как и Cors:AllowedOrigins
+      (D7.64).
+
+Что НЕ делаем в D36:
+- Presigned URL для media-фото — отдельный пункт (см. ниже D36.1).
+- Кэширование клиентом mediaBaseUrl — это будет через TanStack
+  Query (web) / в memory cache (mobile) автоматически.
+
+D36.1 (опционально, отдельный пункт): presigned URL для приватных
+media. Сейчас все media public-read (sознательный MVP-trade-off,
+D7.45). Если решим скрывать неавторизованным — переходим на presigned
+URL, что инвалидирует CDN-кеш и требует TTL-логики на клиенте.
+Откладываем до bug-report о приватности.
+
+---------------------------------------------------------------------
 F35. Action sheet на вложении + PDF preview + лимит фото (web)
 ---------------------------------------------------------------------
 

@@ -140,11 +140,14 @@ internal sealed class MinioFileStorage : IFileStorage
 
     public string GetPublicUrl(string bucket, string objectKey)
     {
-        var baseUrl = string.IsNullOrWhiteSpace(_options.PublicBaseUrl)
+        return $"{GetMediaBaseUrl()}/{bucket}/{Uri.EscapeDataString(objectKey)}";
+    }
+
+    public string GetMediaBaseUrl()
+    {
+        return string.IsNullOrWhiteSpace(_options.PublicBaseUrl)
             ? $"{(_options.UseSsl ? "https" : "http")}://{_options.Endpoint}"
             : _options.PublicBaseUrl.TrimEnd('/');
-
-        return $"{baseUrl}/{bucket}/{Uri.EscapeDataString(objectKey)}";
     }
 
     public async Task<string> GetPresignedUrlAsync(

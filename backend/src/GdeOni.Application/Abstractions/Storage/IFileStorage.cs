@@ -58,6 +58,14 @@ public interface IFileStorage
 
     string GetPublicUrl(string bucket, string objectKey);
 
+    /// <summary>
+    /// D36. Базовый URL хранилища без bucket/key — отдаётся клиентам
+    /// через <c>/api/app/features</c>, чтобы они сами строили URL
+    /// под свою сеть (web → localhost, Android-эмулятор → 10.0.2.2,
+    /// production → CDN-домен). Без trailing slash.
+    /// </summary>
+    string GetMediaBaseUrl();
+
     Task<string> GetPresignedUrlAsync(
         string bucket,
         string objectKey,

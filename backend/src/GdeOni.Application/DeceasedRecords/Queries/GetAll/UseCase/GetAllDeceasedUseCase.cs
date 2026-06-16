@@ -59,11 +59,18 @@ public sealed class GetAllDeceasedUseCase(
             Items = items.Select(x =>
             {
                 Guid? mediaId = null;
+                string? bucket = null;
+                string? storageKey = null;
                 string? photoUrl = null;
                 if (x.MainMediaId is { } mid
                     && mainMediaByMediaId.TryGetValue(mid, out var photo))
                 {
                     mediaId = photo.Id;
+                    bucket = photo.Bucket;
+                    storageKey = photo.StorageKey;
+                    // D36: оставляем для обратной совместимости со
+                    // старыми клиентами. Новые клиенты используют
+                    // MainPhotoBucket+MainPhotoStorageKey.
                     photoUrl = fileStorage.GetPublicUrl(photo.Bucket, photo.StorageKey);
                 }
 
@@ -85,6 +92,8 @@ public sealed class GetAllDeceasedUseCase(
                     IsVerified = x.IsVerified,
                     CreatedAtUtc = x.CreatedAtUtc,
                     MainMediaId = mediaId,
+                    MainPhotoBucket = bucket,
+                    MainPhotoStorageKey = storageKey,
                     MainPhotoUrl = photoUrl,
                 };
             }).ToList(),

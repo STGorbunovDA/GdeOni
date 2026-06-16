@@ -27,6 +27,17 @@ export type DeceasedListItem = {
   isVerified: boolean;
   createdAtUtc: string;
   mainMediaId: string | null;
+  /**
+   * D36. Bucket + storage key главного фото. Клиент строит URL через
+   * buildMediaUrl(bucket, storageKey) из ../utils/mediaUrl.
+   */
+  mainPhotoBucket: string | null;
+  mainPhotoStorageKey: string | null;
+  /**
+   * @deprecated D36: абсолютный URL с серверным хостом. Используй
+   * mainPhotoBucket + mainPhotoStorageKey. Поле сохраняется на 1-2
+   * релизных цикла для обратной совместимости.
+   */
   mainPhotoUrl: string | null;
 };
 
