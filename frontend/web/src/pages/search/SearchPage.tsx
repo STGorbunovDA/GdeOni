@@ -26,6 +26,7 @@ import {
   type SearchDeceasedParams,
 } from '../../api/endpoints/deceasedApi';
 import { formatError } from '../../auth/errorMessages';
+import { rewriteEmulatorHost } from '../../utils/mediaUrl';
 
 import '@mantine/dates/styles.css';
 
@@ -334,7 +335,7 @@ function ResultCard({
         }}
       >
         <Group align="center" gap="md" wrap="nowrap">
-          <Avatar url={item.mainPhotoUrl} />
+          <Avatar url={rewriteEmulatorHost(item.mainPhotoUrl)} />
           <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
             <Group justify="space-between">
               <SubTitleLabel>{item.fullName}</SubTitleLabel>
@@ -346,12 +347,6 @@ function ResultCard({
             </Group>
             <BodyLabel>{lifePeriod}</BodyLabel>
             {locationParts && <CaptionLabel>{locationParts}</CaptionLabel>}
-            {/* DEBUG F6: показываем сырой URL чтобы понять, что отдал
-                бэкенд. Удалить когда фото будут стабильно работать. */}
-            <CaptionLabel c="dimmed" style={{ fontSize: 10 }}>
-              debug: mainMediaId={String(item.mainMediaId)} mainPhotoUrl=
-              {item.mainPhotoUrl ? item.mainPhotoUrl : 'null'}
-            </CaptionLabel>
           </Stack>
         </Group>
       </CloudCard>
