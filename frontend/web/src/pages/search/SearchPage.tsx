@@ -299,6 +299,8 @@ export function SearchPage() {
 
 /**
  * Карточка результата. Кликабельна целиком (паттерн как в AdminPage).
+ * Слева — аватарка 64×64 (фото если есть, иначе плейсхолдер 🕊), как
+ * в mobile TrackedListPage.
  */
 function ResultCard({
   item,
@@ -331,19 +333,63 @@ function ResultCard({
           borderColor: hovered ? cloudColors.azure : cloudColors.cloudBorder,
         }}
       >
-        <Stack gap={6}>
-          <Group justify="space-between">
-            <SubTitleLabel>{item.fullName}</SubTitleLabel>
-            {item.isVerified && (
-              <CaptionLabel c={cloudColors.azureDeep}>
-                ✓ верифицирован
-              </CaptionLabel>
-            )}
-          </Group>
-          <BodyLabel>{lifePeriod}</BodyLabel>
-          {locationParts && <CaptionLabel>{locationParts}</CaptionLabel>}
-        </Stack>
+        <Group align="center" gap="md" wrap="nowrap">
+          <Avatar url={item.mainPhotoUrl} />
+          <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
+            <Group justify="space-between">
+              <SubTitleLabel>{item.fullName}</SubTitleLabel>
+              {item.isVerified && (
+                <CaptionLabel c={cloudColors.azureDeep}>
+                  ✓ верифицирован
+                </CaptionLabel>
+              )}
+            </Group>
+            <BodyLabel>{lifePeriod}</BodyLabel>
+            {locationParts && <CaptionLabel>{locationParts}</CaptionLabel>}
+          </Stack>
+        </Group>
       </CloudCard>
     </UnstyledButton>
+  );
+}
+
+/**
+ * Круглая аватарка 64×64. Если URL есть — показываем фото cover'ом
+ * с фоллбэком на 🕊 при ошибке загрузки. Если URL нет — сразу 🕊
+ * на голубом фоне.
+ */
+function Avatar({ url }: { url: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const showImage = url && !failed;
+
+  return (
+    <div
+      style={{
+        width: 64,
+        height: 64,
+        flexShrink: 0,
+        borderRadius: '50%',
+        background: cloudColors.sky,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        fontSize: 28,
+        color: cloudColors.azureDeep,
+      }}
+    >
+      {showImage ? (
+        <img
+          src={url}
+          alt=""
+          width={64}
+          height={64}
+          style={{ objectFit: 'cover', display: 'block' }}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span aria-hidden>🕊</span>
+      )}
+    </div>
   );
 }
