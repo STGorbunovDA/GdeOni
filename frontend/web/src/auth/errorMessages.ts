@@ -85,5 +85,13 @@ export function formatError(error: unknown): string {
     return `Ошибка сети (HTTP ${error.response?.status ?? '?'}).`;
   }
 
+  // Обычный Error (например, из requestGeolocationOnce, mutationFn,
+  // ручных throw new Error('...')) — отдаём его собственное сообщение
+  // вместо generic 'Неизвестная ошибка'. Иначе разработчик аккуратно
+  // составил месседж, а юзер видит бесполезное 'неизвестная ошибка'.
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
   return 'Неизвестная ошибка. Попробуйте ещё раз.';
 }
