@@ -61,6 +61,113 @@ export type SearchDeceasedParams = {
   pageSize?: number;
 };
 
+/**
+ * Запись воспоминания. Зеркало DeceasedMemoryResponse на бэке.
+ * D14: модерация отключена — все записи всегда Approved. Поле
+ * moderationStatus оставлено для совместимости с админкой (F17).
+ *
+ * authorUserId может быть null если автор удалил аккаунт — UI должен
+ * отображать "Аноним" в таком случае.
+ */
+export type DeceasedMemory = {
+  id: string;
+  text: string;
+  authorUserId: string | null;
+  /**
+   * Отображаемое имя автора (FullName ?? UserName). Null если юзер
+   * удалён или backend не нашёл; UI отрисует «Аноним». Заполняется
+   * бэком из batch-выборки User.GetDisplayNamesByIds — отдельный запрос
+   * клиент не делает.
+   */
+  authorName: string | null;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+  moderationStatus: string;
+};
+
+/**
+ * Полная карточка умершего, GET /api/deceased-records/{id}.
+ * Зеркало backend DeceasedDetailsResponse.
+ *
+ * D36: бэк отдаёт bucket+storageKey, клиент строит URL через
+ * buildMediaUrl(mediaBaseUrl, bucket, key). Старое mainPhotoUrl
+ * сохранено как deprecated на 1-2 релизных цикла.
+ */
+export type DeceasedDetails = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  middleName: string | null;
+  fullName: string;
+  birthDate: string | null;
+  deathDate: string;
+  hasBurialLocation: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  accuracyMeters: number | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  cemeteryName: string | null;
+  plotNumber: string | null;
+  graveNumber: string | null;
+  accuracy: string | null;
+  shortDescription: string | null;
+  biography: string | null;
+  createdByUserId: string;
+  isVerified: boolean;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+  mainMediaId: string | null;
+  mainPhotoBucket: string | null;
+  mainPhotoStorageKey: string | null;
+  /** @deprecated D36: используй mainPhotoBucket+mainPhotoStorageKey. */
+  mainPhotoUrl: string | null;
+  memories: DeceasedMemory[];
+};
+
+/**
+ * Запрос POST /api/deceased-records/at-grave (F8). Зеркало
+ * AddDeceasedAtGraveRequest на бэке. Бэк парсит RelationshipType как
+ * enum, но из-за JsonStringEnumConverter принимает имя строкой
+ * ('Friend', 'Parent', и т.д.) — поэтому шлём строкой.
+ *
+ * Даты — 'yyyy-MM-dd' (DateOnly на бэке).
+ */
+export type AtGraveLocationRequest = {
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number | null;
+  country: string | null;
+  city: string | null;
+  cemeteryName: string | null;
+  plotNumber: string | null;
+  graveNumber: string | null;
+};
+
+export type AtGraveTrackingRequest = {
+  relationshipType: string;
+  personalNotes: string | null;
+  notifyOnDeathAnniversary: boolean;
+  notifyOnBirthAnniversary: boolean;
+};
+
+export type AtGraveRequest = {
+  firstName: string;
+  lastName: string;
+  middleName: string | null;
+  birthDate: string | null;
+  deathDate: string;
+  shortDescription: string | null;
+  biography: string | null;
+  graveLocation: AtGraveLocationRequest;
+  tracking: AtGraveTrackingRequest;
+};
+
+export type AtGraveResponse = {
+  deceasedId: string;
+};
+
 export const deceasedApi = {
   /**
    * GET /api/deceased-records — поиск/листинг карточек.
@@ -74,6 +181,53 @@ export const deceasedApi = {
       apiClient.get<ApiEnvelope<PagedResponse<DeceasedListItem>>>(
         '/api/deceased-records',
         { params: cleanParams(params) },
+      ),
+    );
+  },
+
+  /**
+   * GET /api/deceased-records/{id} — полная карточка. Используется
+   * на preview (F7) и при загрузке деталей админом. Обычный юзер тоже
+   * может получить её, если он трекает или если карточка не удалена —
+   * фильтры доступа делает бэк.
+   */
+  async getById(id: string): Promise<DeceasedDetails> {
+    return unwrap(
+      apiClient.get<ApiEnvelope<DeceasedDetails>>(
+        `/api/deceased-records/${id}`,
+      ),
+    );
+  },
+
+  /**
+   * POST /api/deceased-records/at-grave (F8). Атомарно создаёт карточку
+   * + место захоронения + tracking-запись текущего юзера. Возвращает id
+   * созданной карточки.
+   */
+  async addAtGrave(request: AtGraveRequest): Promise<AtGraveResponse> {
+    return unwrap(
+      apiClient.post<ApiEnvelope<AtGraveResponse>>(
+        '/api/deceased-records/at-grave',
+        request,
+      ),
+    );
+  },
+
+  /**
+   * F15. PUT /api/deceased-records/{id}/burial-location/from-gps — правка
+   * только координат, без затирания Country/City/Cemetery/Plot/Grave.
+   * Эндпойнт исторически называется /from-gps, но (после E20) сохраняет
+   * адресные поля. На бэке ICanEditDeceasedPolicy: 403 для не-автора и
+   * не-админа.
+   */
+  async setBurialFromGps(
+    deceasedId: string,
+    request: { latitude: number; longitude: number; accuracyMeters: number | null },
+  ): Promise<void> {
+    await unwrap(
+      apiClient.put<ApiEnvelope<{ deceasedId: string }>>(
+        `/api/deceased-records/${deceasedId}/burial-location/from-gps`,
+        request,
       ),
     );
   },

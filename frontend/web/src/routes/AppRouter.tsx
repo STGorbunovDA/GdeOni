@@ -3,6 +3,7 @@ import { LoginPage } from '../pages/auth/LoginPage';
 import { RegisterPage } from '../pages/auth/RegisterPage';
 import { TrackedListPage } from '../pages/tracked/TrackedListPage';
 import { DeceasedDetailsPage } from '../pages/tracked/DeceasedDetailsPage';
+import { EditCoordsPage } from '../pages/tracked/EditCoordsPage';
 import { ArchivePage } from '../pages/tracked/ArchivePage';
 import { SearchPage } from '../pages/search/SearchPage';
 import { AtGravePage } from '../pages/search/AtGravePage';
@@ -52,6 +53,7 @@ export function AppRouter() {
             <Route path="/tracked" element={<TrackedListPage />} />
             <Route path="/tracked/archive" element={<ArchivePage />} />
             <Route path="/tracked/:id" element={<DeceasedDetailsPage />} />
+            <Route path="/tracked/:id/edit-coords" element={<EditCoordsPage />} />
 
             <Route path="/search" element={<SearchPage />} />
             <Route path="/at-grave" element={<AtGravePage />} />
