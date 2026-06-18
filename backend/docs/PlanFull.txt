@@ -11514,6 +11514,24 @@ Client behavior:
 - Кэширование клиентом mediaBaseUrl — это будет через TanStack
   Query (web) / в memory cache (mobile) автоматически.
 
+Статус rollout (2026-06-16):
+- Бэк: bucket+storageKey в 4 DTO (Listing/Nearby/MyTracked-List/Details).
+  MediaBaseUrl в /api/app/features. MainPhotoUrl deprecated, на 1-2
+  релизных цикла сохраняется для совместимости со старыми клиентами.
+- Mobile: AppFeaturesResponse + MediaBaseUrl, новый IPublicHostsService
+  с in-memory кэшем и DEBUG-дефолтом http://10.0.2.2:9000. MediaUrl
+  Resolve Extensions подменяют DTO.MainPhotoUrl результатом
+  buildMediaUrl(bucket, key) — XAML не меняем, биндинги те же.
+- Web: removed rewriteMediaHost workaround; страницы тянут
+  mediaBaseUrl из useAppFeatures и строят URL через buildMediaUrl.
+- Media-галерея D36 (2026-06-16): GetMediaList отдаёт Bucket+StorageKey.
+  Mobile MediaListItem +Bucket?/StorageKey?; MediaUrlResolveExtensions
+  .ResolveUrlAsync пересобирает Url для фото (Kind != Document), для
+  документов оставляет presigned URL как есть. DeceasedDetailsViewModel
+  и AdminDeceasedViewViewModel вызывают ResolveUrlAsync в LoadMediaAsync.
+- Web для media-галереи (F13) — пока не делалось, у веба нет соответствующих
+  страниц. Контракт уже готов: bucket+key есть в /api/deceased-records/{id}/media.
+
 D36.1 (опционально, отдельный пункт): presigned URL для приватных
 media. Сейчас все media public-read (sознательный MVP-trade-off,
 D7.45). Если решим скрывать неавторизованным — переходим на presigned
