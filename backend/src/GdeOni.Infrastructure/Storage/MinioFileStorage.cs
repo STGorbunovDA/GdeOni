@@ -178,6 +178,37 @@ internal sealed class MinioFileStorage : IFileStorage
         return ApplyPublicPathPrefix(url, _options.PublicBaseUrl);
     }
 
+    public async Task<DownloadedFile> DownloadAsync(
+        string bucket,
+        string objectKey,
+        CancellationToken cancellationToken)
+    {
+        // MinIO SDK даёт поток через callback. Заворачиваем в MemoryStream,
+        // чтобы контроллер мог стримить клиенту независимо от того, дожил
+        // ли исходный поток до конца. Для F13 это PDF до 25 MB — память
+        // не критична. Большие файлы (если появятся) надо будет переделать
+        // на pipe/PipeReader, чтобы не буферизировать.
+        var ms = new MemoryStream();
+        var args = new GetObjectArgs()
+            .WithBucket(bucket)
+            .WithObject(objectKey)
+            .WithCallbackStream(async (stream, ct) =>
+            {
+                await stream.CopyToAsync(ms, ct);
+            });
+
+        var stat = await _client.GetObjectAsync(args, cancellationToken);
+
+        ms.Position = 0;
+        // Stat иногда отдаёт ContentType пустой (SDK quirk на старых
+        // версиях). В таком случае fallback на application/octet-stream
+        // — браузер сам разберётся (для PDF mime обычно проставлен).
+        var contentType = string.IsNullOrWhiteSpace(stat.ContentType)
+            ? "application/octet-stream"
+            : stat.ContentType;
+        return new DownloadedFile(ms, contentType, stat.Size);
+    }
+
     internal static string ApplyPublicPathPrefix(string presignedUrl, string? publicBaseUrl)
     {
         if (string.IsNullOrWhiteSpace(publicBaseUrl))

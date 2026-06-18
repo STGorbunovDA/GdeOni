@@ -117,8 +117,11 @@ public sealed class DeceasedQueriesTests
             .ReturnsAsync(deceased);
 
         var fileStorage = new Mock<IFileStorage>();
+        var userRepo = new Mock<IUserRepository>();
+        userRepo.Setup(x => x.GetDisplayNamesByIds(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, string>());
         var useCase = new GetDeceasedByIdUseCase(
-            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
+            deceasedRepo.Object, userRepo.Object, fileStorage.Object, currentUser.Object,
             TestExecutor.With<GetDeceasedByIdQuery, GetDeceasedByIdQueryValidator>());
 
         var result = await useCase.Execute(
@@ -150,8 +153,11 @@ public sealed class DeceasedQueriesTests
             .ReturnsAsync(deceased);
 
         var fileStorage = new Mock<IFileStorage>();
+        var userRepo = new Mock<IUserRepository>();
+        userRepo.Setup(x => x.GetDisplayNamesByIds(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, string>());
         var useCase = new GetDeceasedByIdUseCase(
-            deceasedRepo.Object, fileStorage.Object, currentUser.Object,
+            deceasedRepo.Object, userRepo.Object, fileStorage.Object, currentUser.Object,
             TestExecutor.With<GetDeceasedByIdQuery, GetDeceasedByIdQueryValidator>());
 
         var result = await useCase.Execute(

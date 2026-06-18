@@ -45,8 +45,20 @@ public sealed class DeceasedDetailsResponse
     public Guid? MainMediaId { get; init; }
 
     /// <summary>
-    /// Готовый публичный URL главного фото. Null если фото нет или оно
-    /// не Approved. Зашит в ответ для устранения N+1 запросов на /media.
+    /// D36. Bucket и storage key главного фото. Клиент сам строит
+    /// URL через <c>${mediaBaseUrl}/${bucket}/${encodeURIComponent(key)}</c>,
+    /// где mediaBaseUrl приходит из <c>/api/app/features</c>. Null если
+    /// фото нет или не Approved.
+    /// </summary>
+    public string? MainPhotoBucket { get; init; }
+    public string? MainPhotoStorageKey { get; init; }
+
+    /// <summary>
+    /// DEPRECATED (D36): абсолютный URL хардкодит host из серверного
+    /// конфига и работает только для одного типа клиента (mobile или
+    /// web, не оба сразу). Используйте MainPhotoBucket+MainPhotoStorageKey.
+    /// Поле сохранено для обратной совместимости со старыми клиентами;
+    /// будет удалено после выкатки новых клиентов.
     /// </summary>
     public string? MainPhotoUrl { get; init; }
 }

@@ -26,6 +26,18 @@ public interface IUserRepository
     Task<string?> GetEmailById(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Batch-выборка отображаемых имён авторов: возвращает
+    /// <c>FullName ?? UserName</c> для каждого id из списка. Используется
+    /// в DeceasedDetails чтобы показывать "автор: Иван Петров" под
+    /// каждым воспоминанием без N+1 запросов. Несуществующие id
+    /// (юзер удалил аккаунт) в словарь не попадают — UI отрисует
+    /// "Аноним".
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesByIds(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// D16. Поиск пользователя по <c>Subscription.LastPaymentId</c>.
     /// Используется <c>ProcessPaymentWebhookUseCase</c> чтобы найти,
     /// кого активировать после webhook YooKassa. Возвращает null

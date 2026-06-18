@@ -93,6 +93,26 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesByIds(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken)
+    {
+        if (userIds.Count == 0)
+            return new Dictionary<Guid, string>();
+
+        // FullName приоритетнее: это "то, что юзер указал о себе".
+        // Если он пустой — fallback на UserName (он обязателен и уникален).
+        var rows = await dbContext.Users
+            .AsNoTracking()
+            .Where(x => userIds.Contains(x.Id))
+            .Select(x => new { x.Id, x.FullName, x.UserName })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(
+            r => r.Id,
+            r => string.IsNullOrWhiteSpace(r.FullName) ? r.UserName : r.FullName);
+    }
+
     public Task<User?> GetBySubscriptionPaymentId(
         string externalPaymentId,
         CancellationToken cancellationToken)

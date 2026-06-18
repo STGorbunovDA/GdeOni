@@ -51,11 +51,17 @@ public sealed class GetNearbyDeceasedUseCase(
                 .Select(x =>
                 {
                     Guid? mediaId = null;
+                    string? bucket = null;
+                    string? storageKey = null;
                     string? photoUrl = null;
                     if (x.Deceased.MainMediaId is { } mid
                         && mainMediaByMediaId.TryGetValue(mid, out var photo))
                     {
                         mediaId = photo.Id;
+                        bucket = photo.Bucket;
+                        storageKey = photo.StorageKey;
+                        // D36: оставляем для обратной совместимости со старыми
+                        // клиентами. Новые клиенты используют bucket+storageKey.
                         photoUrl = fileStorage.GetPublicUrl(photo.Bucket, photo.StorageKey);
                     }
 
@@ -75,6 +81,8 @@ public sealed class GetNearbyDeceasedUseCase(
                         IsVerified = x.Deceased.IsVerified,
                         DistanceMeters = (int)Math.Round(x.DistanceMeters),
                         MainMediaId = mediaId,
+                        MainPhotoBucket = bucket,
+                        MainPhotoStorageKey = storageKey,
                         MainPhotoUrl = photoUrl,
                     };
                 })

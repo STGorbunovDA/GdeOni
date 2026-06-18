@@ -55,6 +55,8 @@ public sealed class GetMyTrackedDeceasedDetailsUseCase(
         // GetByIdWithMemoriesReadOnly Media не Include'ит, GetMainPhoto()
         // вернул бы null. Approved-фильтр зашит в GetApprovedMainMedia.
         Guid? mainMediaId = null;
+        string? mainPhotoBucket = null;
+        string? mainPhotoStorageKey = null;
         string? mainPhotoUrl = null;
         if (deceased.MainMediaId is { } mediaId)
         {
@@ -64,15 +66,34 @@ public sealed class GetMyTrackedDeceasedDetailsUseCase(
             if (byId.TryGetValue(mediaId, out var photo))
             {
                 mainMediaId = photo.Id;
+                mainPhotoBucket = photo.Bucket;
+                mainPhotoStorageKey = photo.StorageKey;
+                // D36: оставляем для обратной совместимости со старыми
+                // клиентами.
                 mainPhotoUrl = fileStorage.GetPublicUrl(photo.Bucket, photo.StorageKey);
             }
         }
+
+        // F12: имена авторов воспоминаний — batch'ем чтобы не словить N+1.
+        var authorIds = deceased.Memories
+            .Where(m => m.AuthorUserId.HasValue)
+            .Select(m => m.AuthorUserId!.Value)
+            .Distinct()
+            .ToList();
+        var authorNames = await userRepository.GetDisplayNamesByIds(authorIds, cancellationToken);
 
         // D14: модерация воспоминаний отключена — все воспоминания видны
         // всем. Параметр canSeeAllMemories в Result оставлен (используется
         // mapper'ом для совместимости), просто всегда true.
         return Result.Success<GetMyTrackedDeceasedDetailsResult, Error>(
             new GetMyTrackedDeceasedDetailsResult(
-                deceased, tracking, CanSeeAllMemories: true, mainMediaId, mainPhotoUrl));
+                deceased,
+                tracking,
+                CanSeeAllMemories: true,
+                mainMediaId,
+                mainPhotoBucket,
+                mainPhotoStorageKey,
+                mainPhotoUrl,
+                authorNames));
     }
 }

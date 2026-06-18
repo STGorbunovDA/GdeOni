@@ -38,6 +38,7 @@ using GdeOni.Application.DeceasedRecords.Queries.GetAgeAtDeath.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetAll.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetById.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetDistance.UseCase;
+using GdeOni.Application.DeceasedRecords.Queries.DownloadMedia.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.UseCase;
@@ -153,6 +154,7 @@ public static class DependencyInjection
         services.AddScoped<IUploadMediaUseCase, UploadMediaUseCase>();
         services.AddScoped<IGetMediaListUseCase, GetMediaListUseCase>();
         services.AddScoped<IGetMediaByIdUseCase, GetMediaByIdUseCase>();
+        services.AddScoped<IDownloadMediaUseCase, DownloadMediaUseCase>();
         services.AddScoped<IDeleteMediaUseCase, DeleteMediaUseCase>();
         services.AddScoped<ISetMainMediaPhotoUseCase, SetMainMediaPhotoUseCase>();
         services.AddScoped<IUpdateMediaDescriptionUseCase, UpdateMediaDescriptionUseCase>();

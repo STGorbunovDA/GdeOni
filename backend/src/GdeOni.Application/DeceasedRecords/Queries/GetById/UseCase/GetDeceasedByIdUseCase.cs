@@ -10,6 +10,7 @@ namespace GdeOni.Application.DeceasedRecords.Queries.GetById.UseCase;
 
 public sealed class GetDeceasedByIdUseCase(
     IDeceasedRepository deceasedRepository,
+    IUserRepository userRepository,
     IFileStorage fileStorage,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
@@ -41,6 +42,8 @@ public sealed class GetDeceasedByIdUseCase(
         // Include'ит Media, поэтому Deceased.GetMainPhoto() здесь вернул
         // бы null. Фильтр Approved живёт внутри GetApprovedMainMedia.
         Guid? mainMediaId = null;
+        string? mainPhotoBucket = null;
+        string? mainPhotoStorageKey = null;
         string? mainPhotoUrl = null;
         if (deceased.MainMediaId is { } mediaId)
         {
@@ -50,14 +53,33 @@ public sealed class GetDeceasedByIdUseCase(
             if (byId.TryGetValue(mediaId, out var photo))
             {
                 mainMediaId = photo.Id;
+                mainPhotoBucket = photo.Bucket;
+                mainPhotoStorageKey = photo.StorageKey;
+                // D36: оставляем для обратной совместимости со старыми
+                // клиентами. Новые клиенты используют bucket+storageKey.
                 mainPhotoUrl = fileStorage.GetPublicUrl(photo.Bucket, photo.StorageKey);
             }
         }
+
+        // F12: имена авторов воспоминаний — batch'ем чтобы не словить N+1.
+        var authorIds = deceased.Memories
+            .Where(m => m.AuthorUserId.HasValue)
+            .Select(m => m.AuthorUserId!.Value)
+            .Distinct()
+            .ToList();
+        var authorNames = await userRepository.GetDisplayNamesByIds(authorIds, cancellationToken);
 
         // D14: модерация воспоминаний отключена — все воспоминания видны
         // всем. Параметр canSeeAllMemories оставлен в Result для
         // совместимости с mapper'ом, всегда true.
         return Result.Success<GetDeceasedByIdResult, Error>(
-            new GetDeceasedByIdResult(deceased, CanSeeAllMemories: true, mainMediaId, mainPhotoUrl));
+            new GetDeceasedByIdResult(
+                deceased,
+                CanSeeAllMemories: true,
+                mainMediaId,
+                mainPhotoBucket,
+                mainPhotoStorageKey,
+                mainPhotoUrl,
+                authorNames));
     }
 }

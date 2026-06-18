@@ -71,4 +71,27 @@ public interface IFileStorage
         string objectKey,
         TimeSpan expiresIn,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// F13 (web): стримит файл из storage через сервер. Используется
+    /// download-прокси-эндпоинтом, когда presigned URL клиент не может
+    /// открыть напрямую (web в Windows не разрешает host
+    /// <c>10.0.2.2:9000</c> Android-эмулятора). На production даёт
+    /// дополнительную возможность скрыть внутренний хост MinIO и
+    /// логировать доступ к файлам.
+    /// </summary>
+    Task<DownloadedFile> DownloadAsync(
+        string bucket,
+        string objectKey,
+        CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Результат <see cref="IFileStorage.DownloadAsync"/>. Content — поток
+/// который caller обязан задиспозить. ContentType приходит из MinIO
+/// metadata (записывается при upload). SizeBytes -1 если неизвестен.
+/// </summary>
+public sealed record DownloadedFile(
+    Stream Content,
+    string ContentType,
+    long SizeBytes);

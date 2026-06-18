@@ -13,6 +13,8 @@ using GdeOni.Application.DeceasedRecords.Commands.UpdateMediaDescription.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UpdateMediaDescription.UseCase;
 using GdeOni.Application.DeceasedRecords.Commands.UploadMedia.Model;
 using GdeOni.Application.DeceasedRecords.Commands.UploadMedia.UseCase;
+using GdeOni.Application.DeceasedRecords.Queries.DownloadMedia.Model;
+using GdeOni.Application.DeceasedRecords.Queries.DownloadMedia.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.Model;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.Model;
@@ -129,6 +131,46 @@ public sealed class DeceasedMediaController : ApiControllerBase
             cancellationToken);
 
         return FromResult(result);
+    }
+
+    /// <summary>
+    /// F13 (web). Прокси-скачивание файла через сервер: бэк сам
+    /// тянет поток из MinIO и отдаёт клиенту. Нужен потому что
+    /// presigned URL'ы в dev-конфиге используют host
+    /// <c>10.0.2.2:9000</c> (Android-эмулятор) — браузер на Windows
+    /// этот host не разрешает. На production даёт дополнительные
+    /// возможности: скрыть внутренний хост MinIO и логировать
+    /// доступ к файлам.
+    ///
+    /// Mobile эту прокси НЕ ИСПОЛЬЗУЕТ — у него Launcher.OpenAsync
+    /// открывает presigned URL напрямую (10.0.2.2 на эмуляторе
+    /// разрешается).
+    /// </summary>
+    [HttpGet("{mediaId:guid}/download")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Download(
+        [FromRoute] Guid id,
+        [FromRoute] Guid mediaId,
+        [FromServices] IDownloadMediaUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new DownloadMediaQuery(id, mediaId),
+            cancellationToken);
+
+        if (result.IsFailure)
+            return FromResult(result);
+
+        var value = result.Value;
+        // FileStreamResult сам задиспозит поток после отправки клиенту.
+        // Content-Disposition=inline — браузер откроет PDF в viewer'е,
+        // не предложит "сохранить как".
+        Response.Headers.ContentDisposition =
+            $"inline; filename=\"{Uri.EscapeDataString(value.OriginalFileName)}\"";
+        return File(value.File.Content, value.File.ContentType);
     }
 
     /// <summary>

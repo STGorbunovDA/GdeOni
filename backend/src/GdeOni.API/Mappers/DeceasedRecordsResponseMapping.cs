@@ -18,7 +18,10 @@ public static class DeceasedRecordsResponseMapping
         result.Deceased.ToDetailsResponse(
             result.CanSeeAllMemories,
             result.MainMediaId,
-            result.MainPhotoUrl);
+            result.MainPhotoBucket,
+            result.MainPhotoStorageKey,
+            result.MainPhotoUrl,
+            result.AuthorNames);
 
     public static MyTrackedDeceasedDetailsResponse ToDetailsResponse(this GetMyTrackedDeceasedDetailsResult result) =>
         new()
@@ -26,7 +29,10 @@ public static class DeceasedRecordsResponseMapping
             Deceased = result.Deceased.ToDetailsResponse(
                 result.CanSeeAllMemories,
                 result.MainMediaId,
-                result.MainPhotoUrl),
+                result.MainPhotoBucket,
+                result.MainPhotoStorageKey,
+                result.MainPhotoUrl,
+                result.AuthorNames),
             Tracking = new MyTrackingInfoResponse
             {
                 TrackingId = result.Tracking.Id,
@@ -43,7 +49,10 @@ public static class DeceasedRecordsResponseMapping
         this Deceased deceased,
         bool canSeeAllMemories,
         Guid? mainMediaId = null,
-        string? mainPhotoUrl = null)
+        string? mainPhotoBucket = null,
+        string? mainPhotoStorageKey = null,
+        string? mainPhotoUrl = null,
+        IReadOnlyDictionary<Guid, string>? authorNames = null)
     {
         var memoriesQuery = canSeeAllMemories
             ? deceased.Memories
@@ -100,6 +109,11 @@ public static class DeceasedRecordsResponseMapping
                     Id = memory.Id,
                     Text = memory.Text,
                     AuthorUserId = memory.AuthorUserId,
+                    AuthorName = memory.AuthorUserId is { } authorId
+                        && authorNames is not null
+                        && authorNames.TryGetValue(authorId, out var name)
+                            ? name
+                            : null,
                     CreatedAtUtc = memory.CreatedAtUtc,
                     UpdatedAtUtc = memory.UpdatedAtUtc,
                     ModerationStatus = memory.ModerationStatus.ToString()
@@ -107,6 +121,8 @@ public static class DeceasedRecordsResponseMapping
                 .ToArray(),
 
             MainMediaId = mainMediaId,
+            MainPhotoBucket = mainPhotoBucket,
+            MainPhotoStorageKey = mainPhotoStorageKey,
             MainPhotoUrl = mainPhotoUrl,
         };
     }
