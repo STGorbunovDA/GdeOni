@@ -21,10 +21,17 @@ public sealed record MediaListItem(
     string? Description,
     bool IsMainPhoto,
     string ModerationStatus,
+    // Url для документов — presigned (клиент использует как есть).
+    // Для фото — public URL, для D36 deprecated; клиент собирает сам
+    // из Bucket+StorageKey через PublicHostsService.
     string Url,
     bool IsPresigned,
     DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);
+    DateTime? UpdatedAtUtc,
+    // D36: bucket+storageKey для фото. Optional чтобы быть совместимым
+    // со старым бэком — он не отдаст эти поля и десериализация даст null.
+    string? Bucket = null,
+    string? StorageKey = null);
 
 /// <summary>
 /// MediaKind в backend — enum int (DeceasedPhoto=1, GravePhoto=2,

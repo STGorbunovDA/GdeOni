@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
 using GdeOni.Mobile.Services.Geolocation;
+using GdeOni.Mobile.Services.Media;
 using GdeOni.Mobile.Services.Routing;
 using GdeOni.Mobile.Shared.Utils;
 using Refit;
@@ -21,7 +22,8 @@ namespace GdeOni.Mobile.ViewModels;
 public partial class RouteViewModel(
     ITrackedDeceasedApi api,
     IGeolocationService geolocationService,
-    IExternalMapsService externalMapsService) : ObservableObject
+    IExternalMapsService externalMapsService,
+    IPublicHostsService publicHosts) : ObservableObject
 {
     [ObservableProperty]
     private string _title = "Маршрут";
@@ -89,13 +91,15 @@ public partial class RouteViewModel(
                 {
                     continue;
                 }
+                // D36: resolve MainPhotoUrl из bucket+key.
+                var resolved = await item.ResolveMainPhotoAsync(publicHosts);
                 var vm = new RouteCandidateViewModel(
-                    item.DeceasedId,
-                    item.FullName,
-                    BuildSubtitle(item),
+                    resolved.DeceasedId,
+                    resolved.FullName,
+                    BuildSubtitle(resolved),
                     lat,
                     lon,
-                    item.MainPhotoUrl)
+                    resolved.MainPhotoUrl)
                 {
                     IsSelected = previouslySelected.Contains(item.DeceasedId)
                 };

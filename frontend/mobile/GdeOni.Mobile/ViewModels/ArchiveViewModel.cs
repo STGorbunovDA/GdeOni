@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
+using GdeOni.Mobile.Services.Media;
 using GdeOni.Mobile.Shared.Notifications;
 using Refit;
 
@@ -10,6 +11,7 @@ namespace GdeOni.Mobile.ViewModels;
 
 public partial class ArchiveViewModel(
     ITrackedDeceasedApi api,
+    IPublicHostsService publicHosts,
     ILocalNotificationScheduler notificationScheduler) : ObservableObject
 {
     public ObservableCollection<TrackedDeceasedListItem> Items { get; } = new();
@@ -54,7 +56,9 @@ public partial class ArchiveViewModel(
             {
                 if (item.Status != TrackStatuses.Archived)
                     continue;
-                Items.Add(item);
+                // D36: см. комментарий в TrackedListViewModel.LoadAsync.
+                var resolved = await item.ResolveMainPhotoAsync(publicHosts);
+                Items.Add(resolved);
             }
 
             OnPropertyChanged(nameof(ShowEmptyState));

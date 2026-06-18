@@ -14,7 +14,14 @@ public sealed record AppVersionResponse(
 /// <summary>
 /// E22. <c>GET /api/app/features</c>. Кешируется на сессию —
 /// определяет, показывать ли paywall и какие фичи доступны.
+///
+/// D36 (2026-06-12): добавлен <see cref="MediaBaseUrl"/>. Mobile строит
+/// URL фото через <c>${MediaBaseUrl}/${bucket}/${encodeURIComponent(key)}</c>.
+/// Если бэк ещё старый (нет поля) — клиент использует дефолт
+/// <c>http://10.0.2.2:9000</c> для DEBUG (Android-эмулятор) или
+/// production-домен в Release.
 /// </summary>
 public sealed record AppFeaturesResponse(
     bool SubscriptionEnabled,
-    int GracePeriodDaysAfterExpiry);
+    int GracePeriodDaysAfterExpiry,
+    string? MediaBaseUrl = null);

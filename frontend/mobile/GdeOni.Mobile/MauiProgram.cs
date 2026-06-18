@@ -86,6 +86,10 @@ public static class MauiProgram
         services.AddSingleton<IGeolocationService, GeolocationService>();
         services.AddSingleton<INetworkInfoService, NetworkInfoService>();
         services.AddSingleton<IExternalMapsService, ExternalMapsService>();
+        // D36. Сервис построения публичных URL медиа из bucket+storageKey.
+        // Кеширует MediaBaseUrl из /api/app/features на сессию.
+        services.AddSingleton<Services.Media.IPublicHostsService,
+            Services.Media.PublicHostsService>();
         // E22. Version-gate сервис — Singleton, чтобы при future
         // расширении (кеш на сессию) состояние переживало переходы между
         // страницами.

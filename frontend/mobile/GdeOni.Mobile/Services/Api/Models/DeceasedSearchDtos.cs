@@ -22,6 +22,10 @@ public sealed record DeceasedSearchItem(
     bool IsVerified,
     DateTime CreatedAtUtc,
     Guid? MainMediaId = null,
+    // D36: bucket+storageKey — основной контракт.
+    string? MainPhotoBucket = null,
+    string? MainPhotoStorageKey = null,
+    // DEPRECATED (D36): абсолютный URL, сохранён для совместимости со старым бэком.
     string? MainPhotoUrl = null);
 
 /// <summary>
@@ -63,4 +67,8 @@ public sealed record NearbyDeceasedItem(
     bool IsVerified,
     int DistanceMeters,
     Guid? MainMediaId = null,
+    // D36: bucket+storageKey — основной контракт.
+    string? MainPhotoBucket = null,
+    string? MainPhotoStorageKey = null,
+    // DEPRECATED (D36): абсолютный URL, сохранён для совместимости со старым бэком.
     string? MainPhotoUrl = null);

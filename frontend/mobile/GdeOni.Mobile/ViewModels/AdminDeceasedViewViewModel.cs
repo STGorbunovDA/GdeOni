@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
+using GdeOni.Mobile.Services.Media;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
@@ -24,7 +25,8 @@ namespace GdeOni.Mobile.ViewModels;
 public partial class AdminDeceasedViewViewModel(
     IDeceasedRecordsApi deceasedApi,
     IDeceasedMediaApi mediaApi,
-    IDeceasedMemoriesApi memoriesApi) : ObservableObject
+    IDeceasedMemoriesApi memoriesApi,
+    IPublicHostsService publicHosts) : ObservableObject
 {
     [ObservableProperty]
     private string _deceasedId = "";
@@ -195,7 +197,8 @@ public partial class AdminDeceasedViewViewModel(
                 return;
             }
 
-            Data = envelope.Result;
+            // D36: подменяем MainPhotoUrl на собранный из bucket+key.
+            Data = await envelope.Result.ResolveMainPhotoAsync(publicHosts);
             RebuildMemories();
             await LoadMediaAsync(id);
         }
@@ -293,16 +296,19 @@ public partial class AdminDeceasedViewViewModel(
 
             foreach (var item in envelope.Result.Items)
             {
-                switch (item.Kind)
+                // D36: для фото пересобираем Url через PublicHostsService.
+                // Для документов (IsPresigned) extension оставляет Url как есть.
+                var resolved = await item.ResolveUrlAsync(publicHosts);
+                switch (resolved.Kind)
                 {
                     case MediaKinds.DeceasedPhotoString:
-                        DeceasedPhotos.Add(item);
+                        DeceasedPhotos.Add(resolved);
                         break;
                     case MediaKinds.GravePhotoString:
-                        GravePhotos.Add(item);
+                        GravePhotos.Add(resolved);
                         break;
                     case MediaKinds.DocumentString:
-                        Documents.Add(item);
+                        Documents.Add(resolved);
                         break;
                 }
             }
@@ -366,7 +372,12 @@ public partial class AdminDeceasedViewViewModel(
         var page = Shell.Current?.CurrentPage;
         if (page is null) return;
 
-        var actions = new List<string> { "Открыть на весь экран" };
+        // Для документа вместо "Открыть на весь экран" даём "Открыть
+        // документ" — FullScreenPhotoPage рендерит URL как Image.Source,
+        // для PDF/Word получится чёрный экран. Открываем системным
+        // viewer'ом через Launcher (тот же паттерн что в SupportDetails).
+        var isDocument = item.Kind == MediaKinds.DocumentString;
+        var actions = new List<string> { isDocument ? "Открыть документ" : "Открыть на весь экран" };
         var canBeMain = item.Kind == MediaKinds.DeceasedPhotoString && !item.IsMainPhoto;
         if (canBeMain) actions.Add("Сделать главным");
         actions.Add("Удалить");
@@ -382,6 +393,9 @@ public partial class AdminDeceasedViewViewModel(
             case "Открыть на весь экран":
                 await OpenPhotoFullScreenAsync(item);
                 break;
+            case "Открыть документ":
+                await OpenDocumentExternallyAsync(item);
+                break;
             case "Сделать главным":
                 await SetMainPhotoAsync(deceasedId, item.Id);
                 break;
@@ -396,6 +410,13 @@ public partial class AdminDeceasedViewViewModel(
         if (string.IsNullOrEmpty(item.Url)) return;
         var encoded = Uri.EscapeDataString(item.Url);
         await Shell.Current.GoToAsync($"photo-viewer?url={encoded}");
+    }
+
+    private static async Task OpenDocumentExternallyAsync(MediaListItem item)
+    {
+        if (string.IsNullOrEmpty(item.Url)) return;
+        try { await Launcher.OpenAsync(new Uri(item.Url)); }
+        catch { /* нет приложения для типа файла — молча */ }
     }
 
     private async Task SetMainPhotoAsync(Guid deceasedId, Guid mediaId)

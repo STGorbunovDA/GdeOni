@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
 using GdeOni.Mobile.Services.Geolocation;
+using GdeOni.Mobile.Services.Media;
 using GdeOni.Mobile.Shared.Search;
 using Refit;
 
@@ -18,7 +19,8 @@ namespace GdeOni.Mobile.ViewModels;
 public partial class NearbySearchViewModel(
     IDeceasedRecordsApi deceasedApi,
     ITrackedDeceasedApi trackedApi,
-    IGeolocationService geo) : ObservableObject
+    IGeolocationService geo,
+    IPublicHostsService publicHosts) : ObservableObject
 {
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
@@ -155,7 +157,9 @@ public partial class NearbySearchViewModel(
 
             foreach (var item in ordered)
             {
-                var row = new NearbyDeceasedRowViewModel(item);
+                // D36: resolve MainPhotoUrl из bucket+key.
+                var resolved = await item.ResolveMainPhotoAsync(publicHosts);
+                var row = new NearbyDeceasedRowViewModel(resolved);
                 if (alreadyTracked.Contains(item.Id))
                     row.IsSelected = true;
                 Results.Add(row);
