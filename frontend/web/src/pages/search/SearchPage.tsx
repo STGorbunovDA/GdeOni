@@ -6,7 +6,7 @@ import {
   TextInput,
   UnstyledButton,
 } from '@mantine/core';
-import { DatePickerInput } from '@mantine/dates';
+import { DateInput } from '@mantine/dates';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Search, UserRound } from 'lucide-react';
@@ -96,6 +96,21 @@ function hasAnyFilter(form: FormState): boolean {
   );
 }
 
+/**
+ * Если юзер искал по ФИО и не нашёл — пробрасываем эти поля в /at-grave
+ * через query-string. F8 их прочитает и pre-fill'ит форму. Это убирает
+ * "приходится заново вводить, что только что искал".
+ */
+function buildAtGraveLink(form: FormState): string {
+  const params = new URLSearchParams();
+  if (form.firstName.trim()) params.set('firstName', form.firstName.trim());
+  if (form.lastName.trim()) params.set('lastName', form.lastName.trim());
+  if (form.middleName.trim()) params.set('middleName', form.middleName.trim());
+  if (form.city.trim()) params.set('city', form.city.trim());
+  const query = params.toString();
+  return query ? `/at-grave?${query}` : '/at-grave';
+}
+
 export function SearchPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -179,7 +194,7 @@ export function SearchPage() {
                 setForm({ ...form, city: e.currentTarget.value })
               }
             />
-            <DatePickerInput
+            <DateInput
               label="Дата рождения"
               placeholder="дд.мм.гггг"
               valueFormat="DD.MM.YYYY"
@@ -192,7 +207,7 @@ export function SearchPage() {
                 })
               }
             />
-            <DatePickerInput
+            <DateInput
               label="Дата смерти"
               placeholder="дд.мм.гггг"
               valueFormat="DD.MM.YYYY"
@@ -244,7 +259,7 @@ export function SearchPage() {
                   По вашим параметрам в базе нет карточек. Если вы уверены,
                   что нужного человека там нет — нажмите "Создать новую".
                 </BodyLabel>
-                <PrimaryButton onClick={() => navigate('/at-grave')}>
+                <PrimaryButton onClick={() => navigate(buildAtGraveLink(form))}>
                   Создать новую карточку
                 </PrimaryButton>
               </Stack>
@@ -277,7 +292,7 @@ export function SearchPage() {
                 <CaptionLabel>
                   Если среди результатов нет того, кого вы искали:
                 </CaptionLabel>
-                <GhostButton onClick={() => navigate('/at-grave')}>
+                <GhostButton onClick={() => navigate(buildAtGraveLink(form))}>
                   Создать новую карточку
                 </GhostButton>
               </Stack>
