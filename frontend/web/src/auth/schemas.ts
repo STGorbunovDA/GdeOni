@@ -53,3 +53,24 @@ export const registerSchema = z
   });
 
 export type RegisterFormValues = z.infer<typeof registerSchema>;
+
+/**
+ * F16. Схема смены пароля. Зеркало mobile PasswordRules: current не пуст,
+ * new в диапазоне 8..128, confirm == new. Дополнительно бэк проверит
+ * `user.current_password.invalid` → текст подставит formatError.
+ */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Введите текущий пароль'),
+    newPassword: z
+      .string()
+      .min(MIN_PASSWORD_LENGTH, `Пароль не короче ${MIN_PASSWORD_LENGTH} символов`)
+      .max(MAX_PASSWORD_LENGTH, `Пароль не длиннее ${MAX_PASSWORD_LENGTH} символов`),
+    confirmPassword: z.string().min(1, 'Повторите новый пароль'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Пароли не совпадают',
+    path: ['confirmPassword'],
+  });
+
+export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>;

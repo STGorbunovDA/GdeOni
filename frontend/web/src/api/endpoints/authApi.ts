@@ -74,4 +74,25 @@ export const usersApi = {
       apiClient.get<ApiEnvelope<CurrentUserResponse>>('/api/users/me'),
     );
   },
+
+  /**
+   * F16. PUT /api/users/{userId}/password. Бэк ротирует SecurityStamp,
+   * текущий access-токен умрёт через TTL ~30s (см. F4 OnTokenValidated).
+   * После успеха клиент сам делает force-logout, чтобы не показывать
+   * полминуты протухший UI и не словить 401 на следующем запросе.
+   *
+   * Rate-limited на бэке через AuthRateLimitOptions — 429 поднимается
+   * наверх и переводится в человеческое сообщение в formatError.
+   */
+  async changePassword(
+    userId: string,
+    input: { currentPassword: string; newPassword: string },
+  ): Promise<void> {
+    await unwrap(
+      apiClient.put<ApiEnvelope<{ userId: string }>>(
+        `/api/users/${userId}/password`,
+        input,
+      ),
+    );
+  },
 };
