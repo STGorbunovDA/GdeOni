@@ -1,10 +1,18 @@
 namespace GdeOni.API.Models.Users;
 
+/// <summary>
+/// Запрос регистрации нового пользователя с обязательным согласием на
+/// Privacy Policy и Terms of Use.
+/// </summary>
 public sealed class RegisterUserRequest
 {
+    /// <summary>Email пользователя.</summary>
     public string Email { get; set; } = null!;
+    /// <summary>Логин пользователя (опционально).</summary>
     public string? UserName { get; set; }
+    /// <summary>Полное имя пользователя (опционально).</summary>
     public string? FullName { get; set; }
+    /// <summary>Пароль пользователя.</summary>
     public string Password { get; set; } = null!;
 
     /// <summary>

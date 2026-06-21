@@ -1,5 +1,8 @@
-﻿namespace GdeOni.API.Models.DeceasedRecords;
+namespace GdeOni.API.Models.DeceasedRecords;
 
+/// <summary>
+/// Параметры выборки карточек умерших с пагинацией и фильтрацией.
+/// </summary>
 public sealed class GetAllDeceasedRequest
 {
     /// <summary>
@@ -24,10 +27,15 @@ public sealed class GetAllDeceasedRequest
     /// </summary>
     public string? MiddleName { get; set; }
 
+    /// <summary>Фильтр по стране захоронения.</summary>
     public string? Country { get; set; }
+    /// <summary>Фильтр по городу захоронения.</summary>
     public string? City { get; set; }
+    /// <summary>Фильтр по флагу верификации карточки администратором.</summary>
     public bool? IsVerified { get; set; }
+    /// <summary>Нижняя граница периода создания карточки (включительно, UTC).</summary>
     public DateTime? CreatedFrom { get; set; }
+    /// <summary>Верхняя граница периода создания карточки (включительно, UTC).</summary>
     public DateTime? CreatedTo { get; set; }
 
     /// <summary>
@@ -45,6 +53,8 @@ public sealed class GetAllDeceasedRequest
     /// </summary>
     public DateOnly? DeathDate { get; set; }
 
+    /// <summary>Номер страницы (от 1).</summary>
     public int Page { get; set; } = 1;
+    /// <summary>Размер страницы.</summary>
     public int PageSize { get; set; } = 20;
 }

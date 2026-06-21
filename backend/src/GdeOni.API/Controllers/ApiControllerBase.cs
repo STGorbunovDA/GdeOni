@@ -6,9 +6,19 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Controllers;
 
+/// <summary>
+/// Базовый класс для всех API-контроллеров: общие хелперы для
+/// преобразования <see cref="Result{T, E}"/>/<see cref="UnitResult{E}"/>
+/// в <see cref="ActionResult"/>.
+/// </summary>
 [ApiController]
 public abstract class ApiControllerBase : ControllerBase
 {
+    /// <summary>
+    /// Преобразует <see cref="Result{T, E}"/> в <see cref="ActionResult"/>:
+    /// при успехе — <paramref name="onSuccess"/> или стандартный 200,
+    /// при ошибке — соответствующий HTTP-статус.
+    /// </summary>
     protected ActionResult FromResult<T>(
         Result<T, Error> result,
         Func<T, ActionResult>? onSuccess = null)
@@ -22,6 +32,11 @@ public abstract class ApiControllerBase : ControllerBase
         return result.Value.ToOkResponse();
     }
 
+    /// <summary>
+    /// Преобразует <see cref="UnitResult{E}"/> в <see cref="ActionResult"/>:
+    /// при успехе — <paramref name="onSuccess"/> или 204 No Content,
+    /// при ошибке — соответствующий HTTP-статус.
+    /// </summary>
     protected ActionResult FromUnitResult(
         UnitResult<Error> result,
         Func<ActionResult>? onSuccess = null)

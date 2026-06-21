@@ -10,6 +10,7 @@ namespace GdeOni.API.Options;
 /// </summary>
 public sealed class AppVersionOptions
 {
+    /// <summary>Имя секции в appsettings, к которой биндятся опции.</summary>
     public const string SectionName = "AppVersion";
 
     /// <summary>

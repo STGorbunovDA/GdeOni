@@ -14,8 +14,12 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace GdeOni.API;
 
+/// <summary>
+/// Регистрация CORS и Security/Authorization для приложения API.
+/// </summary>
 public static class DependencyInjection
 {
+    /// <summary>Имя CORS-политики, прикрепляемой к pipeline.</summary>
     public const string CorsPolicyName = "GdeOniCors";
 
     private static readonly string[] DefaultDevOrigins =
@@ -24,6 +28,10 @@ public static class DependencyInjection
         "http://localhost:3000"
     ];
 
+    /// <summary>
+    /// Регистрирует CORS-политику: список origins берётся из конфигурации,
+    /// в Development допускается fallback на localhost.
+    /// </summary>
     public static IServiceCollection AddCustomCors(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -79,6 +87,10 @@ public static class DependencyInjection
         return services;
     }
 
+    /// <summary>
+    /// Регистрирует JWT-аутентификацию, политики авторизации и
+    /// security-сервисы (CurrentUserService, JwtProvider, SecurityStampInvalidator).
+    /// </summary>
     public static IServiceCollection AddSecurity(
         this IServiceCollection services,
         IConfiguration configuration)

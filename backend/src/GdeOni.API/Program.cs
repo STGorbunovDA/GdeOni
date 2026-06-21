@@ -171,4 +171,9 @@ static async Task WriteHealthResponse(HttpContext context, HealthReport report)
 
 // Сделано видимым для WebApplicationFactory<Program> в integration-тестах
 // (.NET 6+ top-level Program генерируется как internal partial). См. D9.4.
+/// <summary>
+/// Точка входа приложения. Объявлена как <c>public partial</c>, чтобы
+/// <c>WebApplicationFactory&lt;Program&gt;</c> в integration-тестах
+/// мог поднять in-memory хост приложения.
+/// </summary>
 public partial class Program;

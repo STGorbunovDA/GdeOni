@@ -14,6 +14,7 @@ namespace GdeOni.API.Mappers;
 /// </summary>
 public static class DeceasedRecordsResponseMapping
 {
+    /// <summary>Маппит результат use case <c>GetDeceasedById</c> в response-DTO деталей.</summary>
     public static DeceasedDetailsResponse ToDetailsResponse(this GetDeceasedByIdResult result) =>
         result.Deceased.ToDetailsResponse(
             result.CanSeeAllMemories,
@@ -23,6 +24,7 @@ public static class DeceasedRecordsResponseMapping
             result.MainPhotoUrl,
             result.AuthorNames);
 
+    /// <summary>Маппит результат use case <c>GetMyTrackedDeceasedDetails</c> в response-DTO с tracking-блоком.</summary>
     public static MyTrackedDeceasedDetailsResponse ToDetailsResponse(this GetMyTrackedDeceasedDetailsResult result) =>
         new()
         {
@@ -45,6 +47,10 @@ public static class DeceasedRecordsResponseMapping
             }
         };
 
+    /// <summary>
+    /// Маппит доменный агрегат <see cref="Deceased"/> в response-DTO с
+    /// учётом видимости неподтверждённых воспоминаний и данных главного фото.
+    /// </summary>
     public static DeceasedDetailsResponse ToDetailsResponse(
         this Deceased deceased,
         bool canSeeAllMemories,

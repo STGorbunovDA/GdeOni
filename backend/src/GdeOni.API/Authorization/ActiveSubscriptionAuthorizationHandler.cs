@@ -39,6 +39,11 @@ public sealed class ActiveSubscriptionAuthorizationHandler(
     private readonly TimeSpan _cacheTtl = TimeSpan.FromSeconds(
         Math.Max(1, jwtOptions.Value.SecurityStampCacheTtlSeconds));
 
+    /// <summary>
+    /// Проверяет, есть ли у текущего пользователя право доступа,
+    /// требующее активной подписки (с учётом complimentary access,
+    /// админских ролей и feature-flag коммерциализации).
+    /// </summary>
     protected override async Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
         ActiveSubscriptionRequirement requirement)

@@ -10,6 +10,7 @@ namespace GdeOni.API.Observability;
 /// </summary>
 public sealed class SentryOptions
 {
+    /// <summary>Имя секции в appsettings, к которой биндятся опции.</summary>
     public const string SectionName = "Sentry";
 
     /// <summary>
@@ -36,5 +37,6 @@ public sealed class SentryOptions
     /// </summary>
     public double TracesSampleRate { get; set; }
 
+    /// <summary>Sentry активен, когда задан непустой <see cref="Dsn"/>.</summary>
     public bool Enabled => !string.IsNullOrWhiteSpace(Dsn);
 }

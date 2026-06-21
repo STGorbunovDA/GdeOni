@@ -1,5 +1,8 @@
 namespace GdeOni.API.Security;
 
+/// <summary>
+/// Имена кастомных claim'ов в JWT, не входящих в стандартный набор.
+/// </summary>
 public static class JwtClaimNames
 {
     /// <summary>

@@ -1,4 +1,4 @@
-﻿using GdeOni.API.Models.DeceasedRecords;
+using GdeOni.API.Models.DeceasedRecords;
 using GdeOni.Application.DeceasedRecords.Commands.AddAtGrave.Model;
 using GdeOni.Application.DeceasedRecords.Commands.AddMemory.Model;
 using GdeOni.Application.DeceasedRecords.Commands.ApproveMediaModeration.Model;
@@ -29,8 +29,14 @@ using GdeOni.Application.DeceasedRecords.Queries.HasMemories.Model;
 
 namespace GdeOni.API.Mappers;
 
+/// <summary>
+/// Request → Command/Query маппинг для контроллеров карточки умершего.
+/// Конвенция Clean Architecture: presentation-слой переводит DTO в
+/// доменные команды, чтобы Application не знал про HTTP-формат.
+/// </summary>
 public static class DeceasedRecordsMapping
 {
+    /// <summary>Маппит DTO создания карточки умершего в команду use case.</summary>
     public static CreateDeceasedCommand ToCreateCommand(
         this CreateDeceasedRequest request)
     {
@@ -81,7 +87,8 @@ public static class DeceasedRecordsMapping
             IsMilitaryService: request.IsMilitaryService,
             AdditionalInfo: request.AdditionalInfo);
     }
-    
+
+    /// <summary>Маппит DTO обновления карточки умершего в команду use case.</summary>
     public static UpdateDeceasedCommand ToCommand(
         this UpdateDeceasedRequest request,
         Guid deceasedId)
@@ -128,6 +135,7 @@ public static class DeceasedRecordsMapping
             request.AdditionalInfo);
     }
 
+    /// <summary>Маппит DTO "добавить умершего у могилы" в команду use case.</summary>
     public static AddDeceasedAtGraveCommand ToCommand(
         this AddDeceasedAtGraveRequest request)
     {
@@ -169,6 +177,7 @@ public static class DeceasedRecordsMapping
             NotifyOnBirthAnniversary: request.NotifyOnBirthAnniversary);
     }
 
+    /// <summary>Маппит DTO установки координат из GPS в команду use case.</summary>
     public static SetBurialLocationFromGpsCommand ToCommand(
         this SetBurialLocationFromGpsRequest request,
         Guid deceasedId)
@@ -181,7 +190,8 @@ public static class DeceasedRecordsMapping
             request.Longitude,
             request.AccuracyMeters);
     }
-    
+
+    /// <summary>Маппит DTO добавления воспоминания в команду use case.</summary>
     public static AddMemoryCommand ToCommand(
         this AddMemoryRequest request,
         Guid deceasedId)
@@ -192,7 +202,8 @@ public static class DeceasedRecordsMapping
             deceasedId,
             request.Text);
     }
-    
+
+    /// <summary>Маппит DTO правки воспоминания в команду use case.</summary>
     public static UpdateMemoryCommand ToCommand(
         this UpdateMemoryRequest request,
         Guid deceasedId,
@@ -205,7 +216,8 @@ public static class DeceasedRecordsMapping
             memoryId,
             request.Text);
     }
-    
+
+    /// <summary>Маппит DTO обновления метаданных в команду use case.</summary>
     public static UpdateMetadataCommand ToCommand(
         this UpdateMetadataRequest request,
         Guid deceasedId)
@@ -220,10 +232,12 @@ public static class DeceasedRecordsMapping
             request.IsMilitaryService,
             request.AdditionalInfo);
     }
-    
+
+    /// <summary>Возвращает команду очистки метаданных для карточки <paramref name="deceasedId"/>.</summary>
     public static ClearMetadataCommand ToClearMetadataCommand(Guid deceasedId)
         => new(deceasedId);
 
+    /// <summary>Маппит DTO правки описания медиа в команду use case.</summary>
     public static UpdateMediaDescriptionCommand ToCommand(
         this UpdateMediaDescriptionRequest request,
         Guid deceasedId,
@@ -234,36 +248,47 @@ public static class DeceasedRecordsMapping
         return new UpdateMediaDescriptionCommand(deceasedId, mediaId, request.Description);
     }
 
+    /// <summary>Возвращает команду отклонения модерации воспоминания.</summary>
     public static RejectMemoryCommand ToRejectMemoryCommand(Guid deceasedId, Guid memoryId)
         => new(deceasedId, memoryId);
 
+    /// <summary>Возвращает команду подтверждения модерации воспоминания.</summary>
     public static ApproveMemoryCommand ToApproveMemoryCommand(Guid deceasedId, Guid memoryId)
         => new(deceasedId, memoryId);
 
+    /// <summary>Возвращает команду подтверждения модерации медиа.</summary>
     public static ApproveMediaModerationCommand ToApproveMediaModerationCommand(Guid deceasedId, Guid mediaId)
         => new(deceasedId, mediaId);
 
+    /// <summary>Возвращает команду отклонения модерации медиа.</summary>
     public static RejectMediaModerationCommand ToRejectMediaModerationCommand(Guid deceasedId, Guid mediaId)
         => new(deceasedId, mediaId);
 
+    /// <summary>Возвращает запрос карточки умершего по идентификатору.</summary>
     public static GetDeceasedByIdQuery ToGetByIdQuery(Guid id)
         => new(id);
 
+    /// <summary>Возвращает команду удаления карточки умершего.</summary>
     public static DeleteDeceasedCommand ToDeleteCommand(Guid id)
         => new(id);
 
+    /// <summary>Возвращает команду очистки места захоронения.</summary>
     public static ClearBurialLocationCommand ToClearBurialLocationCommand(Guid deceasedId)
         => new(deceasedId);
 
+    /// <summary>Возвращает команду удаления воспоминания.</summary>
     public static RemoveMemoryCommand ToRemoveMemoryCommand(Guid deceasedId, Guid memoryId)
         => new(deceasedId, memoryId);
 
+    /// <summary>Возвращает команду верификации карточки администратором.</summary>
     public static VerifyDeceasedCommand ToVerifyCommand(Guid deceasedId)
         => new(deceasedId);
 
+    /// <summary>Возвращает команду снятия флага верификации с карточки.</summary>
     public static UnverifiedDeceasedCommand ToUnverifiedCommand(Guid deceasedId)
         => new(deceasedId);
 
+    /// <summary>Маппит DTO выборки медиа-листа в запрос use case.</summary>
     public static GetMediaListQuery ToQuery(this GetMediaListRequest request, Guid deceasedId)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -275,21 +300,27 @@ public static class DeceasedRecordsMapping
             request.PageSize);
     }
 
+    /// <summary>Возвращает запрос медиа-файла по идентификатору.</summary>
     public static GetMediaByIdQuery ToGetMediaByIdQuery(Guid deceasedId, Guid mediaId)
         => new(deceasedId, mediaId);
 
+    /// <summary>Возвращает команду удаления медиа-файла.</summary>
     public static DeleteMediaCommand ToDeleteMediaCommand(Guid deceasedId, Guid mediaId)
         => new(deceasedId, mediaId);
 
+    /// <summary>Возвращает команду установки главного фото карточки.</summary>
     public static SetMainMediaPhotoCommand ToSetMainMediaPhotoCommand(Guid deceasedId, Guid mediaId)
         => new(deceasedId, mediaId);
 
+    /// <summary>Возвращает запрос расчёта расстояния от точки до могилы.</summary>
     public static GetDistanceQuery ToDistanceQuery(Guid deceasedId, double latitude, double longitude)
         => new(deceasedId, latitude, longitude);
 
+    /// <summary>Возвращает запрос вычисления возраста на момент смерти.</summary>
     public static GetAgeAtDeathQuery ToAgeAtDeathQuery(Guid deceasedId)
         => new(deceasedId);
 
+    /// <summary>Возвращает запрос проверки наличия воспоминаний на карточке.</summary>
     public static HasMemoriesQuery ToHasMemoriesQuery(Guid deceasedId)
         => new(deceasedId);
 }

@@ -5,10 +5,16 @@ using Sentry;
 
 namespace GdeOni.API.Extensions;
 
+/// <summary>
+/// Глобальный обработчик исключений: маппит <see cref="UniqueConstraintException"/>
+/// на 409, остальные необработанные исключения — на 500 с одновременной
+/// отправкой в Sentry.
+/// </summary>
 public sealed class ExceptionMiddleware(
     RequestDelegate next,
     ILogger<ExceptionMiddleware> logger)
 {
+    /// <summary>Точка входа middleware: обрабатывает запрос с перехватом исключений.</summary>
     public async Task InvokeAsync(HttpContext context)
     {
         try

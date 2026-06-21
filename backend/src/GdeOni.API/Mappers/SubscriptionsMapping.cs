@@ -8,6 +8,7 @@ namespace GdeOni.API.Mappers;
 /// </summary>
 public static class SubscriptionsMapping
 {
+    /// <summary>Маппит DTO создания платежа в команду use case.</summary>
     public static CreatePaymentCommand ToCommand(this CreatePaymentRequest request) =>
         new(request.Plan);
 }

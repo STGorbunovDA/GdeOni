@@ -66,4 +66,8 @@ public sealed class AdminSubscriptionsController : ApiControllerBase
     }
 }
 
+/// <summary>
+/// Тело запроса перезапуска пробного периода подписки админом.
+/// </summary>
+/// <param name="DurationDays">Опциональная длительность пробного периода в днях (null = взять из конфигурации).</param>
 public sealed record RestartTrialRequest(int? DurationDays);
