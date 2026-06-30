@@ -27,6 +27,7 @@ import {
 } from '../../api/endpoints/adminUsersApi';
 import { useAuthStore } from '../../auth/authStore';
 import { formatError } from '../../auth/errorMessages';
+import { formatDateTime } from '../../utils/formatDate';
 
 /**
  * F17.7. Детали пользователя в админке + смена роли.
@@ -334,14 +335,5 @@ function BackButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  const date = d.toLocaleDateString('ru-RU');
-  const time = d.toLocaleTimeString('ru-RU', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  return `${date} ${time}`;
-}
 
 

@@ -28,6 +28,7 @@ import {
   type AdminUserRole,
 } from '../../api/endpoints/adminUsersApi';
 import { formatError } from '../../auth/errorMessages';
+import { formatDateTime } from '../../utils/formatDate';
 
 /**
  * F17.7. Список пользователей в админке.
@@ -290,12 +291,3 @@ function roleBadgeColor(role: AdminUserRole): string {
   }
 }
 
-function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  const date = d.toLocaleDateString('ru-RU');
-  const time = d.toLocaleTimeString('ru-RU', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  return `${date} ${time}`;
-}
