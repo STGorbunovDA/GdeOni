@@ -11,6 +11,7 @@ namespace GdeOni.Application.DeceasedRecords.Queries.GetAll.UseCase;
 
 public sealed class GetAllDeceasedUseCase(
     IDeceasedRepository deceasedRepository,
+    IUserRepository userRepository,
     IFileStorage fileStorage,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor)
@@ -54,6 +55,14 @@ public sealed class GetAllDeceasedUseCase(
             ? new Dictionary<Guid, MainMediaProjection>()
             : await deceasedRepository.GetApprovedMainMedia(mainMediaIds, cancellationToken);
 
+        // F17.1: батчем резолвим имена авторов карточек (та же схема,
+        // что и для авторов воспоминаний в F12) — иначе на странице
+        // из 20 карточек был бы N+1.
+        var creatorIds = items.Select(x => x.CreatedByUserId).Distinct().ToList();
+        var creatorNames = creatorIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await userRepository.GetDisplayNamesByIds(creatorIds, cancellationToken);
+
         var response = new PagedResponse<GetAllDeceasedItemResponse>
         {
             Items = items.Select(x =>
@@ -91,6 +100,8 @@ public sealed class GetAllDeceasedUseCase(
                     GraveNumber = x.BurialLocation?.GraveNumber,
                     IsVerified = x.IsVerified,
                     CreatedAtUtc = x.CreatedAtUtc,
+                    CreatedByUserId = x.CreatedByUserId,
+                    CreatedByUserName = creatorNames.GetValueOrDefault(x.CreatedByUserId),
                     MainMediaId = mediaId,
                     MainPhotoBucket = bucket,
                     MainPhotoStorageKey = storageKey,

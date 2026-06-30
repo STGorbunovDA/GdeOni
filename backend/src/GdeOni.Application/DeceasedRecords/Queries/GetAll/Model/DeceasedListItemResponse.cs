@@ -19,6 +19,15 @@ public sealed class GetAllDeceasedItemResponse
     public DateTime CreatedAtUtc { get; init; }
 
     /// <summary>
+    /// F17.1. Автор карточки — нужен админ-таблице "все карточки",
+    /// чтобы видеть, кто создал запись. Имя резолвится батчем через
+    /// IUserRepository.GetDisplayNamesByIds (та же схема что у
+    /// воспоминаний F12); если юзер удалён или не найден — null.
+    /// </summary>
+    public Guid CreatedByUserId { get; init; }
+    public string? CreatedByUserName { get; init; }
+
+    /// <summary>
     /// Id главного фото (Approved). Нужен клиенту чтобы потом, если
     /// он откроет редактор, знать какое сейчас выбрано.
     /// </summary>
