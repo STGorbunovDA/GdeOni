@@ -15,6 +15,7 @@ import { AdminPage } from '../pages/admin/AdminPage';
 import { AdminDeceasedPage } from '../pages/admin/AdminDeceasedPage';
 import { AdminEditsPage } from '../pages/admin/AdminEditsPage';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
+import { AdminUserDetailsPage } from '../pages/admin/AdminUserDetailsPage';
 import { AdminPaymentsPage } from '../pages/admin/AdminPaymentsPage';
 import { AdminSupportPage } from '../pages/admin/AdminSupportPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
@@ -80,6 +81,7 @@ export function AppRouter() {
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/deceased" element={<AdminDeceasedPage />} />
               <Route path="/admin/users" element={<AdminUsersPage />} />
+              <Route path="/admin/users/:id" element={<AdminUserDetailsPage />} />
               <Route path="/admin/payments" element={<AdminPaymentsPage />} />
               <Route path="/admin/edits" element={<AdminEditsPage />} />
               <Route path="/admin/support-tickets" element={<AdminSupportPage />} />
