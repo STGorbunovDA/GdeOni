@@ -12,22 +12,28 @@ import { RoutePage } from '../pages/route/RoutePage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 import { ChangePasswordPage } from '../pages/profile/ChangePasswordPage';
 import { AdminPage } from '../pages/admin/AdminPage';
+import { AdminDeceasedPage } from '../pages/admin/AdminDeceasedPage';
 import { AdminEditsPage } from '../pages/admin/AdminEditsPage';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
 import { AdminPaymentsPage } from '../pages/admin/AdminPaymentsPage';
 import { AdminSupportPage } from '../pages/admin/AdminSupportPage';
-import { AdminFindDeceasedPage } from '../pages/admin/AdminFindDeceasedPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { StyleDemoPage } from '../pages/StyleDemoPage';
 import { GeoDemoPage } from '../pages/GeoDemoPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { AdminRoute } from './AdminRoute';
 import { AppLayout } from '../components/layout/AppLayout';
+import { AdminLayout } from '../components/layout/AdminLayout';
 
 /**
- * F1 / F2.1. Корневой роутер.
+ * F1 / F2.1 / F17.13. Корневой роутер.
  *  - Публичные роуты (auth, demo) — без layout, центровка hero.
- *  - Приватные роуты — за ProtectedRoute + AppLayout (sidebar).
+ *  - Приватные роуты — за ProtectedRoute + AppLayout (sidebar основного
+ *    приложения).
+ *  - Admin-роуты — за ProtectedRoute + AdminRoute + AdminLayout
+ *    (отдельный sidebar админки). Основной и админский sidebar
+ *    разнесены, чтобы случайно не путать «свои отслеживаемые» и
+ *    «все карточки в системе».
  *
  * Порядок /tracked/archive ПЕРЕД /tracked/:id принципиален:
  * React Router 6 разрешает первый подходящий маршрут, и без этого
@@ -63,18 +69,20 @@ export function AppRouter() {
 
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/change-password" element={<ChangePasswordPage />} />
+          </Route>
 
-            {/* F4. Admin-роуты защищены AdminRoute — не-админа редиректит
-                на /tracked. На бэке те же эндпоинты дополнительно охраняются
-                [Authorize(Roles="SuperAdmin,Admin")] на контроллерах.
-                Структура и названия — строго как в mobile AdminPage. */}
-            <Route element={<AdminRoute />}>
+          {/* F17.13. Admin-роуты в отдельном AdminLayout с собственным
+              sidebar. AdminRoute проверяет роль (Admin/SuperAdmin) и
+              редиректит не-админа на /tracked. На бэке те же эндпоинты
+              охраняются [Authorize(Roles="SuperAdmin,Admin")]. */}
+          <Route element={<AdminRoute />}>
+            <Route element={<AdminLayout />}>
               <Route path="/admin" element={<AdminPage />} />
-              <Route path="/admin/edits" element={<AdminEditsPage />} />
+              <Route path="/admin/deceased" element={<AdminDeceasedPage />} />
               <Route path="/admin/users" element={<AdminUsersPage />} />
               <Route path="/admin/payments" element={<AdminPaymentsPage />} />
+              <Route path="/admin/edits" element={<AdminEditsPage />} />
               <Route path="/admin/support-tickets" element={<AdminSupportPage />} />
-              <Route path="/admin/find-deceased" element={<AdminFindDeceasedPage />} />
             </Route>
           </Route>
         </Route>
