@@ -1,12 +1,14 @@
-import { Alert, Group, Loader, Stack } from '@mantine/core';
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { Alert, Group, Loader, Modal, Stack } from '@mantine/core';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, MapPin, UserRound } from 'lucide-react';
+import { ChevronLeft, MapPin, Trash2, UserRound } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
   CloudCard,
   GhostButton,
+  PrimaryButton,
   SubTitleLabel,
   TitleLabel,
 } from '../../components/ui';
@@ -33,13 +35,25 @@ import { MediaSection } from '../tracked/MediaSection';
  */
 export function AdminDeceasedViewPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const features = useAppFeatures();
   const { id } = useParams<{ id: string }>();
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const query = useQuery({
     queryKey: ['admin-deceased-details', id],
     queryFn: () => deceasedApi.getById(id!),
     enabled: !!id,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deceasedApi.remove(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased'] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-list'] });
+      queryClient.invalidateQueries({ queryKey: ['route-candidates'] });
+      navigate('/admin/deceased');
+    },
   });
 
   if (!id) {
@@ -83,8 +97,15 @@ export function AdminDeceasedViewPage() {
 
   return (
     <Stack gap="lg">
-      <Group>
+      <Group justify="space-between" wrap="wrap">
         <BackButton onClick={() => navigate('/admin/deceased')} />
+        <GhostButton
+          leftSection={<Trash2 size={16} />}
+          onClick={() => setConfirmDelete(true)}
+          style={{ color: cloudColors.errorRed }}
+        >
+          Удалить карточку
+        </GhostButton>
       </Group>
 
       <Stack align="center" gap="md">
@@ -183,6 +204,41 @@ export function AdminDeceasedViewPage() {
       </CloudCard>
 
       <MediaSection deceasedId={id} />
+
+      <Modal
+        opened={confirmDelete}
+        onClose={() => !deleteMutation.isPending && setConfirmDelete(false)}
+        title="Удалить карточку"
+        centered
+      >
+        <Stack gap="md">
+          <BodyLabel>
+            Удалить карточку <b>{d.fullName}</b> безвозвратно? Вместе с
+            карточкой пропадут все воспоминания, фото и записи об
+            отслеживании у всех пользователей.
+          </BodyLabel>
+          {deleteMutation.isError && (
+            <Alert color="red" variant="light">
+              {formatError(deleteMutation.error)}
+            </Alert>
+          )}
+          <Group justify="flex-end">
+            <GhostButton
+              onClick={() => setConfirmDelete(false)}
+              disabled={deleteMutation.isPending}
+            >
+              Отмена
+            </GhostButton>
+            <PrimaryButton
+              onClick={() => deleteMutation.mutate()}
+              loading={deleteMutation.isPending}
+              style={{ background: cloudColors.errorRed }}
+            >
+              Удалить
+            </PrimaryButton>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

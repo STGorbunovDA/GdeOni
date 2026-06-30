@@ -17,6 +17,7 @@ import {
   MapPin,
   Route as RouteIcon,
   RotateCcw,
+  Trash2,
   UserRound,
 } from 'lucide-react';
 import {
@@ -33,6 +34,7 @@ import {
   trackedDeceasedApi,
   TrackStatuses,
 } from '../../api/endpoints/trackedDeceasedApi';
+import { deceasedApi } from '../../api/endpoints/deceasedApi';
 import { routingApi } from '../../api/endpoints/routingApi';
 import { requestGeolocationOnce } from '../../utils/requestGeolocation';
 import { buildYandexLookupUrl } from '../../utils/routing';
@@ -101,6 +103,22 @@ export function DeceasedDetailsPage() {
   });
 
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // F17.2: удаление карточки (admin-only). После успеха ничего не
+  // показываем на странице — карточки больше нет — и кидаем на
+  // /tracked. Инвалидируем все кэши списков, чтобы у юзера, который
+  // её трекал, она пропала из tracked-list тоже.
+  const deleteMutation = useMutation({
+    mutationFn: () => deceasedApi.remove(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tracked-list'] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-archive'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased'] });
+      queryClient.invalidateQueries({ queryKey: ['route-candidates'] });
+      navigate('/tracked');
+    },
+  });
 
   const [routeFallbackInfo, setRouteFallbackInfo] = useState<string | null>(null);
 
@@ -234,6 +252,15 @@ export function DeceasedDetailsPage() {
               onClick={() => navigate(`/admin/deceased/${id}/edit`)}
             >
               Изменить
+            </GhostButton>
+          )}
+          {isAdmin && (
+            <GhostButton
+              leftSection={<Trash2 size={16} />}
+              onClick={() => setConfirmDelete(true)}
+              style={{ color: cloudColors.errorRed }}
+            >
+              Удалить
             </GhostButton>
           )}
           {isArchived ? (
@@ -426,6 +453,45 @@ export function DeceasedDetailsPage() {
               loading={statusMutation.isPending}
             >
               В архив
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* F17.2: Confirm delete (admin-only). Видно только админу — кнопка
+          в шапке скрыта для остальных, но модаль не помешает в DOM. */}
+      <Modal
+        opened={confirmDelete}
+        onClose={() => !deleteMutation.isPending && setConfirmDelete(false)}
+        title="Удалить карточку"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <BodyLabel>
+            Удалить карточку <b>{deceased.fullName}</b> безвозвратно?
+            Вместе с карточкой пропадут все воспоминания, фото и записи
+            об отслеживании у всех пользователей.
+          </BodyLabel>
+          {deleteMutation.isError && (
+            <Alert color="red" variant="light">
+              {formatError(deleteMutation.error)}
+            </Alert>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={() => setConfirmDelete(false)}
+              disabled={deleteMutation.isPending}
+            >
+              Отмена
+            </Button>
+            <Button
+              onClick={() => deleteMutation.mutate()}
+              loading={deleteMutation.isPending}
+              style={{ background: cloudColors.errorRed, color: 'white' }}
+            >
+              Удалить
             </Button>
           </Group>
         </Stack>

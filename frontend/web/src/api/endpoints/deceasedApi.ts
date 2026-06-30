@@ -231,6 +231,20 @@ export const deceasedApi = {
       ),
     );
   },
+
+  /**
+   * F17.2. DELETE /api/deceased-records/{id} — безвозвратное удаление
+   * карточки. Доступно только админам (Roles="SuperAdmin,Admin"). После
+   * удаления каскадно уходят tracking-записи всех юзеров, воспоминания
+   * и media — это решение бэка, фронт просто инвалидирует кэши списков.
+   */
+  async remove(id: string): Promise<void> {
+    await unwrap(
+      apiClient.delete<ApiEnvelope<{ deceasedId: string }>>(
+        `/api/deceased-records/${id}`,
+      ),
+    );
+  },
 };
 
 /**

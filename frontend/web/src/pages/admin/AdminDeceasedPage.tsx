@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import {
+  ActionIcon,
   Alert,
   Badge,
   Checkbox,
   Group,
   Loader,
+  Modal,
   Pagination,
   Select,
   Stack,
@@ -13,19 +15,23 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useDebouncedValue } from '@mantine/hooks';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, Trash2 } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
   CloudCard,
+  GhostButton,
+  PrimaryButton,
   TitleLabel,
 } from '../../components/ui';
+import { cloudColors } from '../../design/theme';
 import {
   adminDeceasedApi,
   type AdminDeceasedListItem,
 } from '../../api/endpoints/adminDeceasedApi';
+import { deceasedApi } from '../../api/endpoints/deceasedApi';
 import { formatError } from '../../auth/errorMessages';
 import { formatDateOnly, formatDateTime } from '../../utils/formatDate';
 
@@ -50,6 +56,10 @@ const PAGE_SIZE_OPTIONS = ['20', '50', '100'];
 
 export function AdminDeceasedPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [pendingDelete, setPendingDelete] = useState<AdminDeceasedListItem | null>(
+    null,
+  );
   const [search, setSearch] = useState('');
   const [debouncedSearch] = useDebouncedValue(search, 300);
   const [country, setCountry] = useState('');
@@ -93,6 +103,19 @@ export function AdminDeceasedPage() {
   const totalPages = query.data
     ? Math.max(1, Math.ceil(query.data.totalCount / pageSize))
     : 1;
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deceasedApi.remove(id),
+    onSuccess: () => {
+      // Инвалидируем все списки, где карточка могла фигурировать:
+      // админ-таблица, обычный tracked-list, archive — чтобы юзеры,
+      // которые её отслеживали, тоже увидели актуальный список.
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased'] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-list'] });
+      queryClient.invalidateQueries({ queryKey: ['route-candidates'] });
+      setPendingDelete(null);
+    },
+  });
 
   function resetToFirstPage<T>(setter: (v: T) => void): (v: T) => void {
     return (v) => {
@@ -203,6 +226,7 @@ export function AdminDeceasedPage() {
                     <Table.Th>Verified</Table.Th>
                     <Table.Th>Создана</Table.Th>
                     <Table.Th>Автор</Table.Th>
+                    <Table.Th w={60}></Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -211,11 +235,12 @@ export function AdminDeceasedPage() {
                       key={item.id}
                       item={item}
                       onClick={() => navigate(`/admin/deceased/${item.id}`)}
+                      onDelete={() => setPendingDelete(item)}
                     />
                   ))}
                   {query.data.items.length === 0 && (
                     <Table.Tr>
-                      <Table.Td colSpan={8}>
+                      <Table.Td colSpan={9}>
                         <BodyLabel>Ничего не найдено по фильтрам.</BodyLabel>
                       </Table.Td>
                     </Table.Tr>
@@ -254,6 +279,43 @@ export function AdminDeceasedPage() {
           </Group>
         </>
       )}
+
+      <Modal
+        opened={pendingDelete !== null}
+        onClose={() => !deleteMutation.isPending && setPendingDelete(null)}
+        title="Удалить карточку"
+        centered
+      >
+        {pendingDelete && (
+          <Stack gap="md">
+            <BodyLabel>
+              Удалить карточку <b>{pendingDelete.fullName}</b> безвозвратно?
+              Вместе с карточкой пропадут все воспоминания, фото и записи
+              об отслеживании у всех пользователей.
+            </BodyLabel>
+            {deleteMutation.isError && (
+              <Alert color="red" variant="light">
+                {formatError(deleteMutation.error)}
+              </Alert>
+            )}
+            <Group justify="flex-end">
+              <GhostButton
+                onClick={() => setPendingDelete(null)}
+                disabled={deleteMutation.isPending}
+              >
+                Отмена
+              </GhostButton>
+              <PrimaryButton
+                onClick={() => deleteMutation.mutate(pendingDelete.id)}
+                loading={deleteMutation.isPending}
+                style={{ background: cloudColors.errorRed }}
+              >
+                Удалить
+              </PrimaryButton>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
     </Stack>
   );
 }
@@ -261,9 +323,11 @@ export function AdminDeceasedPage() {
 function DeceasedRow({
   item,
   onClick,
+  onDelete,
 }: {
   item: AdminDeceasedListItem;
   onClick: () => void;
+  onDelete: () => void;
 }) {
   return (
     <Table.Tr onClick={onClick} style={{ cursor: 'pointer' }}>
@@ -285,6 +349,16 @@ function DeceasedRow({
       </Table.Td>
       <Table.Td>{formatDateTime(item.createdAtUtc)}</Table.Td>
       <Table.Td>{item.createdByUserName ?? '—'}</Table.Td>
+      <Table.Td onClick={(e) => e.stopPropagation()}>
+        <ActionIcon
+          variant="subtle"
+          color="red"
+          onClick={onDelete}
+          aria-label="Удалить карточку"
+        >
+          <Trash2 size={16} />
+        </ActionIcon>
+      </Table.Td>
     </Table.Tr>
   );
 }
