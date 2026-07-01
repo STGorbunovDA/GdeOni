@@ -141,4 +141,54 @@ export const adminUsersApi = {
   async revokeSubscription(id: string): Promise<void> {
     await apiClient.delete(`/api/admin/users/${id}/subscription`);
   },
+
+  /**
+   * F17.10. PUT /api/users/{id}/block — заблокировать юзера навсегда.
+   * Reason (≤500) отображается в админке. Бэк ротирует SecurityStamp →
+   * мгновенный logout юзера при следующем запросе; login после этого
+   * отдаёт 403 user.account.blocked ПОСЛЕ проверки пароля (защита
+   * от timing-oracle).
+   *
+   * Иерархия (бэк отдаёт 403 с явными кодами):
+   *  - себя — user.block.self.forbidden;
+   *  - SuperAdmin — user.block.super_admin.forbidden;
+   *  - Admin блокирует Admin — user.block.peer_admin.forbidden.
+   */
+  async block(id: string, reason: string | null): Promise<void> {
+    await apiClient.put(`/api/users/${id}/block`, { reason });
+  },
+
+  /**
+   * F17.10. DELETE /api/users/{id}/block — снять блокировку. После
+   * успеха юзер сможет снова залогиниться (SecurityStamp обновится
+   * при следующем login).
+   */
+  async unblock(id: string): Promise<void> {
+    await apiClient.delete(`/api/users/${id}/block`);
+  },
+
+  /**
+   * F17.11. DELETE /api/users/{id} — удалить пользователя навсегда.
+   * Только SuperAdmin (бэк требует Roles=SuperAdmin, а не общий
+   * Admin/SuperAdmin).
+   *
+   * Бэк каскадно переуступает Deceased.CreatedByUserId,
+   * DeceasedMedia.UploadedByUserId и TrackedDeceased текущему
+   * SuperAdmin'у; для каждой карточки создаётся audit-запись
+   * DeceasedEditKind.Reassignment с email удалённого юзера в
+   * ChangesJson.PreviousAuthor. Платежи, история правок и
+   * воспоминания остаются как есть (author_user_id → null).
+   *
+   * Ошибки 403: user.delete.self.forbidden, user.delete.super_admin.
+   * forbidden, user.delete.peer_admin.forbidden, user.delete.has_content
+   * (последний если что-то пошло не так с переуступкой).
+   */
+  async remove(id: string): Promise<void> {
+    await unwrap(
+      apiClient.delete<ApiEnvelope<{ userId: string }>>(
+        `/api/users/${id}`,
+      ),
+    );
+  },
+
 };

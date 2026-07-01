@@ -10,8 +10,10 @@ import {
   Select,
   Stack,
   Textarea,
+  TextInput,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
+import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Ban, ChevronLeft, Gift, RefreshCw, Save, XCircle } from 'lucide-react';
@@ -136,6 +138,42 @@ export function AdminUserDetailsPage() {
     },
   });
 
+  // F17.10. Блокировка/разблокировка. Backend ротирует SecurityStamp,
+  // юзер вылетит из своих сессий при следующем запросе. UI после
+  // успеха закрывает confirm-модаль и через invalidate обновляет
+  // isBlocked/BlockedAtUtc/BlockedByEmail/BlockedReason в details.
+  const blockMutation = useMutation({
+    mutationFn: (reason: string | null) => adminUsersApi.block(id!, reason),
+    onSuccess: () => {
+      invalidateUserData();
+      setConfirmBlock(false);
+    },
+  });
+
+  const unblockMutation = useMutation({
+    mutationFn: () => adminUsersApi.unblock(id!),
+    onSuccess: () => {
+      invalidateUserData();
+    },
+  });
+
+  // F17.11. Удаление юзера навсегда. Только SuperAdmin (backend это
+  // перепроверит). Бэк каскадно переуступает контент текущему
+  // SuperAdmin'у и создаёт audit-запись Reassignment на каждой карточке.
+  // После успеха уходим в /admin/users с snack-bar'ом.
+  const removeMutation = useMutation({
+    mutationFn: () => adminUsersApi.remove(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      notifications.show({
+        color: 'green',
+        title: 'Пользователь удалён',
+        message: `${query.data?.email ?? 'Аккаунт'} удалён, контент переуступлен.`,
+      });
+      navigate('/admin/users', { replace: true });
+    },
+  });
+
   // F17.6. Состояние модалей. Grant — форма (бессрочно / до даты + reason),
   // остальные три — простые confirm'ы.
   const [grantModalOpen, setGrantModalOpen] = useState(false);
@@ -145,6 +183,14 @@ export function AdminUserDetailsPage() {
   const [confirmRevokeComp, setConfirmRevokeComp] = useState(false);
   const [confirmRestartTrial, setConfirmRestartTrial] = useState(false);
   const [confirmRevokeSub, setConfirmRevokeSub] = useState(false);
+  // F17.10. Confirm-модаль блокировки + причина (≤500).
+  const [confirmBlock, setConfirmBlock] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+  // F17.11. Delete-модаль с email-подтверждением. Юзер должен ввести
+  // ровно email удаляемого — защита от случайного клика (web-only,
+  // на mobile был просто DisplayAlert).
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteEmailInput, setDeleteEmailInput] = useState('');
 
   function openGrantModal() {
     setGrantMode('forever');
@@ -201,6 +247,26 @@ export function AdminUserDetailsPage() {
     user.role !== 'Manager' &&
     user.role !== 'SuperAdmin' &&
     !(currentUserRole === 'Admin' && user.role === 'Admin');
+
+  // F17.10 guard. Блок «Опасная зона» доступен когда:
+  //  - target не сам админ (себе нельзя — 403 user.block.self.forbidden);
+  //  - target не SuperAdmin (403 user.block.super_admin.forbidden);
+  //  - если current=Admin: target не Admin (403 user.block.peer_admin.
+  //    forbidden). Manager блокировать МОЖНО — в отличие от F17.6, где
+  //    ему и так подписка не нужна.
+  const canManageBlock =
+    !isSelf &&
+    user.role !== 'SuperAdmin' &&
+    !(currentUserRole === 'Admin' && user.role === 'Admin');
+
+  // F17.11 guard. Удаление юзера навсегда:
+  //  - только SuperAdmin;
+  //  - target не сам SuperAdmin;
+  //  - target не другой SuperAdmin (backend вернёт 403 super_admin.forbidden).
+  const canDeleteUser =
+    currentUserRole === 'SuperAdmin' &&
+    !isSelf &&
+    user.role !== 'SuperAdmin';
 
   return (
     <Stack gap="lg">
@@ -323,25 +389,6 @@ export function AdminUserDetailsPage() {
         </Stack>
       </CloudCard>
 
-      {user.isBlocked && (
-        <CloudCard style={{ borderColor: cloudColors.errorRed }}>
-          <Stack gap="md">
-            <SubTitleLabel>Блокировка</SubTitleLabel>
-            {user.blockedAtUtc && (
-              <Field
-                label="Заблокирован"
-                value={formatDateTime(user.blockedAtUtc)}
-              />
-            )}
-            {user.blockedByUserEmail && (
-              <Field label="Кем" value={user.blockedByUserEmail} />
-            )}
-            {user.blockedReason && (
-              <Field label="Причина" value={user.blockedReason} />
-            )}
-          </Stack>
-        </CloudCard>
-      )}
 
       <CloudCard>
         <Stack gap="md">
@@ -372,6 +419,216 @@ export function AdminUserDetailsPage() {
           )}
         </Stack>
       </CloudCard>
+
+      {/* F17.10. Опасная зона: блокировка навсегда. Backend ротирует
+          SecurityStamp → мгновенный logout юзера. Guard'ы зеркалят бэк
+          (self / SuperAdmin / peer-admin для current=Admin). */}
+      {canManageBlock && (
+        <CloudCard style={{ borderColor: cloudColors.errorRed }}>
+          <Stack gap="md">
+            <SubTitleLabel c={cloudColors.errorRed}>
+              Опасная зона
+            </SubTitleLabel>
+
+            {user.isBlocked ? (
+              <>
+                <Stack gap="xs">
+                  <BodyLabel>Пользователь заблокирован навсегда.</BodyLabel>
+                  {user.blockedAtUtc && (
+                    <Field
+                      label="Дата блокировки"
+                      value={formatDateTime(user.blockedAtUtc)}
+                    />
+                  )}
+                  {user.blockedByUserEmail && (
+                    <Field label="Кем" value={user.blockedByUserEmail} />
+                  )}
+                  {user.blockedReason && (
+                    <Field label="Причина" value={user.blockedReason} />
+                  )}
+                </Stack>
+                {unblockMutation.isError && (
+                  <Alert color="red" variant="light">
+                    {formatError(unblockMutation.error)}
+                  </Alert>
+                )}
+                <Group justify="flex-end">
+                  <PrimaryButton
+                    onClick={() => unblockMutation.mutate()}
+                    loading={unblockMutation.isPending}
+                  >
+                    Разблокировать
+                  </PrimaryButton>
+                </Group>
+              </>
+            ) : (
+              <>
+                <BodyLabel>
+                  После блокировки юзер моментально потеряет доступ (текущие
+                  сессии инвалидируются) и не сможет войти повторно. Действие
+                  обратимо через «Разблокировать».
+                </BodyLabel>
+                <Textarea
+                  label="Причина (необязательно)"
+                  placeholder="Например: спам, нарушение правил, жалобы"
+                  value={blockReason}
+                  onChange={(e) => setBlockReason(e.currentTarget.value)}
+                  autosize
+                  minRows={2}
+                  maxRows={5}
+                  maxLength={500}
+                />
+                <Group justify="flex-end">
+                  <Button
+                    color="red"
+                    onClick={() => setConfirmBlock(true)}
+                  >
+                    Заблокировать пользователя навсегда
+                  </Button>
+                </Group>
+              </>
+            )}
+          </Stack>
+        </CloudCard>
+      )}
+
+      {/* F17.11. Удаление юзера навсегда. Отдельная секция в «Опасной
+          зоне» — видна только SuperAdmin'у, backend продублирует
+          проверку. */}
+      {canDeleteUser && (
+        <CloudCard style={{ borderColor: cloudColors.errorRed }}>
+          <Stack gap="md">
+            <SubTitleLabel c={cloudColors.errorRed}>
+              Удаление аккаунта
+            </SubTitleLabel>
+            <BodyLabel>
+              Юзер будет удалён навсегда. Содержимое каскадно
+              переуступается текущему супер-админу, для каждой карточки
+              создаётся audit-запись «Переуступка».
+            </BodyLabel>
+            <Stack gap={2}>
+              <CaptionLabel c={cloudColors.errorRed}>Удалятся</CaptionLabel>
+              <BodyLabel>
+                Аккаунт, refresh-токены, права.
+              </BodyLabel>
+            </Stack>
+            <Stack gap={2}>
+              <CaptionLabel c={cloudColors.azureDeep}>Переуступятся</CaptionLabel>
+              <BodyLabel>
+                Карточки умерших (CreatedByUserId), медиа
+                (UploadedByUserId), отслеживания (TrackedDeceased).
+              </BodyLabel>
+            </Stack>
+            <Stack gap={2}>
+              <CaptionLabel>Останутся как есть</CaptionLabel>
+              <BodyLabel>
+                Платежи, воспоминания (AuthorUserId → null), история
+                правок.
+              </BodyLabel>
+            </Stack>
+            <Group justify="flex-end">
+              <Button
+                color="red"
+                onClick={() => {
+                  setDeleteEmailInput('');
+                  setConfirmDelete(true);
+                }}
+              >
+                Удалить пользователя навсегда
+              </Button>
+            </Group>
+          </Stack>
+        </CloudCard>
+      )}
+
+      {/* F17.10. Confirm block. Отдельная модаль перед необратимой
+          (в UX-смысле) операцией — юзеров дороже случайно вырубить,
+          чем ошибиться с complimentary. */}
+      <Modal
+        opened={confirmBlock}
+        onClose={() => !blockMutation.isPending && setConfirmBlock(false)}
+        title="Заблокировать пользователя?"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <BodyLabel>
+            Пользователь <b>{user.email}</b> моментально потеряет доступ.
+            Все его сессии инвалидируются, повторный вход не пройдёт.
+          </BodyLabel>
+          {blockMutation.isError && (
+            <Alert color="red" variant="light">
+              {formatError(blockMutation.error)}
+            </Alert>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={() => setConfirmBlock(false)}
+              disabled={blockMutation.isPending}
+            >
+              Отмена
+            </Button>
+            <Button
+              color="red"
+              onClick={() =>
+                blockMutation.mutate(blockReason.trim() || null)
+              }
+              loading={blockMutation.isPending}
+            >
+              Заблокировать
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* F17.11. Confirm delete. Требует ввести email юзера для
+          подтверждения — защита от случайного клика, mobile такого
+          не требует. */}
+      <Modal
+        opened={confirmDelete}
+        onClose={() => !removeMutation.isPending && setConfirmDelete(false)}
+        title="Удалить пользователя навсегда?"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <BodyLabel>
+            Действие необратимо. Юзер <b>{user.email}</b> и его сессии
+            уйдут навсегда; карточки, медиа и отслеживания перейдут к
+            вам как к супер-админу.
+          </BodyLabel>
+          <TextInput
+            label="Для подтверждения введите email юзера"
+            placeholder={user.email}
+            value={deleteEmailInput}
+            onChange={(e) => setDeleteEmailInput(e.currentTarget.value)}
+            autoFocus
+          />
+          {removeMutation.isError && (
+            <Alert color="red" variant="light">
+              {formatError(removeMutation.error)}
+            </Alert>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={() => setConfirmDelete(false)}
+              disabled={removeMutation.isPending}
+            >
+              Отмена
+            </Button>
+            <Button
+              color="red"
+              disabled={deleteEmailInput.trim() !== user.email}
+              loading={removeMutation.isPending}
+              onClick={() => removeMutation.mutate()}
+            >
+              Удалить навсегда
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       {/* F17.6. Grant complimentary access. Бессрочно / до даты + reason. */}
       <Modal

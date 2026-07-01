@@ -57,6 +57,24 @@ const KNOWN_CODES: Record<string, string> = {
   'subscription.trial_duration.invalid':
     'Некорректная длительность Trial.',
 
+  // F17.10 block guards (403)
+  'user.block.self.forbidden': 'Себя блокировать нельзя.',
+  'user.block.super_admin.forbidden':
+    'Супер-админа заблокировать нельзя.',
+  'user.block.peer_admin.forbidden':
+    'Admin не может заблокировать другого Admin.',
+  'user.account.blocked':
+    'Аккаунт заблокирован. Обратитесь к администратору.',
+
+  // F17.11 delete guards (403)
+  'user.delete.self.forbidden': 'Себя удалить нельзя.',
+  'user.delete.super_admin.forbidden':
+    'Супер-админа удалить нельзя.',
+  'user.delete.peer_admin.forbidden':
+    'Admin не может удалить другого Admin.',
+  'user.delete.has_content':
+    'Не удалось переуступить контент пользователя.',
+
   // Generic
   'validation.failed': 'Проверьте корректность заполненных полей.',
 };
