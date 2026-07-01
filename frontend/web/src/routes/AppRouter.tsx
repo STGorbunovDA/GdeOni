@@ -14,6 +14,7 @@ import { ChangePasswordPage } from '../pages/profile/ChangePasswordPage';
 import { AdminPage } from '../pages/admin/AdminPage';
 import { AdminDeceasedPage } from '../pages/admin/AdminDeceasedPage';
 import { AdminDeceasedViewPage } from '../pages/admin/AdminDeceasedViewPage';
+import { AdminDeceasedEditsPage } from '../pages/admin/AdminDeceasedEditsPage';
 import { AdminEditsPage } from '../pages/admin/AdminEditsPage';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
 import { AdminUserDetailsPage } from '../pages/admin/AdminUserDetailsPage';
@@ -82,6 +83,7 @@ export function AppRouter() {
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/deceased" element={<AdminDeceasedPage />} />
               <Route path="/admin/deceased/:id" element={<AdminDeceasedViewPage />} />
+              <Route path="/admin/deceased/:id/edits" element={<AdminDeceasedEditsPage />} />
               <Route path="/admin/users" element={<AdminUsersPage />} />
               <Route path="/admin/users/:id" element={<AdminUserDetailsPage />} />
               <Route path="/admin/payments" element={<AdminPaymentsPage />} />

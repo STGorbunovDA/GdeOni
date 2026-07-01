@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   Eye,
   EyeOff,
+  History,
   MapPin,
   ShieldCheck,
   ShieldOff,
@@ -149,6 +150,12 @@ export function AdminDeceasedViewPage() {
       <Group justify="space-between" wrap="wrap">
         <BackButton onClick={() => navigate('/admin/deceased')} />
         <Group gap="sm">
+          <GhostButton
+            leftSection={<History size={16} />}
+            onClick={() => navigate(`/admin/deceased/${id}/edits`)}
+          >
+            История правок
+          </GhostButton>
           <GhostButton
             leftSection={
               d.isVerified ? <ShieldOff size={16} /> : <ShieldCheck size={16} />
