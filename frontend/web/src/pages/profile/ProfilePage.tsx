@@ -1,7 +1,7 @@
 import { Alert, Group, Loader, Stack } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { KeyRound, LogOut, RefreshCw } from 'lucide-react';
+import { KeyRound, LogOut, MessageSquare, MessagesSquare, RefreshCw } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -75,6 +75,28 @@ export function ProfilePage() {
           </Stack>
         </CloudCard>
       )}
+
+      {/* F17.14. Ссылки в поддержку. Отдельная карточка для симметрии
+          с mobile ProfilePage. */}
+      <CloudCard>
+        <Stack gap="md">
+          <BodyLabel>Поддержка</BodyLabel>
+          <Group>
+            <PrimaryButton
+              leftSection={<MessageSquare size={16} />}
+              onClick={() => navigate('/support/new')}
+            >
+              Обращение в службу поддержки
+            </PrimaryButton>
+            <GhostButton
+              leftSection={<MessagesSquare size={16} />}
+              onClick={() => navigate('/support/mine')}
+            >
+              Мои обращения
+            </GhostButton>
+          </Group>
+        </Stack>
+      </CloudCard>
 
       <Group>
         <PrimaryButton

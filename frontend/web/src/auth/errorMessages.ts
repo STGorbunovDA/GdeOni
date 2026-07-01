@@ -75,6 +75,17 @@ const KNOWN_CODES: Record<string, string> = {
   'user.delete.has_content':
     'Не удалось переуступить контент пользователя.',
 
+  // F17.14 support tickets
+  'support_ticket.title.required': 'Введите заголовок обращения.',
+  'support_ticket.description.required': 'Введите текст обращения.',
+  'support_ticket.resolution_note.required':
+    'При переводе в «Решено» нужна заметка о решении.',
+  'support_ticket.already.resolved': 'Обращение уже решено.',
+  'support_ticket.already.accepted': 'Вы уже закрепили решение.',
+  'support_ticket.view.forbidden': 'Это обращение не ваше.',
+  'support_ticket.modify.forbidden':
+    'Изменить это обращение может только его автор.',
+
   // Generic
   'validation.failed': 'Проверьте корректность заполненных полей.',
 };

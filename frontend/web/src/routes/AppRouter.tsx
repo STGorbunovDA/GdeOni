@@ -21,6 +21,10 @@ import { AdminUserDetailsPage } from '../pages/admin/AdminUserDetailsPage';
 import { AdminUserTrackedPage } from '../pages/admin/AdminUserTrackedPage';
 import { AdminPaymentsPage } from '../pages/admin/AdminPaymentsPage';
 import { AdminSupportPage } from '../pages/admin/AdminSupportPage';
+import { AdminSupportTicketDetailsPage } from '../pages/admin/AdminSupportTicketDetailsPage';
+import { SupportNewPage } from '../pages/support/SupportNewPage';
+import { SupportMinePage } from '../pages/support/SupportMinePage';
+import { SupportTicketPage } from '../pages/support/SupportTicketPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { StyleDemoPage } from '../pages/StyleDemoPage';
 import { GeoDemoPage } from '../pages/GeoDemoPage';
@@ -73,6 +77,10 @@ export function AppRouter() {
 
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/change-password" element={<ChangePasswordPage />} />
+
+            <Route path="/support/new" element={<SupportNewPage />} />
+            <Route path="/support/mine" element={<SupportMinePage />} />
+            <Route path="/support/:id" element={<SupportTicketPage />} />
           </Route>
 
           {/* F17.13. Admin-роуты в отдельном AdminLayout с собственным
@@ -91,6 +99,7 @@ export function AppRouter() {
               <Route path="/admin/payments" element={<AdminPaymentsPage />} />
               <Route path="/admin/edits" element={<AdminEditsPage />} />
               <Route path="/admin/support-tickets" element={<AdminSupportPage />} />
+              <Route path="/admin/support-tickets/:id" element={<AdminSupportTicketDetailsPage />} />
             </Route>
           </Route>
         </Route>
