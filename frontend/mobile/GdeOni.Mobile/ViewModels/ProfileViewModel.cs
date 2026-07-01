@@ -169,6 +169,29 @@ public partial class ProfileViewModel(
                 }
                 catch (ApiException) { }
                 catch (HttpRequestException) { }
+
+                // E22.6 fix. Profile сам не гейтнут (юзер должен мочь сюда
+                // зайти даже без подписки — иначе как её оформлять). Поэтому
+                // SubscriptionGateHandler здесь не сработает: 403 не приходит.
+                // Если админ снял подписку через web-админку, мы заметим
+                // это здесь и руками отправим юзера на paywall — той же
+                // механикой что и при 403.
+                if (Subscription is { IsActiveNow: false })
+                {
+                    MainThread.BeginInvokeOnMainThread(async () =>
+                    {
+                        try
+                        {
+                            if (Shell.Current is not null)
+                                await Shell.Current.GoToAsync("//subscription-required");
+                        }
+                        catch
+                        {
+                            // GoToAsync может бросить во время навигации
+                            // (та же логика как в SubscriptionGateHandler).
+                        }
+                    });
+                }
             }
             else
             {
