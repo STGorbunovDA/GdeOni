@@ -191,4 +191,53 @@ export const adminUsersApi = {
     );
   },
 
+  /**
+   * F17.12. GET /api/admin/users/{userId}/tracked-deceased —
+   * все отслеживания юзера с пагинацией.
+   */
+  async listTracked(
+    userId: string,
+    page: number,
+    pageSize: number,
+  ): Promise<PagedResponse<AdminUserTrackedItem>> {
+    return unwrap(
+      apiClient.get<ApiEnvelope<PagedResponse<AdminUserTrackedItem>>>(
+        `/api/admin/users/${userId}/tracked-deceased`,
+        { params: { page, pageSize } },
+      ),
+    );
+  },
+
+  /**
+   * F17.12. DELETE /api/admin/users/{userId}/tracked-deceased/{deceasedId}
+   * — снять одно отслеживание. 204.
+   */
+  async removeTracking(userId: string, deceasedId: string): Promise<void> {
+    await apiClient.delete(
+      `/api/admin/users/${userId}/tracked-deceased/${deceasedId}`,
+    );
+  },
+
+  /**
+   * F17.12. DELETE /api/admin/users/{userId}/tracked-deceased — снять
+   * все отслеживания разом. Возвращает { removedCount }.
+   */
+  async removeAllTracking(userId: string): Promise<{ removedCount: number }> {
+    return unwrap(
+      apiClient.delete<ApiEnvelope<{ removedCount: number }>>(
+        `/api/admin/users/${userId}/tracked-deceased`,
+      ),
+    );
+  },
+};
+
+/** Зеркало UserTrackedDeceasedItem с бэка. */
+export type AdminUserTrackedItem = {
+  deceasedId: string;
+  fullName: string;
+  birthDate: string | null;
+  deathDate: string;
+  relationshipType: string;
+  status: string;
+  trackedAtUtc: string;
 };

@@ -18,6 +18,7 @@ import { AdminDeceasedEditsPage } from '../pages/admin/AdminDeceasedEditsPage';
 import { AdminEditsPage } from '../pages/admin/AdminEditsPage';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
 import { AdminUserDetailsPage } from '../pages/admin/AdminUserDetailsPage';
+import { AdminUserTrackedPage } from '../pages/admin/AdminUserTrackedPage';
 import { AdminPaymentsPage } from '../pages/admin/AdminPaymentsPage';
 import { AdminSupportPage } from '../pages/admin/AdminSupportPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
@@ -86,6 +87,7 @@ export function AppRouter() {
               <Route path="/admin/deceased/:id/edits" element={<AdminDeceasedEditsPage />} />
               <Route path="/admin/users" element={<AdminUsersPage />} />
               <Route path="/admin/users/:id" element={<AdminUserDetailsPage />} />
+              <Route path="/admin/users/:id/tracked" element={<AdminUserTrackedPage />} />
               <Route path="/admin/payments" element={<AdminPaymentsPage />} />
               <Route path="/admin/edits" element={<AdminEditsPage />} />
               <Route path="/admin/support-tickets" element={<AdminSupportPage />} />

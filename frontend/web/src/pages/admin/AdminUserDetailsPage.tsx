@@ -302,6 +302,14 @@ export function AdminUserDetailsPage() {
             }
           />
           <Field label="Отслеживает умерших" value={String(user.trackingCount)} />
+          <Group>
+            <GhostButton
+              size="compact-sm"
+              onClick={() => navigate(`/admin/users/${user.id}/tracked`)}
+            >
+              Открыть список отслеживаний
+            </GhostButton>
+          </Group>
         </Stack>
       </CloudCard>
 
