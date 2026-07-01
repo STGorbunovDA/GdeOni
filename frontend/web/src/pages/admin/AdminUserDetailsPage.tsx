@@ -202,7 +202,7 @@ export function AdminUserDetailsPage() {
   if (!id) {
     return (
       <Stack gap="lg">
-        <BackButton onClick={() => navigate('/admin/users')} />
+        <BackButton onClick={() => navigate(-1)} />
         <Alert color="red" variant="light">
           Некорректный идентификатор пользователя.
         </Alert>
@@ -221,7 +221,7 @@ export function AdminUserDetailsPage() {
   if (query.isError || !query.data) {
     return (
       <Stack gap="lg">
-        <BackButton onClick={() => navigate('/admin/users')} />
+        <BackButton onClick={() => navigate(-1)} />
         <Alert color="red" variant="light">
           {query.error ? formatError(query.error) : 'Пользователь не найден.'}
         </Alert>
@@ -271,7 +271,7 @@ export function AdminUserDetailsPage() {
   return (
     <Stack gap="lg">
       <Group>
-        <BackButton onClick={() => navigate('/admin/users')} />
+        <BackButton onClick={() => navigate(-1)} />
       </Group>
 
       <Stack gap="xs">
