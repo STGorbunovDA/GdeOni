@@ -42,6 +42,21 @@ const KNOWN_CODES: Record<string, string> = {
   'deceased_media.already.rejected': 'Файл уже скрыт.',
   'deceased_media.already.approved': 'Файл уже видно всем.',
 
+  // F17.6 subscription / complimentary management
+  'subscription.revoke.self_forbidden': 'Себе нельзя снимать подписку.',
+  'subscription.manage.super_admin_forbidden':
+    'Admin не может управлять подпиской SuperAdmin.',
+  'complimentary.grant.self.forbidden':
+    'Себе нельзя выдавать бесплатный доступ.',
+  'complimentary.manage.super_admin.forbidden':
+    'Admin не может управлять комплиментом SuperAdmin.',
+  'complimentary.until.in_past':
+    'Дата окончания не может быть в прошлом.',
+  'complimentary.note.too_long':
+    'Причина слишком длинная (максимум 500 символов).',
+  'subscription.trial_duration.invalid':
+    'Некорректная длительность Trial.',
+
   // Generic
   'validation.failed': 'Проверьте корректность заполненных полей.',
 };

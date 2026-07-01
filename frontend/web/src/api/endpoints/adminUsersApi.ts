@@ -92,4 +92,53 @@ export const adminUsersApi = {
       ),
     );
   },
+
+  /**
+   * F17.6 / D22. POST /api/admin/users/{userId}/complimentary-access —
+   * выдать пользователю бесплатный доступ. untilUtc=null → бессрочно.
+   * note — опциональная заметка для аудита (например, «друг основателя»).
+   * Идемпотентно: повторный вызов с теми же параметрами не двигает GrantedAt.
+   * 204 No Content.
+   *
+   * Себе выдать нельзя (бэк вернёт 403). Admin не может управлять
+   * SuperAdmin/Admin'ом — UI прячет кнопку.
+   */
+  async grantComplimentaryAccess(
+    id: string,
+    request: { untilUtc: string | null; note: string | null },
+  ): Promise<void> {
+    await apiClient.post(
+      `/api/admin/users/${id}/complimentary-access`,
+      request,
+    );
+  },
+
+  /**
+   * F17.6. DELETE /api/admin/users/{userId}/complimentary-access — отозвать
+   * выданный комплимент. Silent no-op если доступа не было. 204.
+   */
+  async revokeComplimentaryAccess(id: string): Promise<void> {
+    await apiClient.delete(`/api/admin/users/${id}/complimentary-access`);
+  },
+
+  /**
+   * F17.6. POST /api/admin/users/{userId}/subscription/trial — перезапустить
+   * пробный период. durationDays=null → бэк возьмёт TrialDurationDays из
+   * SubscriptionOptions (по умолчанию 30). Работает из любого статуса —
+   * переводит юзера в Trial с новым сроком. 204.
+   */
+  async restartTrial(id: string, durationDays: number | null = null): Promise<void> {
+    await apiClient.post(`/api/admin/users/${id}/subscription/trial`, {
+      durationDays,
+    });
+  },
+
+  /**
+   * F17.6. DELETE /api/admin/users/{userId}/subscription — моментально
+   * снять подписку (Status → Expired, ExpiresAtUtc → now). Себе снять
+   * нельзя (бэк вернёт 403). 204.
+   */
+  async revokeSubscription(id: string): Promise<void> {
+    await apiClient.delete(`/api/admin/users/${id}/subscription`);
+  },
 };

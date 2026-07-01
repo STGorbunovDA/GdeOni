@@ -2,14 +2,19 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Badge,
+  Button,
   Group,
   Loader,
+  Modal,
+  Radio,
   Select,
   Stack,
+  Textarea,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, Save } from 'lucide-react';
+import { Ban, ChevronLeft, Gift, RefreshCw, Save, XCircle } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -59,6 +64,7 @@ export function AdminUserDetailsPage() {
   const queryClient = useQueryClient();
   const { id } = useParams<{ id: string }>();
   const currentUserRole = useAuthStore((s) => s.user?.role);
+  const currentUserId = useAuthStore((s) => s.user?.id);
 
   const query = useQuery({
     queryKey: ['admin-user-details', id],
@@ -87,6 +93,65 @@ export function AdminUserDetailsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
   });
+
+  // F17.6. Управление подпиской и комплиментом. Все 4 мутации после
+  // успеха инвалидируют один и тот же details-query, чтобы UI сразу
+  // отобразил новый статус. tracked-list инвалидировать не нужно —
+  // подписка на нём не отображается.
+  function invalidateUserData() {
+    queryClient.invalidateQueries({ queryKey: ['admin-user-details', id] });
+    queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+  }
+
+  const grantMutation = useMutation({
+    mutationFn: (req: { untilUtc: string | null; note: string | null }) =>
+      adminUsersApi.grantComplimentaryAccess(id!, req),
+    onSuccess: () => {
+      invalidateUserData();
+      setGrantModalOpen(false);
+    },
+  });
+
+  const revokeComplimentaryMutation = useMutation({
+    mutationFn: () => adminUsersApi.revokeComplimentaryAccess(id!),
+    onSuccess: () => {
+      invalidateUserData();
+      setConfirmRevokeComp(false);
+    },
+  });
+
+  const restartTrialMutation = useMutation({
+    mutationFn: () => adminUsersApi.restartTrial(id!),
+    onSuccess: () => {
+      invalidateUserData();
+      setConfirmRestartTrial(false);
+    },
+  });
+
+  const revokeSubscriptionMutation = useMutation({
+    mutationFn: () => adminUsersApi.revokeSubscription(id!),
+    onSuccess: () => {
+      invalidateUserData();
+      setConfirmRevokeSub(false);
+    },
+  });
+
+  // F17.6. Состояние модалей. Grant — форма (бессрочно / до даты + reason),
+  // остальные три — простые confirm'ы.
+  const [grantModalOpen, setGrantModalOpen] = useState(false);
+  const [grantMode, setGrantMode] = useState<'forever' | 'until'>('forever');
+  const [grantUntil, setGrantUntil] = useState<Date | null>(null);
+  const [grantNote, setGrantNote] = useState('');
+  const [confirmRevokeComp, setConfirmRevokeComp] = useState(false);
+  const [confirmRestartTrial, setConfirmRestartTrial] = useState(false);
+  const [confirmRevokeSub, setConfirmRevokeSub] = useState(false);
+
+  function openGrantModal() {
+    setGrantMode('forever');
+    setGrantUntil(null);
+    setGrantNote('');
+    setGrantModalOpen(true);
+  }
 
   if (!id) {
     return (
@@ -122,6 +187,20 @@ export function AdminUserDetailsPage() {
   const canChangeRole =
     user.role !== 'SuperAdmin' &&
     (currentUserRole === 'SuperAdmin' || currentUserRole === 'Admin');
+
+  // F17.6 guards. Управление подпиской/комплиментом доступно когда:
+  //  - target не сам админ (себе нельзя — backend отдаёт 403);
+  //  - target не Manager (он автоматически bypass подписки, см. D16.5);
+  //  - target не SuperAdmin (SuperAdmin не должен попадать в админ-листинг
+  //    — includeSuperAdmins=false на бэке, но на всякий случай);
+  //  - если current=Admin: target не должен быть Admin (Admin не управляет
+  //    Admin'ом — backend проверит, UI прячет ради UX);
+  const isSelf = currentUserId === user.id;
+  const canManageAccess =
+    !isSelf &&
+    user.role !== 'Manager' &&
+    user.role !== 'SuperAdmin' &&
+    !(currentUserRole === 'Admin' && user.role === 'Admin');
 
   return (
     <Stack gap="lg">
@@ -162,7 +241,7 @@ export function AdminUserDetailsPage() {
 
       <CloudCard>
         <Stack gap="md">
-          <SubTitleLabel>Подписка</SubTitleLabel>
+          <SubTitleLabel>Доступ и подписка</SubTitleLabel>
           <Field label="Статус" value={user.subscriptionStatus} />
           {user.subscriptionPlan && (
             <Field label="Тариф" value={user.subscriptionPlan} />
@@ -190,6 +269,56 @@ export function AdminUserDetailsPage() {
                 />
               )}
             </>
+          )}
+
+          {/* F17.6. Действия. Скрываем целиком если current не может
+              управлять (см. canManageAccess guard). */}
+          {canManageAccess ? (
+            <Group gap="sm" wrap="wrap">
+              {!user.hasComplimentaryAccess ? (
+                <Button
+                  variant="light"
+                  color="green"
+                  leftSection={<Gift size={16} />}
+                  onClick={openGrantModal}
+                >
+                  Выдать бесплатный доступ
+                </Button>
+              ) : (
+                <Button
+                  variant="light"
+                  color="orange"
+                  leftSection={<XCircle size={16} />}
+                  onClick={() => setConfirmRevokeComp(true)}
+                >
+                  Отозвать бесплатный доступ
+                </Button>
+              )}
+              <Button
+                variant="light"
+                color="azure"
+                leftSection={<RefreshCw size={16} />}
+                onClick={() => setConfirmRestartTrial(true)}
+              >
+                Восстановить Trial (30 дней)
+              </Button>
+              <Button
+                variant="light"
+                color="red"
+                leftSection={<Ban size={16} />}
+                onClick={() => setConfirmRevokeSub(true)}
+              >
+                Снять подписку
+              </Button>
+            </Group>
+          ) : (
+            <CaptionLabel>
+              {isSelf
+                ? 'Себе подписку и комплимент менять нельзя.'
+                : user.role === 'Manager'
+                  ? 'Для менеджера это не нужно — у них автоматический bypass подписки.'
+                  : 'У вас нет прав на управление подпиской этого пользователя.'}
+            </CaptionLabel>
           )}
         </Stack>
       </CloudCard>
@@ -243,6 +372,200 @@ export function AdminUserDetailsPage() {
           )}
         </Stack>
       </CloudCard>
+
+      {/* F17.6. Grant complimentary access. Бессрочно / до даты + reason. */}
+      <Modal
+        opened={grantModalOpen}
+        onClose={() => !grantMutation.isPending && setGrantModalOpen(false)}
+        title="Выдать бесплатный доступ"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <Radio.Group
+            value={grantMode}
+            onChange={(v) => setGrantMode(v as 'forever' | 'until')}
+            label="Срок"
+          >
+            <Stack gap="xs" mt="xs">
+              <Radio value="forever" label="Бессрочно" />
+              <Radio value="until" label="До конкретной даты" />
+            </Stack>
+          </Radio.Group>
+          {grantMode === 'until' && (
+            <DateInput
+              label="Действует до"
+              placeholder="дд.мм.гггг"
+              valueFormat="DD.MM.YYYY"
+              value={grantUntil}
+              onChange={(v) =>
+                setGrantUntil(v ? new Date(v as unknown as string) : null)
+              }
+              clearable
+              minDate={new Date()}
+            />
+          )}
+          <Textarea
+            label="Причина"
+            placeholder="Например: друг основателя, support ticket 42"
+            value={grantNote}
+            onChange={(e) => setGrantNote(e.currentTarget.value)}
+            autosize
+            minRows={2}
+            maxRows={5}
+            maxLength={500}
+          />
+          {grantMutation.isError && (
+            <Alert color="red" variant="light">
+              {formatError(grantMutation.error)}
+            </Alert>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={() => setGrantModalOpen(false)}
+              disabled={grantMutation.isPending}
+            >
+              Отмена
+            </Button>
+            <Button
+              color="green"
+              loading={grantMutation.isPending}
+              disabled={grantMode === 'until' && !grantUntil}
+              onClick={() =>
+                grantMutation.mutate({
+                  untilUtc:
+                    grantMode === 'until' && grantUntil
+                      ? grantUntil.toISOString()
+                      : null,
+                  note: grantNote.trim() || null,
+                })
+              }
+            >
+              Выдать
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* F17.6. Confirm revoke complimentary. */}
+      <Modal
+        opened={confirmRevokeComp}
+        onClose={() =>
+          !revokeComplimentaryMutation.isPending && setConfirmRevokeComp(false)
+        }
+        title="Отозвать бесплатный доступ?"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <BodyLabel>
+            Юзер потеряет бесплатный доступ. Если у него нет активной
+            подписки — сервис закроется при следующем запросе.
+          </BodyLabel>
+          {revokeComplimentaryMutation.isError && (
+            <Alert color="red" variant="light">
+              {formatError(revokeComplimentaryMutation.error)}
+            </Alert>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={() => setConfirmRevokeComp(false)}
+              disabled={revokeComplimentaryMutation.isPending}
+            >
+              Отмена
+            </Button>
+            <Button
+              color="orange"
+              loading={revokeComplimentaryMutation.isPending}
+              onClick={() => revokeComplimentaryMutation.mutate()}
+            >
+              Отозвать
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* F17.6. Confirm restart trial. */}
+      <Modal
+        opened={confirmRestartTrial}
+        onClose={() =>
+          !restartTrialMutation.isPending && setConfirmRestartTrial(false)
+        }
+        title="Восстановить Trial?"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <BodyLabel>
+            Подписка перейдёт в Trial с новым сроком 30 дней (значение
+            из SubscriptionOptions.TrialDurationDays). Текущий статус
+            не имеет значения — переключим из любого.
+          </BodyLabel>
+          {restartTrialMutation.isError && (
+            <Alert color="red" variant="light">
+              {formatError(restartTrialMutation.error)}
+            </Alert>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={() => setConfirmRestartTrial(false)}
+              disabled={restartTrialMutation.isPending}
+            >
+              Отмена
+            </Button>
+            <Button
+              color="azure"
+              loading={restartTrialMutation.isPending}
+              onClick={() => restartTrialMutation.mutate()}
+            >
+              Восстановить Trial
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* F17.6. Confirm revoke subscription. */}
+      <Modal
+        opened={confirmRevokeSub}
+        onClose={() =>
+          !revokeSubscriptionMutation.isPending && setConfirmRevokeSub(false)
+        }
+        title="Снять подписку?"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <BodyLabel>
+            Подписка моментально переведётся в Expired. Юзер потеряет
+            доступ при следующем запросе. Если у него выдан бесплатный
+            доступ (complimentary), он продолжит работать.
+          </BodyLabel>
+          {revokeSubscriptionMutation.isError && (
+            <Alert color="red" variant="light">
+              {formatError(revokeSubscriptionMutation.error)}
+            </Alert>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={() => setConfirmRevokeSub(false)}
+              disabled={revokeSubscriptionMutation.isPending}
+            >
+              Отмена
+            </Button>
+            <Button
+              color="red"
+              loading={revokeSubscriptionMutation.isPending}
+              onClick={() => revokeSubscriptionMutation.mutate()}
+            >
+              Снять подписку
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }
