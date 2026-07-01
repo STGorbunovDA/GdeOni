@@ -36,6 +36,12 @@ const KNOWN_CODES: Record<string, string> = {
   'user.privacy_policy.not_accepted': 'Необходимо принять Политику конфиденциальности.',
   'user.terms.not_accepted': 'Необходимо принять Условия использования.',
 
+  // F17.4 moderation conflicts (409)
+  'deceased_memory.already.rejected': 'Воспоминание уже скрыто.',
+  'deceased_memory.already.approved': 'Воспоминание уже видно всем.',
+  'deceased_media.already.rejected': 'Файл уже скрыт.',
+  'deceased_media.already.approved': 'Файл уже видно всем.',
+
   // Generic
   'validation.failed': 'Проверьте корректность заполненных полей.',
 };

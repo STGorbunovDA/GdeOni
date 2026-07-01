@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Alert,
+  Badge,
   Button,
   Group,
   Modal,
@@ -8,7 +9,7 @@ import {
   Textarea,
 } from '@mantine/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -23,7 +24,7 @@ import {
   MEMORY_TEXT_MAX_LENGTH,
 } from '../../api/endpoints/memoriesApi';
 import { formatError } from '../../auth/errorMessages';
-import { useAuthStore } from '../../auth/authStore';
+import { useAuthStore, useIsAdmin } from '../../auth/authStore';
 import type { DeceasedMemory } from '../../api/endpoints/deceasedApi';
 
 /**
@@ -33,6 +34,9 @@ import type { DeceasedMemory } from '../../api/endpoints/deceasedApi';
  *  - Список карточек, отсортированных бэком по CreatedAtUtc
  *  - Кнопка "+ Добавить" → modal Create
  *  - У своих memory есть Edit/Delete (по authorUserId === currentUserId)
+ *  - F17.4: у админа есть кнопка «Скрыть» (модерация без удаления)
+ *    и «Восстановить» для уже скрытых. У скрытых показывается badge
+ *    "Скрыто" + приглушённый фон.
  *  - После любой mutation инвалидируем details-query (memories живут
  *    внутри DeceasedDetailsResponse — отдельного GET-list нет)
  */
@@ -45,15 +49,46 @@ export function MemoriesSection({
 }) {
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((s) => s.user?.id);
+  const isAdmin = useIsAdmin();
   const [editing, setEditing] = useState<DeceasedMemory | null>(null);
   const [creating, setCreating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<DeceasedMemory | null>(null);
+  const [pendingReject, setPendingReject] = useState<DeceasedMemory | null>(null);
+
+  // F17.4. Инвалидируем оба ключа кэша: 'tracked-details' (F11) и
+  // 'admin-deceased-details' (admin-view, F17.1). В одном из них
+  // данные точно лежат; React Query на отсутствующем ключе просто
+  // ничего не делает.
+  function invalidateDetails() {
+    queryClient.invalidateQueries({ queryKey: ['tracked-details', deceasedId] });
+    queryClient.invalidateQueries({ queryKey: ['admin-deceased-details', deceasedId] });
+  }
 
   const deleteMutation = useMutation({
     mutationFn: (memoryId: string) => memoriesApi.remove(deceasedId, memoryId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tracked-details', deceasedId] });
+      invalidateDetails();
       setPendingDelete(null);
+    },
+  });
+
+  // F17.4. Reject — модераторское "Скрыть". В отличие от Delete не
+  // удаляет запись, а проставляет ModerationStatus.Rejected.
+  const rejectMutation = useMutation({
+    mutationFn: (memoryId: string) => memoriesApi.reject(deceasedId, memoryId),
+    onSuccess: () => {
+      invalidateDetails();
+      setPendingReject(null);
+    },
+  });
+
+  // F17.4. Approve — обратное действие. Возвращает скрытое воспоминание
+  // обратно в Approved. Без confirm-модали: ошибка случайно вернуть
+  // скрытое не катастрофична, а лишний клик мешает массовому восстановлению.
+  const approveMutation = useMutation({
+    mutationFn: (memoryId: string) => memoriesApi.approve(deceasedId, memoryId),
+    onSuccess: () => {
+      invalidateDetails();
     },
   });
 
@@ -76,6 +111,18 @@ export function MemoriesSection({
           </Alert>
         )}
 
+        {rejectMutation.isError && (
+          <Alert color="red" variant="light">
+            {formatError(rejectMutation.error)}
+          </Alert>
+        )}
+
+        {approveMutation.isError && (
+          <Alert color="red" variant="light">
+            {formatError(approveMutation.error)}
+          </Alert>
+        )}
+
         {memories.length === 0 ? (
           <CaptionLabel>
             Пока нет воспоминаний. Нажмите «Добавить», чтобы поделиться
@@ -87,8 +134,15 @@ export function MemoriesSection({
               key={m.id}
               memory={m}
               canEdit={!!currentUserId && m.authorUserId === currentUserId}
+              isAdmin={isAdmin}
               onEdit={() => setEditing(m)}
               onDelete={() => setPendingDelete(m)}
+              onReject={() => setPendingReject(m)}
+              onApprove={() => approveMutation.mutate(m.id)}
+              approving={
+                approveMutation.isPending &&
+                approveMutation.variables === m.id
+              }
             />
           ))
         )}
@@ -137,6 +191,41 @@ export function MemoriesSection({
             </Group>
           </Stack>
         </Modal>
+
+        {/* F17.4. Модераторское «Скрыть» — отдельная модаль с другим
+            текстом и желтоватой акцентовкой, чтобы админ не путал
+            с обычным Delete (Delete стирает запись; Reject хранит для
+            аудита). */}
+        <Modal
+          opened={pendingReject !== null}
+          onClose={() => !rejectMutation.isPending && setPendingReject(null)}
+          title="Скрыть воспоминание?"
+          centered
+          size="md"
+        >
+          <Stack gap="md">
+            <BodyLabel>
+              Воспоминание будет скрыто от всех, кроме автора и
+              администраторов. Сама запись сохранится для аудита.
+            </BodyLabel>
+            <Group justify="flex-end" gap="sm">
+              <Button
+                variant="default"
+                onClick={() => setPendingReject(null)}
+                disabled={rejectMutation.isPending}
+              >
+                Отмена
+              </Button>
+              <Button
+                color="yellow"
+                onClick={() => pendingReject && rejectMutation.mutate(pendingReject.id)}
+                loading={rejectMutation.isPending}
+              >
+                Скрыть
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
       </Stack>
     </CloudCard>
   );
@@ -145,57 +234,107 @@ export function MemoriesSection({
 function MemoryItem({
   memory,
   canEdit,
+  isAdmin,
   onEdit,
   onDelete,
+  onReject,
+  onApprove,
+  approving,
 }: {
   memory: DeceasedMemory;
   canEdit: boolean;
+  isAdmin: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onReject: () => void;
+  onApprove: () => void;
+  approving: boolean;
 }) {
   const createdAt = new Date(memory.createdAtUtc);
   const dateText = `${String(createdAt.getDate()).padStart(2, '0')}.${String(createdAt.getMonth() + 1).padStart(2, '0')}.${createdAt.getFullYear()}`;
   const wasEdited = !!memory.updatedAtUtc;
+  const isRejected = memory.moderationStatus === 'Rejected';
 
   return (
     <div
       style={{
         padding: '12px 14px',
         borderRadius: 12,
-        background: '#FAFCFE',
-        border: `1px solid ${cloudColors.cloudBorder}`,
+        // F17.4: визуально приглушаем скрытые записи и подсвечиваем
+        // жёлтой обводкой — админ сразу понимает, что эта запись не
+        // видна обычным юзерам.
+        background: isRejected ? '#FFFBEB' : '#FAFCFE',
+        border: `1px solid ${
+          isRejected ? '#F5C462' : cloudColors.cloudBorder
+        }`,
+        opacity: isRejected ? 0.75 : 1,
       }}
     >
       <Stack gap="xs">
-        <CaptionLabel c={cloudColors.azureDeep}>
-          {memory.authorName ?? 'Аноним'}
-        </CaptionLabel>
+        <Group gap="xs">
+          <CaptionLabel c={cloudColors.azureDeep}>
+            {memory.authorName ?? 'Аноним'}
+          </CaptionLabel>
+          {isRejected && (
+            <Badge color="yellow" variant="light" size="sm">
+              Скрыто
+            </Badge>
+          )}
+        </Group>
         <BodyLabel style={{ whiteSpace: 'pre-wrap' }}>{memory.text}</BodyLabel>
         <Group justify="space-between" align="center">
           <CaptionLabel>
             {dateText}
             {wasEdited && ' · отредактировано'}
           </CaptionLabel>
-          {canEdit && (
+          {(canEdit || isAdmin) && (
             <Group gap="xs">
-              <Button
-                variant="subtle"
-                color="azure"
-                size="xs"
-                leftSection={<Pencil size={14} />}
-                onClick={onEdit}
-              >
-                Изменить
-              </Button>
-              <Button
-                variant="subtle"
-                color="red"
-                size="xs"
-                leftSection={<Trash2 size={14} />}
-                onClick={onDelete}
-              >
-                Удалить
-              </Button>
+              {canEdit && (
+                <Button
+                  variant="subtle"
+                  color="azure"
+                  size="xs"
+                  leftSection={<Pencil size={14} />}
+                  onClick={onEdit}
+                >
+                  Изменить
+                </Button>
+              )}
+              {canEdit && (
+                <Button
+                  variant="subtle"
+                  color="red"
+                  size="xs"
+                  leftSection={<Trash2 size={14} />}
+                  onClick={onDelete}
+                >
+                  Удалить
+                </Button>
+              )}
+              {isAdmin && (
+                isRejected ? (
+                  <Button
+                    variant="subtle"
+                    color="green"
+                    size="xs"
+                    leftSection={<Eye size={14} />}
+                    onClick={onApprove}
+                    loading={approving}
+                  >
+                    Восстановить
+                  </Button>
+                ) : (
+                  <Button
+                    variant="subtle"
+                    color="yellow"
+                    size="xs"
+                    leftSection={<EyeOff size={14} />}
+                    onClick={onReject}
+                  >
+                    Скрыть
+                  </Button>
+                )
+              )}
             </Group>
           )}
         </Group>

@@ -150,4 +150,30 @@ export const mediaApi = {
     );
     return response.data;
   },
+
+  /**
+   * F17.4. PUT .../media/{mediaId}/reject — модераторское «Скрыть».
+   * Бэк выставляет ModerationStatus.Rejected + удаляет файл из MinIO
+   * (best-effort, см. D7.45) + сбрасывает main-photo если это было оно.
+   * Сама запись остаётся для аудита, кому/когда что было отклонено.
+   * 204 No Content.
+   */
+  async reject(deceasedId: string, mediaId: string): Promise<void> {
+    await apiClient.put(
+      `/api/deceased-records/${deceasedId}/media/${mediaId}/reject`,
+    );
+  },
+
+  /**
+   * F17.4. PUT .../media/{mediaId}/approve — обратное действие к reject.
+   * Возвращает запись в Approved. Восстановление файла в MinIO бэк не
+   * делает (он был удалён при reject), но запись становится снова
+   * видимой; UI покажет broken image, пока юзер не перезальёт.
+   * 204 No Content.
+   */
+  async approve(deceasedId: string, mediaId: string): Promise<void> {
+    await apiClient.put(
+      `/api/deceased-records/${deceasedId}/media/${mediaId}/approve`,
+    );
+  },
 };

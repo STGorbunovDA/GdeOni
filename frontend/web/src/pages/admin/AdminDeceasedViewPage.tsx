@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Alert, Group, Loader, Modal, Stack } from '@mantine/core';
+import { Alert, Badge, Button, Group, Loader, Modal, Stack } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ChevronLeft,
+  Eye,
+  EyeOff,
   MapPin,
   ShieldCheck,
   ShieldOff,
@@ -20,7 +22,8 @@ import {
   TitleLabel,
 } from '../../components/ui';
 import { cloudColors } from '../../design/theme';
-import { deceasedApi } from '../../api/endpoints/deceasedApi';
+import { deceasedApi, type DeceasedMemory } from '../../api/endpoints/deceasedApi';
+import { memoriesApi } from '../../api/endpoints/memoriesApi';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
 import { buildMediaUrl } from '../../utils/mediaUrl';
 import { formatDateOnly, formatDateTime } from '../../utils/formatDate';
@@ -77,6 +80,30 @@ export function AdminDeceasedViewPage() {
     },
   });
 
+  // F17.4. Reject memory — модераторское «Скрыть» прямо со страницы
+  // admin-view. Memories здесь отрисованы inline (read-only), поэтому
+  // mutation живёт в самой странице, а не в переиспользуемой
+  // MemoriesSection (которая тащит ещё Edit/Delete для author'а).
+  const [pendingRejectMemory, setPendingRejectMemory] =
+    useState<DeceasedMemory | null>(null);
+  const rejectMemoryMutation = useMutation({
+    mutationFn: (memoryId: string) => memoriesApi.reject(id!, memoryId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased-details', id] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-details', id] });
+      setPendingRejectMemory(null);
+    },
+  });
+
+  // F17.4. Восстановление скрытого воспоминания обратно в Approved.
+  // Без confirm-модали — обратимое действие.
+  const approveMemoryMutation = useMutation({
+    mutationFn: (memoryId: string) => memoriesApi.approve(id!, memoryId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased-details', id] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-details', id] });
+    },
+  });
 
   if (!id) {
     return (
@@ -222,27 +249,116 @@ export function AdminDeceasedViewPage() {
           {d.memories.length === 0 && (
             <BodyLabel>Пока никто ничего не написал.</BodyLabel>
           )}
-          {d.memories.map((m) => (
-            <CloudCard
-              key={m.id}
-              style={{ background: cloudColors.cloud, padding: 12 }}
-            >
-              <Stack gap={4}>
-                <CaptionLabel c={cloudColors.azureDeep}>
-                  {m.authorName ?? 'Аноним'}
-                </CaptionLabel>
-                <BodyLabel>{m.text}</BodyLabel>
-                <CaptionLabel>
-                  {formatDateTime(m.createdAtUtc)}
-                  {m.updatedAtUtc ? ' · отредактировано' : ''}
-                </CaptionLabel>
-              </Stack>
-            </CloudCard>
-          ))}
+          {d.memories.map((m) => {
+            const isMemoryRejected = m.moderationStatus === 'Rejected';
+            return (
+              <CloudCard
+                key={m.id}
+                style={{
+                  background: isMemoryRejected ? '#FFFBEB' : cloudColors.cloud,
+                  padding: 12,
+                  border: isMemoryRejected ? '1px solid #F5C462' : undefined,
+                  opacity: isMemoryRejected ? 0.85 : 1,
+                }}
+              >
+                <Stack gap={4}>
+                  <Group gap="xs">
+                    <CaptionLabel c={cloudColors.azureDeep}>
+                      {m.authorName ?? 'Аноним'}
+                    </CaptionLabel>
+                    {isMemoryRejected && (
+                      <Badge color="yellow" variant="light" size="sm">
+                        Скрыто
+                      </Badge>
+                    )}
+                  </Group>
+                  <BodyLabel>{m.text}</BodyLabel>
+                  <Group justify="space-between" align="center">
+                    <CaptionLabel>
+                      {formatDateTime(m.createdAtUtc)}
+                      {m.updatedAtUtc ? ' · отредактировано' : ''}
+                    </CaptionLabel>
+                    {isMemoryRejected ? (
+                      <Button
+                        variant="subtle"
+                        color="green"
+                        size="xs"
+                        leftSection={<Eye size={14} />}
+                        loading={
+                          approveMemoryMutation.isPending &&
+                          approveMemoryMutation.variables === m.id
+                        }
+                        onClick={() => approveMemoryMutation.mutate(m.id)}
+                      >
+                        Восстановить
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="subtle"
+                        color="yellow"
+                        size="xs"
+                        leftSection={<EyeOff size={14} />}
+                        onClick={() => setPendingRejectMemory(m)}
+                      >
+                        Скрыть
+                      </Button>
+                    )}
+                  </Group>
+                </Stack>
+              </CloudCard>
+            );
+          })}
+          {approveMemoryMutation.isError && (
+            <Alert color="red" variant="light">
+              {formatError(approveMemoryMutation.error)}
+            </Alert>
+          )}
         </Stack>
       </CloudCard>
 
       <MediaSection deceasedId={id} />
+
+      {/* F17.4. Confirm reject memory. */}
+      <Modal
+        opened={pendingRejectMemory !== null}
+        onClose={() =>
+          !rejectMemoryMutation.isPending && setPendingRejectMemory(null)
+        }
+        title="Скрыть воспоминание?"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <BodyLabel>
+            Воспоминание будет скрыто от всех, кроме автора и
+            администраторов. Сама запись сохранится для аудита.
+          </BodyLabel>
+          {rejectMemoryMutation.isError && (
+            <Alert color="red" variant="light">
+              {formatError(rejectMemoryMutation.error)}
+            </Alert>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={() => setPendingRejectMemory(null)}
+              disabled={rejectMemoryMutation.isPending}
+            >
+              Отмена
+            </Button>
+            <Button
+              color="yellow"
+              onClick={() =>
+                pendingRejectMemory &&
+                rejectMemoryMutation.mutate(pendingRejectMemory.id)
+              }
+              loading={rejectMemoryMutation.isPending}
+            >
+              Скрыть
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal
         opened={confirmDelete}

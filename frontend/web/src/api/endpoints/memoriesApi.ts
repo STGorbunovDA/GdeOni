@@ -68,4 +68,34 @@ export const memoriesApi = {
       ),
     );
   },
+
+  /**
+   * F17.4. PUT .../memories/{memoryId}/reject — модераторское «Скрыть».
+   * В отличие от remove (удаляет запись) переводит memory в
+   * ModerationStatus.Rejected, сохраняя саму запись для аудита.
+   * Невидим всем, кроме автора и админа (D11.13.1 для media работает
+   * так же; для memory логика та же).
+   */
+  async reject(deceasedId: string, memoryId: string): Promise<void> {
+    await unwrap(
+      apiClient.put<ApiEnvelope<{ memoryId: string }>>(
+        `/api/deceased-records/${deceasedId}/memories/${memoryId}/reject`,
+        {},
+      ),
+    );
+  },
+
+  /**
+   * F17.4. PUT .../memories/{memoryId}/approve — обратное действие
+   * к reject. Возвращает скрытое воспоминание обратно в Approved,
+   * после чего его снова видят все.
+   */
+  async approve(deceasedId: string, memoryId: string): Promise<void> {
+    await unwrap(
+      apiClient.put<ApiEnvelope<{ memoryId: string }>>(
+        `/api/deceased-records/${deceasedId}/memories/${memoryId}/approve`,
+        {},
+      ),
+    );
+  },
 };

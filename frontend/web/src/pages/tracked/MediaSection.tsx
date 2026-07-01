@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import {
   Alert,
+  Badge,
   Button,
   FileButton,
   Group,
@@ -11,6 +12,8 @@ import {
 } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Eye,
+  EyeOff,
   FileText,
   MoreVertical,
   Star,
@@ -93,6 +96,7 @@ function Gallery({
   const features = useAppFeatures();
   const [viewing, setViewing] = useState<MediaListItem | null>(null);
   const [pendingDelete, setPendingDelete] = useState<MediaListItem | null>(null);
+  const [pendingReject, setPendingReject] = useState<MediaListItem | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
@@ -150,6 +154,35 @@ function Gallery({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['media', deceasedId, kind] });
       queryClient.invalidateQueries({ queryKey: ['tracked-details', deceasedId] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-list'] });
+    },
+  });
+
+  // F17.4. Reject = модераторское "Скрыть". В отличие от remove бэк
+  // помечает запись ModerationStatus.Rejected (сохраняется для аудита)
+  // и удаляет файл из MinIO best-effort. Если это было главное фото —
+  // флаг сбрасывается.
+  const rejectMutation = useMutation({
+    mutationFn: (mediaId: string) => mediaApi.reject(deceasedId, mediaId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media', deceasedId, kind] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-details', deceasedId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased-details', deceasedId] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-list'] });
+      setPendingReject(null);
+    },
+  });
+
+  // F17.4. Approve = обратное действие. ВАЖНО: при reject медиа бэк
+  // физически удаляет файл из MinIO, поэтому approve вернёт запись
+  // в Approved, но картинка не загрузится — UI покажет fallback.
+  // Юзеру нужно перезалить файл. Это редкий кейс «откатил случайно».
+  const approveMutation = useMutation({
+    mutationFn: (mediaId: string) => mediaApi.approve(deceasedId, mediaId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media', deceasedId, kind] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-details', deceasedId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased-details', deceasedId] });
       queryClient.invalidateQueries({ queryKey: ['tracked-list'] });
     },
   });
@@ -255,6 +288,12 @@ function Gallery({
           </Alert>
         )}
 
+        {approveMutation.isError && (
+          <Alert color="red" variant="light">
+            {formatError(approveMutation.error)}
+          </Alert>
+        )}
+
         {setMainMutation.isError && (
           <Alert color="red" variant="light">
             {formatError(setMainMutation.error)}
@@ -283,6 +322,12 @@ function Gallery({
                   documentOpenMutation.variables === item.id
                 }
                 onDelete={() => setPendingDelete(item)}
+                onReject={() => setPendingReject(item)}
+                onApprove={() => approveMutation.mutate(item.id)}
+                approving={
+                  approveMutation.isPending &&
+                  approveMutation.variables === item.id
+                }
                 onOpen={() => documentOpenMutation.mutate(item.id)}
               />
             ))}
@@ -307,6 +352,8 @@ function Gallery({
                 onOpen={() => setViewing(item)}
                 onSetMain={() => setMainMutation.mutate(item.id)}
                 onDelete={() => setPendingDelete(item)}
+                onReject={() => setPendingReject(item)}
+                onApprove={() => approveMutation.mutate(item.id)}
               />
             ))}
           </div>
@@ -352,6 +399,49 @@ function Gallery({
             </Group>
           </Stack>
         </Modal>
+
+        {/* F17.4. Модераторское «Скрыть». Текст отличается от Delete,
+            чтобы было понятно: запись остаётся для аудита, файл уходит. */}
+        <Modal
+          opened={pendingReject !== null}
+          onClose={() =>
+            !rejectMutation.isPending && setPendingReject(null)
+          }
+          title="Скрыть файл?"
+          centered
+          size="md"
+        >
+          <Stack gap="md">
+            <BodyLabel>
+              «{pendingReject?.originalFileName}» будет скрыт от всех,
+              кроме автора и администраторов; сам файл уйдёт из
+              хранилища, запись останется для аудита.
+            </BodyLabel>
+            {rejectMutation.isError && (
+              <Alert color="red" variant="light">
+                {formatError(rejectMutation.error)}
+              </Alert>
+            )}
+            <Group justify="flex-end" gap="sm">
+              <Button
+                variant="default"
+                onClick={() => setPendingReject(null)}
+                disabled={rejectMutation.isPending}
+              >
+                Отмена
+              </Button>
+              <Button
+                color="yellow"
+                onClick={() =>
+                  pendingReject && rejectMutation.mutate(pendingReject.id)
+                }
+                loading={rejectMutation.isPending}
+              >
+                Скрыть
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
       </Stack>
     </CloudCard>
   );
@@ -365,6 +455,8 @@ function PhotoTile({
   onOpen,
   onSetMain,
   onDelete,
+  onReject,
+  onApprove,
 }: {
   item: MediaListItem;
   mediaBaseUrl: string | undefined;
@@ -373,9 +465,12 @@ function PhotoTile({
   onOpen: () => void;
   onSetMain: () => void;
   onDelete: () => void;
+  onReject: () => void;
+  onApprove: () => void;
 }) {
   const photoUrl = buildMediaUrl(mediaBaseUrl, item.bucket, item.storageKey);
   const [failed, setFailed] = useState(false);
+  const isRejected = item.moderationStatus === 'Rejected';
 
   return (
     <div
@@ -386,6 +481,11 @@ function PhotoTile({
         overflow: 'hidden',
         background: cloudColors.sky,
         cursor: 'pointer',
+        // F17.4: визуально приглушаем скрытые фото жёлтой обводкой
+        // и небольшой прозрачностью — админ сразу понимает, что
+        // обычный юзер их не видит.
+        border: isRejected ? '2px solid #F5C462' : 'none',
+        opacity: isRejected ? 0.75 : 1,
       }}
       onClick={onOpen}
     >
@@ -437,6 +537,20 @@ function PhotoTile({
         </div>
       )}
 
+      {isRejected && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+          }}
+        >
+          <Badge color="yellow" variant="filled" size="sm">
+            Скрыто
+          </Badge>
+        </div>
+      )}
+
       {isAdmin && (
         <div
           style={{ position: 'absolute', bottom: 6, right: 6 }}
@@ -454,12 +568,29 @@ function PhotoTile({
               </Button>
             </Menu.Target>
             <Menu.Dropdown>
-              {canBeMain && (
+              {canBeMain && !isRejected && (
                 <Menu.Item
                   leftSection={<Star size={14} />}
                   onClick={onSetMain}
                 >
                   Сделать главным
+                </Menu.Item>
+              )}
+              {isRejected ? (
+                <Menu.Item
+                  color="green"
+                  leftSection={<Eye size={14} />}
+                  onClick={onApprove}
+                >
+                  Восстановить
+                </Menu.Item>
+              ) : (
+                <Menu.Item
+                  color="yellow"
+                  leftSection={<EyeOff size={14} />}
+                  onClick={onReject}
+                >
+                  Скрыть
                 </Menu.Item>
               )}
               <Menu.Item
@@ -482,14 +613,21 @@ function DocumentRow({
   isAdmin,
   isOpening,
   onDelete,
+  onReject,
+  onApprove,
+  approving,
   onOpen,
 }: {
   item: MediaListItem;
   isAdmin: boolean;
   isOpening: boolean;
   onDelete: () => void;
+  onReject: () => void;
+  onApprove: () => void;
+  approving: boolean;
   onOpen: () => void;
 }) {
+  const isRejected = item.moderationStatus === 'Rejected';
   return (
     <Group
       justify="space-between"
@@ -497,10 +635,10 @@ function DocumentRow({
       style={{
         padding: '10px 12px',
         borderRadius: 12,
-        border: `1px solid ${cloudColors.cloudBorder}`,
-        background: '#FAFCFE',
+        border: `1px solid ${isRejected ? '#F5C462' : cloudColors.cloudBorder}`,
+        background: isRejected ? '#FFFBEB' : '#FAFCFE',
         cursor: isOpening ? 'wait' : 'pointer',
-        opacity: isOpening ? 0.7 : 1,
+        opacity: isOpening ? 0.7 : isRejected ? 0.75 : 1,
       }}
       onClick={() => !isOpening && onOpen()}
       wrap="nowrap"
@@ -511,20 +649,55 @@ function DocumentRow({
           {item.originalFileName}
           {isOpening && ' (открываем…)'}
         </BodyLabel>
+        {isRejected && (
+          <Badge color="yellow" variant="light" size="sm">
+            Скрыто
+          </Badge>
+        )}
       </Group>
       {isAdmin && (
-        <Button
-          variant="subtle"
-          color="red"
-          size="xs"
-          leftSection={<Trash2 size={14} />}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-        >
-          Удалить
-        </Button>
+        <Group gap="xs" wrap="nowrap">
+          {isRejected ? (
+            <Button
+              variant="subtle"
+              color="green"
+              size="xs"
+              leftSection={<Eye size={14} />}
+              loading={approving}
+              onClick={(e) => {
+                e.stopPropagation();
+                onApprove();
+              }}
+            >
+              Восстановить
+            </Button>
+          ) : (
+            <Button
+              variant="subtle"
+              color="yellow"
+              size="xs"
+              leftSection={<EyeOff size={14} />}
+              onClick={(e) => {
+                e.stopPropagation();
+                onReject();
+              }}
+            >
+              Скрыть
+            </Button>
+          )}
+          <Button
+            variant="subtle"
+            color="red"
+            size="xs"
+            leftSection={<Trash2 size={14} />}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+          >
+            Удалить
+          </Button>
+        </Group>
       )}
     </Group>
   );
