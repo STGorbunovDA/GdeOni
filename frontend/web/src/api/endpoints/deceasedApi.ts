@@ -245,6 +245,35 @@ export const deceasedApi = {
       ),
     );
   },
+
+  /**
+   * F17.3. PUT /api/deceased-records/{id}/verify — пометить карточку
+   * как проверенную редакцией. Admin-only. Возвращает 409 если уже
+   * verified — UI просто покажет ошибку через formatError.
+   */
+  async verify(id: string): Promise<void> {
+    await unwrap(
+      apiClient.put<ApiEnvelope<{ deceasedId: string }>>(
+        `/api/deceased-records/${id}/verify`,
+        {},
+      ),
+    );
+  },
+
+  /**
+   * F17.3. PUT /api/deceased-records/{id}/unverified — снять отметку
+   * проверки. Admin-only. URL содержит historic `unverified` (past
+   * participle), а не `unverify` — обратной совместимости ради не
+   * переименовываем на бэке.
+   */
+  async unverify(id: string): Promise<void> {
+    await unwrap(
+      apiClient.put<ApiEnvelope<{ deceasedId: string }>>(
+        `/api/deceased-records/${id}/unverified`,
+        {},
+      ),
+    );
+  },
 };
 
 /**

@@ -17,7 +17,7 @@ import { DateInput } from '@mantine/dates';
 import { useDebouncedValue } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Search, Trash2 } from 'lucide-react';
+import { Search, ShieldCheck, ShieldOff, Trash2 } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -117,6 +117,25 @@ export function AdminDeceasedPage() {
     },
   });
 
+  // F17.3. Verify/Unverify — без confirm-модали: действие обратимое
+  // и не разрушительное, лишний клик только мешает массовой модерации.
+  // 409 от бэка (уже verified/unverified) свернётся в Alert внизу таблицы.
+  const [toggleError, setToggleError] = useState<string | null>(null);
+  const toggleVerifyMutation = useMutation({
+    mutationFn: (item: AdminDeceasedListItem) =>
+      item.isVerified
+        ? deceasedApi.unverify(item.id)
+        : deceasedApi.verify(item.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased-details'] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-details'] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-list'] });
+      setToggleError(null);
+    },
+    onError: (e) => setToggleError(formatError(e)),
+  });
+
   function resetToFirstPage<T>(setter: (v: T) => void): (v: T) => void {
     return (v) => {
       setter(v);
@@ -205,6 +224,12 @@ export function AdminDeceasedPage() {
         </Alert>
       )}
 
+      {toggleError && (
+        <Alert color="red" variant="light" onClose={() => setToggleError(null)} withCloseButton>
+          {toggleError}
+        </Alert>
+      )}
+
       {query.isLoading && (
         <Stack align="center" py="xl">
           <Loader color="azure" />
@@ -226,7 +251,7 @@ export function AdminDeceasedPage() {
                     <Table.Th>Verified</Table.Th>
                     <Table.Th>Создана</Table.Th>
                     <Table.Th>Автор</Table.Th>
-                    <Table.Th w={60}></Table.Th>
+                    <Table.Th w={110}>Действия</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -236,6 +261,11 @@ export function AdminDeceasedPage() {
                       item={item}
                       onClick={() => navigate(`/admin/deceased/${item.id}`)}
                       onDelete={() => setPendingDelete(item)}
+                      onToggleVerify={() => toggleVerifyMutation.mutate(item)}
+                      toggleBusy={
+                        toggleVerifyMutation.isPending &&
+                        toggleVerifyMutation.variables?.id === item.id
+                      }
                     />
                   ))}
                   {query.data.items.length === 0 && (
@@ -324,10 +354,14 @@ function DeceasedRow({
   item,
   onClick,
   onDelete,
+  onToggleVerify,
+  toggleBusy,
 }: {
   item: AdminDeceasedListItem;
   onClick: () => void;
   onDelete: () => void;
+  onToggleVerify: () => void;
+  toggleBusy: boolean;
 }) {
   return (
     <Table.Tr onClick={onClick} style={{ cursor: 'pointer' }}>
@@ -350,14 +384,27 @@ function DeceasedRow({
       <Table.Td>{formatDateTime(item.createdAtUtc)}</Table.Td>
       <Table.Td>{item.createdByUserName ?? '—'}</Table.Td>
       <Table.Td onClick={(e) => e.stopPropagation()}>
-        <ActionIcon
-          variant="subtle"
-          color="red"
-          onClick={onDelete}
-          aria-label="Удалить карточку"
-        >
-          <Trash2 size={16} />
-        </ActionIcon>
+        <Group gap={4} wrap="nowrap">
+          <ActionIcon
+            variant="subtle"
+            color={item.isVerified ? 'gray' : 'green'}
+            onClick={onToggleVerify}
+            loading={toggleBusy}
+            aria-label={item.isVerified ? 'Снять подтверждение' : 'Подтвердить'}
+            title={item.isVerified ? 'Снять подтверждение' : 'Подтвердить'}
+          >
+            {item.isVerified ? <ShieldOff size={16} /> : <ShieldCheck size={16} />}
+          </ActionIcon>
+          <ActionIcon
+            variant="subtle"
+            color="red"
+            onClick={onDelete}
+            aria-label="Удалить карточку"
+            title="Удалить карточку"
+          >
+            <Trash2 size={16} />
+          </ActionIcon>
+        </Group>
       </Table.Td>
     </Table.Tr>
   );

@@ -2,7 +2,14 @@ import { useState } from 'react';
 import { Alert, Group, Loader, Modal, Stack } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, MapPin, Trash2, UserRound } from 'lucide-react';
+import {
+  ChevronLeft,
+  MapPin,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+  UserRound,
+} from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -56,6 +63,21 @@ export function AdminDeceasedViewPage() {
     },
   });
 
+  // F17.3. Toggle verify — без confirm-модали (обратимое действие).
+  const toggleVerifyMutation = useMutation({
+    mutationFn: () =>
+      query.data?.isVerified
+        ? deceasedApi.unverify(id!)
+        : deceasedApi.verify(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased-details', id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased'] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-details', id] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-list'] });
+    },
+  });
+
+
   if (!id) {
     return (
       <Stack gap="lg">
@@ -99,14 +121,31 @@ export function AdminDeceasedViewPage() {
     <Stack gap="lg">
       <Group justify="space-between" wrap="wrap">
         <BackButton onClick={() => navigate('/admin/deceased')} />
-        <GhostButton
-          leftSection={<Trash2 size={16} />}
-          onClick={() => setConfirmDelete(true)}
-          style={{ color: cloudColors.errorRed }}
-        >
-          Удалить карточку
-        </GhostButton>
+        <Group gap="sm">
+          <GhostButton
+            leftSection={
+              d.isVerified ? <ShieldOff size={16} /> : <ShieldCheck size={16} />
+            }
+            onClick={() => toggleVerifyMutation.mutate()}
+            loading={toggleVerifyMutation.isPending}
+          >
+            {d.isVerified ? 'Снять подтверждение' : 'Подтвердить'}
+          </GhostButton>
+          <GhostButton
+            leftSection={<Trash2 size={16} />}
+            onClick={() => setConfirmDelete(true)}
+            style={{ color: cloudColors.errorRed }}
+          >
+            Удалить карточку
+          </GhostButton>
+        </Group>
       </Group>
+
+      {toggleVerifyMutation.isError && (
+        <Alert color="red" variant="light">
+          {formatError(toggleVerifyMutation.error)}
+        </Alert>
+      )}
 
       <Stack align="center" gap="md">
         <Avatar url={photoUrl} />

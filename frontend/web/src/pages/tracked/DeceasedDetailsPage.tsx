@@ -17,6 +17,8 @@ import {
   MapPin,
   Route as RouteIcon,
   RotateCcw,
+  ShieldCheck,
+  ShieldOff,
   Trash2,
   UserRound,
 } from 'lucide-react';
@@ -117,6 +119,22 @@ export function DeceasedDetailsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-deceased'] });
       queryClient.invalidateQueries({ queryKey: ['route-candidates'] });
       navigate('/tracked');
+    },
+  });
+
+  // F17.3: verify/unverify (admin-only). Обратимое действие — без
+  // confirm-модали. После успеха обновляем кэши, чтобы значок верификации
+  // освежился в шапке и в админ-таблице.
+  const toggleVerifyMutation = useMutation({
+    mutationFn: () =>
+      query.data?.deceased.isVerified
+        ? deceasedApi.unverify(id!)
+        : deceasedApi.verify(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tracked-details', id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased-details', id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-deceased'] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-list'] });
     },
   });
 
@@ -256,6 +274,19 @@ export function DeceasedDetailsPage() {
           )}
           {isAdmin && (
             <GhostButton
+              leftSection={
+                deceased.isVerified
+                  ? <ShieldOff size={16} />
+                  : <ShieldCheck size={16} />
+              }
+              onClick={() => toggleVerifyMutation.mutate()}
+              loading={toggleVerifyMutation.isPending}
+            >
+              {deceased.isVerified ? 'Снять подтверждение' : 'Подтвердить'}
+            </GhostButton>
+          )}
+          {isAdmin && (
+            <GhostButton
               leftSection={<Trash2 size={16} />}
               onClick={() => setConfirmDelete(true)}
               style={{ color: cloudColors.errorRed }}
@@ -285,6 +316,12 @@ export function DeceasedDetailsPage() {
       {archiveError && (
         <Alert color="red" variant="light">
           {archiveError}
+        </Alert>
+      )}
+
+      {toggleVerifyMutation.isError && (
+        <Alert color="red" variant="light">
+          {formatError(toggleVerifyMutation.error)}
         </Alert>
       )}
 
