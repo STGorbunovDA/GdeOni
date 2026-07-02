@@ -28,6 +28,7 @@ import {
 } from '../../api/endpoints/adminPaymentsApi';
 import { formatError } from '../../auth/errorMessages';
 import { formatDateTime } from '../../utils/formatDate';
+import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
 
 /**
  * F17.8 / D23. Аудит платежей подписок. Read-only таблица — платежи
@@ -272,7 +273,7 @@ function PaymentRow({ item }: { item: PaymentRecord }) {
           </Group>
         </Anchor>
       </Table.Td>
-      <Table.Td>{item.plan}</Table.Td>
+      <Table.Td>{displaySubscriptionPlan(item.plan)}</Table.Td>
       <Table.Td style={{ whiteSpace: 'nowrap' }}>
         {formatMoney(item.amountRub)}
       </Table.Td>

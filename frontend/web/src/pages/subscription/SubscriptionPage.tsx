@@ -17,6 +17,7 @@ import { subscriptionApi } from '../../api/endpoints/subscriptionApi';
 import { useSubscription } from '../../hooks/useSubscription';
 import { formatError } from '../../auth/errorMessages';
 import { formatDateTime } from '../../utils/formatDate';
+import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
 
 /**
  * F22 / D16. Управление подпиской. Роут whitelisted в
@@ -287,7 +288,7 @@ function StatusDescription(props: {
       <Group gap={8}>
         <CalendarClock size={16} color={cloudColors.azureDeep} />
         <CaptionLabel>
-          {plan ? `Тариф ${plan}. ` : ''}Следующее списание{' '}
+          {plan ? `Тариф ${displaySubscriptionPlan(plan)}. ` : ''}Следующее списание{' '}
           {formatDateTime(expiresAtUtc)} (через {daysUntilExpiry}{' '}
           {pluralDays(daysUntilExpiry)}).
         </CaptionLabel>

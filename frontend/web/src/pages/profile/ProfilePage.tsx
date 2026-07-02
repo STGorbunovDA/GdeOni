@@ -25,6 +25,7 @@ import { useSubscription } from '../../hooks/useSubscription';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
 import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { formatDateTime } from '../../utils/formatDate';
+import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
 
 /**
  * F16. Профиль пользователя — UserName / FullName / Email.
@@ -194,7 +195,7 @@ function SubscriptionSummary(props: {
   if (data.status === 'Active' && data.expiresAtUtc) {
     return (
       <CaptionLabel>
-        {data.plan ? `Тариф ${data.plan}. ` : ''}Следующее списание{' '}
+        {data.plan ? `Тариф ${displaySubscriptionPlan(data.plan)}. ` : ''}Следующее списание{' '}
         {formatDateTime(data.expiresAtUtc)}.
       </CaptionLabel>
     );

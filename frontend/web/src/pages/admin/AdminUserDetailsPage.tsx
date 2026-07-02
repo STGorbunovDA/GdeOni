@@ -35,6 +35,7 @@ import {
 import { useAuthStore } from '../../auth/authStore';
 import { formatError } from '../../auth/errorMessages';
 import { formatDateTime } from '../../utils/formatDate';
+import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
 
 /**
  * F17.7. Детали пользователя в админке + смена роли.
@@ -318,7 +319,7 @@ export function AdminUserDetailsPage() {
           <SubTitleLabel>Доступ и подписка</SubTitleLabel>
           <Field label="Статус" value={user.subscriptionStatus} />
           {user.subscriptionPlan && (
-            <Field label="Тариф" value={user.subscriptionPlan} />
+            <Field label="Тариф" value={displaySubscriptionPlan(user.subscriptionPlan)} />
           )}
           {user.subscriptionExpiresAtUtc && (
             <Field
