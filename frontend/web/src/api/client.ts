@@ -4,6 +4,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios';
 import { useAuthStore } from '../auth/authStore';
+import { queryClient } from './queryClient';
 import { API_BASE_URL } from './config';
 import { refreshTokens } from './refreshClient';
 
@@ -74,6 +75,26 @@ function performRefresh(): Promise<string | null> {
   return refreshInFlight;
 }
 
+/**
+ * F22. Пути, которые сами по себе являются частью paywall-флоу —
+ * если 403 subscription.required прилетел на них, повторный редирект
+ * на /subscription бесполезен и создаёт визуальный шум. Держим
+ * whitelist здесь же, чтобы не размазывать по компонентам.
+ */
+const SUBSCRIPTION_WHITELIST = [
+  '/subscription',
+  '/subscription-required',
+  '/payment/return',
+  '/login',
+  '/register',
+  '/legal',
+];
+
+function isOnSubscriptionRoute(): boolean {
+  const path = window.location.pathname;
+  return SUBSCRIPTION_WHITELIST.some((prefix) => path.startsWith(prefix));
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -104,6 +125,24 @@ apiClient.interceptors.response.use(
       // Подставляем новый токен в исходный конфиг и ретраим.
       original.headers.set('Authorization', `Bearer ${newAccess}`);
       return apiClient.request(original);
+    }
+
+    // F22 / D16.5. Backend отдал 403 subscription.required — подписка
+    // истекла между табами. Инвалидируем кеш подписки и редиректим на
+    // paywall (если ещё не там). Зеркало SubscriptionGateHandler на
+    // mobile.
+    if (error.response.status === 403) {
+      const envelope = error.response.data as
+        | { errorCode?: string | null }
+        | undefined;
+      if (
+        envelope?.errorCode === 'subscription.required'
+        && !isOnSubscriptionRoute()
+      ) {
+        queryClient.invalidateQueries({ queryKey: ['subscription', 'me'] });
+        window.location.href = '/subscription-required';
+        return Promise.reject(error);
+      }
     }
 
     return Promise.reject(error);

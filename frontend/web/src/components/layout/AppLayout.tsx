@@ -12,6 +12,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore, useIsAdmin } from '../../auth/authStore';
 import { authApi } from '../../api/endpoints/authApi';
 import { cloudColors } from '../../design/theme';
+import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { CaptionLabel } from '../ui/Labels';
 import { NavItem } from './NavItem';
 
@@ -27,15 +28,11 @@ import { NavItem } from './NavItem';
  * AnniversaryModal (F11.2) — они должны переживать переходы между
  * страницами через Outlet.
  *
- * F2.1 показывает версию плейсхолдером 'dev-86f0e74'. В F22 здесь
- * будет реальный VITE_APP_VERSION из import.meta.env.
- *
  * Header рендерится только на мобильном (useMediaQuery). На десктопе
  * — не объявляем header в AppShell конфигурации, чтобы Mantine не
  * резервировал место сверху (header.collapsed принимает только
  * boolean, не разделение по brk).
  */
-const APP_VERSION_PLACEHOLDER = 'dev-86f0e74';
 const MOBILE_BREAKPOINT = '(max-width: 48em)'; // Mantine sm = 48em
 
 export function AppLayout() {
@@ -139,7 +136,7 @@ export function AppLayout() {
         <AppShell.Section>
           <Stack gap="xs" mt="md">
             <NavItem icon={LogOut} label="Выйти" onClick={handleLogout} />
-            <CaptionLabel>Версия: {APP_VERSION_PLACEHOLDER}</CaptionLabel>
+            <CaptionLabel>Версия: {CURRENT_APP_VERSION}</CaptionLabel>
           </Stack>
         </AppShell.Section>
       </AppShell.Navbar>

@@ -15,10 +15,27 @@ export type AppFeatures = {
   mediaBaseUrl: string;
 };
 
+/**
+ * D17 / F22. /api/app/version — минимально-поддерживаемая и последняя
+ * версия клиента. AllowAnonymous на бэке — работает без токена.
+ */
+export type AppVersion = {
+  minSupportedVersion: string;
+  latestVersion: string;
+  forceUpdateMessage: string | null;
+  downloadUrl: string | null;
+};
+
 export const appApi = {
   async features(): Promise<AppFeatures> {
     return unwrap(
       apiClient.get<ApiEnvelope<AppFeatures>>('/api/app/features'),
+    );
+  },
+
+  async version(): Promise<AppVersion> {
+    return unwrap(
+      apiClient.get<ApiEnvelope<AppVersion>>('/api/app/version'),
     );
   },
 };

@@ -25,23 +25,31 @@ import { AdminSupportTicketDetailsPage } from '../pages/admin/AdminSupportTicket
 import { SupportNewPage } from '../pages/support/SupportNewPage';
 import { SupportMinePage } from '../pages/support/SupportMinePage';
 import { SupportTicketPage } from '../pages/support/SupportTicketPage';
+import { SubscriptionPage } from '../pages/subscription/SubscriptionPage';
+import { SubscriptionRequiredPage } from '../pages/subscription/SubscriptionRequiredPage';
+import { PaymentReturnPage } from '../pages/subscription/PaymentReturnPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { StyleDemoPage } from '../pages/StyleDemoPage';
 import { GeoDemoPage } from '../pages/GeoDemoPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { AdminRoute } from './AdminRoute';
+import { RequireSubscription } from './RequireSubscription';
 import { AppLayout } from '../components/layout/AppLayout';
 import { AdminLayout } from '../components/layout/AdminLayout';
 
 /**
- * F1 / F2.1 / F17.13. Корневой роутер.
+ * F1 / F2.1 / F17.13 / F22. Корневой роутер.
  *  - Публичные роуты (auth, demo) — без layout, центровка hero.
  *  - Приватные роуты — за ProtectedRoute + AppLayout (sidebar основного
  *    приложения).
  *  - Admin-роуты — за ProtectedRoute + AdminRoute + AdminLayout
- *    (отдельный sidebar админки). Основной и админский sidebar
- *    разнесены, чтобы случайно не путать «свои отслеживаемые» и
- *    «все карточки в системе».
+ *    (отдельный sidebar админки).
+ *  - Paywall-гейт RequireSubscription оборачивает "оплачиваемые"
+ *    приватные роуты (карточки, маршрут, архив). Whitelist —
+ *    /profile, /change-password, /support/*, /subscription,
+ *    /subscription-required, /payment/return — эти маунтятся до
+ *    гейта, чтобы юзер без активной подписки мог зайти в профиль,
+ *    оформить подписку и обратиться в поддержку.
  *
  * Порядок /tracked/archive ПЕРЕД /tracked/:id принципиален:
  * React Router 6 разрешает первый подходящий маршрут, и без этого
@@ -59,28 +67,40 @@ export function AppRouter() {
         {/* F5. Demo геолокации — публичный, для ручного теста. */}
         <Route path="/geo-demo" element={<GeoDemoPage />} />
 
-        {/* Приватные: ProtectedRoute → AppLayout → конкретная страница */}
+        {/* Приватные: ProtectedRoute → AppLayout → whitelist / gated */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
-            <Route path="/" element={<Navigate to="/tracked" replace />} />
-
-            <Route path="/tracked" element={<TrackedListPage />} />
-            <Route path="/tracked/archive" element={<ArchivePage />} />
-            <Route path="/tracked/:id" element={<DeceasedDetailsPage />} />
-            <Route path="/tracked/:id/edit-coords" element={<EditCoordsPage />} />
-
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/at-grave" element={<AtGravePage />} />
-            <Route path="/preview/:id" element={<PreviewPage />} />
-
-            <Route path="/route" element={<RoutePage />} />
-
+            {/* F22 whitelist: доступно без активной подписки. */}
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/change-password" element={<ChangePasswordPage />} />
-
+            <Route path="/subscription" element={<SubscriptionPage />} />
+            <Route
+              path="/subscription-required"
+              element={<SubscriptionRequiredPage />}
+            />
+            <Route path="/payment/return" element={<PaymentReturnPage />} />
             <Route path="/support/new" element={<SupportNewPage />} />
             <Route path="/support/mine" element={<SupportMinePage />} />
             <Route path="/support/:id" element={<SupportTicketPage />} />
+
+            {/* F22 gated: требует активную подписку (или admin роль). */}
+            <Route element={<RequireSubscription />}>
+              <Route path="/" element={<Navigate to="/tracked" replace />} />
+
+              <Route path="/tracked" element={<TrackedListPage />} />
+              <Route path="/tracked/archive" element={<ArchivePage />} />
+              <Route path="/tracked/:id" element={<DeceasedDetailsPage />} />
+              <Route
+                path="/tracked/:id/edit-coords"
+                element={<EditCoordsPage />}
+              />
+
+              <Route path="/search" element={<SearchPage />} />
+              <Route path="/at-grave" element={<AtGravePage />} />
+              <Route path="/preview/:id" element={<PreviewPage />} />
+
+              <Route path="/route" element={<RoutePage />} />
+            </Route>
           </Route>
 
           {/* F17.13. Admin-роуты в отдельном AdminLayout с собственным

@@ -21,6 +21,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../auth/authStore';
 import { authApi } from '../../api/endpoints/authApi';
 import { cloudColors } from '../../design/theme';
+import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { CaptionLabel } from '../ui/Labels';
 import { NavItem } from './NavItem';
 
@@ -157,6 +158,7 @@ export function AdminLayout() {
               }}
             />
             <NavItem icon={LogOut} label="Выйти" onClick={handleLogout} />
+            <CaptionLabel>Версия: {CURRENT_APP_VERSION}</CaptionLabel>
           </Stack>
         </AppShell.Section>
       </AppShell.Navbar>
