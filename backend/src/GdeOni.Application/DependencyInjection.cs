@@ -51,6 +51,7 @@ using GdeOni.Application.Routing.Queries.GetRouteToGrave.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CreatePayment.UseCase;
 using GdeOni.Application.Subscriptions.Commands.ProcessPaymentWebhook.UseCase;
+using GdeOni.Application.Subscriptions.Commands.SyncSubscription.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetAdminPayments.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMyPayments.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMySubscription.UseCase;
@@ -174,6 +175,9 @@ public static class DependencyInjection
         services.AddScoped<ICreatePaymentUseCase, CreatePaymentUseCase>();
         services.AddScoped<ICancelSubscriptionUseCase, CancelSubscriptionUseCase>();
         services.AddScoped<IProcessPaymentWebhookUseCase, ProcessPaymentWebhookUseCase>();
+        // Pull-fallback вместо webhook: работает и когда localhost
+        // недоступен снаружи (dev), и как safety-net в проде.
+        services.AddScoped<ISyncSubscriptionUseCase, SyncSubscriptionUseCase>();
         // D23. Payments history use cases.
         services.AddScoped<IGetMyPaymentsUseCase, GetMyPaymentsUseCase>();
         services.AddScoped<IGetAdminPaymentsUseCase, GetAdminPaymentsUseCase>();

@@ -43,6 +43,14 @@ export function PaymentReturnPage() {
     async function tick(): Promise<void> {
       if (cancelledRef.current) return;
       try {
+        // Pull-fallback вместо webhook: бэк дёргает YooKassa за
+        // реальным статусом. Обязательно в dev (webhook не долетает
+        // до localhost), полезно и в проде — safety-net.
+        try {
+          await subscriptionApi.sync();
+        } catch {
+          // Sync упал — читаем текущий статус getMy как есть.
+        }
         const sub = await subscriptionApi.getMy();
         if (cancelledRef.current) return;
         if (sub.status === 'Active' || sub.isActiveNow) {

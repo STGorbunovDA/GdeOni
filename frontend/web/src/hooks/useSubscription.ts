@@ -27,6 +27,15 @@ export function useSubscription(): {
   const query = useQuery<MySubscription | null>({
     queryKey: ['subscription', 'me'],
     queryFn: async () => {
+      // F22. Pull-fallback вместо webhook: перед каждым getMy сначала
+      // просим бэк подтянуть свежий статус у YooKassa. Идемпотентно
+      // и no-op, если синхронизировать нечего — не удорожает GET,
+      // когда подписка уже в стабильном состоянии.
+      try {
+        await subscriptionApi.sync();
+      } catch {
+        // Sync упал — не блокирующе, просто отдадим текущий getMy.
+      }
       try {
         return await subscriptionApi.getMy();
       } catch (error) {

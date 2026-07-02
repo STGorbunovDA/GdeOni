@@ -21,4 +21,15 @@ public interface ISubscriptionsApi
 
     [Post("/api/users/me/subscription/cancel")]
     Task CancelAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D16. Pull-fallback вместо webhook: бэк идёт к YooKassa за
+    /// реальным статусом свежего Pending платежа и активирует
+    /// подписку, если платёж succeeded. Дёргается перед каждым
+    /// GetMy в SubscriptionViewModel, чтобы UI сразу видел актуальный
+    /// статус даже если webhook не долетел (dev / сетевой сбой).
+    /// 204 No Content, идемпотентно.
+    /// </summary>
+    [Post("/api/users/me/subscription/sync")]
+    Task SyncAsync(CancellationToken cancellationToken = default);
 }

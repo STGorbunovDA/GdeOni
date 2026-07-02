@@ -82,4 +82,15 @@ export const subscriptionApi = {
   async cancel(): Promise<void> {
     await apiClient.post('/api/users/me/subscription/cancel');
   },
+
+  /**
+   * POST /api/users/me/subscription/sync. Pull-fallback вместо webhook:
+   * бэк сходит к YooKassa за реальным статусом свежего PendingPayment
+   * и активирует подписку, если платёж succeeded. Работает и в dev
+   * (localhost не доступен снаружи), и как safety-net в проде.
+   * Идемпотентно: no-op когда синхронизировать нечего. 204.
+   */
+  async sync(): Promise<void> {
+    await apiClient.post('/api/users/me/subscription/sync');
+  },
 };

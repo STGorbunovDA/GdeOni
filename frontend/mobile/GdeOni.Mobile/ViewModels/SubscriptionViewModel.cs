@@ -138,6 +138,12 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
         {
             IsBusy = true;
             ErrorMessage = null;
+            // D16 pull-fallback: перед каждым GetMy просим бэк подтянуть
+            // свежий статус у YooKassa. Идемпотентно, no-op когда
+            // синхронизировать нечего. Ошибку глотаем — GetMy отдаст
+            // текущий статус как есть.
+            try { await subscriptionsApi.SyncAsync(); }
+            catch { /* игнорируем — упадёт GetMy если нужно */ }
             var envelope = await subscriptionsApi.GetMyAsync();
             Current = envelope.Result;
             if (envelope.Result is null)
