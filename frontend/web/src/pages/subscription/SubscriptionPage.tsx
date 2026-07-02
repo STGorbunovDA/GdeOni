@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert, Badge, Group, Loader, Modal, Stack } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, CreditCard, ExternalLink, Gift, RefreshCw, XCircle } from 'lucide-react';
 import {
   BodyLabel,
@@ -30,15 +31,26 @@ import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
  */
 export function SubscriptionPage() {
   const navigate = useNavigate();
-  const { data, isLoading, isError, refetch } = useSubscription();
+  const queryClient = useQueryClient();
+  const { data, isLoading, isError } = useSubscription();
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
 
+  /**
+   * Правильный refetch после мутации: сначала гасим in-flight-запросы
+   * от 3-секундного поллинга (иначе stale-ответ, уже в полёте до
+   * мутации, перезапишет свежее состояние), потом форсим свежий getMy.
+   */
+  async function invalidateSubscription() {
+    await queryClient.cancelQueries({ queryKey: ['subscription', 'me'] });
+    await queryClient.invalidateQueries({ queryKey: ['subscription', 'me'] });
+  }
+
   async function handleRefresh() {
     setRefreshing(true);
     try {
-      await refetch();
+      await invalidateSubscription();
     } finally {
       setRefreshing(false);
     }
@@ -68,7 +80,7 @@ export function SubscriptionPage() {
         title: 'Подписка отменена',
         message: 'Доступ сохранится до конца оплаченного периода.',
       });
-      await refetch();
+      await invalidateSubscription();
     } catch (e) {
       notifications.show({
         title: 'Не удалось отменить',
@@ -89,7 +101,7 @@ export function SubscriptionPage() {
         message:
           'Незавершённый платёж закрыт. Вы можете оформить подписку заново, когда будете готовы.',
       });
-      await refetch();
+      await invalidateSubscription();
     } catch (e) {
       notifications.show({
         title: 'Не удалось отменить оплату',
