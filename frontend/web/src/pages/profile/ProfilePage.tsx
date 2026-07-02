@@ -208,7 +208,10 @@ function SubscriptionSummary(props: {
   }
   if (data.status === 'PendingPayment') {
     return (
-      <CaptionLabel>Ожидаем подтверждение оплаты от YooKassa.</CaptionLabel>
+      <CaptionLabel>
+        Ждём подтверждение оплаты от YooKassa (обычно 5–15 секунд).
+        Статус обновится автоматически.
+      </CaptionLabel>
     );
   }
   if (data.status === 'Expired') {

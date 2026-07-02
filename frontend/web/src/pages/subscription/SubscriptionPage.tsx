@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, Badge, Group, Loader, Modal, Stack } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useNavigate } from 'react-router-dom';
-import { CalendarClock, CreditCard, ExternalLink, Gift, XCircle } from 'lucide-react';
+import { CalendarClock, CreditCard, ExternalLink, Gift, RefreshCw, XCircle } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -31,7 +31,17 @@ export function SubscriptionPage() {
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useSubscription();
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   async function handleCheckout() {
     setBusy(true);
@@ -166,6 +176,16 @@ export function SubscriptionPage() {
                   </GhostButton>
                 )}
 
+                {data.status === 'PendingPayment' && (
+                  <GhostButton
+                    leftSection={<RefreshCw size={16} />}
+                    onClick={handleRefresh}
+                    loading={refreshing}
+                  >
+                    Обновить статус
+                  </GhostButton>
+                )}
+
                 <GhostButton onClick={() => navigate('/profile')}>
                   Назад в профиль
                 </GhostButton>
@@ -283,8 +303,9 @@ function StatusDescription(props: {
       <Group gap={8}>
         <ExternalLink size={16} color={cloudColors.azureDeep} />
         <CaptionLabel>
-          Мы ждём подтверждение оплаты от YooKassa. Обычно это занимает
-          несколько секунд.
+          Ждём подтверждение оплаты от YooKassa (обычно 5–15 секунд).
+          Статус обновится автоматически — эту страницу можно не
+          перезагружать.
         </CaptionLabel>
       </Group>
     );

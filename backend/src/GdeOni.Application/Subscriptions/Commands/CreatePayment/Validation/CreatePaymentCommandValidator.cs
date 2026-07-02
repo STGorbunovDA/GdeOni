@@ -12,5 +12,10 @@ public sealed class CreatePaymentCommandValidator : AbstractValidator<CreatePaym
             .Must(plan => System.Enum.IsDefined(typeof(SubscriptionPlan), plan))
             .WithErrorCode("subscription.plan.invalid")
             .WithMessage("Subscription plan is invalid.");
+
+        RuleFor(x => x.Platform)
+            .Must(p => System.Enum.IsDefined(typeof(ClientPlatform), p))
+            .WithErrorCode("subscription.platform.invalid")
+            .WithMessage("Client platform is invalid.");
     }
 }

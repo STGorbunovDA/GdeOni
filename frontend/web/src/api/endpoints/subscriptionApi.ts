@@ -62,13 +62,15 @@ export const subscriptionApi = {
    * POST /api/users/me/subscription/create-payment. Возвращает URL
    * платёжной страницы YooKassa — фронт должен редиректнуть на неё
    * через `window.location.href`. После оплаты YooKassa вернёт юзера
-   * на /payment/return (см. YooKassaOptions.ReturnUrl на бэке).
+   * на URL из SubscriptionOptions.WebReturnUrl (для web — наш
+   * /payment/return); mobile-клиент шлёт Platform="Mobile" и получит
+   * deep-link.
    */
   async createPayment(plan: SubscriptionPlan): Promise<CreatePaymentResponse> {
     return unwrap(
       apiClient.post<ApiEnvelope<CreatePaymentResponse>>(
         '/api/users/me/subscription/create-payment',
-        { plan },
+        { plan, platform: 'Web' },
       ),
     );
   },

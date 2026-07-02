@@ -41,7 +41,7 @@ public sealed class CreatePaymentUseCaseTests
                 new PaymentCreated("pay-123", "https://yk/checkout/pay-123")));
 
         var result = await useCase.Execute(
-            new CreatePaymentCommand(SubscriptionPlan.Monthly), CancellationToken.None);
+            new CreatePaymentCommand(SubscriptionPlan.Monthly, ClientPlatform.Mobile), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.CheckoutUrl.Should().Be("https://yk/checkout/pay-123");
@@ -71,7 +71,7 @@ public sealed class CreatePaymentUseCaseTests
                 Errors.General.Failure("payment.failed", "Provider returned 500")));
 
         var result = await useCase.Execute(
-            new CreatePaymentCommand(SubscriptionPlan.Monthly), CancellationToken.None);
+            new CreatePaymentCommand(SubscriptionPlan.Monthly, ClientPlatform.Mobile), CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
         userRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Never);
@@ -104,7 +104,7 @@ public sealed class CreatePaymentUseCaseTests
                 new PaymentCreated("pay-new", "https://yk/checkout/pay-new")));
 
         var result = await useCase.Execute(
-            new CreatePaymentCommand(SubscriptionPlan.Monthly), CancellationToken.None);
+            new CreatePaymentCommand(SubscriptionPlan.Monthly, ClientPlatform.Mobile), CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
         result.Error.Code.Should().Be("subscription.already.active");
@@ -132,7 +132,7 @@ public sealed class CreatePaymentUseCaseTests
             .ReturnsAsync(existing);
 
         var result = await useCase.Execute(
-            new CreatePaymentCommand(SubscriptionPlan.Monthly), CancellationToken.None);
+            new CreatePaymentCommand(SubscriptionPlan.Monthly, ClientPlatform.Mobile), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.ExternalPaymentId.Should().Be("pay-existing");
@@ -173,7 +173,7 @@ public sealed class CreatePaymentUseCaseTests
             .Returns(Task.CompletedTask);
 
         var result = await useCase.Execute(
-            new CreatePaymentCommand(SubscriptionPlan.Monthly), CancellationToken.None);
+            new CreatePaymentCommand(SubscriptionPlan.Monthly, ClientPlatform.Mobile), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         captured.Should().NotBeNull();

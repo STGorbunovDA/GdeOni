@@ -39,6 +39,12 @@ export function useSubscription(): {
     enabled: isAuthenticated,
     staleTime: 30_000,
     retry: 1,
+    // F22. Пока подписка в PendingPayment — поллим бэк раз в 3 сек:
+    // YooKassa webhook обычно доходит за 5–15 сек, но если юзер
+    // вернулся не через /payment/return (например, кликнул профиль),
+    // ему всё равно нужно увидеть переход в Active без ручного refetch.
+    refetchInterval: (q) =>
+      q.state.data?.status === 'PendingPayment' ? 3000 : false,
   });
 
   return {
