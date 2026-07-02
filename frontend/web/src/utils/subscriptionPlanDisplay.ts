@@ -8,7 +8,7 @@
  * данные из-за рассинхрона.
  */
 const DISPLAY: Record<string, string> = {
-  Monthly: 'Месячный',
+  Monthly: 'На один месяц',
 };
 
 export function displaySubscriptionPlan(plan: string | null | undefined): string {
