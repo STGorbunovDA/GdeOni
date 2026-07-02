@@ -59,4 +59,16 @@ public interface IPaymentProvider
     Task<UnitResult<Error>> CancelRecurringAsync(
         string externalPaymentId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Отменяет конкретный платёж в провайдере, пока он в статусе
+    /// pending / waiting_for_capture. Используется когда юзер тапнул
+    /// «Отменить» в UI при зависшем PendingPayment — YooKassa
+    /// закроет checkout-URL и не спишет деньги, если оплата не была
+    /// завершена. Уже succeeded/canceled платежи — no-op success
+    /// (идемпотентность на стороне провайдера).
+    /// </summary>
+    Task<UnitResult<Error>> CancelPaymentAsync(
+        string externalPaymentId,
+        CancellationToken cancellationToken);
 }

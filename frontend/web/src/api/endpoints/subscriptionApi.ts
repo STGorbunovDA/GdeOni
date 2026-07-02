@@ -93,4 +93,16 @@ export const subscriptionApi = {
   async sync(): Promise<void> {
     await apiClient.post('/api/users/me/subscription/sync');
   },
+
+  /**
+   * POST /api/users/me/subscription/pending/cancel. Юзер решил
+   * отказаться от зависшего PendingPayment (нажал «Назад» на
+   * странице YooKassa и хочет вернуться к предыдущему состоянию).
+   * Бэк закроет checkout у YooKassa, пометит SubscriptionPayment
+   * Cancelled и откатит подписку в Trial (если доступ ещё был) или
+   * Expired. 204.
+   */
+  async cancelPending(): Promise<void> {
+    await apiClient.post('/api/users/me/subscription/pending/cancel');
+  },
 };

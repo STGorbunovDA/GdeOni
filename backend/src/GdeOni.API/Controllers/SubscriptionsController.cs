@@ -7,6 +7,7 @@ using GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CreatePayment.Model;
 using GdeOni.Application.Subscriptions.Commands.CreatePayment.UseCase;
 using GdeOni.Application.Subscriptions.Commands.SyncSubscription.UseCase;
+using GdeOni.Application.Subscriptions.Commands.CancelPendingPayment.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMySubscription.Model;
 using GdeOni.Application.Subscriptions.Queries.GetMySubscription.UseCase;
 using Microsoft.AspNetCore.Authorization;
@@ -108,6 +109,26 @@ public sealed class SubscriptionsController : ApiControllerBase
         CancellationToken cancellationToken)
     {
         var result = await syncSubscription.Execute(cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// Отменяет зависший PendingPayment (например, юзер нажал «Назад»
+    /// на странице YooKassa и хочет освободиться от Pending): бэк
+    /// закрывает checkout-URL у YooKassa, помечает
+    /// <c>SubscriptionPayment</c> Cancelled и откатывает подписку в
+    /// Trial (если ExpiresAtUtc в будущем) или Expired.
+    /// </summary>
+    [HttpPost("pending/cancel")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CancelPending(
+        [FromServices] ICancelPendingPaymentUseCase cancelPending,
+        CancellationToken cancellationToken)
+    {
+        var result = await cancelPending.Execute(cancellationToken);
         return FromUnitResult(result);
     }
 }

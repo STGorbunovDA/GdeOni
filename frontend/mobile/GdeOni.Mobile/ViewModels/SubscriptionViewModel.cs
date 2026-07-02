@@ -54,8 +54,17 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
     [NotifyPropertyChangedFor(nameof(ShowComplimentaryBlock))]
     [NotifyPropertyChangedFor(nameof(ShowSubscribeButton))]
     [NotifyPropertyChangedFor(nameof(ShowCancelButton))]
+    [NotifyPropertyChangedFor(nameof(ShowCancelPendingButton))]
     [NotifyPropertyChangedFor(nameof(SubscribeButtonText))]
     private MySubscriptionResponse? _current;
+
+    /// <summary>
+    /// D16. Кнопка «Отменить оплату» показывается только на PendingPayment
+    /// — юзер нажал «Назад» на странице YooKassa и хочет освободиться
+    /// от Pending.
+    /// </summary>
+    public bool ShowCancelPendingButton =>
+        Current is { HasComplimentaryAccess: false, Status: "PendingPayment" };
 
     public bool ShowComplimentaryBlock => Current?.HasComplimentaryAccess == true;
 
@@ -283,6 +292,46 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
             ErrorMessage = null;
             await subscriptionsApi.CancelAsync();
             // Перечитаем актуальный статус (Status=Cancelled).
+            await LoadAsync();
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (HttpRequestException httpEx)
+        {
+            ErrorMessage = $"Сетевая ошибка: {httpEx.Message}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CancelPendingAsync()
+    {
+        var page = Shell.Current?.CurrentPage;
+        if (page is not null)
+        {
+            var confirmed = await page.DisplayAlertAsync(
+                "Отменить оплату?",
+                "Незавершённый платёж будет закрыт. Вы сможете оформить " +
+                "подписку заново, когда будете готовы.",
+                "Отменить оплату",
+                "Не отменять");
+            if (!confirmed) return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = null;
+            await subscriptionsApi.CancelPendingAsync();
             await LoadAsync();
         }
         catch (ApiException apiEx)

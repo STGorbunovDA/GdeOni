@@ -429,6 +429,28 @@ public sealed partial class User : Entity<Guid>
     }
 
     /// <summary>
+    /// D16. Юзер отменил незавершённую оплату (например, тапнул
+    /// «Назад» на странице YooKassa и хочет освободиться от зависшего
+    /// PendingPayment). Возвращает подписку в состояние без плана:
+    /// если ExpiresAtUtc всё ещё в будущем — Trial (доступ сохраняется),
+    /// иначе — Expired.
+    ///
+    /// Упрощение: не сохраняем факт того, что подписка раньше была
+    /// Cancelled/Active/etc. В подавляющем большинстве случаев эта
+    /// операция вызывается сразу после Trial → PendingPayment; для
+    /// UX «есть доступ до X» это неотличимо.
+    /// </summary>
+    public UnitResult<Error> CancelPendingPayment(DateTime nowUtc)
+    {
+        if (Subscription.Status != SubscriptionStatus.PendingPayment)
+            return Errors.Subscription.NotCancellable();
+
+        Subscription = Subscription.WithPendingCancelled(nowUtc);
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
     /// Админский revoke: моментально снимает подписку (Expired с
     /// expires=now), независимо от текущего статуса. No-op для тех,
     /// у кого подписки не было (None).

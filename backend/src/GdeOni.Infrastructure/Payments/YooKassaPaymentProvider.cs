@@ -227,6 +227,56 @@ public sealed class YooKassaPaymentProvider : IPaymentProvider
         return Task.FromResult(UnitResult.Success<Error>());
     }
 
+    public async Task<UnitResult<Error>> CancelPaymentAsync(
+        string externalPaymentId,
+        CancellationToken cancellationToken)
+    {
+        // YooKassa: POST /v3/payments/{id}/cancel. Требует Idempotence-Key
+        // так же как create. Тело пустое (по спеке допускается объект
+        // {} — присылаем на всякий случай, чтобы Content-Length был явно
+        // задан). Возвращает объект payment с обновлённым статусом
+        // canceled или ошибку 400 если платёж уже succeeded/canceled.
+        using var httpRequest = new HttpRequestMessage(
+            HttpMethod.Post, $"v3/payments/{externalPaymentId}/cancel");
+        httpRequest.Headers.Add("Idempotence-Key", Guid.NewGuid().ToString());
+        httpRequest.Content = JsonContent.Create(new { });
+
+        try
+        {
+            var response = await _http.SendAsync(httpRequest, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+                return UnitResult.Success<Error>();
+
+            // 400 invalid_request чаще всего означает "платёж уже в
+            // финальном статусе" (succeeded / canceled) — для нас это
+            // идемпотентный успех: цель "чтобы деньги не списали" уже
+            // выполнена.
+            if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            {
+                _logger.LogInformation(
+                    "YooKassa.CancelPayment: already finalized paymentId={PaymentId} body={Body}",
+                    externalPaymentId, body);
+                return UnitResult.Success<Error>();
+            }
+
+            _logger.LogError(
+                "YooKassa.CancelPayment failed: status={Status} body={Body}",
+                (int)response.StatusCode, body);
+            return Errors.General.Failure(
+                "payment.provider.cancel_failed",
+                $"YooKassa cancel returned {(int)response.StatusCode}.");
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "YooKassa.CancelPayment: HTTP error");
+            return Errors.General.Failure(
+                "payment.provider.network_error",
+                "YooKassa is unreachable.");
+        }
+    }
+
     /// <summary>
     /// Маппит строку статуса YooKassa в наш <see cref="PaymentStatus"/>.
     /// <list type="bullet">

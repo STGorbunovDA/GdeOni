@@ -32,4 +32,12 @@ public interface ISubscriptionsApi
     /// </summary>
     [Post("/api/users/me/subscription/sync")]
     Task SyncAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D16. Юзер тапнул «Отменить оплату» на PendingPayment (нажал
+    /// «Назад» на странице YooKassa): бэк закроет checkout, пометит
+    /// платёж Cancelled и откатит подписку в Trial/Expired. 204.
+    /// </summary>
+    [Post("/api/users/me/subscription/pending/cancel")]
+    Task CancelPendingAsync(CancellationToken cancellationToken = default);
 }

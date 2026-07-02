@@ -111,6 +111,30 @@ public sealed class Subscription : ValueObject
         cancelledAtUtc: nowUtc);
 
     /// <summary>
+    /// D16. Откат из PendingPayment после того, как юзер отменил
+    /// незавершённую оплату вручную (см. <see cref="User.CancelPendingPayment"/>).
+    /// Обнуляем Plan / LastPaymentId / CancelledAtUtc — они относились
+    /// именно к отменённому платежу; текущий period-window сохраняется,
+    /// чтобы юзер не потерял оставшийся доступ.
+    /// </summary>
+    internal Subscription WithPendingCancelled(DateTime nowUtc)
+    {
+        // ExpiresAtUtc всё ещё в будущем → есть доступ → Trial.
+        // Иначе → Expired: нет ни плана, ни paid-period'а.
+        var status = ExpiresAtUtc is { } expiry && expiry > nowUtc
+            ? SubscriptionStatus.Trial
+            : SubscriptionStatus.Expired;
+
+        return new Subscription(
+            status,
+            plan: null,
+            currentPeriodStartedAtUtc: CurrentPeriodStartedAtUtc,
+            expiresAtUtc: ExpiresAtUtc,
+            lastPaymentId: null,
+            cancelledAtUtc: null);
+    }
+
+    /// <summary>
     /// true если у пользователя есть действующий доступ (Trial или
     /// Active с непросроченным ExpiresAtUtc). Cancelled также даёт
     /// доступ до конца paid-period — гейт пускает.

@@ -81,4 +81,14 @@ public sealed class FakePaymentProvider(
             externalPaymentId);
         return Task.FromResult(UnitResult.Success<Error>());
     }
+
+    public Task<UnitResult<Error>> CancelPaymentAsync(
+        string externalPaymentId,
+        CancellationToken cancellationToken)
+    {
+        logger.LogInformation(
+            "FakePaymentProvider.CancelPayment: paymentId={PaymentId} → Success",
+            externalPaymentId);
+        return Task.FromResult(UnitResult.Success<Error>());
+    }
 }

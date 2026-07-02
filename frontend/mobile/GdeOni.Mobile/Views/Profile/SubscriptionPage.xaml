@@ -88,6 +88,13 @@
                             IsEnabled="{Binding IsNotBusy}"
                             HorizontalOptions="Fill" />
 
+                    <Button Text="Отменить оплату"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding CancelPendingCommand}"
+                            IsVisible="{Binding ShowCancelPendingButton}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            HorizontalOptions="Fill" />
+
                 </VerticalStackLayout>
             </ScrollView>
         </RefreshView>

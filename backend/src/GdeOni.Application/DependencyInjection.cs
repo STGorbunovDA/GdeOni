@@ -52,6 +52,7 @@ using GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CreatePayment.UseCase;
 using GdeOni.Application.Subscriptions.Commands.ProcessPaymentWebhook.UseCase;
 using GdeOni.Application.Subscriptions.Commands.SyncSubscription.UseCase;
+using GdeOni.Application.Subscriptions.Commands.CancelPendingPayment.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetAdminPayments.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMyPayments.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMySubscription.UseCase;
@@ -178,6 +179,10 @@ public static class DependencyInjection
         // Pull-fallback вместо webhook: работает и когда localhost
         // недоступен снаружи (dev), и как safety-net в проде.
         services.AddScoped<ISyncSubscriptionUseCase, SyncSubscriptionUseCase>();
+        // Юзер тапнул «Отменить» на PendingPayment (например, нажал
+        // «Назад» на странице YooKassa) — сбрасывает Pending платёж
+        // и возвращает подписку в Trial/Expired.
+        services.AddScoped<ICancelPendingPaymentUseCase, CancelPendingPaymentUseCase>();
         // D23. Payments history use cases.
         services.AddScoped<IGetMyPaymentsUseCase, GetMyPaymentsUseCase>();
         services.AddScoped<IGetAdminPaymentsUseCase, GetAdminPaymentsUseCase>();

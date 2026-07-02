@@ -80,6 +80,27 @@ export function SubscriptionPage() {
     }
   }
 
+  async function handleCancelPending() {
+    setBusy(true);
+    try {
+      await subscriptionApi.cancelPending();
+      notifications.show({
+        title: 'Оплата отменена',
+        message:
+          'Незавершённый платёж закрыт. Вы можете оформить подписку заново, когда будете готовы.',
+      });
+      await refetch();
+    } catch (e) {
+      notifications.show({
+        title: 'Не удалось отменить оплату',
+        message: formatError(e),
+        color: 'red',
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Stack gap="lg">
       <TitleLabel>Подписка</TitleLabel>
@@ -180,13 +201,22 @@ export function SubscriptionPage() {
                 )}
 
                 {data.status === 'PendingPayment' && (
-                  <GhostButton
-                    leftSection={<RefreshCw size={16} />}
-                    onClick={handleRefresh}
-                    loading={refreshing}
-                  >
-                    Обновить статус
-                  </GhostButton>
+                  <>
+                    <GhostButton
+                      leftSection={<RefreshCw size={16} />}
+                      onClick={handleRefresh}
+                      loading={refreshing}
+                    >
+                      Обновить статус
+                    </GhostButton>
+                    <GhostButton
+                      leftSection={<XCircle size={16} />}
+                      onClick={handleCancelPending}
+                      disabled={busy}
+                    >
+                      Отменить оплату
+                    </GhostButton>
+                  </>
                 )}
 
                 <GhostButton onClick={() => navigate('/profile')}>
