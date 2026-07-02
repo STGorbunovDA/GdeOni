@@ -162,7 +162,9 @@ export function SubscriptionPage() {
                       ? 'Оплатить сейчас — 49 ₽/мес'
                       : data.status === 'Cancelled'
                         ? 'Возобновить — 49 ₽/мес'
-                        : 'Оформить Monthly — 49 ₽/мес'}
+                        : data.status === 'PendingPayment'
+                          ? 'Продолжить оплату'
+                          : 'Оформить Monthly — 49 ₽/мес'}
                   </PrimaryButton>
                 ) : null}
 
@@ -234,6 +236,11 @@ function needsPayment(status: string): boolean {
     || status === 'Trial'
     || status === 'Cancelled'
     || status === 'Expired'
+    // PendingPayment: юзер мог нажать «Назад» на странице YooKassa —
+    // висит зомби-Pending до автоотмены (~10 мин). Кнопка "Продолжить
+    // оплату" через CreatePayment либо переиспользует свежий
+    // CheckoutUrl (D23 GetActivePendingForUser), либо создаст новый.
+    || status === 'PendingPayment'
   );
 }
 
@@ -304,8 +311,8 @@ function StatusDescription(props: {
         <ExternalLink size={16} color={cloudColors.azureDeep} />
         <CaptionLabel>
           Ждём подтверждение оплаты от YooKassa (обычно 5–15 секунд).
-          Статус обновится автоматически — эту страницу можно не
-          перезагружать.
+          Если оплата не была завершена — нажмите «Продолжить оплату»
+          ниже, чтобы вернуться на страницу платежа.
         </CaptionLabel>
       </Group>
     );

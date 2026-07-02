@@ -64,19 +64,22 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
     // активный доступ, оформлять/отменять до конца trial бессмысленно.
     public bool ShowCancelButton => false;
 
-    // Кнопка "Оформить" показывается только когда подписка действительно
-    // не активна: Cancelled, Expired, NeedSubscription (нет статуса).
-    // На Trial, Active и PendingPayment — скрыта (у юзера и так доступ
-    // или он уже в процессе оплаты).
+    // Кнопка "Оформить" показывается когда подписка не активна:
+    // Cancelled, Expired, PendingPayment, None. На Trial/Active — скрыта
+    // (у юзера и так доступ). PendingPayment раньше был скрыт, но
+    // юзер мог нажать «Назад» на странице YooKassa и застрять в Pending
+    // до автоотмены (~10 мин) — теперь кнопка есть, и повторный клик
+    // либо переиспользует существующий CheckoutUrl (D23), либо создаёт
+    // новый.
     public bool ShowSubscribeButton =>
         Current is { HasComplimentaryAccess: false }
         && Current.Status is not "Active"
-        && Current.Status is not "Trial"
-        && Current.Status is not "PendingPayment";
+        && Current.Status is not "Trial";
 
     public string SubscribeButtonText => Current?.Status switch
     {
         "Cancelled" => "Оформить снова",
+        "PendingPayment" => "Продолжить оплату",
         _ => "Оформить подписку",
     };
 
@@ -121,7 +124,11 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
 
             return Current.Status switch
             {
-                "Trial" or "Active" or "Cancelled" or "PendingPayment" when Current.ExpiresAtUtc is { } expiry =>
+                "PendingPayment" =>
+                    "Ждём подтверждение оплаты от YooKassa. Если вы " +
+                    "не завершили оплату — нажмите «Продолжить оплату», " +
+                    "чтобы вернуться на страницу платежа.",
+                "Trial" or "Active" or "Cancelled" when Current.ExpiresAtUtc is { } expiry =>
                     $"До {expiry.ToLocalTime():dd.MM.yyyy} ({Current.DaysUntilExpiry} дн.)",
                 "Expired" => "Срок подписки закончился. Оформите снова, чтобы продолжить пользоваться приложением.",
                 _ => "Оформите подписку для полного доступа.",
