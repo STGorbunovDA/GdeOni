@@ -104,6 +104,15 @@ export function LoginPage() {
                 Зарегистрируйтесь
               </Anchor>
             </CaptionLabel>
+
+            {/* F27. Ссылка на публичную страницу скачивания APK —
+                мелким шрифтом, чтобы не отвлекать от логин-флоу. */}
+            <CaptionLabel>
+              Нет приложения?{' '}
+              <Anchor component={Link} to="/download" c={cloudColors.azureDeep}>
+                Скачайте APK →
+              </Anchor>
+            </CaptionLabel>
           </Stack>
         </form>
       </CloudCard>
