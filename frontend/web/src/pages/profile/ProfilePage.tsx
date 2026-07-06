@@ -1,13 +1,15 @@
-import { Alert, Badge, Group, Loader, Stack } from '@mantine/core';
+import { Alert, Badge, Button, Group, Loader, Stack } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   CreditCard,
+  Download,
   KeyRound,
   LogOut,
   MessageSquare,
   MessagesSquare,
   RefreshCw,
+  Smartphone,
 } from 'lucide-react';
 import {
   BodyLabel,
@@ -23,9 +25,18 @@ import { useAuthStore, useIsAdmin } from '../../auth/authStore';
 import { formatError } from '../../auth/errorMessages';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
-import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
+import { CURRENT_APP_VERSION, useAppVersion } from '../../hooks/useAppVersion';
 import { formatDateTime } from '../../utils/formatDate';
 import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
+
+/**
+ * F27. Дублируем fallback из DownloadPage, чтобы кнопка «Скачать APK»
+ * работала даже без ответа GET /api/app/version. Env-переменная
+ * бейкается на build-time, значит один источник — единая правда,
+ * задавать не надо.
+ */
+const APK_FALLBACK_URL: string =
+  import.meta.env.VITE_APK_FALLBACK_URL ?? 'https://gdeoni.ru/apk/latest.apk';
 
 /**
  * F16. Профиль пользователя — UserName / FullName / Email.
@@ -41,6 +52,9 @@ export function ProfilePage() {
   const isAdmin = useIsAdmin();
   const subscription = useSubscription();
   const features = useAppFeatures();
+  const appVersion = useAppVersion();
+  const apkUrl = appVersion.data?.downloadUrl ?? APK_FALLBACK_URL;
+  const apkVersion = appVersion.data?.latestVersion;
 
   const query = useQuery({
     queryKey: ['me'],
@@ -138,6 +152,48 @@ export function ProfilePage() {
               Мои обращения
             </GhostButton>
           </Group>
+        </Stack>
+      </CloudCard>
+
+      {/* F27. Блок «Мобильное приложение» — прямая кнопка Скачать APK
+          + ссылка на /download c инструкцией по установке. Симметрично
+          с mobile ProfilePage, где есть «Открыть веб-версию». */}
+      <CloudCard>
+        <Stack gap="md">
+          <Group gap={8}>
+            <Smartphone size={20} />
+            <BodyLabel>Мобильное приложение</BodyLabel>
+          </Group>
+          <CaptionLabel>
+            Установите Android-приложение, чтобы получать напоминания о
+            годовщинах даже без открытой вкладки.
+          </CaptionLabel>
+          <Group>
+            <Button
+              component="a"
+              href={apkUrl}
+              leftSection={<Download size={16} />}
+              loading={appVersion.isLoading}
+              radius={24}
+              fw={700}
+              size="md"
+            >
+              Скачать APK
+            </Button>
+            <Button
+              component={Link}
+              to="/download"
+              variant="default"
+              radius={24}
+              fw={700}
+              size="md"
+            >
+              Инструкция по установке
+            </Button>
+          </Group>
+          {apkVersion && (
+            <CaptionLabel>Версия {apkVersion}</CaptionLabel>
+          )}
         </Stack>
       </CloudCard>
 
