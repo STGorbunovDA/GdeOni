@@ -127,7 +127,19 @@ export function RegisterPage() {
               name="privacyPolicyAccepted"
               render={({ field }) => (
                 <Checkbox
-                  label="Принимаю Политику конфиденциальности"
+                  label={
+                    <span>
+                      Принимаю{' '}
+                      <Anchor
+                        component={Link}
+                        to="/legal/privacy"
+                        target="_blank"
+                        c={cloudColors.azureDeep}
+                      >
+                        Политику конфиденциальности
+                      </Anchor>
+                    </span>
+                  }
                   checked={field.value === true}
                   onChange={(e) =>
                     field.onChange(e.currentTarget.checked as unknown as true)
@@ -141,7 +153,19 @@ export function RegisterPage() {
               name="termsAccepted"
               render={({ field }) => (
                 <Checkbox
-                  label="Принимаю Условия использования"
+                  label={
+                    <span>
+                      Принимаю{' '}
+                      <Anchor
+                        component={Link}
+                        to="/legal/terms"
+                        target="_blank"
+                        c={cloudColors.azureDeep}
+                      >
+                        Условия использования
+                      </Anchor>
+                    </span>
+                  }
                   checked={field.value === true}
                   onChange={(e) =>
                     field.onChange(e.currentTarget.checked as unknown as true)

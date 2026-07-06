@@ -32,6 +32,7 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 import { StyleDemoPage } from '../pages/StyleDemoPage';
 import { GeoDemoPage } from '../pages/GeoDemoPage';
 import { DownloadPage } from '../pages/DownloadPage';
+import { LegalPage } from '../pages/legal/LegalPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { AdminRoute } from './AdminRoute';
 import { RequireSubscription } from './RequireSubscription';
@@ -65,6 +66,10 @@ export function AppRouter() {
         <Route path="/register" element={<RegisterPage />} />
         {/* F27. Публичная страница скачивания APK — доступна анонимам. */}
         <Route path="/download" element={<DownloadPage />} />
+        {/* F24 / D19. Публичные legal-документы — доступны до логина,
+            ссылки из чекбоксов регистрации ведут сюда. */}
+        <Route path="/legal/privacy" element={<LegalPage kind="privacy" />} />
+        <Route path="/legal/terms" element={<LegalPage kind="terms" />} />
         {/* F2. Demo дизайн-системы — публичный роут для визуальной проверки. */}
         <Route path="/style-demo" element={<StyleDemoPage />} />
         {/* F5. Demo геолокации — публичный, для ручного теста. */}

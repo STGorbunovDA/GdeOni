@@ -14,6 +14,7 @@ import { authApi } from '../../api/endpoints/authApi';
 import { cloudColors } from '../../design/theme';
 import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { CaptionLabel } from '../ui/Labels';
+import { OutdatedLegalModal } from '../legal/OutdatedLegalModal';
 import { NavItem } from './NavItem';
 
 /**
@@ -144,6 +145,11 @@ export function AppLayout() {
       <AppShell.Main>
         <Outlet />
       </AppShell.Main>
+
+      {/* F24 / D19. Блокирующая модалка при HasOutdatedLegalAcceptance.
+          Живёт на уровне layout, чтобы работать на всех приватных
+          страницах без дублирования. */}
+      <OutdatedLegalModal />
     </AppShell>
   );
 }
