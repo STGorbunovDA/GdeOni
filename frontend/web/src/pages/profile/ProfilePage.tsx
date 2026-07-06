@@ -197,17 +197,27 @@ export function ProfilePage() {
         </Stack>
       </CloudCard>
 
-      <Group>
-        <PrimaryButton
-          leftSection={<KeyRound size={16} />}
-          onClick={() => navigate('/change-password')}
-        >
-          Сменить пароль
-        </PrimaryButton>
-        <GhostButton leftSection={<LogOut size={16} />} onClick={handleLogout}>
-          Выйти
-        </GhostButton>
-      </Group>
+      {/* Общие действия по аккаунту — заворачиваем в CloudCard, чтобы
+          визуально не выпадали из ряда других блоков профиля. */}
+      <CloudCard>
+        <Stack gap="md">
+          <BodyLabel>Аккаунт</BodyLabel>
+          <Group>
+            <PrimaryButton
+              leftSection={<KeyRound size={16} />}
+              onClick={() => navigate('/change-password')}
+            >
+              Сменить пароль
+            </PrimaryButton>
+            <GhostButton
+              leftSection={<LogOut size={16} />}
+              onClick={handleLogout}
+            >
+              Выйти
+            </GhostButton>
+          </Group>
+        </Stack>
+      </CloudCard>
 
       {/* F22. Версия — для поддержки: юзер сможет назвать, на какой
           сборке словил баг. Зеркало mobile ProfileViewModel (E22.1). */}
