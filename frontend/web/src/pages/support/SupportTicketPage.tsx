@@ -26,6 +26,7 @@ import { supportApi } from '../../api/endpoints/supportApi';
 import { formatError } from '../../auth/errorMessages';
 import { formatDateTime } from '../../utils/formatDate';
 import { MessagesChat } from './MessagesChat';
+import { AttachmentsSection } from './AttachmentsSection';
 import {
   KIND_LABELS,
   SEVERITY_COLORS,
@@ -162,6 +163,15 @@ export function SupportTicketPage() {
           </BodyLabel>
         </Stack>
       </CloudCard>
+
+      {t.attachments && t.attachments.length > 0 && (
+        <CloudCard>
+          <AttachmentsSection
+            ticketId={t.id}
+            attachments={t.attachments}
+          />
+        </CloudCard>
+      )}
 
       <CloudCard>
         <Stack gap="md">

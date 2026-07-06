@@ -35,6 +35,18 @@ export type SupportTicketMessage = {
   createdAtUtc: string;
 };
 
+/**
+ * D33. Вложение в обращении (фото или PDF). Метаданные в GetById,
+ * URL для скачивания получаем отдельным запросом через getAttachment.
+ */
+export type SupportTicketAttachment = {
+  id: string;
+  originalFileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedAtUtc: string;
+};
+
 export type SupportTicket = {
   id: string;
   userId: string | null;
@@ -58,7 +70,27 @@ export type SupportTicket = {
   updatedAtUtc: string | null;
   /** Заполняется только в GetById, в листинге null. */
   messages: SupportTicketMessage[] | null;
+  /** D33. Заполняется только в GetById, в листинге null. */
+  attachments: SupportTicketAttachment[] | null;
 };
+
+/**
+ * D33. Ответ от GET /api/support-tickets/{ticketId}/attachments/{id} —
+ * presigned URL с TTL 1ч, метаданные для скачивания.
+ */
+export type SupportAttachmentDownload = {
+  attachmentId: string;
+  originalFileName: string;
+  contentType: string;
+  sizeBytes: number;
+  presignedUrl: string;
+};
+
+/**
+ * D35. Целевой контейнер media при копировании вложения из тикета
+ * в карточку умершего. Совпадает со значениями MediaKind на бэке.
+ */
+export type MediaKind = 'DeceasedPhoto' | 'GravePhoto' | 'Document';
 
 export type ListAdminTicketsParams = {
   statuses?: TicketStatus[];
@@ -90,6 +122,61 @@ export const supportApi = {
       apiClient.post<ApiEnvelope<{ ticketId: string }>>(
         '/api/support-tickets',
         input,
+      ),
+    );
+  },
+
+  /**
+   * D33. POST /api/support-tickets/with-attachments — создать обращение
+   * с 1..5 вложениями (multipart/form-data). Дёргать только когда
+   * реально есть файлы: без них дешевле обычный create() (JSON, без
+   * multipart-overhead'а и без RequestSizeLimit=50MB на бэке).
+   *
+   * Лимиты (валидируются и на бэке, и локально до отправки):
+   *  - 1..5 файлов;
+   *  - JPEG/PNG до 10 MB, PDF до 25 MB;
+   *  - суммарно ≤50 MB.
+   */
+  async createWithAttachments(input: {
+    kind: TicketKind;
+    title: string;
+    description: string;
+    files: File[];
+  }): Promise<{ ticketId: string; attachmentsCount: number }> {
+    const form = new FormData();
+    form.append('kind', input.kind);
+    form.append('title', input.title);
+    form.append('description', input.description);
+    for (const file of input.files) {
+      // Ключ "files" (не "files[]") — в MVC IFormFileCollection биндится
+      // по имени параметра, а не по индексированному ключу.
+      form.append('files', file, file.name);
+    }
+    return unwrap(
+      apiClient.post<ApiEnvelope<{ ticketId: string; attachmentsCount: number }>>(
+        '/api/support-tickets/with-attachments',
+        form,
+        {
+          // Явно оставляем Content-Type пустым — axios сам подставит
+          // multipart/form-data с корректным boundary.
+          headers: { 'Content-Type': undefined },
+        },
+      ),
+    );
+  },
+
+  /**
+   * D33. GET /api/support-tickets/{ticketId}/attachments/{attachmentId}
+   * — presigned URL для просмотра/скачивания. Юзер получает только своё,
+   * админ — любое. 404 при отсутствии доступа.
+   */
+  async getAttachment(
+    ticketId: string,
+    attachmentId: string,
+  ): Promise<SupportAttachmentDownload> {
+    return unwrap(
+      apiClient.get<ApiEnvelope<SupportAttachmentDownload>>(
+        `/api/support-tickets/${ticketId}/attachments/${attachmentId}`,
       ),
     );
   },
@@ -200,5 +287,37 @@ export const supportApi = {
     await apiClient.patch(`/api/admin/support-tickets/${id}/severity`, {
       severity,
     });
+  },
+
+  /**
+   * D35. POST /api/admin/support-tickets/{ticketId}/attachments/{id}/copy-to-deceased
+   * — server-side copy вложения в media умершего (MinIO CopyObject,
+   * без скачивания-загрузки). Вложение в тикете остаётся.
+   *
+   * Разрешённые сочетания contentType ↔ mediaKind:
+   *  - image/* → DeceasedPhoto (галерея / главное фото) или GravePhoto;
+   *  - application/pdf → Document.
+   * makeMain=true допустим только при mediaKind=DeceasedPhoto.
+   */
+  async adminCopyAttachmentToDeceased(input: {
+    ticketId: string;
+    attachmentId: string;
+    deceasedId: string;
+    mediaKind: MediaKind;
+    makeMain: boolean;
+  }): Promise<{ mediaId: string }> {
+    return unwrap(
+      apiClient.post<ApiEnvelope<{ mediaId: string }>>(
+        `/api/admin/support-tickets/${input.ticketId}/attachments/${input.attachmentId}/copy-to-deceased`,
+        null,
+        {
+          params: {
+            deceasedId: input.deceasedId,
+            mediaKind: input.mediaKind,
+            makeMain: input.makeMain,
+          },
+        },
+      ),
+    );
   },
 };

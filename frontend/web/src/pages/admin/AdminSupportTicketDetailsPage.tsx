@@ -40,6 +40,7 @@ import {
   STATUS_OPTIONS,
 } from '../support/supportLabels';
 import { MessagesChat } from '../support/MessagesChat';
+import { AttachmentsSection } from '../support/AttachmentsSection';
 
 /**
  * F17.14 / D25.1 / D25.2. Админская карточка тикета. Показывает:
@@ -212,6 +213,15 @@ export function AdminSupportTicketDetailsPage() {
           )}
         </Stack>
       </CloudCard>
+
+      {t.attachments && t.attachments.length > 0 && (
+        <CloudCard>
+          <AttachmentsSection
+            ticketId={t.id}
+            attachments={t.attachments}
+          />
+        </CloudCard>
+      )}
 
       <CloudCard>
         <Stack gap="md">
