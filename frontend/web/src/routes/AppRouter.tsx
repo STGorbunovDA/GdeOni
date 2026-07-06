@@ -14,6 +14,7 @@ import { ChangePasswordPage } from '../pages/profile/ChangePasswordPage';
 import { AdminPage } from '../pages/admin/AdminPage';
 import { AdminDeceasedPage } from '../pages/admin/AdminDeceasedPage';
 import { AdminDeceasedViewPage } from '../pages/admin/AdminDeceasedViewPage';
+import { AdminFindDeceasedPage } from '../pages/admin/AdminFindDeceasedPage';
 import { AdminDeceasedEditsPage } from '../pages/admin/AdminDeceasedEditsPage';
 import { AdminEditsPage } from '../pages/admin/AdminEditsPage';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
@@ -128,6 +129,7 @@ export function AppRouter() {
               <Route path="/admin/edits" element={<AdminEditsPage />} />
               <Route path="/admin/support-tickets" element={<AdminSupportPage />} />
               <Route path="/admin/support-tickets/:id" element={<AdminSupportTicketDetailsPage />} />
+              <Route path="/admin/find-deceased" element={<AdminFindDeceasedPage />} />
             </Route>
           </Route>
         </Route>

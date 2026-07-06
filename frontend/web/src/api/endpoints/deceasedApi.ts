@@ -57,6 +57,10 @@ export type SearchDeceasedParams = {
   birthDate?: string;
   /** 'yyyy-MM-dd' */
   deathDate?: string;
+  /** ISO datetime — от какого CreatedAtUtc показывать (F17.15). */
+  createdFrom?: string;
+  /** ISO datetime — до какого CreatedAtUtc показывать (F17.15). */
+  createdTo?: string;
   page?: number;
   pageSize?: number;
 };

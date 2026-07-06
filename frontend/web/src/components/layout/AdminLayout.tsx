@@ -13,6 +13,7 @@ import {
   History,
   LifeBuoy,
   LogOut,
+  Search as SearchIcon,
   Shield,
   Users as UsersIcon,
   Skull,
@@ -37,6 +38,7 @@ import { NavItem } from './NavItem';
  *  - Платежи (F17.8)          — /admin/payments
  *  - История правок (F17.9)   — /admin/edits
  *  - Проблемы (F17.14)        — /admin/support-tickets
+ *  - Найти умершего (F17.15)  — /admin/find-deceased
  *
  * Внизу — email текущего админа, «К приложению» (выйти из admin-mode
  * без logout) и «Выйти» (полный logout). Стилистика та же что и в
@@ -139,6 +141,12 @@ export function AdminLayout() {
               to="/admin/support-tickets"
               icon={LifeBuoy}
               label="Проблемы"
+              onNavigate={close}
+            />
+            <NavItem
+              to="/admin/find-deceased"
+              icon={SearchIcon}
+              label="Найти умершего"
               onNavigate={close}
             />
           </Stack>
