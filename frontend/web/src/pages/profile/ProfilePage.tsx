@@ -17,7 +17,6 @@ import {
   CloudCard,
   GhostButton,
   PrimaryButton,
-  SubTitleLabel,
   TitleLabel,
 } from '../../components/ui';
 import { authApi, usersApi } from '../../api/endpoints/authApi';
@@ -112,7 +111,7 @@ export function ProfilePage() {
         <CloudCard>
           <Stack gap="md">
             <Group justify="space-between" align="flex-start">
-              <SubTitleLabel>Подписка</SubTitleLabel>
+              <BodyLabel>Подписка</BodyLabel>
               {subscription.data && (
                 <SubscriptionStatusBadge status={subscription.data.status} />
               )}
