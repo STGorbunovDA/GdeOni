@@ -100,6 +100,18 @@ export function ProfilePage() {
               >
                 Обновить
               </GhostButton>
+              <PrimaryButton
+                leftSection={<KeyRound size={16} />}
+                onClick={() => navigate('/change-password')}
+              >
+                Сменить пароль
+              </PrimaryButton>
+              <GhostButton
+                leftSection={<LogOut size={16} />}
+                onClick={handleLogout}
+              >
+                Выйти
+              </GhostButton>
             </Group>
           </Stack>
         </CloudCard>
@@ -193,28 +205,6 @@ export function ProfilePage() {
           {apkVersion && (
             <CaptionLabel>Версия {apkVersion}</CaptionLabel>
           )}
-        </Stack>
-      </CloudCard>
-
-      {/* Общие действия по аккаунту — заворачиваем в CloudCard, чтобы
-          визуально не выпадали из ряда других блоков профиля. */}
-      <CloudCard>
-        <Stack gap="md">
-          <BodyLabel>Аккаунт</BodyLabel>
-          <Group>
-            <PrimaryButton
-              leftSection={<KeyRound size={16} />}
-              onClick={() => navigate('/change-password')}
-            >
-              Сменить пароль
-            </PrimaryButton>
-            <GhostButton
-              leftSection={<LogOut size={16} />}
-              onClick={handleLogout}
-            >
-              Выйти
-            </GhostButton>
-          </Group>
         </Stack>
       </CloudCard>
 
