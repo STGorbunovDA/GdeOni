@@ -12,7 +12,11 @@ export default defineConfig([
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,
-      reactHooks.configs.flat.recommended,
+      // eslint-plugin-react-hooks v5+ выкатили новую flat-структуру:
+      // `recommended-latest` вместо старого `flat.recommended` (см.
+      // eslint-plugin-react-hooks CHANGELOG). Держим её здесь, чтобы
+      // не привязываться к устаревшему пути.
+      reactHooks.configs['recommended-latest'],
       reactRefresh.configs.vite,
     ],
     languageOptions: {

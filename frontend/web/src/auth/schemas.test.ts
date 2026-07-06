@@ -142,7 +142,8 @@ describe('registerSchema', () => {
     });
 
     it('rejects missing birthDate', () => {
-      const { birthDate: _, ...withoutBirth } = validBase;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { birthDate: _omit, ...withoutBirth } = validBase;
       const result = registerSchema.safeParse(withoutBirth);
       expect(result.success).toBe(false);
     });
