@@ -106,12 +106,20 @@ export function ProfilePage() {
               >
                 Сменить пароль
               </PrimaryButton>
-              <GhostButton
+              {/* Красный outline — юзер должен подумать дважды перед
+                  logout, особенно с мобилки, где кнопка близко к
+                  «Сменить пароль». */}
+              <Button
                 leftSection={<LogOut size={16} />}
                 onClick={handleLogout}
+                variant="outline"
+                color="red"
+                radius={24}
+                size="md"
+                fw={700}
               >
                 Выйти
-              </GhostButton>
+              </Button>
             </Group>
           </Stack>
         </CloudCard>
@@ -191,10 +199,14 @@ export function ProfilePage() {
             >
               Скачать APK
             </Button>
+            {/* GhostButton-стиль (variant=outline azure) — визуальный
+                парный элемент к «Мои обращения» в блоке Поддержки.
+                Прямо GhostButton не используем — обёртка не поддерживает
+                polymorphic component={Link}. */}
             <Button
               component={Link}
               to="/download"
-              variant="default"
+              variant="outline"
               radius={24}
               fw={700}
               size="md"
