@@ -12,7 +12,7 @@ import {
 } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, RefreshCcw } from 'lucide-react';
+import { ChevronLeft, ExternalLink, RefreshCcw } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -41,6 +41,7 @@ import {
 } from '../support/supportLabels';
 import { MessagesChat } from '../support/MessagesChat';
 import { AttachmentsSection } from '../support/AttachmentsSection';
+import { extractDeceasedRefId } from '../support/deceasedRef';
 
 /**
  * F17.14 / D25.1 / D25.2. Админская карточка тикета. Показывает:
@@ -121,6 +122,7 @@ export function AdminSupportTicketDetailsPage() {
 
   const t = query.data;
   const messages = t.messages ?? [];
+  const deceasedRefId = extractDeceasedRefId(t.description);
 
   return (
     <Stack gap="lg">
@@ -187,6 +189,26 @@ export function AdminSupportTicketDetailsPage() {
           )}
         </Stack>
       </CloudCard>
+
+      {deceasedRefId && (
+        <CloudCard>
+          <Stack gap="sm">
+            <SubTitleLabel>Связанная карточка умершего</SubTitleLabel>
+            <BodyLabel>
+              Юзер написал обращение с карточки умершего. Можно открыть
+              её админ-просмотром в один клик.
+            </BodyLabel>
+            <Group>
+              <GhostButton
+                leftSection={<ExternalLink size={16} />}
+                onClick={() => navigate(`/admin/deceased/${deceasedRefId}`)}
+              >
+                Открыть карточку
+              </GhostButton>
+            </Group>
+          </Stack>
+        </CloudCard>
+      )}
 
       <CloudCard>
         <Stack gap="md">
