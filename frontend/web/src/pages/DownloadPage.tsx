@@ -148,10 +148,10 @@ export function DownloadPage() {
           <CaptionLabel>
             Вопросы —{' '}
             <Anchor
-              href="mailto:support@gdeoni.ru"
+              href="mailto:bous07@mail.ru"
               c={cloudColors.azureDeep}
             >
-              support@gdeoni.ru
+              bous07@mail.ru
             </Anchor>
           </CaptionLabel>
           <CaptionLabel>
