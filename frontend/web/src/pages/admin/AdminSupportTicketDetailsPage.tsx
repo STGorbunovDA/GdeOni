@@ -42,6 +42,7 @@ import {
 import { MessagesChat } from '../support/MessagesChat';
 import { AttachmentsSection } from '../support/AttachmentsSection';
 import { extractDeceasedRefId } from '../support/deceasedRef';
+import { AdminAttachmentActions } from './AdminAttachmentActions';
 
 /**
  * F17.14 / D25.1 / D25.2. Админская карточка тикета. Показывает:
@@ -241,6 +242,13 @@ export function AdminSupportTicketDetailsPage() {
           <AttachmentsSection
             ticketId={t.id}
             attachments={t.attachments}
+            renderExtraActions={(att) => (
+              <AdminAttachmentActions
+                ticketId={t.id}
+                attachment={att}
+                deceasedRefId={deceasedRefId}
+              />
+            )}
           />
         </CloudCard>
       )}
