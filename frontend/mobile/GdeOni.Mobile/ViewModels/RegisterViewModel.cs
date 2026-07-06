@@ -32,6 +32,15 @@ public partial class RegisterViewModel(
     private string _passwordConfirm = "";
 
     /// <summary>
+    /// D19 age-gate. Минимальный возраст — 14 лет (Условия использования,
+    /// п. 3.4). Инициализируем 18-летним значением по умолчанию, чтобы
+    /// DatePicker показал разумную дату, а не 01.01.0001. Финальная
+    /// проверка возраста — на бэке.
+    /// </summary>
+    [ObservableProperty]
+    private DateTime _birthDate = DateTime.Today.AddYears(-18);
+
+    /// <summary>
     /// E24. Чекбокс "Принимаю Privacy Policy" — обязателен для 152-ФЗ.
     /// </summary>
     [ObservableProperty]
@@ -87,6 +96,25 @@ public partial class RegisterViewModel(
             return;
         }
 
+        // D19. Возрастной guard: 14+. Точную проверку делает бэк
+        // (User.Register + TimeProvider); здесь просто предупредительный
+        // клиентский фильтр, чтобы юзер не отправлял заведомо неверную
+        // форму и получал разумный текст.
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var birth = DateOnly.FromDateTime(BirthDate);
+        if (birth > today)
+        {
+            ErrorMessage = "Дата рождения не может быть в будущем.";
+            return;
+        }
+        var age = today.Year - birth.Year;
+        if (birth > today.AddYears(-age)) age--;
+        if (age < 14)
+        {
+            ErrorMessage = "Сервисом могут пользоваться лица от 14 лет.";
+            return;
+        }
+
         try
         {
             IsBusy = true;
@@ -97,6 +125,7 @@ public partial class RegisterViewModel(
                 string.IsNullOrWhiteSpace(UserName) ? null : UserName.Trim(),
                 string.IsNullOrWhiteSpace(FullName) ? null : FullName.Trim(),
                 Password,
+                DateOnly.FromDateTime(BirthDate),
                 PrivacyAccepted,
                 TermsAccepted);
 

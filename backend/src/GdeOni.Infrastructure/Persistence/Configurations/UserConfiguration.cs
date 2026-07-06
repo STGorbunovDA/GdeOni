@@ -36,6 +36,13 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("full_name")
             .HasMaxLength(User.MaxFullNameLength);
 
+        // D19. Дата рождения — nullable для обратной совместимости с
+        // юзерами, зарегистрированными до введения возрастного гарда.
+        // Postgres date подставляется автоматически через
+        // UseSnakeCaseNamingConvention.
+        builder.Property(x => x.BirthDate)
+            .HasColumnName("birth_date");
+
         builder.Property(x => x.PasswordHash)
             .HasColumnName("password_hash")
             .HasMaxLength(User.MaxPasswordHash)

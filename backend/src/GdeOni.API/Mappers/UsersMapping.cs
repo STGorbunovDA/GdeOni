@@ -28,6 +28,7 @@ public static class UsersMapping
             request.UserName,
             request.FullName,
             request.Password,
+            request.BirthDate,
             request.PrivacyPolicyAccepted,
             request.TermsAccepted);
     }

@@ -52,6 +52,12 @@ export const usersApi = {
     password: string;
     userName?: string;
     fullName?: string;
+    /**
+     * D19. Дата рождения — обязательное поле после введения возрастного
+     * гарда (14 лет). Формат ISO date «yyyy-MM-dd» — бэк принимает
+     * DateOnly, JsonSerializer конвертирует автоматически.
+     */
+    birthDate: string;
   }): Promise<RegisterResponse> {
     return unwrap(
       apiClient.post<ApiEnvelope<RegisterResponse>>('/api/users', {
@@ -59,6 +65,7 @@ export const usersApi = {
         password: input.password,
         userName: input.userName,
         fullName: input.fullName,
+        birthDate: input.birthDate,
         privacyPolicyAccepted: true,
         termsAccepted: true,
       }),

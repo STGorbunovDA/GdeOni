@@ -28,6 +28,7 @@ public sealed record RegisterUserRequest(
     string? UserName,
     string? FullName,
     string Password,
+    DateOnly BirthDate,
     bool PrivacyPolicyAccepted,
     bool TermsAccepted);
 

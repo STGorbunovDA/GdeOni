@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              x:Class="GdeOni.Mobile.Views.Auth.RegisterPage"
              x:DataType="vm:RegisterViewModel"
              Style="{StaticResource CloudPage}"
@@ -57,6 +58,16 @@
                                Style="{StaticResource FormEntry}"
                                IsPassword="True"
                                Text="{Binding PasswordConfirm}" />
+
+                        <!-- D19 age-gate: сервис только для лиц от 14 лет
+                             (Условия использования, п. 3.4). MaximumDate =
+                             сегодня, чтобы в будущее указать было нельзя. -->
+                        <Label Text="Дата рождения"
+                               FontSize="13"
+                               TextColor="#5D7282"
+                               Margin="4,4,0,0" />
+                        <DatePicker Date="{Binding BirthDate, Mode=TwoWay}"
+                                    MaximumDate="{x:Static sys:DateTime.Today}" />
 
                         <!-- E24. Согласие на обработку ПД (152-ФЗ).
                              Регистрация заблокирована пока оба не отмечены. -->

@@ -54,6 +54,17 @@ public static partial class Errors
         public static Error RoleInvalid() =>
             Error.Validation("user.role.invalid", "User role is invalid");
 
+        public static Error BirthDateRequired() =>
+            Error.Validation("user.birth_date.required", "Birth date is required");
+
+        public static Error BirthDateInvalid() =>
+            Error.Validation("user.birth_date.invalid", "Birth date is invalid (cannot be in the future)");
+
+        public static Error BirthDateMinAgeNotMet(int minAge) =>
+            Error.Validation(
+                "user.birth_date.min_age",
+                $"You must be at least {minAge} years old to use the service");
+
         public static Error UserForbidden() =>
             Error.Forbidden("user.forbidden", "You do not have permission to access the current user.");
 

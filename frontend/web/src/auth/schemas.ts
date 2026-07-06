@@ -14,6 +14,22 @@ import { z } from 'zod';
 export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_LENGTH = 128;
 
+/**
+ * F24 / D19. Возрастной гард — зеркало `User.MinAllowedAge` на бэке
+ * (Условия использования, п. 3.4). Клиент делает предварительную
+ * проверку; финальное слово — за бэком.
+ */
+export const MIN_ALLOWED_AGE = 14;
+
+function calculateAge(birthDate: Date, today: Date): number {
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
 export const loginSchema = z.object({
   email: z
     .string()
@@ -40,6 +56,21 @@ export const registerSchema = z
       .max(64, 'Имя пользователя не длиннее 64 символов')
       .optional()
       .or(z.literal('')),
+    // D19. birthDate — обязательное. Валидируем: не в будущем и не
+    // младше MIN_ALLOWED_AGE лет. Финальную проверку делает бэк
+    // (User.Register + TimeProvider), но UX без front-guard хуже.
+    birthDate: z
+      .date({ message: 'Укажите дату рождения' })
+      .refine(
+        (d) => d <= new Date(),
+        { message: 'Дата рождения не может быть в будущем' },
+      )
+      .refine(
+        (d) => calculateAge(d, new Date()) >= MIN_ALLOWED_AGE,
+        {
+          message: `Сервисом могут пользоваться лица от ${MIN_ALLOWED_AGE} лет`,
+        },
+      ),
     privacyPolicyAccepted: z.literal(true, {
       message: 'Необходимо принять Политику конфиденциальности',
     }),

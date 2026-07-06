@@ -47,5 +47,13 @@ public sealed class RegisterUserCommandValidator : AbstractValidator<RegisterUse
         RuleFor(x => x.TermsAccepted)
             .Equal(true)
             .WithError(Errors.Legal.TermsNotAccepted());
+
+        // D19. Возрастной guard (Условия использования, п. 3.4).
+        // Форматно валидируем только «не default(DateOnly)» и «не в
+        // будущем» — проверку min-age делает домен через User.Register,
+        // потому что там уже есть nowUtc из TimeProvider.
+        RuleFor(x => x.BirthDate)
+            .NotEqual(default(DateOnly))
+            .WithError(Errors.User.BirthDateRequired());
     }
 }

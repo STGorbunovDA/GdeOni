@@ -6,6 +6,7 @@ import {
   Stack,
   TextInput,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
@@ -50,6 +51,9 @@ export function RegisterPage() {
       password: '',
       confirmPassword: '',
       userName: '',
+      // birthDate: undefined в defaults, чтобы поле выглядело пустым;
+      // Zod required-refine отработает при submit.
+      birthDate: undefined as unknown as Date,
       privacyPolicyAccepted: false as unknown as true,
       termsAccepted: false as unknown as true,
     },
@@ -62,6 +66,8 @@ export function RegisterPage() {
         email: values.email,
         password: values.password,
         userName: values.userName?.trim() || undefined,
+        // ISO date «yyyy-MM-dd» без учёта таймзоны — DateOnly на бэке.
+        birthDate: formatBirthDate(values.birthDate),
       });
 
       // Регистрация без токенов — сразу login с теми же creds.
@@ -120,6 +126,24 @@ export function RegisterPage() {
               autoComplete="new-password"
               error={errors.confirmPassword?.message}
               {...register('confirmPassword')}
+            />
+
+            {/* D19. Дата рождения — сервисом могут пользоваться лица
+                от 14 лет (Условия использования, п. 3.4). */}
+            <Controller
+              control={control}
+              name="birthDate"
+              render={({ field }) => (
+                <DateInput
+                  label="Дата рождения"
+                  placeholder="дд.мм.гггг"
+                  valueFormat="DD.MM.YYYY"
+                  maxDate={new Date()}
+                  value={field.value ?? null}
+                  onChange={(v) => field.onChange(v ?? undefined)}
+                  error={errors.birthDate?.message}
+                />
+              )}
             />
 
             <Controller
@@ -194,4 +218,16 @@ export function RegisterPage() {
       </CloudCard>
     </Container>
   );
+}
+
+/**
+ * Форматирует Date в ISO date «yyyy-MM-dd» без учёта таймзоны — так
+ * бэк примет DateOnly без сюрпризов от смещения. `toISOString()` не
+ * подходит, потому что уводит дату в UTC и может сдвинуть день.
+ */
+function formatBirthDate(value: Date): string {
+  const y = value.getFullYear();
+  const m = String(value.getMonth() + 1).padStart(2, '0');
+  const d = String(value.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
