@@ -6,10 +6,13 @@ import {
   TextInput,
   UnstyledButton,
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
+import {
+  toDateInputValue,
+  parseDateInputValue,
+} from '../../utils/formatDate';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Search, UserRound } from 'lucide-react';
+import { Navigation, Search, UserPlus, UserRound } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -194,43 +197,57 @@ export function SearchPage() {
                 setForm({ ...form, city: e.currentTarget.value })
               }
             />
-            <DateInput
+            <TextInput
+              type="date"
               label="Дата рождения"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={form.birthDate}
-              onChange={(v) =>
+              value={toDateInputValue(form.birthDate)}
+              onChange={(e) =>
                 setForm({
                   ...form,
-                  birthDate: v ? new Date(v as unknown as string) : null,
+                  birthDate: parseDateInputValue(e.currentTarget.value),
                 })
               }
             />
-            <DateInput
+            <TextInput
+              type="date"
               label="Дата смерти"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={form.deathDate}
-              onChange={(v) =>
+              value={toDateInputValue(form.deathDate)}
+              onChange={(e) =>
                 setForm({
                   ...form,
-                  deathDate: v ? new Date(v as unknown as string) : null,
+                  deathDate: parseDateInputValue(e.currentTarget.value),
                 })
               }
             />
           </Group>
           <Group justify="space-between">
             <GhostButton onClick={handleReset}>Сбросить</GhostButton>
-            <PrimaryButton
-              onClick={handleSearch}
-              disabled={!canSearch}
-              leftSection={<Search size={16} />}
-              loading={query.isFetching && query.isLoading}
-            >
-              Найти
-            </PrimaryButton>
+            <Group gap="sm">
+              {/* F36. Не знаешь ФИО, но стоишь у могилы — ищи по GPS. */}
+              <GhostButton
+                onClick={() => navigate('/nearby')}
+                leftSection={<Navigation size={16} />}
+              >
+                Найти рядом
+              </GhostButton>
+              {/* Шорткат для тех, кто не хочет искать — сразу в форму
+                  добавления. Уже введённые ФИО/город пробрасываем в
+                  pre-fill через buildAtGraveLink. */}
+              <GhostButton
+                onClick={() => navigate(buildAtGraveLink(form))}
+                leftSection={<UserPlus size={16} />}
+              >
+                Добавить умершего
+              </GhostButton>
+              <PrimaryButton
+                onClick={handleSearch}
+                disabled={!canSearch}
+                leftSection={<Search size={16} />}
+                loading={query.isFetching && query.isLoading}
+              >
+                Найти
+              </PrimaryButton>
+            </Group>
           </Group>
         </Stack>
       </CloudCard>

@@ -7,7 +7,7 @@ import {
   Stack,
   UnstyledButton,
 } from '@mantine/core';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Route as RouteIcon, UserRound } from 'lucide-react';
 import {
   BodyLabel,
@@ -27,9 +27,9 @@ import { useAppFeatures } from '../../hooks/useAppFeatures';
 import { buildMediaUrl } from '../../utils/mediaUrl';
 import { formatDateOnly } from '../../utils/formatDate';
 import { relationshipDisplay } from '../../utils/relationshipDisplay';
-import { requestGeolocationOnce } from '../../utils/requestGeolocation';
 import {
   buildYandexUrl,
+  openYandexRoute,
   optimizeOrder,
   type Point,
 } from '../../utils/routing';
@@ -47,7 +47,6 @@ import {
 export function RoutePage() {
   const features = useAppFeatures();
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [geoFallbackInfo, setGeoFallbackInfo] = useState<string | null>(null);
 
   const query = useQuery({
     queryKey: ['route-candidates'],
@@ -73,53 +72,33 @@ export function RoutePage() {
     });
   }
 
-  const routeMutation = useMutation({
-    mutationFn: async () => {
-      setGeoFallbackInfo(null);
-      // Geolocation — best-effort. Если упало (permission denied /
-      // timeout — на десктопе в России часто) — отдаём origin=null,
-      // buildYandexUrl откроет панель маршрута с пустым "Откуда",
-      // юзер выберет "Моё местоположение" в самих Яндекс Картах.
-      let origin: Point | null = null;
-      try {
-        const geo = await requestGeolocationOnce();
-        origin = {
-          id: '__origin__',
-          latitude: geo.latitude,
-          longitude: geo.longitude,
-        };
-      } catch {
-        origin = null;
-        setGeoFallbackInfo(
-          'Не удалось определить ваше местоположение. Открыли Яндекс Карты на месте захоронения — нажмите там «Определить Ваше место положение», чтобы построить путь.',
-        );
-      }
+  /**
+   * F14.2. Строим multi-point маршрут и синхронно (в обработчике клика!)
+   * открываем Яндекс Карты. origin=null — Яндекс покажет панель маршрута
+   * с пустым «Откуда», юзер выберет «Моё местоположение» (нативное
+   * определение точнее браузерного и не требует ~20 c ожидания трёх
+   * попыток geolocation). Порядок объезда оптимизируем nearest-neighbor
+   * от первой точки.
+   *
+   * Синхронное открытие обязательно: после await popup-блокировщик молча
+   * режет новую вкладку — «ничего не происходит».
+   */
+  function handleBuildRoute() {
+    const points: Point[] = candidates
+      .filter((c) => selected.has(c.deceasedId))
+      .map((c) => ({
+        id: c.deceasedId,
+        latitude: c.graveLatitude!,
+        longitude: c.graveLongitude!,
+        label: c.fullName,
+      }));
 
-      const points: Point[] = candidates
-        .filter((c) => selected.has(c.deceasedId))
-        .map((c) => ({
-          id: c.deceasedId,
-          latitude: c.graveLatitude!,
-          longitude: c.graveLongitude!,
-          label: c.fullName,
-        }));
+    if (points.length === 0) return;
 
-      if (points.length === 0) {
-        throw new Error('Выберите хотя бы одного умершего.');
-      }
-
-      const ordered = optimizeOrder(origin, points);
-      const url = buildYandexUrl(origin, ordered);
-
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    },
-  });
+    const ordered = optimizeOrder(null, points);
+    const url = buildYandexUrl(null, ordered);
+    openYandexRoute(url);
+  }
 
   const selectedCount = selected.size;
 
@@ -142,18 +121,6 @@ export function RoutePage() {
       {query.isError && (
         <Alert color="red" variant="light">
           {formatError(query.error)}
-        </Alert>
-      )}
-
-      {routeMutation.isError && (
-        <Alert color="red" variant="light">
-          {formatError(routeMutation.error)}
-        </Alert>
-      )}
-
-      {geoFallbackInfo && !routeMutation.isPending && (
-        <Alert color="yellow" variant="light">
-          {geoFallbackInfo}
         </Alert>
       )}
 
@@ -189,8 +156,7 @@ export function RoutePage() {
         <PrimaryButton
           leftSection={<RouteIcon size={16} />}
           disabled={selectedCount === 0}
-          loading={routeMutation.isPending}
-          onClick={() => routeMutation.mutate()}
+          onClick={handleBuildRoute}
           fullWidth
         >
           {selectedCount === 0

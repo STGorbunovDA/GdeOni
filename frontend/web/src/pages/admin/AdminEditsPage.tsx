@@ -11,7 +11,6 @@ import {
   Table,
   TextInput,
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Diff } from 'lucide-react';
@@ -29,7 +28,11 @@ import {
   type EditWithCard,
 } from '../../api/endpoints/adminEditsApi';
 import { formatError } from '../../auth/errorMessages';
-import { formatDateTime } from '../../utils/formatDate';
+import {
+  formatDateTime,
+  toDateInputValue,
+  parseDateInputValue,
+} from '../../utils/formatDate';
 
 /**
  * F17.9 / D24. Глобальная лента правок карточек умерших. Сортировка
@@ -144,27 +147,23 @@ export function AdminEditsPage() {
             />
           </Group>
           <Group grow align="flex-end">
-            <DateInput
+            <TextInput
+              type="date"
               label="Правка с"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={editedFrom}
-              onChange={(v) =>
+              value={toDateInputValue(editedFrom)}
+              onChange={(e) =>
                 resetToFirstPage(setEditedFrom)(
-                  v ? new Date(v as unknown as string) : null,
+                  parseDateInputValue(e.currentTarget.value),
                 )
               }
             />
-            <DateInput
+            <TextInput
+              type="date"
               label="по"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={editedTo}
-              onChange={(v) =>
+              value={toDateInputValue(editedTo)}
+              onChange={(e) =>
                 resetToFirstPage(setEditedTo)(
-                  v ? new Date(v as unknown as string) : null,
+                  parseDateInputValue(e.currentTarget.value),
                 )
               }
             />

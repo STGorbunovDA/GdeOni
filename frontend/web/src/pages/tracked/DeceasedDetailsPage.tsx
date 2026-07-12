@@ -37,9 +37,7 @@ import {
   TrackStatuses,
 } from '../../api/endpoints/trackedDeceasedApi';
 import { deceasedApi } from '../../api/endpoints/deceasedApi';
-import { routingApi } from '../../api/endpoints/routingApi';
-import { requestGeolocationOnce } from '../../utils/requestGeolocation';
-import { buildYandexLookupUrl } from '../../utils/routing';
+import { buildYandexLookupUrl, openYandexRoute } from '../../utils/routing';
 import { formatError } from '../../auth/errorMessages';
 import { useAuthStore, useIsAdmin } from '../../auth/authStore';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
@@ -138,63 +136,34 @@ export function DeceasedDetailsPage() {
     },
   });
 
-  const [routeFallbackInfo, setRouteFallbackInfo] = useState<string | null>(null);
-
   /**
-   * F14.1. Single-point маршрут к одной могиле. Сначала пробуем
-   * geolocation → бэк отдаёт deep-link с маршрутом. Если geolocation
-   * упала (в России Chrome/Yandex часто не могут добраться до Google
-   * Geolocation Service на desktop без GPS-чипа) — fallback: открываем
-   * Яндекс центрированный на могиле, юзер сам поставит "откуда".
+   * F14.1. Маршрут к одной могиле. Синхронно (прямо в обработчике клика!)
+   * открываем Яндекс Карты с заполненным «Куда» (координаты могилы) и
+   * пустым «Откуда»: юзер жмёт «Моё местоположение» в самих Картах — их
+   * нативное определение точнее браузерного (в России Chrome/Yandex часто
+   * не достукиваются до Google Geolocation Service).
+   *
+   * Синхронное открытие обязательно: если открывать после await
+   * геолокации/бэка, окно уже вне user-gesture и popup-блокировщик молча
+   * режет новую вкладку — «ничего не происходит».
    *
    * Provider — только Яндекс (решение 2026-05-13).
    */
-  const routeMutation = useMutation({
-    mutationFn: async () => {
-      setRouteFallbackInfo(null);
-      const d = query.data!.deceased;
-
-      let url: string;
-      try {
-        const origin = await requestGeolocationOnce();
-        const route = await routingApi.singleRoute(
-          id!,
-          origin.latitude,
-          origin.longitude,
-          'auto',
-        );
-        const yandex = route.links.find((l) => l.provider.toLowerCase() === 'yandex');
-        if (!yandex) throw new Error('Бэк не отдал ссылку на Яндекс Карты.');
-        url = yandex.url;
-      } catch {
-        // Fallback: открываем Яндекс с pin на могиле. Маршрут юзер
-        // дорисует в самих Яндекс Картах (там точное определение
-        // местоположения работает лучше браузерной геолокации).
-        if (
-          typeof d.latitude !== 'number' ||
-          typeof d.longitude !== 'number'
-        ) {
-          throw new Error('У карточки нет координат места захоронения.');
-        }
-        url = buildYandexLookupUrl({
-          id: id!,
-          latitude: d.latitude,
-          longitude: d.longitude,
-        });
-        setRouteFallbackInfo(
-          'Не удалось определить ваше местоположение. Открыли Яндекс Карты на месте захоронения — нажмите там «Определить Ваше место положение», чтобы построить путь.',
-        );
-      }
-
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    },
-  });
+  function handleBuildRoute() {
+    const d = query.data?.deceased;
+    if (
+      typeof d?.latitude !== 'number' ||
+      typeof d?.longitude !== 'number'
+    ) {
+      return;
+    }
+    const url = buildYandexLookupUrl({
+      id: id!,
+      latitude: d.latitude,
+      longitude: d.longitude,
+    });
+    openYandexRoute(url);
+  }
 
   if (!id) {
     return (
@@ -379,22 +348,11 @@ export function DeceasedDetailsPage() {
           ) : (
             <CaptionLabel>Координат нет.</CaptionLabel>
           )}
-          {routeMutation.isError && (
-            <Alert color="red" variant="light">
-              {formatError(routeMutation.error)}
-            </Alert>
-          )}
-          {routeFallbackInfo && !routeMutation.isPending && (
-            <Alert color="yellow" variant="light">
-              {routeFallbackInfo}
-            </Alert>
-          )}
           <Group gap="sm" wrap="wrap">
             <PrimaryButton
               leftSection={<RouteIcon size={16} />}
               disabled={!deceased.hasBurialLocation}
-              loading={routeMutation.isPending}
-              onClick={() => routeMutation.mutate()}
+              onClick={handleBuildRoute}
             >
               Построить маршрут
             </PrimaryButton>

@@ -5,6 +5,9 @@ import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
+// Локальные шрифты (self-hosted, без обращений к Google Fonts).
+// Импортируем ДО styles.css, чтобы @font-face объявились раньше использования.
+import './assets/fonts/fonts.css';
 import { AppRouter } from './routes/AppRouter';
 import { queryClient } from './api/queryClient';
 import { theme } from './design/theme';

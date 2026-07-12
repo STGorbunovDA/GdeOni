@@ -1,44 +1,79 @@
 import { createTheme, MantineColorsTuple } from '@mantine/core';
 
 /**
- * F2. Cloud-палитра, синхронизированная с mobile.
- * Значения взяты из frontend/mobile/.../Resources/Styles/Colors.xaml
- * и Styles.xaml (CloudGradient / TitleLabel / CloudCard etc).
+ * Палитра и типографика в стиле шаблона Medilab (BootstrapMade).
  *
- * Важно: цвета слегка отличаются от тех, что были указаны в плане
- * (PlanFull.txt:9536), но я взял реальные mobile-значения, потому
- * что цель F2 — визуальная совместимость с приложением, а не с
- * текстом плана. При расхождении приоритет у mobile.
+ * Ключевое: имена токенов оставлены прежними (azure / azureDeep /
+ * inkBlue / sky / …), потому что на них завязан весь код приложения.
+ * Меняются только ЗНАЧЕНИЯ — так перекрашивается всё сразу, без
+ * правки сотни компонентов.
+ *
+ * Соответствие переменным шаблона (assets/css/main.css :root):
+ *   --accent-color   #1977cc  → azure       (кнопки, ссылки, активное)
+ *   --heading-color  #2c4964  → inkBlue     (заголовки)
+ *   --default-color  #444444  → text        (основной текст)
+ *   --background     #f1f7fc  → mist        (фон страницы, .light-background)
+ *   --surface-color  #ffffff  → cloud       (карточки, сайдбар)
+ *
+ * Bootstrap в проект НЕ тащим: у нас Mantine со своей дизайн-системой,
+ * два CSS-фреймворка конфликтовали бы на reset'ах и утилитах. Берём
+ * только визуальный язык шаблона.
  */
 export const cloudColors = {
-  sky: '#E6F4FB',
+  /** Светлый tonal-фон (аватарки, выбранные карточки, активный пункт меню). */
+  sky: '#E8F2FB',
+  /** Поверхность: карточки, сайдбар, модалки. */
   cloud: '#FFFFFF',
-  mist: '#F4F6F8',
-  azure: '#5FA8D3',
-  azureDeep: '#3F8AB8',
-  inkBlue: '#1E3A5F',
-  cloudBorder: '#E0EAF2',
-  captionGray: '#6B7C8C',
+  /** Фон страницы (--background-color в .light-background шаблона). */
+  mist: '#F1F7FC',
+  /** Акцент бренда (--accent-color). */
+  azure: '#1977CC',
+  /** Затемнённый акцент: pressed, иконки, ссылки. */
+  azureDeep: '#145A9E',
+  /** Цвет заголовков (--heading-color). */
+  inkBlue: '#2C4964',
+  /** Основной текст (--default-color). */
+  text: '#444444',
+  /** Тонкая рамка/разделитель. */
+  cloudBorder: '#E2ECF5',
+  /** Подписи, мета, второстепенный текст. */
+  captionGray: '#7A8794',
   errorRed: '#C0392B',
 } as const;
 
 /**
- * Mantine ожидает палитру из 10 оттенков. Берём центральный [5] = Azure
- * и интерполируем светлее/темнее. Значения подобраны на глаз, чтобы
- * hover/disabled выглядели мягко в Cloud-стиле.
+ * Mantine ждёт 10 оттенков. Центр [5] = accent #1977cc, вокруг —
+ * интерполяция для hover / disabled / pressed.
  */
 const azure: MantineColorsTuple = [
-  '#E7F2F9', // 0  — фон tonal background для светлого hover
-  '#CFE5F3',
-  '#A8D2EA',
-  '#82BFE0',
-  '#6CB1DA',
-  '#5FA8D3', // 5  — основной Azure (как в mobile)
-  '#4F9AC7',
-  '#3F8AB8', // 7  — AzureDeep, для pressed
-  '#2F7CA9',
-  '#1F6E9A',
+  '#E7F1FB', // 0 — tonal-фон светлого hover
+  '#CFE3F6',
+  '#9FC7EE',
+  '#6FAAE5',
+  '#4691DA',
+  '#1977CC', // 5 — основной accent
+  '#166BB8',
+  '#145A9E', // 7 — pressed / deep
+  '#0F4F8A',
+  '#0B3F70',
 ];
+
+/**
+ * Шрифты шаблона: Roboto — текст, Poppins — заголовки, Raleway — навигация.
+ * Все self-hosted (src/assets/fonts), без обращений к Google Fonts.
+ *
+ * ВАЖНО: в Poppins НЕТ кириллицы (только latin + devanagari), поэтому в
+ * стеке заголовков вторым идёт Montserrat — геометрический шрифт с
+ * кириллицей, визуально близкий к Poppins. Благодаря unicode-range в
+ * @font-face браузер сам берёт латиницу из Poppins, а кириллицу из
+ * Montserrat — стыка не видно. Без этого все русские заголовки молча
+ * падали бы в Roboto, и heading-шрифт не работал бы вовсе.
+ */
+const bodyFont =
+  '"Roboto", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
+const headingFont =
+  '"Poppins", "Montserrat", "Roboto", system-ui, sans-serif';
+export const navFont = '"Raleway", "Roboto", system-ui, sans-serif';
 
 export const theme = createTheme({
   primaryColor: 'azure',
@@ -46,12 +81,12 @@ export const theme = createTheme({
   colors: {
     azure,
   },
-  defaultRadius: 'md', // 8px — для Input/Select. Кнопки и карточки задают свой.
-  fontFamily:
-    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  // Шаблон использует небольшие скругления у полей ввода (~4px).
+  // Кнопки и карточки задают свой радиус сами.
+  defaultRadius: 'sm',
+  fontFamily: bodyFont,
   headings: {
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    fontFamily: headingFont,
     fontWeight: '700',
   },
   black: cloudColors.inkBlue,

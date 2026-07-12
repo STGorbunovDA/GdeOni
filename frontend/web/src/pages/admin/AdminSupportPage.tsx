@@ -11,7 +11,6 @@ import {
   Table,
   TextInput,
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
 import { useDebouncedValue } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -31,7 +30,11 @@ import {
   type TicketStatus,
 } from '../../api/endpoints/supportApi';
 import { formatError } from '../../auth/errorMessages';
-import { formatDateTime } from '../../utils/formatDate';
+import {
+  formatDateTime,
+  toDateInputValue,
+  parseDateInputValue,
+} from '../../utils/formatDate';
 import {
   KIND_LABELS,
   KIND_OPTIONS,
@@ -188,27 +191,23 @@ export function AdminSupportPage() {
             />
           </Group>
           <Group grow align="flex-end">
-            <DateInput
+            <TextInput
+              type="date"
               label="Создан с"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={createdFrom}
-              onChange={(v) =>
+              value={toDateInputValue(createdFrom)}
+              onChange={(e) =>
                 resetToFirstPage(setCreatedFrom)(
-                  v ? new Date(v as unknown as string) : null,
+                  parseDateInputValue(e.currentTarget.value),
                 )
               }
             />
-            <DateInput
+            <TextInput
+              type="date"
               label="по"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={createdTo}
-              onChange={(v) =>
+              value={toDateInputValue(createdTo)}
+              onChange={(e) =>
                 resetToFirstPage(setCreatedTo)(
-                  v ? new Date(v as unknown as string) : null,
+                  parseDateInputValue(e.currentTarget.value),
                 )
               }
             />

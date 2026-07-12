@@ -1,36 +1,52 @@
 import { useMemo } from 'react';
-import { Anchor, Container, List, Stack, Title } from '@mantine/core';
+import { Alert, Anchor, Container, List, Loader, Stack, Title } from '@mantine/core';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Cloud } from 'lucide-react';
-import privacyMarkdown from './privacyPolicy.md?raw';
-import termsMarkdown from './termsOfUse.md?raw';
 import {
   BodyLabel,
   CaptionLabel,
   CloudCard,
   TitleLabel,
 } from '../../components/ui';
+import { legalApi } from '../../api/endpoints/legalApi';
+import { formatError } from '../../auth/errorMessages';
 import { cloudColors } from '../../design/theme';
 
 /**
- * F24 / D19. Публичная страница юридического документа. Использует
- * markdown-заглушку из .md?raw импорта — так текст лежит в бандле
- * без дополнительной статики. Рендер простой: H1/H2, параграфы и
- * маркированные списки. Полноценный markdown-парсер не тянем —
- * из-за одного экрана.
+ * F24 / D19 / D19.9. Публичная страница юридического документа.
  *
- * Один компонент на оба документа (privacy / terms), контент
- * выбирается по пропсу.
+ * Текст приходит с бэка (GET /api/legal/*, поле bodyMarkdown) — раньше
+ * он лежал .md-файлом в бандле web, а версия документа при этом жила в
+ * appsettings бэка, и ничто не мешало им разъехаться. Теперь источник
+ * один: backend/docs/legal/*.md, и мобилка читает тот же текст.
+ *
+ * Рендер простой: H1/H2, параграфы и маркированные списки. Полноценный
+ * markdown-парсер не тянем — из-за одного экрана.
+ *
+ * Страница публичная (эндпоинт AllowAnonymous): её открывают из формы
+ * регистрации ещё до появления токена.
  */
 type Kind = 'privacy' | 'terms';
 
-const CONTENT: Record<Kind, { title: string; markdown: string }> = {
-  privacy: { title: 'Политика конфиденциальности', markdown: privacyMarkdown },
-  terms: { title: 'Условия использования', markdown: termsMarkdown },
+const TITLES: Record<Kind, string> = {
+  privacy: 'Политика конфиденциальности',
+  terms: 'Условия использования',
 };
 
 export function LegalPage({ kind }: { kind: Kind }) {
-  const { title, markdown } = CONTENT[kind];
+  const title = TITLES[kind];
+
+  const query = useQuery({
+    queryKey: ['legal-document', kind],
+    queryFn: () =>
+      kind === 'privacy'
+        ? legalApi.getPrivacyPolicy()
+        : legalApi.getTermsOfUse(),
+    staleTime: 60 * 60 * 1000, // документ меняется раз в год
+  });
+
+  const markdown = query.data?.bodyMarkdown ?? '';
   const blocks = useMemo(() => parseMarkdown(markdown), [markdown]);
 
   return (
@@ -42,6 +58,29 @@ export function LegalPage({ kind }: { kind: Kind }) {
 
       <CloudCard>
         <Stack gap="md">
+          {query.isLoading && (
+            <Stack align="center" py="xl">
+              <Loader color="azure" />
+            </Stack>
+          )}
+
+          {query.isError && (
+            <Alert color="red" variant="light">
+              Не удалось загрузить документ: {formatError(query.error)}
+            </Alert>
+          )}
+
+          {/* Текст есть на бэке, но пустой — деградируем до ссылки на
+              публичную версию, а не показываем пустую карточку. */}
+          {query.isSuccess && !markdown && (
+            <BodyLabel>
+              Документ временно недоступен.{' '}
+              <Anchor href={query.data.url} c={cloudColors.azureDeep}>
+                Открыть опубликованную версию
+              </Anchor>
+            </BodyLabel>
+          )}
+
           {blocks.map((b, i) => renderBlock(b, i))}
 
           <CaptionLabel>
@@ -118,6 +157,7 @@ function parseMarkdown(md: string): Block[] {
   }
   flushPara();
   flushList();
+
   return blocks;
 }
 
@@ -125,13 +165,13 @@ function renderBlock(block: Block, key: number) {
   switch (block.type) {
     case 'h1':
       return (
-        <Title key={key} order={2} c={cloudColors.inkBlue} mt="sm">
+        <Title key={key} order={2} c={cloudColors.inkBlue} mt="md">
           {block.text}
         </Title>
       );
     case 'h2':
       return (
-        <Title key={key} order={4} c={cloudColors.inkBlue} mt="sm">
+        <Title key={key} order={3} c={cloudColors.inkBlue} mt="sm">
           {block.text}
         </Title>
       );
@@ -139,9 +179,11 @@ function renderBlock(block: Block, key: number) {
       return <BodyLabel key={key}>{block.text}</BodyLabel>;
     case 'ul':
       return (
-        <List key={key} spacing={4}>
+        <List key={key} spacing="xs" withPadding>
           {block.items.map((item, i) => (
-            <List.Item key={i}>{item}</List.Item>
+            <List.Item key={i}>
+              <BodyLabel>{item}</BodyLabel>
+            </List.Item>
           ))}
         </List>
       );

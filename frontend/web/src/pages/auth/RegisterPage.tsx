@@ -6,7 +6,6 @@ import {
   Stack,
   TextInput,
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
@@ -90,7 +89,7 @@ export function RegisterPage() {
       <Stack gap="md" mb="lg" align="center">
         <Stack gap={6} align="center">
           <Cloud size={48} color={cloudColors.azureDeep} />
-          <TitleLabel>GdeOni</TitleLabel>
+          <TitleLabel>ГдеОни</TitleLabel>
         </Stack>
         <CaptionLabel>Создайте аккаунт, чтобы начать.</CaptionLabel>
       </Stack>
@@ -134,13 +133,15 @@ export function RegisterPage() {
               control={control}
               name="birthDate"
               render={({ field }) => (
-                <DateInput
+                <TextInput
+                  type="date"
                   label="Дата рождения"
-                  placeholder="дд.мм.гггг"
-                  valueFormat="DD.MM.YYYY"
-                  maxDate={new Date()}
-                  value={field.value ?? null}
-                  onChange={(v) => field.onChange(v ?? undefined)}
+                  max={formatBirthDate(new Date())}
+                  value={field.value ? formatBirthDate(field.value) : ''}
+                  onChange={(e) => {
+                    const v = e.currentTarget.value;
+                    field.onChange(v ? parseDateInput(v) : undefined);
+                  }}
                   error={errors.birthDate?.message}
                 />
               )}
@@ -230,4 +231,15 @@ function formatBirthDate(value: Date): string {
   const m = String(value.getMonth() + 1).padStart(2, '0');
   const d = String(value.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+/**
+ * Парсит значение нативного <input type="date"> («yyyy-MM-dd») в
+ * локальную Date. Собираем через конструктор Y/M/D, чтобы избежать
+ * UTC-сдвига, который даёт new Date("yyyy-MM-dd").
+ */
+function parseDateInput(value: string): Date | undefined {
+  const [y, m, d] = value.split('-').map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d);
 }

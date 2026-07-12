@@ -160,6 +160,14 @@ public partial class AtGraveViewModel(
         }
     }
 
+    /// <summary>Точка выбрана тапом по карте — ручная точка, GPS-точности нет.</summary>
+    public void ApplyPickedLocation(double latitude, double longitude)
+    {
+        LatitudeInput = latitude.ToString("0.000000", CultureInfo.InvariantCulture);
+        LongitudeInput = longitude.ToString("0.000000", CultureInfo.InvariantCulture);
+        AccuracyInput = "";
+    }
+
     [RelayCommand]
     private void OpenAppSettings() => geo.OpenAppSettings();
 

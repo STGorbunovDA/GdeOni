@@ -10,7 +10,6 @@ import {
   Table,
   TextInput,
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
 import { useDebouncedValue } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -28,7 +27,11 @@ import {
   type AdminUserRole,
 } from '../../api/endpoints/adminUsersApi';
 import { formatError } from '../../auth/errorMessages';
-import { formatDateTime } from '../../utils/formatDate';
+import {
+  formatDateTime,
+  toDateInputValue,
+  parseDateInputValue,
+} from '../../utils/formatDate';
 
 /**
  * F17.7. Список пользователей в админке.
@@ -137,27 +140,23 @@ export function AdminUsersPage() {
             />
           </Group>
           <Group grow align="flex-end">
-            <DateInput
+            <TextInput
+              type="date"
               label="Зарегистрирован с"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={registeredFrom}
-              onChange={(v) =>
+              value={toDateInputValue(registeredFrom)}
+              onChange={(e) =>
                 resetToFirstPage(setRegisteredFrom)(
-                  v ? new Date(v as unknown as string) : null,
+                  parseDateInputValue(e.currentTarget.value),
                 )
               }
             />
-            <DateInput
+            <TextInput
+              type="date"
               label="по"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={registeredTo}
-              onChange={(v) =>
+              value={toDateInputValue(registeredTo)}
+              onChange={(e) =>
                 resetToFirstPage(setRegisteredTo)(
-                  v ? new Date(v as unknown as string) : null,
+                  parseDateInputValue(e.currentTarget.value),
                 )
               }
             />

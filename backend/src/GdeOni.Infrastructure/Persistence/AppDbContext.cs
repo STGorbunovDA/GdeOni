@@ -3,6 +3,7 @@ using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.Subscriptions;
 using GdeOni.Domain.Aggregates.Support;
 using GdeOni.Domain.Aggregates.User;
+using GdeOni.Infrastructure.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace GdeOni.Infrastructure.Persistence;
@@ -23,6 +24,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     // D25. Универсальные тикеты службы поддержки (manual + auto).
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
+
+    // D37. Лог разосланных писем о годовщинах (дедупликация). Инфра-
+    // сущность, не доменный агрегат.
+    internal DbSet<SentAnniversaryEmail> SentAnniversaryEmails => Set<SentAnniversaryEmail>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

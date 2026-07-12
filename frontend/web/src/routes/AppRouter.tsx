@@ -6,14 +6,17 @@ import { DeceasedDetailsPage } from '../pages/tracked/DeceasedDetailsPage';
 import { EditCoordsPage } from '../pages/tracked/EditCoordsPage';
 import { ArchivePage } from '../pages/tracked/ArchivePage';
 import { SearchPage } from '../pages/search/SearchPage';
+import { NearbyPage } from '../pages/search/NearbyPage';
 import { AtGravePage } from '../pages/search/AtGravePage';
 import { PreviewPage } from '../pages/search/PreviewPage';
 import { RoutePage } from '../pages/route/RoutePage';
+import { EventsPage } from '../pages/events/EventsPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 import { ChangePasswordPage } from '../pages/profile/ChangePasswordPage';
 import { AdminPage } from '../pages/admin/AdminPage';
 import { AdminDeceasedPage } from '../pages/admin/AdminDeceasedPage';
 import { AdminDeceasedViewPage } from '../pages/admin/AdminDeceasedViewPage';
+import { EditDeceasedPage } from '../pages/admin/EditDeceasedPage';
 import { AdminFindDeceasedPage } from '../pages/admin/AdminFindDeceasedPage';
 import { AdminDeceasedEditsPage } from '../pages/admin/AdminDeceasedEditsPage';
 import { AdminEditsPage } from '../pages/admin/AdminEditsPage';
@@ -105,10 +108,14 @@ export function AppRouter() {
               />
 
               <Route path="/search" element={<SearchPage />} />
+              {/* F36 / E21. Поиск по GPS «кто рядом» — вход с /tracked
+                  и /search, отдельного пункта в sidebar нет. */}
+              <Route path="/nearby" element={<NearbyPage />} />
               <Route path="/at-grave" element={<AtGravePage />} />
               <Route path="/preview/:id" element={<PreviewPage />} />
 
               <Route path="/route" element={<RoutePage />} />
+              <Route path="/events" element={<EventsPage />} />
             </Route>
           </Route>
 
@@ -121,6 +128,7 @@ export function AppRouter() {
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/deceased" element={<AdminDeceasedPage />} />
               <Route path="/admin/deceased/:id" element={<AdminDeceasedViewPage />} />
+              <Route path="/admin/deceased/:id/edit" element={<EditDeceasedPage />} />
               <Route path="/admin/deceased/:id/edits" element={<AdminDeceasedEditsPage />} />
               <Route path="/admin/users" element={<AdminUsersPage />} />
               <Route path="/admin/users/:id" element={<AdminUserDetailsPage />} />

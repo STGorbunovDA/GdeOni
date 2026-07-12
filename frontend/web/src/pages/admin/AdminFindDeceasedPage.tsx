@@ -10,10 +10,14 @@ import {
   Select,
   Button,
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Search as SearchIcon, RotateCcw, UserRound } from 'lucide-react';
+import {
+  Search as SearchIcon,
+  RotateCcw,
+  Route as RouteIcon,
+  UserRound,
+} from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -29,8 +33,13 @@ import {
   type DeceasedListItem,
 } from '../../api/endpoints/deceasedApi';
 import { formatError } from '../../auth/errorMessages';
-import { formatDateOnly } from '../../utils/formatDate';
+import {
+  formatDateOnly,
+  toDateInputValue,
+  parseDateInputValue,
+} from '../../utils/formatDate';
 import { buildMediaUrl } from '../../utils/mediaUrl';
+import { buildYandexLookupUrl, openYandexRoute } from '../../utils/routing';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
 
 /**
@@ -136,6 +145,25 @@ export function AdminFindDeceasedPage() {
     applied !== null && !isLoading && items.length === 0 && !errorMessage;
   const canLoadMore = items.length < totalCount && !isLoading;
 
+  // Построить маршрут к могиле прямо из результатов — без открытия карточки
+  // и без добавления в отслеживание. Синхронно (в обработчике клика), иначе
+  // popup-блокировщик режет вкладку. «Откуда» пустой — админ ткнёт «Моё
+  // местоположение» в Яндекс Картах.
+  function handleBuildRoute(item: DeceasedListItem) {
+    if (
+      typeof item.latitude !== 'number' ||
+      typeof item.longitude !== 'number'
+    ) {
+      return;
+    }
+    const url = buildYandexLookupUrl({
+      id: item.id,
+      latitude: item.latitude,
+      longitude: item.longitude,
+    });
+    openYandexRoute(url);
+  }
+
   return (
     <Stack gap="lg">
       <Stack gap="xs">
@@ -189,40 +217,52 @@ export function AdminFindDeceasedPage() {
           </SimpleGrid>
 
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-            <DateInput
+            <TextInput
+              type="date"
               label="Дата рождения"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={form.birthDate}
-              onChange={(v) => setForm({ ...form, birthDate: v })}
+              value={toDateInputValue(form.birthDate)}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  birthDate: parseDateInputValue(e.currentTarget.value),
+                })
+              }
             />
-            <DateInput
+            <TextInput
+              type="date"
               label="Дата смерти"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={form.deathDate}
-              onChange={(v) => setForm({ ...form, deathDate: v })}
+              value={toDateInputValue(form.deathDate)}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  deathDate: parseDateInputValue(e.currentTarget.value),
+                })
+              }
             />
           </SimpleGrid>
 
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-            <DateInput
+            <TextInput
+              type="date"
               label="Создано с"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={form.createdFrom}
-              onChange={(v) => setForm({ ...form, createdFrom: v })}
+              value={toDateInputValue(form.createdFrom)}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  createdFrom: parseDateInputValue(e.currentTarget.value),
+                })
+              }
             />
-            <DateInput
+            <TextInput
+              type="date"
               label="Создано по"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={form.createdTo}
-              onChange={(v) => setForm({ ...form, createdTo: v })}
+              value={toDateInputValue(form.createdTo)}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  createdTo: parseDateInputValue(e.currentTarget.value),
+                })
+              }
             />
           </SimpleGrid>
 
@@ -299,6 +339,7 @@ export function AdminFindDeceasedPage() {
                     key={it.id}
                     item={it}
                     onOpen={() => navigate(`/admin/deceased/${it.id}`)}
+                    onRoute={() => handleBuildRoute(it)}
                   />
                 ))}
                 {canLoadMore && (
@@ -326,9 +367,11 @@ export function AdminFindDeceasedPage() {
 function ResultCard({
   item,
   onOpen,
+  onRoute,
 }: {
   item: DeceasedListItem;
   onOpen: () => void;
+  onRoute: () => void;
 }) {
   const features = useAppFeatures();
   const photoUrl = buildMediaUrl(
@@ -370,6 +413,22 @@ function ResultCard({
         <CaptionLabel>{lifePeriod}</CaptionLabel>
         {location && <CaptionLabel>{location}</CaptionLabel>}
       </Stack>
+      {typeof item.latitude === 'number' &&
+        typeof item.longitude === 'number' && (
+          <Button
+            variant="light"
+            size="xs"
+            leftSection={<RouteIcon size={14} />}
+            onClick={(e) => {
+              // stopPropagation — иначе клик по кнопке ещё и откроет карточку.
+              e.stopPropagation();
+              onRoute();
+            }}
+            style={{ flexShrink: 0 }}
+          >
+            Маршрут
+          </Button>
+        )}
     </div>
   );
 }

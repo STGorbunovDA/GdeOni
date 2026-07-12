@@ -4,7 +4,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
+using GdeOni.Mobile.Services.Geolocation;
 using GdeOni.Mobile.Services.Media;
+using GdeOni.Mobile.Services.Routing;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
@@ -26,7 +28,9 @@ public partial class AdminDeceasedViewViewModel(
     IDeceasedRecordsApi deceasedApi,
     IDeceasedMediaApi mediaApi,
     IDeceasedMemoriesApi memoriesApi,
-    IPublicHostsService publicHosts) : ObservableObject
+    IPublicHostsService publicHosts,
+    IGeolocationService geo,
+    IExternalMapsService externalMaps) : ObservableObject
 {
     [ObservableProperty]
     private string _deceasedId = "";
@@ -51,6 +55,7 @@ public partial class AdminDeceasedViewViewModel(
     [NotifyPropertyChangedFor(nameof(LocationText))]
     [NotifyPropertyChangedFor(nameof(HasBurialLocation))]
     [NotifyPropertyChangedFor(nameof(CoordinatesText))]
+    [NotifyPropertyChangedFor(nameof(HasCoordinates))]
     [NotifyPropertyChangedFor(nameof(IsVerified))]
     [NotifyPropertyChangedFor(nameof(VerifyButtonText))]
     [NotifyPropertyChangedFor(nameof(CreatedAtDisplay))]
@@ -113,6 +118,9 @@ public partial class AdminDeceasedViewViewModel(
                    $"{lon.ToString("0.000000", CultureInfo.InvariantCulture)}";
         }
     }
+
+    public bool HasCoordinates =>
+        Data?.Latitude is double && Data?.Longitude is double;
 
     public bool IsVerified => Data?.IsVerified == true;
 
@@ -702,6 +710,38 @@ public partial class AdminDeceasedViewViewModel(
 
         await Shell.Current.GoToAsync(
             $"burial-location-editor?deceasedId={DeceasedId}&lat={lat}&lon={lon}&acc={acc}");
+    }
+
+    /// <summary>
+    /// D27+. Построить маршрут к могиле, НЕ добавляя карточку в отслеживание
+    /// (админ нашёл её через поиск и просто хочет доехать). Origin — текущая
+    /// геопозиция best-effort (нативный GPS точный); при отказе/недоступности
+    /// null — Яндекс покажет пустое «Откуда», админ ткнёт «Моё местоположение».
+    /// Открываем внешние Яндекс Карты через Launcher (не требует трекинга и
+    /// backend-роут-эндпоинта).
+    /// </summary>
+    [RelayCommand]
+    private async Task BuildRouteAsync()
+    {
+        if (Data?.Latitude is not double lat || Data.Longitude is not double lon)
+            return;
+
+        RoutePoint? origin = null;
+        var geoResult = await geo.RequestAndGetCurrentAsync();
+        if (geoResult.Success &&
+            geoResult.Latitude is double oLat &&
+            geoResult.Longitude is double oLon)
+        {
+            origin = new RoutePoint(oLat, oLon);
+        }
+
+        var ok = await externalMaps.OpenRouteAsync(
+            ExternalMapsProvider.Yandex,
+            origin,
+            new[] { new RoutePoint(lat, lon) });
+
+        if (!ok)
+            ErrorMessage = "Не удалось открыть карты. Установите Яндекс Карты или браузер.";
     }
 
     /// <summary>

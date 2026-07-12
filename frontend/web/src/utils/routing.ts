@@ -179,3 +179,74 @@ export function build2GisUrl(
   const segments = all.map((p) => `${fmt(p.longitude)},${fmt(p.latitude)}`).join('|');
   return `https://2gis.ru/routeSearch/rsType/car/points/${segments}`;
 }
+
+/**
+ * Открыть маршрут во внешних Яндекс Картах из веб-приложения.
+ *
+ *  - Desktop: веб-версия Яндекс Карт в новой вкладке (как раньше).
+ *  - Android: `intent://` — ОС сама откроет приложение Яндекс Карты, если
+ *    оно установлено, иначе перейдёт на веб-версию (S.browser_fallback_url).
+ *  - iOS: пробуем схему `yandexmaps://`; если приложение не открылось
+ *    (страница осталась видимой) — через таймер уходим на веб-версию в
+ *    той же вкладке (новую открыть уже нельзя — не user-gesture).
+ *
+ * `webUrl` — готовая https-ссылка Яндекс Карт (buildYandexUrl /
+ * buildYandexLookupUrl). ВЫЗЫВАТЬ синхронно в обработчике клика — иначе
+ * popup-блокировщик/схема не сработают.
+ */
+export function openYandexRoute(webUrl: string): void {
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const isAndroid = /android/i.test(ua);
+  const isIos = /iphone|ipad|ipod/i.test(ua);
+
+  if (!isAndroid && !isIos) {
+    openInNewTab(webUrl);
+    return;
+  }
+
+  // Хвост после https://yandex.ru/maps/ — те же query-параметры маршрута.
+  const tail = webUrl.replace(/^https?:\/\/yandex\.ru\/maps\//, '');
+
+  if (isAndroid) {
+    const fallback = encodeURIComponent(webUrl);
+    const intentUrl =
+      `intent://maps.yandex.ru/${tail}` +
+      '#Intent;scheme=yandexmaps;package=ru.yandex.yandexmaps;' +
+      `S.browser_fallback_url=${fallback};end`;
+    window.location.href = intentUrl;
+    return;
+  }
+
+  // iOS.
+  openAppWithWebFallback(`yandexmaps://maps.yandex.ru/${tail}`, webUrl);
+}
+
+function openInNewTab(url: string): void {
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function openAppWithWebFallback(appUrl: string, webUrl: string): void {
+  let leftPage = false;
+  const markLeft = () => {
+    leftPage = true;
+  };
+  document.addEventListener('visibilitychange', markLeft);
+  window.addEventListener('pagehide', markLeft);
+
+  window.location.href = appUrl;
+
+  window.setTimeout(() => {
+    document.removeEventListener('visibilitychange', markLeft);
+    window.removeEventListener('pagehide', markLeft);
+    // Приложение не открылось (мы всё ещё на странице) → веб-версия.
+    if (!leftPage && document.visibilityState === 'visible') {
+      window.location.href = webUrl;
+    }
+  }, 1500);
+}

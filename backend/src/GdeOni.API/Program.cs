@@ -4,11 +4,13 @@ using GdeOni.API;
 using GdeOni.API.Extensions;
 using GdeOni.API.HealthChecks;
 using GdeOni.API.Hosting;
+using GdeOni.API.Legal;
 using GdeOni.API.Middleware;
 using GdeOni.API.Observability;
 using GdeOni.API.Options;
 using GdeOni.API.RateLimiting;
 using GdeOni.Application;
+using GdeOni.Application.Abstractions.Legal;
 using GdeOni.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -30,6 +32,12 @@ builder.Services.AddSecurity(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddCustomCors(builder.Configuration, builder.Environment);
 builder.Services.AddCustomRateLimiting(builder.Configuration);
+
+// D19.9. Тексты Privacy Policy / Terms — канонические файлы из
+// backend/docs/legal, копируются в {ContentRoot}/Legal при сборке.
+// Реализация в API (а не Infrastructure), т.к. зависит от ContentRoot.
+// Singleton: файлы читаются один раз и кешируются в памяти.
+builder.Services.AddSingleton<ILegalDocumentSource, FileLegalDocumentSource>();
 builder.Services.Configure<WebhookSecurityOptions>(
     builder.Configuration.GetSection(WebhookSecurityOptions.SectionName));
 
@@ -64,6 +72,11 @@ var app = builder.Build();
 // стартует и падает на первом запросе с непонятной ошибкой EF Core
 // ("column does not exist"). См. D11.6.
 await app.Services.EnsureDatabaseMigrationsAppliedAsync();
+
+// D19.9. Fail-fast: текст юр-документа и его версия в конфиге должны
+// совпадать. Иначе юзер подтвердит согласие не с тем текстом, который
+// прочитал.
+app.Services.EnsureLegalDocumentsMatchVersions();
 
 await app.Services.SeedDatabaseAsync();
 await app.Services.BootstrapStorageAsync();

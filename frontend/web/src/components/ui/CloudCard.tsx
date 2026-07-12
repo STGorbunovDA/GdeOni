@@ -3,9 +3,10 @@ import { cloudColors } from '../../design/theme';
 import type { CSSProperties, ReactNode } from 'react';
 
 /**
- * F2. Mobile-эквивалент Border style="CloudCard". Белый фон,
- * скруглённые углы 16px, мягкая тень InkBlue 0.08, тонкая
- * рамка #E0EAF2. Padding по умолчанию 16px — как в mobile.
+ * Карточка в стиле Medilab (.service-item / .info-item в шаблоне):
+ * белая поверхность, скругление 10px и мягкая тень
+ * `0 2px 15px rgba(0,0,0,.1)` — БЕЗ рамки (в шаблоне глубину даёт
+ * только тень). Padding по умолчанию 16px.
  */
 type Props = PaperProps & {
   children: ReactNode;
@@ -19,9 +20,12 @@ export function CloudCard({ children, style, ...rest }: Props) {
       p="md"
       style={{
         backgroundColor: cloudColors.cloud,
-        border: `1px solid ${cloudColors.cloudBorder}`,
-        borderRadius: 16,
-        boxShadow: '0 4px 14px rgba(30, 58, 95, 0.08)',
+        // Прозрачная рамка «про запас»: вызывающие (например, выбор
+        // карточки на /route) переопределяют borderColor — без неё
+        // подсветка выбранного элемента бы пропала, а layout не поедет.
+        border: '1px solid transparent',
+        borderRadius: 10,
+        boxShadow: '0 2px 15px rgba(0, 0, 0, 0.1)',
         ...style,
       }}
       {...rest}

@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:auth="clr-namespace:GdeOni.Mobile.Views.Auth"
     xmlns:tracked="clr-namespace:GdeOni.Mobile.Views.Tracked"
+    xmlns:events="clr-namespace:GdeOni.Mobile.Views.Events"
     xmlns:route="clr-namespace:GdeOni.Mobile.Views.Route"
     xmlns:profile="clr-namespace:GdeOni.Mobile.Views.Profile"
     xmlns:updates="clr-namespace:GdeOni.Mobile.Views.Updates"
@@ -25,6 +26,9 @@
         <ShellContent
             Route="tracked"
             ContentTemplate="{DataTemplate tracked:TrackedListPage}" />
+        <ShellContent
+            Route="events"
+            ContentTemplate="{DataTemplate events:EventsPage}" />
         <ShellContent
             Route="route"
             ContentTemplate="{DataTemplate route:RoutePage}" />

@@ -1,4 +1,5 @@
-﻿using GdeOni.Application.Abstractions.Features;
+﻿using GdeOni.Application.Abstractions.Email;
+using GdeOni.Application.Abstractions.Features;
 using GdeOni.Application.Abstractions.Payments;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Routing;
@@ -7,7 +8,9 @@ using GdeOni.Application.Common.Security;
 using GdeOni.Application.Legal;
 using GdeOni.Application.Subscriptions;
 using GdeOni.Infrastructure.Data;
+using GdeOni.Infrastructure.Email;
 using GdeOni.Infrastructure.Features;
+using GdeOni.Infrastructure.Notifications;
 using GdeOni.Infrastructure.Payments;
 using GdeOni.Infrastructure.Persistence;
 using GdeOni.Infrastructure.Persistence.Cleanup;
@@ -168,6 +171,27 @@ public static class DependencyInjection
         services.Configure<RefreshTokensCleanupOptions>(
             configuration.GetSection(RefreshTokensCleanupOptions.SectionName));
         services.AddHostedService<RefreshTokensCleanupService>();
+
+        // D37. Email-канал + фоновая рассылка о годовщинах. Sender без
+        // состояния → Singleton. Если SMTP не сконфигурирован (нет Host/
+        // FromEmail) — подставляем no-op, чтобы приложение поднялось без
+        // почтового сервера (dev / integration-тесты). Зеркалит выбор
+        // FakePaymentProvider vs YooKassaPaymentProvider.
+        services.Configure<EmailOptions>(
+            configuration.GetSection(EmailOptions.SectionName));
+        services.AddSingleton<SmtpEmailSender>();
+        services.AddSingleton<NoOpEmailSender>();
+        services.AddSingleton<IEmailSender>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<EmailOptions>>().Value;
+            return opts.IsConfigured
+                ? sp.GetRequiredService<SmtpEmailSender>()
+                : sp.GetRequiredService<NoOpEmailSender>();
+        });
+
+        services.Configure<AnniversaryEmailOptions>(
+            configuration.GetSection(AnniversaryEmailOptions.SectionName));
+        services.AddHostedService<AnniversaryEmailService>();
 
         return services;
     }

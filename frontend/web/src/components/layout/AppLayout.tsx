@@ -7,7 +7,16 @@ import {
   Text,
 } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
-import { Archive, Cloud, LogOut, Map, Shield, User, Users } from 'lucide-react';
+import {
+  Archive,
+  CalendarHeart,
+  Cloud,
+  LogOut,
+  Map,
+  Shield,
+  User,
+  Users,
+} from 'lucide-react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore, useIsAdmin } from '../../auth/authStore';
 import { authApi } from '../../api/endpoints/authApi';
@@ -15,6 +24,7 @@ import { cloudColors } from '../../design/theme';
 import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { CaptionLabel } from '../ui/Labels';
 import { OutdatedLegalModal } from '../legal/OutdatedLegalModal';
+import { AnniversaryModal } from '../events/AnniversaryModal';
 import { NavItem } from './NavItem';
 
 /**
@@ -75,7 +85,7 @@ export function AppLayout() {
             <Group gap={8}>
               <Cloud size={22} color={cloudColors.azureDeep} />
               <Text fw={700} c={cloudColors.inkBlue}>
-                GdeOni
+                ГдеОни
               </Text>
             </Group>
           </Group>
@@ -106,7 +116,7 @@ export function AppLayout() {
           >
             <Cloud size={28} color={cloudColors.azureDeep} />
             <Text fz={22} fw={800} c={cloudColors.azureDeep}>
-              GdeOni
+              ГдеОни
             </Text>
           </a>
         </AppShell.Section>
@@ -114,6 +124,7 @@ export function AppLayout() {
         <AppShell.Section grow component={ScrollArea}>
           <Stack gap={4}>
             <NavItem to="/tracked" icon={Users} label="Отслеживаемые" onNavigate={close} />
+            <NavItem to="/events" icon={CalendarHeart} label="События" onNavigate={close} />
             <NavItem to="/route" icon={Map} label="Маршрут" onNavigate={close} />
             <NavItem
               to="/tracked/archive"
@@ -150,6 +161,11 @@ export function AppLayout() {
           Живёт на уровне layout, чтобы работать на всех приватных
           страницах без дублирования. */}
       <OutdatedLegalModal />
+
+      {/* D38. Модалка «сегодня годовщина/день рождения» — один показ в
+          сутки после входа. Сама проверяет paywall-гейт и не показывается
+          поверх блокирующей legal-модалки. */}
+      <AnniversaryModal />
     </AppShell>
   );
 }

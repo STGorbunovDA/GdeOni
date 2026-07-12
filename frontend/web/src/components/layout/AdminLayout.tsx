@@ -85,7 +85,7 @@ export function AdminLayout() {
             <Group gap={8}>
               <Shield size={22} color={cloudColors.azureDeep} />
               <Text fw={700} c={cloudColors.inkBlue}>
-                GdeOni · Admin
+                ГдеОни · Admin
               </Text>
             </Group>
           </Group>
@@ -104,7 +104,7 @@ export function AdminLayout() {
             <Shield size={28} color={cloudColors.azureDeep} />
             <Stack gap={0}>
               <Text fz={20} fw={800} c={cloudColors.azureDeep}>
-                GdeOni
+                ГдеОни
               </Text>
               <CaptionLabel>Админка</CaptionLabel>
             </Stack>

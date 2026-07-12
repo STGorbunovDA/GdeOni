@@ -57,11 +57,27 @@ public static class MauiProgram
         builder
             .UseMauiApp<App>()
             .UseMauiCommunityToolkit()
-            .UseMauiMaps()
+            // UseMauiMaps() убран: нативная Google-карта в приложении не
+            // используется (выбор точки — WebView + Leaflet, см.
+            // Controls/MapPickerView), а Google Maps SDK без meta-data
+            // com.google.android.geo.API_KEY в манифесте роняет процесс:
+            //   IllegalStateException: API key not found → SIGSEGV.
+            // Если когда-нибудь понадобится нативная карта — вернуть вызов
+            // И добавить API-ключ в AndroidManifest.
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+
+                // Шрифты дизайна Medilab (зеркало web). Poppins сюда НЕ берём:
+                // в нём нет кириллицы, а в MAUI нет unicode-range-фолбэка как
+                // в CSS — русские заголовки просто не отрисовались бы. Их роль
+                // играет Montserrat (геометрический, с кириллицей).
+                fonts.AddFont("Roboto-Regular.ttf", "Roboto");
+                fonts.AddFont("Roboto-Bold.ttf", "RobotoBold");
+                fonts.AddFont("Montserrat-SemiBold.ttf", "Montserrat");
+                fonts.AddFont("Montserrat-Bold.ttf", "MontserratBold");
+                fonts.AddFont("Raleway-SemiBold.ttf", "Raleway");
             });
 
         // AppConfig — singleton: уже загрузили выше для Sentry. Реюзаем
@@ -252,6 +268,20 @@ public static class MauiProgram
             .AddHttpMessageHandler<RefreshTokenHandler>()
             .AddPolicyHandler(BuildRetryPolicy());
 
+        // События: справочник праздников. Gated как feature-клиент —
+        // 403 subscription.required уводит на paywall (как и tracked).
+        services.AddRefitClient<IEventsApi>(refitSettings)
+            .ConfigureHttpClient((sp, c) =>
+            {
+                var config = sp.GetRequiredService<AppConfig>();
+                c.BaseAddress = new Uri(config.Api.BaseUrl);
+                c.Timeout = TimeSpan.FromSeconds(config.Api.TimeoutSeconds);
+            })
+            .AddHttpMessageHandler<AuthTokenHandler>()
+            .AddHttpMessageHandler<RefreshTokenHandler>()
+            .AddHttpMessageHandler<SubscriptionGateHandler>()
+            .AddPolicyHandler(BuildRetryPolicy());
+
         // D25. ISupportApi: обращения в поддержку. Доступно любому
         // authenticated юзеру — не нужно гейтить подпиской, иначе юзер
         // с истёкшей подпиской не сможет пожаловаться "не работает оплата".
@@ -285,6 +315,7 @@ public static class MauiProgram
         services.AddTransient<LoginViewModel>();
         services.AddTransient<RegisterViewModel>();
         services.AddTransient<TrackedListViewModel>();
+        services.AddTransient<EventsViewModel>();
         services.AddTransient<RouteViewModel>();
         services.AddTransient<ProfileViewModel>();
         services.AddTransient<AtGraveViewModel>();
@@ -323,6 +354,7 @@ public static class MauiProgram
         services.AddTransient<LoginPage>();
         services.AddTransient<RegisterPage>();
         services.AddTransient<TrackedListPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Events.EventsPage>();
         services.AddTransient<RoutePage>();
         services.AddTransient<ProfilePage>();
         services.AddTransient<AtGravePage>();

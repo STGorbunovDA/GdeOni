@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RegisterPage } from './RegisterPage';
 import { renderWithProviders } from '../../test/renderWithProviders';
@@ -12,8 +12,8 @@ import { useAuthStore } from '../../auth/authStore';
  *  - age-gate (D19 — юзер младше 14 лет не проходит);
  *  - happy path — register → login → setSession → /tracked.
  *
- * DateInput у Mantine принимает text-ввод в формате valueFormat.
- * Печатаем строку и ждём, что зод преобразует её в Date для сабмита.
+ * Дата рождения — нативный <input type="date"> (значение «yyyy-MM-dd»).
+ * Ставим через fireEvent.change и ждём, что зод получит Date для сабмита.
  */
 
 vi.mock('../../api/endpoints/authApi', () => ({
@@ -121,10 +121,7 @@ describe('RegisterPage', () => {
       today.getMonth(),
       today.getDate(),
     );
-    await user.type(
-      screen.getByLabelText(/дата рождения/i),
-      formatForInput(adult),
-    );
+    setBirthDate(adult);
     await user.click(screen.getByRole('button', { name: /зарегистрироваться/i }));
 
     // Ждём хоть какого-то стабильного эффекта rhf — подтверждаем, что
@@ -152,10 +149,7 @@ describe('RegisterPage', () => {
       today.getMonth(),
       today.getDate(),
     );
-    await user.type(
-      screen.getByLabelText(/дата рождения/i),
-      formatForInput(tooYoung),
-    );
+    setBirthDate(tooYoung);
     await user.click(screen.getByRole('button', { name: /зарегистрироваться/i }));
 
     expect(
@@ -190,10 +184,7 @@ describe('RegisterPage', () => {
       today.getMonth(),
       today.getDate(),
     );
-    await user.type(
-      screen.getByLabelText(/дата рождения/i),
-      formatForInput(adult),
-    );
+    setBirthDate(adult);
     await user.click(screen.getByRole('button', { name: /зарегистрироваться/i }));
 
     await waitFor(() => {
@@ -234,10 +225,7 @@ describe('RegisterPage', () => {
       today.getMonth(),
       today.getDate(),
     );
-    await user.type(
-      screen.getByLabelText(/дата рождения/i),
-      formatForInput(adult),
-    );
+    setBirthDate(adult);
     await user.click(screen.getByRole('button', { name: /зарегистрироваться/i }));
 
     expect(
@@ -249,10 +237,20 @@ describe('RegisterPage', () => {
   });
 });
 
-/** Формат «дд.мм.гггг» — соответствует valueFormat="DD.MM.YYYY" у DateInput. */
+/** Формат нативного <input type="date"> — «yyyy-MM-dd». */
 function formatForInput(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();
-  return `${day}.${month}.${year}`;
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Проставляет дату рождения в нативный date-input через fireEvent —
+ * type="date" не принимает посимвольный user.type в jsdom.
+ */
+function setBirthDate(d: Date) {
+  fireEvent.change(screen.getByLabelText(/дата рождения/i), {
+    target: { value: formatForInput(d) },
+  });
 }

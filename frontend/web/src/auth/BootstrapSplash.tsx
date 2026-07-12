@@ -14,7 +14,7 @@ export function BootstrapSplash() {
     <Center h="100vh">
       <Stack gap="md" align="center">
         <Cloud size={56} color={cloudColors.azureDeep} />
-        <BodyLabel>GdeOni</BodyLabel>
+        <BodyLabel>ГдеОни</BodyLabel>
         <Loader size="sm" />
       </Stack>
     </Center>

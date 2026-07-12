@@ -1,6 +1,7 @@
 import { NavLink as MantineNavLink } from '@mantine/core';
 import type { LucideIcon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { navFont } from '../../design/theme';
 
 /**
  * F2.1. Пункт меню в sidebar. Тонкая обёртка над Mantine NavLink:
@@ -52,7 +53,8 @@ export function NavItem({ to, label, icon: Icon, onNavigate, onClick }: Props) {
       active={isActive}
       onClick={handleClick}
       variant="filled"
-      style={{ borderRadius: 8 }}
+      // Medilab: навигация — Raleway, 600, скруглённые пункты.
+      style={{ borderRadius: 8, fontFamily: navFont, fontWeight: 600 }}
     />
   );
 }

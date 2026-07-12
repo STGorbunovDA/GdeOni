@@ -9,7 +9,6 @@ import {
   TextInput,
   Textarea,
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, MapPin } from 'lucide-react';
@@ -22,6 +21,7 @@ import {
   SubTitleLabel,
   TitleLabel,
 } from '../../components/ui';
+import { MapPicker } from '../../components/MapPicker';
 import { cloudColors } from '../../design/theme';
 import { deceasedApi } from '../../api/endpoints/deceasedApi';
 import { RelationshipTypes } from '../../api/endpoints/trackedDeceasedApi';
@@ -68,14 +68,6 @@ const RELATIONSHIP_OPTIONS = [
   { value: RelationshipTypes.Other, label: 'Другое' },
 ];
 
-function toDateOnly(d: Date | null): string | null {
-  if (!d) return null;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 function nullIfEmpty(s: string): string | null {
   const t = s.trim();
   return t === '' ? null : t;
@@ -96,8 +88,11 @@ export function AtGravePage() {
   const [middleName, setMiddleName] = useState(
     searchParams.get('middleName') ?? '',
   );
-  const [birthDate, setBirthDate] = useState<Date | null>(null);
-  const [deathDate, setDeathDate] = useState<Date | null>(new Date());
+  // Даты храним как строки «yyyy-MM-dd» — это ровно то, что отдаёт и
+  // принимает нативный <input type="date">. Никакого round-trip через
+  // Date: он на ре-рендере (например, от геолокации) ронял значение инпута.
+  const [birthDate, setBirthDate] = useState('');
+  const [deathDate, setDeathDate] = useState('');
   const [shortDescription, setShortDescription] = useState('');
   const [biography, setBiography] = useState('');
 
@@ -152,7 +147,7 @@ export function AtGravePage() {
     !accInvalid &&
     firstName.trim() !== '' &&
     lastName.trim() !== '' &&
-    deathDate !== null &&
+    deathDate !== '' &&
     geo.status !== 'requesting' &&
     !submitMutation.isPending;
 
@@ -178,8 +173,8 @@ export function AtGravePage() {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       middleName: nullIfEmpty(middleName),
-      birthDate: toDateOnly(birthDate),
-      deathDate: toDateOnly(deathDate)!,
+      birthDate: birthDate || null,
+      deathDate: deathDate,
       shortDescription: nullIfEmpty(shortDescription),
       biography: nullIfEmpty(biography),
       graveLocation: {
@@ -283,6 +278,21 @@ export function AtGravePage() {
               </Group>
             )}
           </Group>
+
+          <CaptionLabel>
+            Или найдите место на карте и нажмите на точку — координаты
+            подставятся автоматически.
+          </CaptionLabel>
+          <MapPicker
+            latitude={lat}
+            longitude={lon}
+            onPick={(pickedLat, pickedLon) => {
+              setLatInput(pickedLat.toFixed(6));
+              setLonInput(pickedLon.toFixed(6));
+              // Клик по карте — ручная точка, GPS-точности нет.
+              setAccInput('');
+            }}
+          />
         </Stack>
       </CloudCard>
 
@@ -310,25 +320,18 @@ export function AtGravePage() {
             />
           </Group>
           <Group grow align="flex-start" wrap="wrap">
-            <DateInput
+            <TextInput
+              type="date"
               label="Дата рождения"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
               value={birthDate}
-              onChange={(v) =>
-                setBirthDate(v ? new Date(v as unknown as string) : null)
-              }
+              onChange={(e) => setBirthDate(e.currentTarget.value)}
             />
-            <DateInput
+            <TextInput
+              type="date"
               label="Дата смерти"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
               required
               value={deathDate}
-              onChange={(v) =>
-                setDeathDate(v ? new Date(v as unknown as string) : null)
-              }
+              onChange={(e) => setDeathDate(e.currentTarget.value)}
             />
           </Group>
           <Textarea

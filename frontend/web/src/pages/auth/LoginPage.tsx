@@ -64,7 +64,7 @@ export function LoginPage() {
       <Stack gap="md" mb="lg" align="center">
         <Stack gap={6} align="center">
           <Cloud size={48} color={cloudColors.azureDeep} />
-          <TitleLabel>GdeOni</TitleLabel>
+          <TitleLabel>ГдеОни</TitleLabel>
         </Stack>
         <CaptionLabel>
           Войдите, чтобы продолжить.

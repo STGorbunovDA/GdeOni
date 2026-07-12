@@ -13,7 +13,6 @@ import {
   Table,
   TextInput,
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
 import { useDebouncedValue } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -33,7 +32,12 @@ import {
 } from '../../api/endpoints/adminDeceasedApi';
 import { deceasedApi } from '../../api/endpoints/deceasedApi';
 import { formatError } from '../../auth/errorMessages';
-import { formatDateOnly, formatDateTime } from '../../utils/formatDate';
+import {
+  formatDateOnly,
+  formatDateTime,
+  toDateInputValue,
+  parseDateInputValue,
+} from '../../utils/formatDate';
 
 /**
  * F17.1. Все карточки умерших таблицей — админская сводка.
@@ -182,27 +186,23 @@ export function AdminDeceasedPage() {
             />
           </Group>
           <Group grow align="flex-end">
-            <DateInput
+            <TextInput
+              type="date"
               label="Создана с"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={createdFrom}
-              onChange={(v) =>
+              value={toDateInputValue(createdFrom)}
+              onChange={(e) =>
                 resetToFirstPage(setCreatedFrom)(
-                  v ? new Date(v as unknown as string) : null,
+                  parseDateInputValue(e.currentTarget.value),
                 )
               }
             />
-            <DateInput
+            <TextInput
+              type="date"
               label="по"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              clearable
-              value={createdTo}
-              onChange={(v) =>
+              value={toDateInputValue(createdTo)}
+              onChange={(e) =>
                 resetToFirstPage(setCreatedTo)(
-                  v ? new Date(v as unknown as string) : null,
+                  parseDateInputValue(e.currentTarget.value),
                 )
               }
             />

@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Системные цвета Android (статус-бар, ripple, подсветка).
+     Должны совпадать с accent из Resources/Styles/Colors.xaml
+     (палитра Medilab): #1977CC / #145A9E. -->
 <resources>
-    <color name="colorPrimary">#5FA8D3</color>
-    <color name="colorPrimaryDark">#5FA8D3</color>
-    <color name="colorAccent">#5FA8D3</color>
+    <color name="colorPrimary">#1977CC</color>
+    <color name="colorPrimaryDark">#145A9E</color>
+    <color name="colorAccent">#1977CC</color>
 </resources>

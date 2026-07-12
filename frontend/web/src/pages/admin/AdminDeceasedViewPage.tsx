@@ -8,6 +8,7 @@ import {
   EyeOff,
   History,
   MapPin,
+  Route as RouteIcon,
   ShieldCheck,
   ShieldOff,
   Trash2,
@@ -28,6 +29,7 @@ import { memoriesApi } from '../../api/endpoints/memoriesApi';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
 import { buildMediaUrl } from '../../utils/mediaUrl';
 import { formatDateOnly, formatDateTime } from '../../utils/formatDate';
+import { buildYandexLookupUrl, openYandexRoute } from '../../utils/routing';
 import { formatError } from '../../auth/errorMessages';
 import { MediaSection } from '../tracked/MediaSection';
 
@@ -50,6 +52,15 @@ export function AdminDeceasedViewPage() {
   const features = useAppFeatures();
   const { id } = useParams<{ id: string }>();
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Построить маршрут к могиле, НЕ добавляя карточку в свой tracked-список.
+  // Открываем Яндекс синхронно (в обработчике клика) — иначе popup-
+  // блокировщик режет вкладку. «Откуда» пустой: админ жмёт «Моё
+  // местоположение» в самих Картах (нативное определение точнее).
+  function handleBuildRoute(latitude: number, longitude: number) {
+    const url = buildYandexLookupUrl({ id: id ?? '', latitude, longitude });
+    openYandexRoute(url);
+  }
 
   const query = useQuery({
     queryKey: ['admin-deceased-details', id],
@@ -237,14 +248,26 @@ export function AdminDeceasedViewPage() {
             )}
             {typeof d.latitude === 'number' &&
               typeof d.longitude === 'number' && (
-                <Group gap={6}>
-                  <MapPin size={16} color={cloudColors.azureDeep} />
-                  <BodyLabel>
-                    {d.latitude.toFixed(6)}, {d.longitude.toFixed(6)}
-                    {typeof d.accuracyMeters === 'number' &&
-                      ` (±${Math.round(d.accuracyMeters)} м)`}
-                  </BodyLabel>
-                </Group>
+                <>
+                  <Group gap={6}>
+                    <MapPin size={16} color={cloudColors.azureDeep} />
+                    <BodyLabel>
+                      {d.latitude.toFixed(6)}, {d.longitude.toFixed(6)}
+                      {typeof d.accuracyMeters === 'number' &&
+                        ` (±${Math.round(d.accuracyMeters)} м)`}
+                    </BodyLabel>
+                  </Group>
+                  <Group>
+                    <PrimaryButton
+                      leftSection={<RouteIcon size={16} />}
+                      onClick={() =>
+                        handleBuildRoute(d.latitude!, d.longitude!)
+                      }
+                    >
+                      Построить маршрут
+                    </PrimaryButton>
+                  </Group>
+                </>
               )}
           </Stack>
         </CloudCard>

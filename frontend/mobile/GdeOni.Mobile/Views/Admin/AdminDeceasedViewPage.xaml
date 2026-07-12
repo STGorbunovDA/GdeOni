@@ -102,6 +102,11 @@
                             <Label Text="{Binding LocationText}" Style="{StaticResource BodyLabel}" />
                             <Label Text="{Binding CoordinatesText, StringFormat='Координаты: {0}'}"
                                    Style="{StaticResource CaptionLabel}" />
+                            <Button Text="Построить маршрут"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Command="{Binding BuildRouteCommand}"
+                                    IsVisible="{Binding HasCoordinates}"
+                                    HorizontalOptions="Fill" />
                             <Button Text="Изменить координаты"
                                     Style="{StaticResource GhostButton}"
                                     Command="{Binding EditCoordinatesCommand}"

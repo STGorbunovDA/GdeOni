@@ -9,7 +9,7 @@ import {
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Archive, ChevronRight, Plus, UserRound } from 'lucide-react';
+import { Archive, ChevronRight, Navigation, Plus, UserRound } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -87,6 +87,13 @@ export function TrackedListPage() {
           >
             Добавить умершего
           </PrimaryButton>
+          {/* F36 / E21. Тот же вход, что на mobile TrackedListPage. */}
+          <GhostButton
+            onClick={() => navigate('/nearby')}
+            leftSection={<Navigation size={16} />}
+          >
+            Найти рядом
+          </GhostButton>
           <GhostButton
             onClick={() => navigate('/tracked/archive')}
             leftSection={<Archive size={16} />}

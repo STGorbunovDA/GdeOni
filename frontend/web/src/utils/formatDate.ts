@@ -27,3 +27,28 @@ export function formatDateTime(iso: string): string {
   });
   return `${date} ${time}`;
 }
+
+/**
+ * Date → значение нативного `<input type="date">` в формате «yyyy-MM-dd»
+ * (локальные Y/M/D, без UTC-сдвига). Для null/undefined — пустая строка.
+ * Используется всеми полями дат: браузер сам рисует календарь и парсит
+ * ввод, поэтому работает одинаково на Windows / Android / iOS.
+ */
+export function toDateInputValue(d: Date | null | undefined): string {
+  if (!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Значение нативного `<input type="date">` («yyyy-MM-dd») → локальная Date.
+ * Собираем через конструктор Y/M/D, чтобы не ловить UTC-сдвиг, который
+ * даёт `new Date("yyyy-MM-dd")`. Пустая/битая строка → null.
+ */
+export function parseDateInputValue(value: string): Date | null {
+  const [y, m, d] = value.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}

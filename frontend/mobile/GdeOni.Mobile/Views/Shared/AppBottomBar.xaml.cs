@@ -37,6 +37,9 @@ public partial class AppBottomBar : ContentView
         TabTracked.TextColor = route == "tracked" ? azure : inactive;
         TabTracked.BackgroundColor = route == "tracked" ? sky : transparent;
 
+        TabEvents.TextColor = route == "events" ? azure : inactive;
+        TabEvents.BackgroundColor = route == "events" ? sky : transparent;
+
         TabRoute.TextColor = route == "route" ? azure : inactive;
         TabRoute.BackgroundColor = route == "route" ? sky : transparent;
 
@@ -48,6 +51,12 @@ public partial class AppBottomBar : ContentView
     {
         if (SelectedTab == "tracked") return;
         await Shell.Current.GoToAsync("//tracked");
+    }
+
+    private async void OnEventsTapped(object? sender, EventArgs e)
+    {
+        if (SelectedTab == "events") return;
+        await Shell.Current.GoToAsync("//events");
     }
 
     private async void OnRouteTapped(object? sender, EventArgs e)

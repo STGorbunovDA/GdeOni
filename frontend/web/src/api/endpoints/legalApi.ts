@@ -2,17 +2,19 @@ import { apiClient, unwrap } from '../client';
 import type { ApiEnvelope } from '../types';
 
 /**
- * F24 / D19. Privacy Policy и Terms of Use.
+ * F24 / D19 / D19.9. Privacy Policy и Terms of Use.
  *
- * Бэк отдаёт только метаданные (версия + публичный URL); сам текст
- * лежит статикой на клиенте (`src/pages/legal/*.md?raw`) — так
- * документ едет в бандл без отдельного хостинга. Версии клиента
- * и бэка должны совпадать при <c>accept()</c>.
+ * Бэк отдаёт версию, публичный URL и сам текст (`bodyMarkdown`).
+ * Канонические файлы лежат в `backend/docs/legal/*.md` и едут вместе с
+ * API — web и mobile рендерят один и тот же текст и своей копии не
+ * держат. Раньше текст жил в бандле web, а версия — в appsettings бэка:
+ * два места, которые обязаны совпадать, но ничем не были связаны.
  */
 export type LegalDocument = {
   documentKey: string;
   version: number;
   url: string;
+  /** Markdown-текст документа. Null, если файл не доехал до сервера. */
   bodyMarkdown: string | null;
 };
 

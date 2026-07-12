@@ -804,6 +804,45 @@ namespace GdeOni.Infrastructure.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("GdeOni.Infrastructure.Notifications.SentAnniversaryEmail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("AnniversaryDate")
+                        .HasColumnType("date")
+                        .HasColumnName("anniversary_date");
+
+                    b.Property<Guid>("DeceasedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deceased_id");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.Property<DateTime>("SentAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at_utc");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sent_anniversary_emails");
+
+                    b.HasIndex("DeceasedId")
+                        .HasDatabaseName("ix_sent_anniversary_emails_deceased_id");
+
+                    b.HasIndex("UserId", "DeceasedId", "Kind", "AnniversaryDate")
+                        .IsUnique()
+                        .HasDatabaseName("ux_sent_anniversary_emails_user_deceased_kind_date");
+
+                    b.ToTable("sent_anniversary_emails", (string)null);
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Auth.RefreshToken", b =>
                 {
                     b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
@@ -1167,6 +1206,23 @@ namespace GdeOni.Infrastructure.Migrations
 
                     b.Navigation("Subscription")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("GdeOni.Infrastructure.Notifications.SentAnniversaryEmail", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.DeceasedRecords.Deceased", null)
+                        .WithMany()
+                        .HasForeignKey("DeceasedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_sent_anniversary_emails_deceased_records_deceased_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_sent_anniversary_emails_users_user_id");
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.DeceasedRecords.Deceased", b =>

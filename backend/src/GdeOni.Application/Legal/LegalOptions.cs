@@ -18,8 +18,12 @@ public sealed class LegalOptions
     /// Текущая версия Privacy Policy. Используется при регистрации
     /// (записывается в User.PrivacyPolicyVersion) и при AcceptLegal
     /// (валидируется, что клиент не прислал устаревшую версию).
+    ///
+    /// D19.9: дефолт обязан совпадать со строкой «Редакция N.» в
+    /// backend/docs/legal/privacy-policy.md — иначе API не стартует
+    /// (LegalDocumentsStartupCheck). Меняешь текст — правь оба места.
     /// </summary>
-    public int CurrentPrivacyPolicyVersion { get; set; } = 1;
+    public int CurrentPrivacyPolicyVersion { get; set; } = 2;
 
     /// <summary>
     /// Текущая версия Terms of Use.

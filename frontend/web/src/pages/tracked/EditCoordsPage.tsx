@@ -19,6 +19,7 @@ import {
   SubTitleLabel,
   TitleLabel,
 } from '../../components/ui';
+import { MapPicker } from '../../components/MapPicker';
 import { cloudColors } from '../../design/theme';
 import { trackedDeceasedApi } from '../../api/endpoints/trackedDeceasedApi';
 import { deceasedApi } from '../../api/endpoints/deceasedApi';
@@ -253,6 +254,20 @@ export function EditCoordsPage() {
               </Group>
             )}
           </Group>
+
+          <CaptionLabel>
+            Или найдите место на карте и нажмите на точку — координаты
+            подставятся автоматически.
+          </CaptionLabel>
+          <MapPicker
+            latitude={lat}
+            longitude={lon}
+            onPick={(pickedLat, pickedLon) => {
+              setLatInput(pickedLat.toFixed(6));
+              setLonInput(pickedLon.toFixed(6));
+              setAccInput('');
+            }}
+          />
         </Stack>
       </CloudCard>
 

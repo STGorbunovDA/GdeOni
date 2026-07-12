@@ -66,6 +66,42 @@ export type SearchDeceasedParams = {
 };
 
 /**
+ * F36 / E21. Элемент выдачи «найти рядом». Отличается от
+ * DeceasedListItem тем, что координаты всегда есть, плюс
+ * distanceMeters — расстояние от точки поиска (бэк уже отсортировал
+ * по возрастанию).
+ */
+export type NearbyDeceasedItem = {
+  id: string;
+  fullName: string;
+  birthDate: string | null;
+  deathDate: string;
+  latitude: number;
+  longitude: number;
+  country: string | null;
+  city: string | null;
+  cemeteryName: string | null;
+  plotNumber: string | null;
+  graveNumber: string | null;
+  isVerified: boolean;
+  distanceMeters: number;
+  mainMediaId: string | null;
+  mainPhotoBucket: string | null;
+  mainPhotoStorageKey: string | null;
+  /** @deprecated D36: используй mainPhotoBucket+mainPhotoStorageKey. */
+  mainPhotoUrl: string | null;
+};
+
+export type NearbyDeceasedParams = {
+  latitude: number;
+  longitude: number;
+  /** Метры. Бэк валидирует [10, 5000], дефолт 100. */
+  radiusMeters: number;
+  page?: number;
+  pageSize?: number;
+};
+
+/**
  * Запись воспоминания. Зеркало DeceasedMemoryResponse на бэке.
  * D14: модерация отключена — все записи всегда Approved. Поле
  * moderationStatus оставлено для совместимости с админкой (F17).
@@ -97,6 +133,15 @@ export type DeceasedMemory = {
  * buildMediaUrl(mediaBaseUrl, bucket, key). Старое mainPhotoUrl
  * сохранено как deprecated на 1-2 релизных цикла.
  */
+/** Метаданные карточки (D24). Зеркало backend DeceasedMetadata. */
+export type DeceasedMetadata = {
+  epitaph: string | null;
+  religion: string | null;
+  source: string | null;
+  isMilitaryService: boolean;
+  additionalInfo: string | null;
+};
+
 export type DeceasedDetails = {
   id: string;
   firstName: string;
@@ -118,6 +163,7 @@ export type DeceasedDetails = {
   accuracy: string | null;
   shortDescription: string | null;
   biography: string | null;
+  metadata: DeceasedMetadata;
   createdByUserId: string;
   isVerified: boolean;
   createdAtUtc: string;
@@ -172,6 +218,42 @@ export type AtGraveResponse = {
   deceasedId: string;
 };
 
+/** D24. Тело PATCH /api/deceased-records/{id}/main-info. Даты 'yyyy-MM-dd'. */
+export type UpdateMainInfoRequest = {
+  firstName: string;
+  lastName: string;
+  middleName: string | null;
+  birthDate: string | null;
+  deathDate: string;
+  shortDescription: string | null;
+  biography: string | null;
+};
+
+/** D24. Тело PATCH /api/deceased-records/{id}/metadata. */
+export type UpdateMetadataRequest = {
+  epitaph: string | null;
+  religion: string | null;
+  source: string | null;
+  isMilitaryService: boolean;
+  additionalInfo: string | null;
+};
+
+/**
+ * D24. Тело PATCH /api/deceased-records/{id}/burial-location.
+ * latitude/longitude = null → координаты удаляются.
+ */
+export type UpdateBurialLocationRequest = {
+  latitude: number | null;
+  longitude: number | null;
+  accuracyMeters: number | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  cemeteryName: string | null;
+  plotNumber: string | null;
+  graveNumber: string | null;
+};
+
 export const deceasedApi = {
   /**
    * GET /api/deceased-records — поиск/листинг карточек.
@@ -185,6 +267,28 @@ export const deceasedApi = {
       apiClient.get<ApiEnvelope<PagedResponse<DeceasedListItem>>>(
         '/api/deceased-records',
         { params: cleanParams(params) },
+      ),
+    );
+  },
+
+  /**
+   * F36 / E21. GET /api/deceased-records/nearby — карточки в радиусе от
+   * точки. Доступен любому авторизованному. Бэк возвращает записи,
+   * отсортированные по возрастанию distanceMeters.
+   */
+  async nearby(
+    params: NearbyDeceasedParams,
+  ): Promise<PagedResponse<NearbyDeceasedItem>> {
+    return unwrap(
+      apiClient.get<ApiEnvelope<PagedResponse<NearbyDeceasedItem>>>(
+        '/api/deceased-records/nearby',
+        {
+          params: {
+            page: 1,
+            pageSize: 50,
+            ...params,
+          },
+        },
       ),
     );
   },
@@ -275,6 +379,48 @@ export const deceasedApi = {
       apiClient.put<ApiEnvelope<{ deceasedId: string }>>(
         `/api/deceased-records/${id}/unverified`,
         {},
+      ),
+    );
+  },
+
+  /**
+   * D24 / F11.1. PATCH основных полей (ФИО, даты, описания). Доступно
+   * отслеживающим карточку и админам — 403 иначе.
+   */
+  async updateMainInfo(
+    id: string,
+    request: UpdateMainInfoRequest,
+  ): Promise<void> {
+    await unwrap(
+      apiClient.patch<ApiEnvelope<{ deceasedId: string }>>(
+        `/api/deceased-records/${id}/main-info`,
+        request,
+      ),
+    );
+  },
+
+  /** D24 / F11.1. PATCH метаданных (эпитафия, религия, источник и т.д.). */
+  async updateMetadata(
+    id: string,
+    request: UpdateMetadataRequest,
+  ): Promise<void> {
+    await unwrap(
+      apiClient.patch<ApiEnvelope<{ deceasedId: string }>>(
+        `/api/deceased-records/${id}/metadata`,
+        request,
+      ),
+    );
+  },
+
+  /** D24 / F11.1. PATCH места захоронения (координаты + адресные поля). */
+  async updateBurialLocation(
+    id: string,
+    request: UpdateBurialLocationRequest,
+  ): Promise<void> {
+    await unwrap(
+      apiClient.patch<ApiEnvelope<{ deceasedId: string }>>(
+        `/api/deceased-records/${id}/burial-location`,
+        request,
       ),
     );
   },

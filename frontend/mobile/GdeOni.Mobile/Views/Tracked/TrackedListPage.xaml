@@ -12,26 +12,6 @@
              Title="{Binding Title}">
 
     <Grid RowDefinitions="*,Auto">
-        <!-- Декоративные облака на фоне -->
-        <Ellipse Grid.Row="0"
-                 Fill="White"
-                 Opacity="0.55"
-                 WidthRequest="220"
-                 HeightRequest="120"
-                 HorizontalOptions="Start"
-                 VerticalOptions="Start"
-                 TranslationX="-60"
-                 TranslationY="60" />
-        <Ellipse Grid.Row="0"
-                 Fill="White"
-                 Opacity="0.4"
-                 WidthRequest="180"
-                 HeightRequest="100"
-                 HorizontalOptions="End"
-                 VerticalOptions="Start"
-                 TranslationX="40"
-                 TranslationY="180" />
-
         <RefreshView Grid.Row="0"
                      IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}"
                      Command="{Binding RefreshCommand}"

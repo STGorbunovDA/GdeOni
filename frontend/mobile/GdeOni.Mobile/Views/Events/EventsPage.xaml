@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:shared="clr-namespace:GdeOni.Mobile.Views.Shared"
+             x:Name="Page"
+             x:Class="GdeOni.Mobile.Views.Events.EventsPage"
+             x:DataType="vm:EventsViewModel"
+             Style="{StaticResource CloudPage}"
+             Shell.NavBarIsVisible="False"
+             Title="{Binding Title}">
+
+    <Grid RowDefinitions="*,Auto">
+
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Padding="24,40,24,16" Spacing="16">
+
+                <!-- Header -->
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="События"
+                           Style="{StaticResource TitleLabel}" />
+                    <Label Text="Годовщины ваших близких и ближайшие праздники."
+                           Style="{StaticResource BodyLabel}" />
+
+                    <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                       IsVisible="{Binding IsBusy}"
+                                       Color="{StaticResource Azure}" />
+                    <Label IsVisible="{Binding HasError}"
+                           Text="{Binding ErrorMessage}"
+                           TextColor="#C0392B"
+                           FontSize="13" />
+                </VerticalStackLayout>
+
+                <!-- Годовщины сегодня -->
+                <Label Text="Сегодня"
+                       Style="{StaticResource SubTitleLabel}" />
+
+                <Border IsVisible="{Binding HasNoAnniversaries}"
+                        Style="{StaticResource CloudCard}">
+                    <Label Text="Сегодня годовщин среди отслеживаемых нет."
+                           Style="{StaticResource BodyLabel}" />
+                </Border>
+
+                <VerticalStackLayout Spacing="12"
+                                     BindableLayout.ItemsSource="{Binding TodayAnniversaries}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AnniversaryItemViewModel">
+                            <Border Style="{StaticResource CloudCard}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenDeceasedCommand}"
+                                        CommandParameter="{Binding DeceasedId}" />
+                                </Border.GestureRecognizers>
+
+                                <Grid ColumnDefinitions="Auto,*,Auto"
+                                      ColumnSpacing="12"
+                                      RowDefinitions="Auto,Auto"
+                                      RowSpacing="2">
+
+                                    <Border Grid.Column="0" Grid.RowSpan="2"
+                                            StrokeThickness="0"
+                                            WidthRequest="44"
+                                            HeightRequest="44"
+                                            VerticalOptions="Center">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="22" />
+                                        </Border.StrokeShape>
+                                        <Grid>
+                                            <BoxView Color="{StaticResource Sky}" />
+                                            <Label Text="🕊"
+                                                   FontSize="20"
+                                                   Opacity="0.6"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center" />
+                                            <Image Source="{Binding MainPhotoUrl}"
+                                                   Aspect="AspectFill" />
+                                        </Grid>
+                                    </Border>
+
+                                    <Label Grid.Row="0" Grid.Column="1"
+                                           Text="{Binding FullName}"
+                                           Style="{StaticResource SubTitleLabel}"
+                                           FontSize="16"
+                                           LineBreakMode="TailTruncation" />
+
+                                    <Label Grid.Row="1" Grid.Column="1"
+                                           Text="{Binding Subtitle}"
+                                           Style="{StaticResource CaptionLabel}"
+                                           LineBreakMode="TailTruncation" />
+
+                                    <Label Grid.Column="2" Grid.RowSpan="2"
+                                           Text="›"
+                                           FontSize="22"
+                                           TextColor="#9AA8B5"
+                                           VerticalOptions="Center" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <!-- Праздники сегодня -->
+                <Label Text="Праздники сегодня"
+                       Style="{StaticResource SubTitleLabel}" />
+
+                <Border IsVisible="{Binding HasNoTodayHolidays}"
+                        Style="{StaticResource CloudCard}">
+                    <Label Text="Сегодня праздников нет."
+                           Style="{StaticResource BodyLabel}" />
+                </Border>
+
+                <Border IsVisible="{Binding HasTodayHolidays}"
+                        Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="8"
+                                         BindableLayout.ItemsSource="{Binding TodayHolidays}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:HolidayItemViewModel">
+                                <Label Text="{Binding Name}"
+                                       Style="{StaticResource BodyLabel}" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Ближайшие праздники по категориям -->
+                <Label Text="Ближайшие праздники"
+                       Style="{StaticResource SubTitleLabel}"
+                       IsVisible="{Binding HasUpcoming}" />
+
+                <VerticalStackLayout Spacing="12"
+                                     BindableLayout.ItemsSource="{Binding UpcomingGroups}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:HolidayGroupViewModel">
+                            <Border Style="{StaticResource CloudCard}">
+                                <VerticalStackLayout Spacing="8">
+                                    <Label Text="{Binding CategoryLabel}"
+                                           Style="{StaticResource SubTitleLabel}"
+                                           FontSize="15"
+                                           TextColor="{StaticResource AzureDeep}" />
+
+                                    <VerticalStackLayout Spacing="6"
+                                                         BindableLayout.ItemsSource="{Binding Items}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:HolidayItemViewModel">
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                                    <Label Grid.Column="0"
+                                                           Text="{Binding DateText}"
+                                                           Style="{StaticResource CaptionLabel}"
+                                                           VerticalOptions="Start" />
+                                                    <Label Grid.Column="1"
+                                                           Text="{Binding Name}"
+                                                           Style="{StaticResource BodyLabel}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <shared:AppBottomBar Grid.Row="1" SelectedTab="events" />
+    </Grid>
+
+</ContentPage>

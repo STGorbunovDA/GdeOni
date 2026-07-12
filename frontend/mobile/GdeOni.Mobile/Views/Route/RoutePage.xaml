@@ -12,16 +12,6 @@
 
     <Grid RowDefinitions="Auto,*,Auto,Auto">
 
-        <Ellipse Grid.Row="0"
-                 Fill="White"
-                 Opacity="0.45"
-                 WidthRequest="240"
-                 HeightRequest="130"
-                 HorizontalOptions="End"
-                 VerticalOptions="Start"
-                 TranslationX="60"
-                 TranslationY="40" />
-
         <!-- Header -->
         <VerticalStackLayout Grid.Row="0" Padding="24,40,24,12" Spacing="6">
             <Label Text="Маршрут"

@@ -1,6 +1,7 @@
-import { Alert, Badge, Button, Group, Loader, Stack } from '@mantine/core';
+import { useState } from 'react';
+import { Alert, Badge, Button, Group, Loader, Modal, Stack } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   CreditCard,
   Download,
@@ -24,18 +25,9 @@ import { useAuthStore, useIsAdmin } from '../../auth/authStore';
 import { formatError } from '../../auth/errorMessages';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
-import { CURRENT_APP_VERSION, useAppVersion } from '../../hooks/useAppVersion';
+import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { formatDateTime } from '../../utils/formatDate';
 import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
-
-/**
- * F27. Дублируем fallback из DownloadPage, чтобы кнопка «Скачать APK»
- * работала даже без ответа GET /api/app/version. Env-переменная
- * бейкается на build-time, значит один источник — единая правда,
- * задавать не надо.
- */
-const APK_FALLBACK_URL: string =
-  import.meta.env.VITE_APK_FALLBACK_URL ?? 'https://gdeoni.ru/apk/latest.apk';
 
 /**
  * F16. Профиль пользователя — UserName / FullName / Email.
@@ -51,9 +43,7 @@ export function ProfilePage() {
   const isAdmin = useIsAdmin();
   const subscription = useSubscription();
   const features = useAppFeatures();
-  const appVersion = useAppVersion();
-  const apkUrl = appVersion.data?.downloadUrl ?? APK_FALLBACK_URL;
-  const apkVersion = appVersion.data?.latestVersion;
+  const [appInDevOpen, setAppInDevOpen] = useState(false);
 
   const query = useQuery({
     queryKey: ['me'],
@@ -174,9 +164,10 @@ export function ProfilePage() {
         </Stack>
       </CloudCard>
 
-      {/* F27. Блок «Мобильное приложение» — прямая кнопка Скачать APK
-          + ссылка на /download c инструкцией по установке. Симметрично
-          с mobile ProfilePage, где есть «Открыть веб-версию». */}
+      {/* F27 / F18.1. Мобильное приложение пока в разработке — вместо
+          скачивания APK показываем диалог «в разработке». Когда APK будет
+          готов, вернуть прямую кнопку Скачать APK (apkUrl из useAppVersion)
+          и ссылку на /download с инструкцией. См. план F18.1. */}
       <CloudCard>
         <Stack gap="md">
           <Group gap={8}>
@@ -184,41 +175,42 @@ export function ProfilePage() {
             <BodyLabel>Мобильное приложение</BodyLabel>
           </Group>
           <CaptionLabel>
-            Установите Android-приложение, чтобы получать напоминания о
-            годовщинах даже без открытой вкладки.
+            Мобильное приложение в разработке — скоро будет доступно для
+            скачивания.
           </CaptionLabel>
           <Group>
             <Button
-              component="a"
-              href={apkUrl}
               leftSection={<Download size={16} />}
-              loading={appVersion.isLoading}
+              onClick={() => setAppInDevOpen(true)}
               radius={24}
               fw={700}
               size="md"
             >
               Скачать APK
             </Button>
-            {/* GhostButton-стиль (variant=outline azure) — визуальный
-                парный элемент к «Мои обращения» в блоке Поддержки.
-                Прямо GhostButton не используем — обёртка не поддерживает
-                polymorphic component={Link}. */}
-            <Button
-              component={Link}
-              to="/download"
-              variant="outline"
-              radius={24}
-              fw={700}
-              size="md"
-            >
-              Инструкция по установке
-            </Button>
           </Group>
-          {apkVersion && (
-            <CaptionLabel>Версия {apkVersion}</CaptionLabel>
-          )}
         </Stack>
       </CloudCard>
+
+      <Modal
+        opened={appInDevOpen}
+        onClose={() => setAppInDevOpen(false)}
+        title="Мобильное приложение"
+        centered
+        radius="lg"
+      >
+        <Stack gap="md">
+          <BodyLabel>
+            Приложение пока в разработке — скоро будет доступно для скачивания.
+            А пока пользуйтесь веб-версией.
+          </BodyLabel>
+          <Group justify="flex-end">
+            <PrimaryButton onClick={() => setAppInDevOpen(false)}>
+              Понятно
+            </PrimaryButton>
+          </Group>
+        </Stack>
+      </Modal>
 
       {/* F22. Версия — для поддержки: юзер сможет назвать, на какой
           сборке словил баг. Зеркало mobile ProfileViewModel (E22.1). */}

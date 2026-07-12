@@ -12,7 +12,6 @@ import {
   Textarea,
   TextInput,
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -34,7 +33,11 @@ import {
 } from '../../api/endpoints/adminUsersApi';
 import { useAuthStore } from '../../auth/authStore';
 import { formatError } from '../../auth/errorMessages';
-import { formatDateTime } from '../../utils/formatDate';
+import {
+  formatDateTime,
+  toDateInputValue,
+  parseDateInputValue,
+} from '../../utils/formatDate';
 import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
 
 /**
@@ -659,16 +662,14 @@ export function AdminUserDetailsPage() {
             </Stack>
           </Radio.Group>
           {grantMode === 'until' && (
-            <DateInput
+            <TextInput
+              type="date"
               label="Действует до"
-              placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
-              value={grantUntil}
-              onChange={(v) =>
-                setGrantUntil(v ? new Date(v as unknown as string) : null)
+              min={toDateInputValue(new Date())}
+              value={toDateInputValue(grantUntil)}
+              onChange={(e) =>
+                setGrantUntil(parseDateInputValue(e.currentTarget.value))
               }
-              clearable
-              minDate={new Date()}
             />
           )}
           <Textarea
