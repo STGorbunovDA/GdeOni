@@ -18,6 +18,7 @@ import { AdminDeceasedPage } from '../pages/admin/AdminDeceasedPage';
 import { AdminDeceasedViewPage } from '../pages/admin/AdminDeceasedViewPage';
 import { EditDeceasedPage } from '../pages/admin/EditDeceasedPage';
 import { AdminFindDeceasedPage } from '../pages/admin/AdminFindDeceasedPage';
+import { AdminInfoPage } from '../pages/admin/AdminInfoPage';
 import { AdminDeceasedEditsPage } from '../pages/admin/AdminDeceasedEditsPage';
 import { AdminEditsPage } from '../pages/admin/AdminEditsPage';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage';
@@ -138,6 +139,8 @@ export function AppRouter() {
               <Route path="/admin/support-tickets" element={<AdminSupportPage />} />
               <Route path="/admin/support-tickets/:id" element={<AdminSupportTicketDetailsPage />} />
               <Route path="/admin/find-deceased" element={<AdminFindDeceasedPage />} />
+              {/* F38. Справка по системе: счётчики людей, карточек, денег. */}
+              <Route path="/admin/info" element={<AdminInfoPage />} />
             </Route>
           </Route>
         </Route>

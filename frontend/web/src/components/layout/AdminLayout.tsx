@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   CreditCard,
   History,
+  Info,
   LifeBuoy,
   LogOut,
   Search as SearchIcon,
@@ -24,6 +25,7 @@ import { authApi } from '../../api/endpoints/authApi';
 import { cloudColors } from '../../design/theme';
 import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { CaptionLabel } from '../ui/Labels';
+import { ThemeToggle } from '../ui/ThemeToggle';
 import { NavItem } from './NavItem';
 
 /**
@@ -100,14 +102,19 @@ export function AdminLayout() {
         }}
       >
         <AppShell.Section>
-          <Group gap={8} mb="md" wrap="nowrap">
-            <Shield size={28} color={cloudColors.azureDeep} />
-            <Stack gap={0}>
-              <Text fz={20} fw={800} c={cloudColors.azureDeep}>
-                ГдеОни
-              </Text>
-              <CaptionLabel>Админка</CaptionLabel>
-            </Stack>
+          {/* F37. Переключатель темы — справа от названия, как в основном
+              layout: одно и то же место в обоих сайдбарах. */}
+          <Group justify="space-between" mb="md" wrap="nowrap">
+            <Group gap={8} wrap="nowrap">
+              <Shield size={28} color={cloudColors.azureDeep} />
+              <Stack gap={0}>
+                <Text fz={20} fw={800} c={cloudColors.azureDeep}>
+                  ГдеОни
+                </Text>
+                <CaptionLabel>Админка</CaptionLabel>
+              </Stack>
+            </Group>
+            <ThemeToggle size="md" />
           </Group>
         </AppShell.Section>
 
@@ -147,6 +154,14 @@ export function AdminLayout() {
               to="/admin/find-deceased"
               icon={SearchIcon}
               label="Найти умершего"
+              onNavigate={close}
+            />
+            {/* F38. Справка по системе — последним пунктом: это не рабочий
+                инструмент, а «посмотреть цифры». */}
+            <NavItem
+              to="/admin/info"
+              icon={Info}
+              label="Информация"
               onNavigate={close}
             />
           </Stack>

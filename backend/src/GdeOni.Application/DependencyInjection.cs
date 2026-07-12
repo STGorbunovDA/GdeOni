@@ -47,6 +47,7 @@ using GdeOni.Application.DeceasedRecords.Queries.GetDeceasedEdits.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.UseCase;
 using GdeOni.Application.Legal.Commands.AcceptLegal.UseCase;
 using GdeOni.Application.Legal.Queries.GetLegalDocument.UseCase;
+using GdeOni.Application.Admin.Queries.GetAdminStats.UseCase;
 using GdeOni.Application.Events.Queries.GetHolidays.UseCase;
 using GdeOni.Application.Routing.Queries.GetRouteToGrave.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
@@ -174,6 +175,9 @@ public static class DependencyInjection
 
         // События: справочник праздников (вычисляемый, без БД).
         services.AddScoped<IGetHolidaysUseCase, GetHolidaysUseCase>();
+
+        // F38. Справка по системе для админа (счётчики).
+        services.AddScoped<IGetAdminStatsUseCase, GetAdminStatsUseCase>();
 
         // D16. Subscription use cases.
         services.AddScoped<IGetMySubscriptionUseCase, GetMySubscriptionUseCase>();

@@ -67,6 +67,9 @@ public static class DependencyInjection
         services.AddScoped<ISubscriptionPaymentRepository, SubscriptionPaymentRepository>();
         // D25. Обращения в службу поддержки (manual + auto-инциденты).
         services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
+
+        // F38. Read-model админской справки: только COUNT/SUM, без сущностей.
+        services.AddScoped<IAdminStatsRepository, AdminStatsRepository>();
         // PasswordHasher без состояния: BCrypt.Net не использует поля
         // экземпляра. Singleton экономит аллокацию на каждый запрос
         // (см. D11.7.2).

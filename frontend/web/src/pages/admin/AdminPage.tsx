@@ -57,6 +57,12 @@ const SECTIONS: AdminSection[] = [
     description: 'Обращения пользователей и автоматические инциденты.',
     to: '/admin/support-tickets',
   },
+  {
+    title: 'Информация',
+    description:
+      'Справка по системе: сколько пользователей, карточек, контента и платежей.',
+    to: '/admin/info',
+  },
 ];
 
 export function AdminPage() {
