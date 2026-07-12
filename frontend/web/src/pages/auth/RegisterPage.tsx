@@ -2,6 +2,7 @@ import {
   Anchor,
   Checkbox,
   Container,
+  Group,
   PasswordInput,
   Stack,
   TextInput,
@@ -17,6 +18,7 @@ import {
   CaptionLabel,
   CloudCard,
   PrimaryButton,
+  ThemeToggle,
   TitleLabel,
 } from '../../components/ui';
 import { cloudColors } from '../../design/theme';
@@ -89,7 +91,11 @@ export function RegisterPage() {
       <Stack gap="md" mb="lg" align="center">
         <Stack gap={6} align="center">
           <Cloud size={48} color={cloudColors.azureDeep} />
-          <TitleLabel>ГдеОни</TitleLabel>
+          {/* F37. Переключатель темы рядом с названием — как на входе. */}
+          <Group gap={6} align="center" wrap="nowrap">
+            <TitleLabel>ГдеОни</TitleLabel>
+            <ThemeToggle size="md" />
+          </Group>
         </Stack>
         <CaptionLabel>Создайте аккаунт, чтобы начать.</CaptionLabel>
       </Stack>

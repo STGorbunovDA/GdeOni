@@ -25,7 +25,9 @@ export function CloudCard({ children, style, ...rest }: Props) {
         // подсветка выбранного элемента бы пропала, а layout не поедет.
         border: '1px solid transparent',
         borderRadius: 10,
-        boxShadow: '0 2px 15px rgba(0, 0, 0, 0.1)',
+        // F37. Тень — токен темы: на тёмном фоне та же rgba(0,0,0,.1)
+        // не читается вовсе, поэтому там она плотнее (см. styles.css).
+        boxShadow: cloudColors.shadow,
         ...style,
       }}
       {...rest}

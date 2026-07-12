@@ -25,6 +25,28 @@
          в main.tsx). Google Fonts НЕ используем: сайт должен работать
          на сервере без внешнего интернета и без утечки IP посетителей
          на сторонний CDN. -->
+
+    <!-- F37. Ставим схему до первой отрисовки. Без этого React успевает
+         показать светлый фон, и тёмная тема моргает белым при каждой
+         загрузке. Ключ и значения — те же, что у Mantine
+         localStorageColorSchemeManager в main.tsx. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('gdeoni-color-scheme') || 'auto';
+          var dark =
+            stored === 'dark' ||
+            (stored === 'auto' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.setAttribute(
+            'data-mantine-color-scheme',
+            dark ? 'dark' : 'light',
+          );
+        } catch (e) {
+          /* приватный режим без localStorage — остаёмся на светлой */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

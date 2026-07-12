@@ -19,26 +19,53 @@ import { createTheme, MantineColorsTuple } from '@mantine/core';
  * два CSS-фреймворка конфликтовали бы на reset'ах и утилитах. Берём
  * только визуальный язык шаблона.
  */
+/**
+ * F37. Семантические токены палитры. ЗНАЧЕНИЯ живут в CSS
+ * (src/styles.css: `:root` и `[data-mantine-color-scheme='dark']`), здесь
+ * — только ссылки на них.
+ *
+ * Почему не хексы: этими токенами покрашены 147 мест в 37 файлах, почти
+ * везде inline-стилями. С хексами тёмная тема означала бы «прокинуть
+ * colorScheme в каждый компонент». С var() тема меняет значения
+ * переменных, и браузер перекрашивает всё сам — код страниц не меняется
+ * вообще.
+ *
+ * Токены СЕМАНТИЧЕСКИЕ, а не буквальные: `cloud` — это «поверхность
+ * карточки», в тёмной теме она тёмно-синяя, а не белая. `azureDeep` —
+ * «усиленный акцент»: в светлой теме он темнее azure, в тёмной светлее.
+ */
 export const cloudColors = {
-  /** Светлый tonal-фон (аватарки, выбранные карточки, активный пункт меню). */
-  sky: '#E8F2FB',
+  /** Тональный фон: аватарки, выбранные карточки, активный пункт меню. */
+  sky: 'var(--cloud-sky)',
   /** Поверхность: карточки, сайдбар, модалки. */
-  cloud: '#FFFFFF',
-  /** Фон страницы (--background-color в .light-background шаблона). */
-  mist: '#F1F7FC',
-  /** Акцент бренда (--accent-color). */
-  azure: '#1977CC',
-  /** Затемнённый акцент: pressed, иконки, ссылки. */
-  azureDeep: '#145A9E',
-  /** Цвет заголовков (--heading-color). */
-  inkBlue: '#2C4964',
-  /** Основной текст (--default-color). */
-  text: '#444444',
+  cloud: 'var(--cloud-surface)',
+  /** Фон страницы. */
+  mist: 'var(--cloud-bg)',
+  /** Акцент бренда. */
+  azure: 'var(--cloud-azure)',
+  /** Усиленный акцент: иконки, ссылки, активные состояния. */
+  azureDeep: 'var(--cloud-azure-deep)',
+  /** Цвет заголовков. */
+  inkBlue: 'var(--cloud-ink)',
+  /** Основной текст. */
+  text: 'var(--cloud-text)',
   /** Тонкая рамка/разделитель. */
-  cloudBorder: '#E2ECF5',
+  cloudBorder: 'var(--cloud-border)',
   /** Подписи, мета, второстепенный текст. */
-  captionGray: '#7A8794',
-  errorRed: '#C0392B',
+  captionGray: 'var(--cloud-caption)',
+  errorRed: 'var(--cloud-error)',
+  /** Тень карточки — тоже токен: на тёмном фоне она плотнее. */
+  shadow: 'var(--cloud-shadow)',
+} as const;
+
+/**
+ * Сырые значения светлой темы. Нужны там, где var() не подходит: Mantine
+ * вычисляет из theme.white/black производные цвета в JS (autoContrast,
+ * генерация CSS-переменных), и строку `var(...)` там разобрать нельзя.
+ */
+const rawLight = {
+  cloud: '#FFFFFF',
+  inkBlue: '#2C4964',
 } as const;
 
 /**
@@ -75,11 +102,40 @@ const headingFont =
   '"Poppins", "Montserrat", "Roboto", system-ui, sans-serif';
 export const navFont = '"Raleway", "Roboto", system-ui, sans-serif';
 
+/**
+ * F37. Тёмная палитра самой Mantine (её используют Modal, Menu, Input,
+ * Alert и прочие компоненты, которые мы не красим руками). Дефолтная
+ * dark-палитра Mantine нейтрально-серая, а у нас всё сине-серое —
+ * без этой замены модалки выглядели бы чужеродно на фоне карточек.
+ *
+ * Значения зеркалят --cloud-* из styles.css: [6] — поверхность карточки,
+ * [7] — фон страницы.
+ */
+const dark: MantineColorsTuple = [
+  '#E6EDF3', // 0 — основной текст
+  '#C2CCD6', // 1
+  '#8A99A8', // 2 — dimmed
+  '#5C6B7A', // 3
+  '#3A4A5A', // 4 — рамки
+  '#2A3947', // 5
+  '#16202B', // 6 — поверхность (карточки, модалки)
+  '#0F1720', // 7 — фон страницы
+  '#0B1219', // 8
+  '#070C11', // 9
+];
+
 export const theme = createTheme({
   primaryColor: 'azure',
-  primaryShade: { light: 5, dark: 7 },
+  // В тёмной теме берём светлый оттенок акцента (4), иначе outline-кнопки
+  // и ссылки цветом #1977CC на тёмном фоне не дотягивают до контраста 3:1.
+  primaryShade: { light: 5, dark: 4 },
+  // Следствие светлого акцента: на залитой кнопке белый текст стал бы
+  // нечитаемым. autoContrast сам выберет тёмный текст там, где заливка
+  // светлая. В светлой теме ничего не меняет — #1977CC остаётся с белым.
+  autoContrast: true,
   colors: {
     azure,
+    dark,
   },
   // Шаблон использует небольшие скругления у полей ввода (~4px).
   // Кнопки и карточки задают свой радиус сами.
@@ -89,6 +145,7 @@ export const theme = createTheme({
     fontFamily: headingFont,
     fontWeight: '700',
   },
-  black: cloudColors.inkBlue,
-  white: cloudColors.cloud,
+  // Только сырые хексы: Mantine считает из них производные в JS.
+  black: rawLight.inkBlue,
+  white: rawLight.cloud,
 });

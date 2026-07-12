@@ -1,4 +1,11 @@
-import { Anchor, Container, PasswordInput, Stack, TextInput } from '@mantine/core';
+import {
+  Anchor,
+  Container,
+  Group,
+  PasswordInput,
+  Stack,
+  TextInput,
+} from '@mantine/core';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -10,6 +17,7 @@ import {
   CaptionLabel,
   CloudCard,
   PrimaryButton,
+  ThemeToggle,
   TitleLabel,
 } from '../../components/ui';
 import { cloudColors } from '../../design/theme';
@@ -64,7 +72,12 @@ export function LoginPage() {
       <Stack gap="md" mb="lg" align="center">
         <Stack gap={6} align="center">
           <Cloud size={48} color={cloudColors.azureDeep} />
-          <TitleLabel>ГдеОни</TitleLabel>
+          {/* F37. Переключатель темы рядом с названием — до логина
+              сайдбара нет, а сменить тему надо где-то. */}
+          <Group gap={6} align="center" wrap="nowrap">
+            <TitleLabel>ГдеОни</TitleLabel>
+            <ThemeToggle size="md" />
+          </Group>
         </Stack>
         <CaptionLabel>
           Войдите, чтобы продолжить.
