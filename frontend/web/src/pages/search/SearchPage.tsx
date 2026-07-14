@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Group,
   Pagination,
+  SimpleGrid,
   Stack,
   TextInput,
   UnstyledButton,
@@ -162,7 +163,11 @@ export function SearchPage() {
       <CloudCard>
         <Stack gap="md">
           <SubTitleLabel>Фильтры</SubTitleLabel>
-          <Group grow align="flex-start" wrap="wrap">
+          {/* SimpleGrid вместо Group grow: на телефоне поля идут в один
+              столбец (base:1), на десктопе — в три. Group grow ужимал
+              три поля в ряд даже на узком экране, и нативный iOS-календарь
+              в такой узкой колонке переносил год «2026 г.» на строку ниже. */}
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" verticalSpacing="md">
             <TextInput
               label="Фамилия"
               placeholder="Иванов"
@@ -187,8 +192,8 @@ export function SearchPage() {
                 setForm({ ...form, middleName: e.currentTarget.value })
               }
             />
-          </Group>
-          <Group grow align="flex-start" wrap="wrap">
+          </SimpleGrid>
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" verticalSpacing="md">
             <TextInput
               label="Город"
               placeholder="Москва"
@@ -219,7 +224,7 @@ export function SearchPage() {
                 })
               }
             />
-          </Group>
+          </SimpleGrid>
           <Group justify="space-between">
             <GhostButton onClick={handleReset}>Сбросить</GhostButton>
             <Group gap="sm">

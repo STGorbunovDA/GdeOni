@@ -123,7 +123,7 @@ public partial class EventsViewModel(
                 TodayAnniversaries.Add(new AnniversaryItemViewModel(
                     resolved.DeceasedId,
                     resolved.FullName,
-                    $"Годовщина смерти · {dy} {YearsWord(dy)}",
+                    $"Година · {dy} {YearsWord(dy)}",
                     resolved.MainPhotoUrl));
             }
 

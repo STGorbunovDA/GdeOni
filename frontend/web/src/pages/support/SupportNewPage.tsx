@@ -25,6 +25,7 @@ import {
 } from '../../components/ui';
 import { supportApi, type TicketKind } from '../../api/endpoints/supportApi';
 import { formatError } from '../../auth/errorMessages';
+import { cloudColors } from '../../design/theme';
 import { KIND_OPTIONS } from './supportLabels';
 
 /**
@@ -335,11 +336,11 @@ function AttachmentThumb({
     <div
       style={{
         position: 'relative',
-        border: '1px solid #E0EAF2',
+        border: `1px solid ${cloudColors.cloudBorder}`,
         borderRadius: 8,
         overflow: 'hidden',
         aspectRatio: '1 / 1',
-        background: '#F4F6F8',
+        background: cloudColors.sunken,
       }}
     >
       {previewUrl ? (

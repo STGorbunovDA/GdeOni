@@ -56,6 +56,16 @@ export const cloudColors = {
   errorRed: 'var(--cloud-error)',
   /** Тень карточки — тоже токен: на тёмном фоне она плотнее. */
   shadow: 'var(--cloud-shadow)',
+  /** «Утопленный» фон: <pre>, read-only панели. */
+  sunken: 'var(--cloud-sunken)',
+  /** Подсветка «требует внимания» (срочный тикет в списке). */
+  dangerSurface: 'var(--cloud-danger-surface)',
+  /** Пузыри переписки. */
+  bubbleMine: 'var(--cloud-bubble-mine)',
+  bubbleOther: 'var(--cloud-bubble-other)',
+  bubbleBorder: 'var(--cloud-bubble-border)',
+  /** Тёплая «предупреждающая» заливка (отклонённое медиа/воспоминание). */
+  warnSurface: 'var(--cloud-warn-surface)',
 } as const;
 
 /**

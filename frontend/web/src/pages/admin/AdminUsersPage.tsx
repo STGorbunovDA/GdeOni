@@ -247,7 +247,7 @@ function UserRow({
         // F17.10: блокированных подсвечиваем красным. background через
         // inline-style работает корректнее, чем класс — Mantine добавляет
         // hover-фон поверх, но базовый цвет блока сохраняется.
-        background: item.isBlocked ? '#FCE6E6' : undefined,
+        background: item.isBlocked ? cloudColors.dangerSurface : undefined,
       }}
     >
       <Table.Td>{item.email}</Table.Td>

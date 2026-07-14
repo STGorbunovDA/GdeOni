@@ -12,6 +12,7 @@ import {
   type SupportTicketAttachment,
 } from '../../api/endpoints/supportApi';
 import { formatError } from '../../auth/errorMessages';
+import { cloudColors } from '../../design/theme';
 
 /**
  * F33 / F35. Секция «Вложения» на карточке тикета — общая для юзера
@@ -141,11 +142,11 @@ function AttachmentCard({
       <div
         style={{
           position: 'relative',
-          border: '1px solid #E0EAF2',
+          border: `1px solid ${cloudColors.cloudBorder}`,
           borderRadius: 8,
           overflow: 'hidden',
           aspectRatio: '1 / 1',
-          background: '#F4F6F8',
+          background: cloudColors.sunken,
           cursor: 'pointer',
         }}
         onClick={handleOpen}

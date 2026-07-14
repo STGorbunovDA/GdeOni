@@ -1,6 +1,7 @@
 import { Stack } from '@mantine/core';
 import type { SupportTicketMessage } from '../../api/endpoints/supportApi';
 import { BodyLabel, CaptionLabel } from '../../components/ui';
+import { cloudColors } from '../../design/theme';
 import { formatDateTime } from '../../utils/formatDate';
 
 /**
@@ -46,9 +47,11 @@ export function MessagesChat({
                 maxWidth: '60%',
                 padding: '10px 12px',
                 borderRadius: 12,
-                background: isMine ? '#FFFFFF' : '#FFF7DC',
-                border: '1px solid #E0EAF2',
-                boxShadow: '0 1px 3px rgba(30,58,95,0.06)',
+                background: isMine
+                  ? cloudColors.bubbleMine
+                  : cloudColors.bubbleOther,
+                border: `1px solid ${cloudColors.bubbleBorder}`,
+                boxShadow: cloudColors.shadow,
               }}
             >
               <BodyLabel style={{ whiteSpace: 'pre-wrap' }}>{m.text}</BodyLabel>

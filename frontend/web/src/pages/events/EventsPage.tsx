@@ -156,7 +156,7 @@ export function EventsPage() {
       <Stack gap="xs">
         <TitleLabel>События</TitleLabel>
         <CaptionLabel>
-          Годовщины ваших близких и ближайшие праздники.
+          Памятные даты ваших близких и ближайшие праздники.
         </CaptionLabel>
       </Stack>
 
@@ -181,7 +181,7 @@ export function EventsPage() {
           anniversaries.length === 0 && (
             <CloudCard>
               <BodyLabel>
-                Сегодня годовщин среди отслеживаемых нет.
+                Сегодня памятных дат среди отслеживаемых нет.
               </BodyLabel>
             </CloudCard>
           )}
@@ -265,7 +265,7 @@ function AnniversaryRow({
   const isBirth = anniversary.kind === 'birth';
   const label = isBirth
     ? `День рождения · ${anniversary.years} ${yearsWord(anniversary.years)}`
-    : `Годовщина смерти · ${anniversary.years} ${yearsWord(anniversary.years)}`;
+    : `Година · ${anniversary.years} ${yearsWord(anniversary.years)}`;
 
   return (
     <UnstyledButton

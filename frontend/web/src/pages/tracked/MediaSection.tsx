@@ -636,7 +636,7 @@ function DocumentRow({
         padding: '10px 12px',
         borderRadius: 12,
         border: `1px solid ${isRejected ? '#F5C462' : cloudColors.cloudBorder}`,
-        background: isRejected ? '#FFFBEB' : '#FAFCFE',
+        background: isRejected ? cloudColors.warnSurface : cloudColors.sunken,
         cursor: isOpening ? 'wait' : 'pointer',
         opacity: isOpening ? 0.7 : isRejected ? 0.75 : 1,
       }}

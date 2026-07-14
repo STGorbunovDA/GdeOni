@@ -263,7 +263,7 @@ function MemoryItem({
         // F17.4: визуально приглушаем скрытые записи и подсвечиваем
         // жёлтой обводкой — админ сразу понимает, что эта запись не
         // видна обычным юзерам.
-        background: isRejected ? '#FFFBEB' : '#FAFCFE',
+        background: isRejected ? cloudColors.warnSurface : cloudColors.sunken,
         border: `1px solid ${
           isRejected ? '#F5C462' : cloudColors.cloudBorder
         }`,

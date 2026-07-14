@@ -29,6 +29,17 @@
 
   --cloud-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
   --cloud-link-hover: #4691da;
+
+  /* Утопленный фон: блоки «Детали (auto)», <pre>, read-only панели. */
+  --cloud-sunken: #f4f6f8;
+  /* Подсветка «требует внимания» — срочный тикет в списке. */
+  --cloud-danger-surface: #ffebeb;
+  /* Пузыри переписки: моё сообщение / входящее / рамка. */
+  --cloud-bubble-mine: #ffffff;
+  --cloud-bubble-other: #fff7dc;
+  --cloud-bubble-border: #e0eaf2;
+  /* Тёплая «предупреждающая» заливка: отклонённое медиа/воспоминание. */
+  --cloud-warn-surface: #fffbeb;
 }
 
 [data-mantine-color-scheme='dark'] {
@@ -56,6 +67,16 @@
   /* Тень на тёмном фоне почти не видна — компенсируем плотностью. */
   --cloud-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
   --cloud-link-hover: #b6dcfa;
+
+  /* Утопленный фон чуть темнее поверхности карточки. */
+  --cloud-sunken: #0e1620;
+  /* «Требует внимания» — приглушённо-бордовый, не ядовито-розовый. */
+  --cloud-danger-surface: #3a2327;
+  /* Пузыри: исходящее чуть светлее фона, входящее — тёплый тёмный. */
+  --cloud-bubble-mine: #1e2a37;
+  --cloud-bubble-other: #2e2a1c;
+  --cloud-bubble-border: #2a3947;
+  --cloud-warn-surface: #322c18;
 }
 
 * {

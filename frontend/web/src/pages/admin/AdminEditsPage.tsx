@@ -28,6 +28,7 @@ import {
   type EditWithCard,
 } from '../../api/endpoints/adminEditsApi';
 import { formatError } from '../../auth/errorMessages';
+import { cloudColors } from '../../design/theme';
 import {
   formatDateTime,
   toDateInputValue,
@@ -362,7 +363,8 @@ export function DiffModal({
               style={{
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
-                background: '#F4F6F8',
+                background: cloudColors.sunken,
+                color: cloudColors.text,
                 padding: 12,
                 borderRadius: 8,
                 fontSize: 12,

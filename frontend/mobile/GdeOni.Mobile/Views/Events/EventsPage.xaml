@@ -19,7 +19,7 @@
                 <VerticalStackLayout Spacing="6">
                     <Label Text="События"
                            Style="{StaticResource TitleLabel}" />
-                    <Label Text="Годовщины ваших близких и ближайшие праздники."
+                    <Label Text="Памятные даты ваших близких и ближайшие праздники."
                            Style="{StaticResource BodyLabel}" />
 
                     <ActivityIndicator IsRunning="{Binding IsBusy}"
@@ -37,7 +37,7 @@
 
                 <Border IsVisible="{Binding HasNoAnniversaries}"
                         Style="{StaticResource CloudCard}">
-                    <Label Text="Сегодня годовщин среди отслеживаемых нет."
+                    <Label Text="Сегодня памятных дат среди отслеживаемых нет."
                            Style="{StaticResource BodyLabel}" />
                 </Border>
 
