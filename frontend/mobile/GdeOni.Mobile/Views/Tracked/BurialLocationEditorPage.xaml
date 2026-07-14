@@ -102,6 +102,27 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- D41. Адрес подставляется по координатам. Ручные правки
+                     не затираем: как только юзер вписал своё — поле его. -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Адрес"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Страна и город определяются по координатам. Если определилось неточно — исправьте, ваш вариант сохранится."
+                               Style="{StaticResource CaptionLabel}" />
+
+                        <ActivityIndicator IsRunning="{Binding IsResolvingAddress}"
+                                           IsVisible="{Binding IsResolvingAddress}"
+                                           Color="{StaticResource Azure}"
+                                           HorizontalOptions="Start" />
+
+                        <Entry Placeholder="Страна"
+                               Text="{Binding Country}" />
+                        <Entry Placeholder="Город"
+                               Text="{Binding City}" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <ActivityIndicator IsRunning="{Binding IsBusySubmit}"
                                    IsVisible="{Binding IsBusySubmit}"
                                    Color="{StaticResource Azure}" />

@@ -87,4 +87,10 @@ public sealed record UpdateSupportTicketStatusRequest(
 
 public sealed record UpdateSupportTicketSeverityRequest(string Severity);
 
+/// <summary>
+/// D40. Принудительное закрытие обращения админом. CloseNote обязателен —
+/// уходит юзеру в переписку сообщением от админа.
+/// </summary>
+public sealed record ForceCloseSupportTicketRequest(string CloseNote);
+
 public sealed record ReopenSupportTicketRequest(string? UserReply);

@@ -125,6 +125,20 @@ public interface ISupportApi
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// D40. POST /api/admin/support-tickets/{id}/force-close — закрыть
+    /// обращение принудительно, из любого статуса.
+    ///
+    /// Resolved не терминален: точку в нём ставит юзер (accept-resolution),
+    /// а он может просто забыть — и обращение висит в списке вечно.
+    /// CloseNote обязателен, уходит юзеру в переписку.
+    /// </summary>
+    [Post("/api/admin/support-tickets/{id}/force-close")]
+    Task<HttpResponseMessage> ForceCloseAsync(
+        Guid id,
+        [Body] ForceCloseSupportTicketRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// D35. POST /api/admin/support-tickets/{ticketId}/attachments/{attId}/copy-to-deceased
     /// — скопировать вложение в media умершего:
     ///   mediaKind=DeceasedPhoto + makeMain=true → главное фото;

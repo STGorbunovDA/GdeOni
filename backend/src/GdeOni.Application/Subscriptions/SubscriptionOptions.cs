@@ -11,9 +11,15 @@ public sealed class SubscriptionOptions
     public const string SectionName = "Subscription";
 
     /// <summary>
-    /// Цена месячной подписки в рублях. Решение 2026-05-14: 49 ₽.
+    /// Цена месячной подписки в рублях. Решение 2026-05-14: 49 ₽;
+    /// пересмотр 2026-07-12: 99 ₽.
+    ///
+    /// F39: цена отдаётся клиентам через <c>GET /api/app/features</c> —
+    /// раньше web и mobile писали «49 ₽/мес» текстом в пяти местах, и
+    /// смена цены в конфиге означала бы, что на кнопке одна сумма, а
+    /// спишется другая.
     /// </summary>
-    public decimal MonthlyPriceRub { get; set; } = 49m;
+    public decimal MonthlyPriceRub { get; set; } = 99m;
 
     /// <summary>
     /// Длительность подписки за один платёж. По умолчанию 30 дней

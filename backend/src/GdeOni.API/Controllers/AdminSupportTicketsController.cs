@@ -3,6 +3,7 @@ using GdeOni.API.Models.Support;
 using GdeOni.API.Response;
 using GdeOni.Application.Support.Commands.CopyAttachmentToDeceasedMedia.Model;
 using GdeOni.Application.Support.Commands.CopyAttachmentToDeceasedMedia.UseCase;
+using GdeOni.Application.Support.Commands.ForceClose.UseCase;
 using GdeOni.Application.Support.Commands.UpdateSeverity.UseCase;
 using GdeOni.Application.Support.Commands.UpdateStatus.UseCase;
 using GdeOni.Application.Support.Queries.GetAll.Model;
@@ -97,6 +98,33 @@ public sealed class AdminSupportTicketsController : ApiControllerBase
         Guid id,
         [FromBody] UpdateSupportTicketSeverityRequest request,
         [FromServices] IUpdateSupportTicketSeverityUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(request.ToCommand(id), cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D40. Закрыть обращение принудительно — из любого статуса, не дожидаясь
+    /// подтверждения пользователя.
+    ///
+    /// Зачем: Resolved не терминален — точку в нём ставит юзер
+    /// (accept-resolution), а он может просто забыть, и обращение висит
+    /// в списке вечно. CloseNote обязателен и уходит юзеру в переписку.
+    ///
+    /// Повторный вызов на уже закрытом → 409 AlreadyClosed.
+    /// </summary>
+    [HttpPost("{id:guid}/force-close")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ForceClose(
+        Guid id,
+        [FromBody] ForceCloseSupportTicketRequest request,
+        [FromServices] IForceCloseSupportTicketUseCase useCase,
         CancellationToken cancellationToken)
     {
         var result = await useCase.Execute(request.ToCommand(id), cancellationToken);

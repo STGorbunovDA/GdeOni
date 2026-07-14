@@ -233,9 +233,9 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
-                <!-- Смена статуса (скрыта если уже Resolved) -->
+                <!-- Смена статуса (скрыта на Resolved и Closed — бэк не пустит) -->
                 <Border Style="{StaticResource CloudCard}"
-                        IsVisible="{Binding IsResolved, Converter={StaticResource InvertedBool}}">
+                        IsVisible="{Binding CanEditStatus}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Сменить статус"
                                Style="{StaticResource SubTitleLabel}" />
@@ -259,9 +259,9 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Смена severity (скрыта если уже Resolved — бэк не пустит) -->
+                <!-- Смена severity (скрыта на Resolved и Closed — бэк не пустит) -->
                 <Border Style="{StaticResource CloudCard}"
-                        IsVisible="{Binding IsResolved, Converter={StaticResource InvertedBool}}">
+                        IsVisible="{Binding CanEditStatus}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Сменить приоритет"
                                Style="{StaticResource SubTitleLabel}" />
@@ -272,6 +272,30 @@
                                 Command="{Binding SaveSeverityCommand}"
                                 IsEnabled="{Binding IsSaving, Converter={StaticResource InvertedBool}}" />
                     </VerticalStackLayout>
+                </Border>
+
+                <!-- D40. Принудительное закрытие: доступно из ЛЮБОГО статуса,
+                     кроме уже закрытого. Нужно, когда юзер забыл подтвердить
+                     решение и обращение висит вечно. -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding CanForceClose}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Закрыть принудительно"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Закрывает обращение без подтверждения пользователя. Переоткрыть он его уже не сможет. Причину увидит в переписке."
+                               Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Закрыть принудительно"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding ForceCloseCommand}"
+                                IsEnabled="{Binding IsSaving, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Пояснение для уже закрытого обращения. -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding IsClosed}">
+                    <Label Text="Обращение закрыто принудительно — пользователь переоткрыть его не может. Если закрыли по ошибке, верните его в работу сменой статуса выше."
+                           Style="{StaticResource CaptionLabel}" />
                 </Border>
 
                 <ActivityIndicator IsRunning="{Binding IsSaving}"

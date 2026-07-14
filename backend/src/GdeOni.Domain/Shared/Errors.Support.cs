@@ -54,6 +54,15 @@ public static partial class Errors
                 "support_ticket.already.resolved",
                 "Ticket is already resolved.");
 
+        /// <summary>
+        /// D40. Тикет закрыт принудительно — это терминальное состояние:
+        /// ни статус, ни приоритет менять уже нельзя, переоткрыть тоже.
+        /// </summary>
+        public static Error AlreadyClosed() =>
+            Error.Conflict(
+                "support_ticket.already.closed",
+                "Ticket is already closed.");
+
         public static Error ViewForbidden() =>
             Error.Forbidden(
                 "support_ticket.view.forbidden",

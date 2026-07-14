@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Alert,
+  Anchor,
   Badge,
   Button,
   Group,
@@ -27,6 +28,7 @@ import {
   type TicketStatus,
 } from '../../api/endpoints/supportApi';
 import { formatError } from '../../auth/errorMessages';
+import { cloudColors } from '../../design/theme';
 import { formatDateTime } from '../../utils/formatDate';
 import {
   KIND_LABELS,
@@ -61,6 +63,9 @@ export function AdminSupportTicketDetailsPage() {
   const [resolutionNote, setResolutionNote] = useState('');
   const [severityModal, setSeverityModal] = useState(false);
   const [newSeverity, setNewSeverity] = useState<TicketSeverity>('Normal');
+  // D40. Принудительное закрытие: причина обязательна.
+  const [forceCloseModal, setForceCloseModal] = useState(false);
+  const [closeNote, setCloseNote] = useState('');
 
   const query = useQuery({
     queryKey: ['admin-support-ticket', id],
@@ -88,6 +93,15 @@ export function AdminSupportTicketDetailsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-support-ticket', id] });
       queryClient.invalidateQueries({ queryKey: ['admin-support-tickets'] });
       setSeverityModal(false);
+    },
+  });
+
+  const forceCloseMutation = useMutation({
+    mutationFn: () => supportApi.adminForceClose(id!, closeNote.trim()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-support-ticket', id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-support-tickets'] });
+      setForceCloseModal(false);
     },
   });
 
@@ -166,12 +180,15 @@ export function AdminSupportTicketDetailsPage() {
         <Stack gap="md">
           <SubTitleLabel>Автор</SubTitleLabel>
           {t.userId && t.userEmail ? (
-            <GhostButton
-              size="compact-sm"
+            // Ссылка, а не GhostButton: клик ведёт на профиль, а Anchor
+            // берёт цвет из темы (var(--cloud-azure)) и остаётся читаемым
+            // на тёмном фоне. Длинный email переносим по словам.
+            <Anchor
               onClick={() => navigate(`/admin/users/${t.userId}`)}
+              style={{ cursor: 'pointer', wordBreak: 'break-all' }}
             >
               {t.userEmail}
-            </GhostButton>
+            </Anchor>
           ) : (
             <BodyLabel>Авто-тикет от системы</BodyLabel>
           )}
@@ -224,7 +241,8 @@ export function AdminSupportTicketDetailsPage() {
                 style={{
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
-                  background: '#F4F6F8',
+                  background: cloudColors.sunken,
+                  color: cloudColors.text,
                   padding: 12,
                   borderRadius: 8,
                   fontSize: 12,
@@ -286,11 +304,32 @@ export function AdminSupportTicketDetailsPage() {
             >
               Сменить критичность
             </Button>
+            {/* D40. Отдельная кнопка, а не пункт в «сменить статус»:
+                закрытие терминально и требует причины. */}
+            <Button
+              variant="filled"
+              color="gray"
+              onClick={() => {
+                setCloseNote('');
+                setForceCloseModal(true);
+              }}
+              disabled={t.status === 'Closed'}
+            >
+              Закрыть принудительно
+            </Button>
           </Group>
           {t.status === 'Resolved' && (
             <CaptionLabel>
               Обращение решено. Статус и критичность больше не меняются;
-              юзер может закрепить решение или переоткрыть спор.
+              юзер может закрепить решение или переоткрыть спор. Если он
+              просто забыл — закройте обращение принудительно.
+            </CaptionLabel>
+          )}
+          {t.status === 'Closed' && (
+            <CaptionLabel>
+              Обращение закрыто принудительно — пользователь переоткрыть его
+              не может. Если закрыли по ошибке, верните его в работу кнопкой
+              «Сменить статус».
             </CaptionLabel>
           )}
         </Stack>
@@ -346,6 +385,59 @@ export function AdminSupportTicketDetailsPage() {
               }
             >
               Сохранить
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* D40. Принудительное закрытие. Причина обязательна: юзер увидит её
+          в переписке — иначе обращение просто молча исчезнет из его списка. */}
+      <Modal
+        opened={forceCloseModal}
+        onClose={() => !forceCloseMutation.isPending && setForceCloseModal(false)}
+        title="Закрыть принудительно"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <BodyLabel>
+            Обращение будет закрыто без подтверждения пользователя. Это
+            конечное состояние: переоткрыть его он уже не сможет.
+          </BodyLabel>
+          <Textarea
+            label="Причина закрытия"
+            placeholder="Например: пользователь не ответил, вопрос решён по телефону"
+            value={closeNote}
+            onChange={(e) => setCloseNote(e.currentTarget.value)}
+            autosize
+            minRows={3}
+            maxRows={8}
+            maxLength={4000}
+            required
+          />
+          <CaptionLabel>
+            Причина уйдёт пользователю в переписку сообщением от админа.
+          </CaptionLabel>
+          {forceCloseMutation.isError && (
+            <Alert color="red" variant="light">
+              {formatError(forceCloseMutation.error)}
+            </Alert>
+          )}
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={() => setForceCloseModal(false)}
+              disabled={forceCloseMutation.isPending}
+            >
+              Отмена
+            </Button>
+            <Button
+              color="gray"
+              onClick={() => forceCloseMutation.mutate()}
+              loading={forceCloseMutation.isPending}
+              disabled={!closeNote.trim()}
+            >
+              Закрыть принудительно
             </Button>
           </Group>
         </Stack>

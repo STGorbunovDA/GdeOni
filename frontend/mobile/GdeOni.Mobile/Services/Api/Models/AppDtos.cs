@@ -21,7 +21,15 @@ public sealed record AppVersionResponse(
 /// <c>http://10.0.2.2:9000</c> для DEBUG (Android-эмулятор) или
 /// production-домен в Release.
 /// </summary>
+/// <remarks>
+/// F39. MonthlyPriceRub — цена подписки из конфига бэка, оттуда же её берёт
+/// создание платежа. Раньше клиент писал «49 ₽/мес» текстом, и смена тарифа
+/// означала бы: на экране одна сумма, а спишется другая.
+/// Nullable + дефолт: старый бэк поля не отдаёт — тогда просто не показываем
+/// сумму, а не показываем неверную.
+/// </remarks>
 public sealed record AppFeaturesResponse(
     bool SubscriptionEnabled,
     int GracePeriodDaysAfterExpiry,
-    string? MediaBaseUrl = null);
+    string? MediaBaseUrl = null,
+    decimal? MonthlyPriceRub = null);

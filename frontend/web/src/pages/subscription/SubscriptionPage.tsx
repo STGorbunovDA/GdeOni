@@ -16,6 +16,7 @@ import {
 import { cloudColors } from '../../design/theme';
 import { subscriptionApi } from '../../api/endpoints/subscriptionApi';
 import { useSubscription } from '../../hooks/useSubscription';
+import { useSubscriptionPrice } from '../../hooks/useSubscriptionPrice';
 import { formatError } from '../../auth/errorMessages';
 import { formatDateTime } from '../../utils/formatDate';
 import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
@@ -33,6 +34,8 @@ export function SubscriptionPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = useSubscription();
+  // F39. Цена — с бэка, не текстом в разметке (см. useSubscriptionPrice).
+  const { priceLabel } = useSubscriptionPrice();
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -141,7 +144,7 @@ export function SubscriptionPage() {
               onClick={handleCheckout}
               loading={busy}
             >
-              Оформить Monthly — 49 ₽/мес
+              {priceLabel ? `Оформить Monthly — ${priceLabel}` : 'Оформить Monthly'}
             </PrimaryButton>
           </Group>
         </CloudCard>
@@ -193,12 +196,12 @@ export function SubscriptionPage() {
                     loading={busy}
                   >
                     {data.status === 'Trial'
-                      ? 'Оплатить сейчас — 49 ₽/мес'
+                      ? withPrice('Оплатить сейчас', priceLabel)
                       : data.status === 'Cancelled'
-                        ? 'Возобновить — 49 ₽/мес'
+                        ? withPrice('Возобновить', priceLabel)
                         : data.status === 'PendingPayment'
                           ? 'Продолжить оплату'
-                          : 'Оформить Monthly — 49 ₽/мес'}
+                          : withPrice('Оформить Monthly', priceLabel)}
                   </PrimaryButton>
                 ) : null}
 
@@ -376,4 +379,12 @@ function pluralDays(n: number): string {
   if (mod10 === 1 && mod100 !== 11) return 'день';
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'дня';
   return 'дней';
+}
+
+/**
+ * F39. Подпись кнопки с ценой. Пока цена не приехала с бэка — показываем
+ * кнопку без суммы: соврать про тариф хуже, чем промолчать.
+ */
+function withPrice(label: string, priceLabel: string): string {
+  return priceLabel ? `${label} — ${priceLabel}` : label;
 }

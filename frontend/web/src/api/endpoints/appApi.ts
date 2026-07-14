@@ -13,6 +13,12 @@ export type AppFeatures = {
    * полный URL картинки через ${mediaBaseUrl}/${bucket}/${encodeURIComponent(key)}.
    */
   mediaBaseUrl: string;
+  /**
+   * F39. Цена месячной подписки в рублях — из того же конфига, откуда её
+   * берёт создание платежа. Раньше UI писал «49 ₽» текстом, и смена тарифа
+   * означала бы: на кнопке одна сумма, а спишется другая.
+   */
+  monthlyPriceRub: number;
 };
 
 /**

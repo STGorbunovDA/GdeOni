@@ -1,5 +1,6 @@
 using GdeOni.API.Models.Support;
 using GdeOni.Application.Support.Commands.Create.Model;
+using GdeOni.Application.Support.Commands.ForceClose.Model;
 using GdeOni.Application.Support.Commands.UpdateSeverity.Model;
 using GdeOni.Application.Support.Commands.UpdateStatus.Model;
 using GdeOni.Application.Support.Queries.GetAll.Model;
@@ -56,5 +57,13 @@ public static class SupportMapping
     {
         ArgumentNullException.ThrowIfNull(request);
         return new UpdateSupportTicketSeverityCommand(ticketId, request.Severity);
+    }
+
+    /// <summary>D40. Маппит DTO принудительного закрытия в команду use case.</summary>
+    public static ForceCloseSupportTicketCommand ToCommand(
+        this ForceCloseSupportTicketRequest request, Guid ticketId)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return new ForceCloseSupportTicketCommand(ticketId, request.CloseNote);
     }
 }

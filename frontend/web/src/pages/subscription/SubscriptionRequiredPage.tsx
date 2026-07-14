@@ -12,6 +12,7 @@ import {
 import { cloudColors } from '../../design/theme';
 import { authApi } from '../../api/endpoints/authApi';
 import { useAuthStore } from '../../auth/authStore';
+import { useSubscriptionPrice } from '../../hooks/useSubscriptionPrice';
 
 /**
  * F22 / E22.6. Глобальный paywall — юзер попадает сюда:
@@ -29,6 +30,8 @@ import { useAuthStore } from '../../auth/authStore';
 export function SubscriptionRequiredPage() {
   const navigate = useNavigate();
   const clear = useAuthStore((s) => s.clear);
+  // F39. Цена — с бэка (см. useSubscriptionPrice), не текстом в разметке.
+  const { priceLabel } = useSubscriptionPrice();
 
   async function handleLogout() {
     await authApi.logout();
@@ -46,8 +49,9 @@ export function SubscriptionRequiredPage() {
       <CloudCard>
         <Stack gap="md">
           <BodyLabel>
-            Чтобы пользоваться приложением, оформите подписку — 49 ₽/мес.
-            Доступ ко всем функциям без ограничений.
+            Чтобы пользоваться приложением, оформите подписку
+            {priceLabel ? ` — ${priceLabel}` : ''}. Доступ ко всем функциям
+            без ограничений.
           </BodyLabel>
           <CaptionLabel>
             После оплаты вы автоматически вернётесь в приложение и сможете

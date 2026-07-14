@@ -225,6 +225,16 @@ public sealed class SupportTicket : Entity<Guid>
         if (newStatus == Status)
             return UnitResult.Success<Error>();
 
+        // D40. В Closed нельзя попасть обычной сменой статуса — только через
+        // ForceClose, где причина обязательна. Иначе закрыть можно было бы
+        // молча, и юзер не понял бы, что случилось с его обращением.
+        if (newStatus == SupportTicketStatus.Closed)
+            return Errors.Support.StatusInvalid();
+
+        // D40 (правка): из Closed админ ВЫЙТИ может — вернуть обращение в
+        // работу. Терминальность закрытия направлена на ЮЗЕРА (Reopen /
+        // AcceptResolution из Closed запрещены), а не на админа: тот мог
+        // закрыть по ошибке или не то обращение, и обязан уметь откатить.
         if (Status == SupportTicketStatus.Resolved)
             return Errors.Support.AlreadyResolved();
 
@@ -269,6 +279,9 @@ public sealed class SupportTicket : Entity<Guid>
             return Errors.Support.SeverityInvalid();
         }
 
+        // D40 (правка): на Closed приоритет менять можно — админ мог закрыть
+        // ошибочно и разбирает обращение дальше. Запрещён он только на
+        // Resolved, где точку ставит юзер.
         if (Status == SupportTicketStatus.Resolved)
             return Errors.Support.AlreadyResolved();
 
@@ -276,6 +289,50 @@ public sealed class SupportTicket : Entity<Guid>
             return UnitResult.Success<Error>();
 
         Severity = newSeverity;
+        UpdatedAtUtc = nowUtc;
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D40. Админ закрывает обращение принудительно — из любого статуса.
+    ///
+    /// Зачем: Resolved не терминален, точку в нём ставит юзер
+    /// (AcceptResolution). Если юзер просто забыл это сделать — обращение
+    /// висит в списке бесконечно. Force-close ставит точку за него.
+    ///
+    /// Note обязателен: закрытие «через голову» пользователя должно быть
+    /// объяснено — причина уходит в переписку отдельным сообщением, чтобы
+    /// юзер увидел, почему обращение закрыли.
+    ///
+    /// Из Closed переоткрыть нельзя: Reopen требует Resolved, а
+    /// AcceptResolution — тоже. Это конец жизненного цикла.
+    /// </summary>
+    public UnitResult<Error> ForceClose(Guid adminId, string closeNote, DateTime nowUtc)
+    {
+        if (Status == SupportTicketStatus.Closed)
+            return Errors.Support.AlreadyClosed();
+
+        if (string.IsNullOrWhiteSpace(closeNote))
+            return Errors.Support.ResolutionNoteRequired();
+
+        var trimmedNote = closeNote.Trim();
+        if (trimmedNote.Length > MaxResolutionNoteLength)
+            return Errors.Support.ResolutionNoteTooLong(MaxResolutionNoteLength);
+
+        // Причина закрытия — сообщение в переписке от админа: юзер должен
+        // увидеть её в истории, а не только в служебном поле.
+        var msg = SupportTicketMessage.CreateFromAdmin(Id, adminId, trimmedNote, nowUtc);
+        if (msg.IsFailure) return msg.Error;
+        _messages.Add(msg.Value);
+
+        // Переиспользуем Resolution*-поля: семантика «кто и когда поставил
+        // точку» та же, отдельные Closed*-колонки не завели бы ничего,
+        // кроме миграции и дублирующей логики.
+        ResolutionNote = trimmedNote;
+        ResolvedByUserId = adminId == Guid.Empty ? null : adminId;
+        ResolvedAtUtc = nowUtc;
+
+        Status = SupportTicketStatus.Closed;
         UpdatedAtUtc = nowUtc;
         return UnitResult.Success<Error>();
     }

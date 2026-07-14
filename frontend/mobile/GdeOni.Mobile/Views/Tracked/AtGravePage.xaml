@@ -173,10 +173,19 @@
                         <Label Text="Где захоронение"
                                Style="{StaticResource SubTitleLabel}" />
 
+                        <!-- D41. Страна и город подставляются по координатам;
+                             ручные правки не затираем. -->
+                        <Label Text="Страна и город заполнятся сами по координатам. Если определилось неточно — исправьте, ваш вариант сохранится."
+                               Style="{StaticResource CaptionLabel}" />
+                        <ActivityIndicator IsRunning="{Binding IsResolvingAddress}"
+                                           IsVisible="{Binding IsResolvingAddress}"
+                                           Color="{StaticResource Azure}"
+                                           HorizontalOptions="Start" />
+
                         <Entry Placeholder="Страна"
                                Style="{StaticResource FormEntry}"
                                Text="{Binding Country}" />
-                        <Entry Placeholder="Город (необязательно)"
+                        <Entry Placeholder="Город"
                                Style="{StaticResource FormEntry}"
                                Text="{Binding City}" />
                         <Entry Placeholder="Кладбище (необязательно)"

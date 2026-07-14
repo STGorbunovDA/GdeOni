@@ -431,6 +431,134 @@ public sealed class SupportTicketTests
         ordered[2].Text.Should().Be("вернули деньги");
     }
 
+    // ───────── D40. Принудительное закрытие админом ─────────
+
+    /// <summary>
+    /// Главный сценарий: юзер забыл подтвердить решение, обращение висит
+    /// в Resolved. Админ ставит точку сам.
+    /// </summary>
+    [Fact]
+    public void ForceClose_FromResolved_ClosesAndKeepsAuthorship()
+    {
+        var (t, _) = NewResolvedWithAuthor();
+        var admin = Guid.NewGuid();
+        var closedAt = Now.AddDays(7);
+
+        var result = t.ForceClose(admin, "Юзер не отвечает две недели.", closedAt);
+
+        result.IsSuccess.Should().BeTrue();
+        t.Status.Should().Be(SupportTicketStatus.Closed);
+        t.ResolvedByUserId.Should().Be(admin);
+        t.ResolvedAtUtc.Should().Be(closedAt);
+        t.ResolutionNote.Should().Be("Юзер не отвечает две недели.");
+    }
+
+    /// <summary>Закрыть можно из любого статуса, не только из Resolved.</summary>
+    [Theory]
+    [InlineData(SupportTicketStatus.Open)]
+    [InlineData(SupportTicketStatus.InProgress)]
+    public void ForceClose_FromAnyStatus_Closes(SupportTicketStatus from)
+    {
+        var t = NewOpen();
+        if (from == SupportTicketStatus.InProgress)
+            t.ChangeStatus(SupportTicketStatus.InProgress, Guid.NewGuid(), null, Now);
+
+        var result = t.ForceClose(Guid.NewGuid(), "Дубликат обращения.", Now.AddHours(1));
+
+        result.IsSuccess.Should().BeTrue();
+        t.Status.Should().Be(SupportTicketStatus.Closed);
+    }
+
+    /// <summary>Причина обязательна — юзер должен понимать, почему закрыли.</summary>
+    [Fact]
+    public void ForceClose_WithoutNote_ReturnsError()
+    {
+        var t = NewOpen();
+
+        var result = t.ForceClose(Guid.NewGuid(), "   ", Now);
+
+        result.IsFailure.Should().BeTrue();
+        t.Status.Should().Be(SupportTicketStatus.Open);
+    }
+
+    /// <summary>Причина уходит юзеру сообщением в переписку, а не только в поле.</summary>
+    [Fact]
+    public void ForceClose_AddsAdminMessageToChat()
+    {
+        var t = NewOpen();
+        var before = t.Messages.Count;
+
+        t.ForceClose(Guid.NewGuid(), "Закрываю: вопрос решён по телефону.", Now);
+
+        t.Messages.Should().HaveCount(before + 1);
+        t.Messages.Last().Text.Should().Be("Закрываю: вопрос решён по телефону.");
+    }
+
+    /// <summary>Closed терминален: повторное закрытие — конфликт.</summary>
+    [Fact]
+    public void ForceClose_Twice_ReturnsAlreadyClosed()
+    {
+        var t = NewOpen();
+        t.ForceClose(Guid.NewGuid(), "Первый раз.", Now);
+
+        var result = t.ForceClose(Guid.NewGuid(), "Второй раз.", Now.AddHours(1));
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("support_ticket.already.closed");
+    }
+
+    /// <summary>
+    /// Ради этого всё и делалось: закрытое принудительно обращение юзер
+    /// переоткрыть не может — иначе точка не была бы точкой.
+    /// </summary>
+    [Fact]
+    public void Reopen_AfterForceClose_IsRejected()
+    {
+        var (t, author) = NewResolvedWithAuthor();
+        t.ForceClose(Guid.NewGuid(), "Закрыто админом.", Now.AddDays(1));
+
+        var result = t.Reopen(author, "Всё ещё не работает!", Now.AddDays(2));
+
+        result.IsFailure.Should().BeTrue();
+        t.Status.Should().Be(SupportTicketStatus.Closed);
+    }
+
+    /// <summary>
+    /// Админ может вернуть закрытое обращение в работу: терминальность
+    /// Closed направлена на юзера, а не на админа — тот мог закрыть по
+    /// ошибке или не то обращение.
+    /// </summary>
+    [Fact]
+    public void ChangeStatus_AfterForceClose_AdminCanReopenIt()
+    {
+        var t = NewOpen();
+        t.ForceClose(Guid.NewGuid(), "Закрыто по ошибке.", Now);
+
+        var statusResult = t.ChangeStatus(
+            SupportTicketStatus.InProgress, Guid.NewGuid(), null, Now.AddHours(1));
+        var severityResult = t.ChangeSeverity(SupportTicketSeverity.Urgent, Now.AddHours(2));
+
+        statusResult.IsSuccess.Should().BeTrue();
+        severityResult.IsSuccess.Should().BeTrue();
+        t.Status.Should().Be(SupportTicketStatus.InProgress);
+        t.Severity.Should().Be(SupportTicketSeverity.Urgent);
+    }
+
+    /// <summary>
+    /// В Closed нельзя попасть обычной сменой статуса — только через
+    /// ForceClose, где причина обязательна.
+    /// </summary>
+    [Fact]
+    public void ChangeStatus_ToClosed_IsRejected()
+    {
+        var t = NewOpen();
+
+        var result = t.ChangeStatus(SupportTicketStatus.Closed, Guid.NewGuid(), "note", Now);
+
+        result.IsFailure.Should().BeTrue();
+        t.Status.Should().Be(SupportTicketStatus.Open);
+    }
+
     private static (SupportTicket Ticket, Guid AuthorId) NewResolvedWithAuthor()
     {
         var author = Guid.NewGuid();

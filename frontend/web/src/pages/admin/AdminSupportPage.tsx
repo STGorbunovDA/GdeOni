@@ -30,6 +30,7 @@ import {
   type TicketStatus,
 } from '../../api/endpoints/supportApi';
 import { formatError } from '../../auth/errorMessages';
+import { cloudColors } from '../../design/theme';
 import {
   formatDateTime,
   toDateInputValue,
@@ -137,6 +138,8 @@ export function AdminSupportPage() {
                 <Chip value="Open">{STATUS_LABELS.Open}</Chip>
                 <Chip value="InProgress">{STATUS_LABELS.InProgress}</Chip>
                 <Chip value="Resolved">{STATUS_LABELS.Resolved}</Chip>
+                {/* D40. Закрытые принудительно — отдельный фильтр. */}
+                <Chip value="Closed">{STATUS_LABELS.Closed}</Chip>
               </Group>
             </Chip.Group>
           </Stack>
@@ -320,7 +323,7 @@ function TicketRow({
         // внимание к уже закрытому вопросу.
         background:
           item.severity === 'Urgent' && item.status !== 'Resolved'
-            ? '#FFEBEB'
+            ? cloudColors.dangerSurface
             : undefined,
       }}
     >

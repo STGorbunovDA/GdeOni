@@ -64,6 +64,9 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
     // ───────── Текущее состояние ─────────
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsResolved))]
+    [NotifyPropertyChangedFor(nameof(IsClosed))]
+    [NotifyPropertyChangedFor(nameof(CanForceClose))]
+    [NotifyPropertyChangedFor(nameof(CanEditStatus))]
     private string? _currentStatusCode;
 
     [ObservableProperty] private string? _currentStatusDisplay;
@@ -74,6 +77,22 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
     [ObservableProperty] private string _currentSeverityColor = "#000";
 
     public bool IsResolved => CurrentStatusCode == "Resolved";
+
+    /// <summary>
+    /// D40. Закрыто принудительно — терминальное состояние: ни статус, ни
+    /// severity уже не поменять, юзер переоткрыть не может.
+    /// </summary>
+    public bool IsClosed => CurrentStatusCode == "Closed";
+
+    /// <summary>Кнопка «Закрыть принудительно» активна для любого статуса, кроме Closed.</summary>
+    public bool CanForceClose => !IsClosed;
+
+    /// <summary>
+    /// Можно ли менять статус/приоритет. Бэк запрещает это только на
+    /// Resolved (там точку ставит юзер). На Closed — можно: админ мог
+    /// закрыть по ошибке и должен уметь вернуть обращение в работу.
+    /// </summary>
+    public bool CanEditStatus => !IsResolved;
 
     // ───────── Резолюция ─────────
     [ObservableProperty]
@@ -284,6 +303,79 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
                 new UpdateSupportTicketStatusRequest(
                     newCode,
                     newCode == "Resolved" ? NewResolutionNote.Trim() : null));
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                ErrorMessage = $"HTTP {(int)resp.StatusCode}: {resp.ReasonPhrase}";
+                return;
+            }
+
+            await LoadAsync();
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    /// <summary>
+    /// D40. Закрыть обращение принудительно.
+    ///
+    /// Нужно, когда юзер забыл подтвердить решение: Resolved не терминален,
+    /// точку в нём ставит он сам, и без этого обращение висит вечно.
+    /// Причина обязательна — уходит юзеру в переписку, чтобы обращение не
+    /// исчезло у него молча.
+    /// </summary>
+    [RelayCommand]
+    private async Task ForceCloseAsync()
+    {
+        if (IsSaving) return;
+        if (!Guid.TryParse(TicketId, out var id)) return;
+
+        if (IsClosed)
+        {
+            await Shell.Current.DisplayAlert(
+                "Уже закрыто",
+                "Обращение закрыто принудительно — это конечное состояние.",
+                "ОК");
+            return;
+        }
+
+        var note = await Shell.Current.DisplayPromptAsync(
+            "Закрыть принудительно",
+            "Причина закрытия — её увидит пользователь в переписке.",
+            accept: "Закрыть",
+            cancel: "Отмена",
+            placeholder: "Например: пользователь не ответил",
+            maxLength: 4000);
+
+        // null = юзер нажал «Отмена». Пустая строка — не причина.
+        if (note is null) return;
+        if (string.IsNullOrWhiteSpace(note))
+        {
+            await Shell.Current.DisplayAlert(
+                "Нужна причина",
+                "Без причины закрыть обращение нельзя — пользователь должен понимать, почему.",
+                "ОК");
+            return;
+        }
+
+        try
+        {
+            IsSaving = true;
+            ErrorMessage = null;
+
+            var resp = await supportApi.ForceCloseAsync(
+                id,
+                new ForceCloseSupportTicketRequest(note.Trim()));
 
             if (!resp.IsSuccessStatusCode)
             {

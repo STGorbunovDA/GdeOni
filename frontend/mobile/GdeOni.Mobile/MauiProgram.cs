@@ -282,6 +282,20 @@ public static class MauiProgram
             .AddHttpMessageHandler<SubscriptionGateHandler>()
             .AddPolicyHandler(BuildRetryPolicy());
 
+        // D41. IGeoApi: координаты → город. Не гейтим подпиской: экраны,
+        // где он нужен (добавление умершего, правка координат), и так за
+        // paywall'ом, а 403 здесь испортил бы автоподсказку адреса.
+        services.AddRefitClient<IGeoApi>(refitSettings)
+            .ConfigureHttpClient((sp, c) =>
+            {
+                var config = sp.GetRequiredService<AppConfig>();
+                c.BaseAddress = new Uri(config.Api.BaseUrl);
+                c.Timeout = TimeSpan.FromSeconds(config.Api.TimeoutSeconds);
+            })
+            .AddHttpMessageHandler<AuthTokenHandler>()
+            .AddHttpMessageHandler<RefreshTokenHandler>()
+            .AddPolicyHandler(BuildRetryPolicy());
+
         // D25. ISupportApi: обращения в поддержку. Доступно любому
         // authenticated юзеру — не нужно гейтить подпиской, иначе юзер
         // с истёкшей подпиской не сможет пожаловаться "не работает оплата".

@@ -18,12 +18,15 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
   Open: 'Открыто',
   InProgress: 'В работе',
   Resolved: 'Решено',
+  Closed: 'Закрыто',
 };
 
 export const STATUS_COLORS: Record<TicketStatus, string> = {
   Open: 'azure',
   InProgress: 'yellow',
   Resolved: 'green',
+  // D40. Серый: закрыто принудительно — это «сдано в архив», а не успех.
+  Closed: 'gray',
 };
 
 export const SEVERITY_LABELS: Record<TicketSeverity, string> = {
@@ -55,6 +58,11 @@ export const KIND_OPTIONS: { value: TicketKind; label: string }[] = [
   { value: 'Photo', label: KIND_LABELS.Photo },
 ];
 
+/**
+ * Опции ручной смены статуса админом. D40: Closed сюда НЕ входит —
+ * принудительное закрытие делается отдельной кнопкой (нужна причина),
+ * и бэк отклонит попытку попасть в Closed через смену статуса.
+ */
 export const STATUS_OPTIONS: { value: TicketStatus; label: string }[] = [
   { value: 'Open', label: STATUS_LABELS.Open },
   { value: 'InProgress', label: STATUS_LABELS.InProgress },

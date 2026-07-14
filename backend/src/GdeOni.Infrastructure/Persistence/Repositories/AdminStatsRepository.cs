@@ -130,8 +130,13 @@ public sealed class AdminStatsRepository(
                     t => t.Status == SupportTicketStatus.Open
                          || t.Status == SupportTicketStatus.InProgress,
                     cancellationToken),
+            // D40. Closed (закрыт принудительно) считаем вместе с Resolved:
+            // для админа это одно и то же — обращение больше не в работе.
             Resolved: await tickets
-                .CountAsync(t => t.Status == SupportTicketStatus.Resolved, cancellationToken));
+                .CountAsync(
+                    t => t.Status == SupportTicketStatus.Resolved
+                         || t.Status == SupportTicketStatus.Closed,
+                    cancellationToken));
     }
 
     private async Task<AdminPaymentsStats> GetPaymentsStats(

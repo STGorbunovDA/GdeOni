@@ -81,6 +81,8 @@ const KNOWN_CODES: Record<string, string> = {
   'support_ticket.resolution_note.required':
     'При переводе в «Решено» нужна заметка о решении.',
   'support_ticket.already.resolved': 'Обращение уже решено.',
+  // D40. Повторное принудительное закрытие уже закрытого обращения.
+  'support_ticket.already.closed': 'Обращение уже закрыто.',
   'support_ticket.already.accepted': 'Вы уже закрепили решение.',
   'support_ticket.view.forbidden': 'Это обращение не ваше.',
   'support_ticket.modify.forbidden':

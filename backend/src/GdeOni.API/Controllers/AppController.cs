@@ -5,6 +5,7 @@ using GdeOni.API.Options;
 using GdeOni.API.Response;
 using GdeOni.Application.Abstractions.Features;
 using GdeOni.Application.Abstractions.Storage;
+using GdeOni.Application.Subscriptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -54,16 +55,22 @@ public sealed class AppController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     public IActionResult GetFeatures(
         [FromServices] IFeatureFlagService featureFlags,
-        [FromServices] IFileStorage fileStorage)
+        [FromServices] IFileStorage fileStorage,
+        [FromServices] IOptionsSnapshot<SubscriptionOptions> subscriptionOptions)
     {
         // D36: mediaBaseUrl приходит из MinioOptions.PublicBaseUrl и
         // отдаётся клиентам без bucket/key — каждый клиент сам строит
         // финальный URL. Это снимает проблему "один URL для всех клиентов",
         // когда mobile-эмулятор и web имеют разные хост-маппинги.
+        //
+        // F39: цена подписки — оттуда же, откуда её берёт CreatePayment.
+        // Один источник правды: клиент показывает ровно ту сумму, которую
+        // спишет платёжный провайдер.
         var response = new AppFeaturesResponse(
             featureFlags.IsSubscriptionEnabled,
             featureFlags.GracePeriodDaysAfterExpiry,
-            fileStorage.GetMediaBaseUrl());
+            fileStorage.GetMediaBaseUrl(),
+            subscriptionOptions.Value.MonthlyPriceRub);
 
         return response.ToOkResponse();
     }

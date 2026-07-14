@@ -21,6 +21,18 @@ public partial class BurialLocationEditorPage : ContentPage
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
     }
 
+    /// <summary>
+    /// D41. Подтягиваем адрес карточки: он нужен и для полей «Страна/Город»,
+    /// и чтобы PATCH не обнулил кладбище/участок/могилу, которых на этом
+    /// экране нет. Делаем в OnAppearing — QueryProperty (deceasedId) к этому
+    /// моменту уже проставлен, в конструкторе его ещё нет.
+    /// </summary>
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await _viewModel.LoadCardAsync();
+    }
+
     private void OnMapLocationPicked(object? sender, LocationPickedEventArgs e)
         => _viewModel.ApplyPickedLocation(e.Latitude, e.Longitude);
 

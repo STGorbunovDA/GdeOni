@@ -1,5 +1,6 @@
 ﻿using GdeOni.Application.Abstractions.Email;
 using GdeOni.Application.Abstractions.Features;
+using GdeOni.Application.Abstractions.Geo;
 using GdeOni.Application.Abstractions.Payments;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Routing;
@@ -10,6 +11,7 @@ using GdeOni.Application.Subscriptions;
 using GdeOni.Infrastructure.Data;
 using GdeOni.Infrastructure.Email;
 using GdeOni.Infrastructure.Features;
+using GdeOni.Infrastructure.Geo;
 using GdeOni.Infrastructure.Notifications;
 using GdeOni.Infrastructure.Payments;
 using GdeOni.Infrastructure.Persistence;
@@ -70,6 +72,17 @@ public static class DependencyInjection
 
         // F38. Read-model админской справки: только COUNT/SUM, без сущностей.
         services.AddScoped<IAdminStatsRepository, AdminStatsRepository>();
+
+        // D41. Обратное геокодирование (координаты → город) через Nominatim.
+        // Ходим с сервера, а не с клиента: иначе IP юзера ушёл бы во внешний
+        // сервис в ЕС, что противоречит нашей же политике (5.3).
+        services.Configure<GeocodingOptions>(
+            configuration.GetSection(GeocodingOptions.SectionName));
+        services.AddHttpClient<IReverseGeocoder, NominatimReverseGeocoder>((sp, http) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<GeocodingOptions>>().Value;
+            NominatimReverseGeocoder.ConfigureClient(http, opts);
+        });
         // PasswordHasher без состояния: BCrypt.Net не использует поля
         // экземпляра. Singleton экономит аллокацию на каждый запрос
         // (см. D11.7.2).

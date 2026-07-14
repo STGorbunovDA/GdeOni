@@ -23,7 +23,13 @@ export type TicketKind =
 
 export type TicketSource = 'Manual' | 'Auto';
 export type TicketSeverity = 'Normal' | 'Urgent';
-export type TicketStatus = 'Open' | 'InProgress' | 'Resolved';
+/**
+ * D40. Closed — закрыт админом принудительно. Терминальный: юзер не может
+ * ни переоткрыть, ни подтвердить, админ не может сменить статус/приоритет.
+ * Попасть в него можно ТОЛЬКО через forceClose, не через обычную смену
+ * статуса — поэтому Closed нет в STATUS_OPTIONS.
+ */
+export type TicketStatus = 'Open' | 'InProgress' | 'Resolved' | 'Closed';
 
 export type TicketMessageAuthor = 'User' | 'Admin';
 
@@ -286,6 +292,21 @@ export const supportApi = {
   async adminUpdateSeverity(id: string, severity: TicketSeverity): Promise<void> {
     await apiClient.patch(`/api/admin/support-tickets/${id}/severity`, {
       severity,
+    });
+  },
+
+  /**
+   * D40. POST /api/admin/support-tickets/{id}/force-close — закрыть
+   * обращение принудительно, из любого статуса.
+   *
+   * Нужно, когда юзер забыл подтвердить решение: Resolved не терминален,
+   * точку в нём ставит он, и без этого обращение висит в списке вечно.
+   * closeNote обязателен — уходит юзеру в переписку как сообщение админа.
+   * Повторный вызов на закрытом → 409.
+   */
+  async adminForceClose(id: string, closeNote: string): Promise<void> {
+    await apiClient.post(`/api/admin/support-tickets/${id}/force-close`, {
+      closeNote,
     });
   },
 

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Group,
   Loader,
+  SimpleGrid,
   Stack,
   TextInput,
 } from '@mantine/core';
@@ -23,7 +24,9 @@ import { MapPicker } from '../../components/MapPicker';
 import { cloudColors } from '../../design/theme';
 import { trackedDeceasedApi } from '../../api/endpoints/trackedDeceasedApi';
 import { deceasedApi } from '../../api/endpoints/deceasedApi';
+import { geoApi } from '../../api/endpoints/geoApi';
 import { formatError } from '../../auth/errorMessages';
+import { mergeAutofilled } from '../../utils/addressAutofill';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import {
   tryParseAccuracy,
@@ -56,6 +59,17 @@ export function EditCoordsPage() {
   const [accInput, setAccInput] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  // D41. Адрес: подставляется по координатам, правится руками.
+  const [country, setCountry] = useState('');
+  const [city, setCity] = useState('');
+  const [addressResolving, setAddressResolving] = useState(false);
+
+  // Что мы подставили сами в прошлый раз — чтобы не затирать ручные правки.
+  const autoAddressRef = useRef({ country: '', city: '' });
+  // Координаты, с которыми страница открылась: по ним понимаем, двигал ли
+  // юзер точку.
+  const initialCoordsRef = useRef({ lat: '', lon: '' });
+
   // Pre-fill ровно один раз — после первой успешной загрузки. После
   // мы НЕ перезаписываем поля при refetch, иначе ввод юзера затрётся.
   if (latInput === null && query.data) {
@@ -67,6 +81,20 @@ export function EditCoordsPage() {
         ? Math.round(d.accuracyMeters).toString()
         : '',
     );
+
+    // D41. Адрес из карточки — стартовые значения полей.
+    setCountry(d.country ?? '');
+    setCity(d.city ?? '');
+
+    // Считаем адрес карточки «автоматическим»: при сдвиге точки его можно
+    // перезаписать. А вот исходные координаты запоминаем, чтобы НЕ дёргать
+    // геокодер при простом открытии страницы — иначе город молча менялся бы
+    // сам, хотя юзер ничего не двигал.
+    autoAddressRef.current = { country: d.country ?? '', city: d.city ?? '' };
+    initialCoordsRef.current = {
+      lat: typeof d.latitude === 'number' ? d.latitude.toFixed(6) : '',
+      lon: typeof d.longitude === 'number' ? d.longitude.toFixed(6) : '',
+    };
   }
 
   const geo = useGeolocation();
@@ -85,6 +113,57 @@ export function EditCoordsPage() {
 
   const lat = latInput !== null ? tryParseLatitude(latInput) : null;
   const lon = lonInput !== null ? tryParseLongitude(lonInput) : null;
+
+  // ----- D41. Автоопределение адреса по координатам -----
+  //
+  // Дёргаем геокодер в двух случаях:
+  //   1) город пуст — заполнить его нечем, кроме координат;
+  //   2) юзер сдвинул точку — старый город может относиться к другому месту.
+  // При простом открытии карточки с уже заполненным городом молчим: иначе
+  // город менялся бы сам, хотя человек ничего не трогал.
+  //
+  // Debounce нужен из-за ручного ввода координат — иначе запрос уходил бы
+  // на каждый набранный символ.
+  const coordsChanged =
+    latInput !== initialCoordsRef.current.lat ||
+    lonInput !== initialCoordsRef.current.lon;
+  const cityIsEmpty = city.trim() === '';
+
+  useEffect(() => {
+    if (lat === null || lon === null) return;
+    if (!coordsChanged && !cityIsEmpty) return;
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setAddressResolving(true);
+      try {
+        const address = await geoApi.reverse(lat, lon);
+        if (cancelled) return;
+
+        setCountry((prev) =>
+          mergeAutofilled(prev, autoAddressRef.current.country, address.country),
+        );
+        setCity((prev) =>
+          mergeAutofilled(prev, autoAddressRef.current.city, address.city),
+        );
+        autoAddressRef.current = {
+          country: address.country ?? '',
+          city: address.city ?? '',
+        };
+      } catch {
+        // Адреса по этой точке нет или геокодер молчит — не беда,
+        // поля остаются под ручной ввод.
+      } finally {
+        if (!cancelled) setAddressResolving(false);
+      }
+    }, 700);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [lat, lon, coordsChanged, cityIsEmpty]);
+
   const acc =
     accInput === null || accInput.trim() === ''
       ? null
@@ -93,13 +172,26 @@ export function EditCoordsPage() {
     accInput !== null && accInput.trim() !== '' && acc === null;
   const accuracyLow = typeof acc === 'number' && acc > 50;
 
+  // D41. Раньше слали setBurialFromGps — он сохраняет ТОЛЬКО координаты и
+  // намеренно не трогает адрес. Теперь адрес правится на этой же странице,
+  // поэтому шлём PATCH burial-location целиком. Поля, которых здесь нет
+  // (регион, кладбище, участок, могила), передаём как есть из карточки —
+  // иначе PATCH их обнулит.
   const submitMutation = useMutation({
-    mutationFn: () =>
-      deceasedApi.setBurialFromGps(id!, {
+    mutationFn: () => {
+      const d = query.data!.deceased;
+      return deceasedApi.updateBurialLocation(id!, {
         latitude: lat!,
         longitude: lon!,
         accuracyMeters: acc,
-      }),
+        country: country.trim() || null,
+        region: d.region,
+        city: city.trim() || null,
+        cemeteryName: d.cemeteryName,
+        plotNumber: d.plotNumber,
+        graveNumber: d.graveNumber,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tracked-details', id] });
       queryClient.invalidateQueries({ queryKey: ['tracked-list'] });
@@ -181,8 +273,8 @@ export function EditCoordsPage() {
       <Stack gap="xs">
         <TitleLabel>Поправить координаты</TitleLabel>
         <CaptionLabel>
-          Адрес, кладбище, участок и номер могилы не изменятся — обновятся
-          только координаты на карте.
+          Кладбище, участок и номер могилы не изменятся. Страна и город
+          подставятся по координатам — их можно поправить руками.
         </CaptionLabel>
       </Stack>
 
@@ -194,7 +286,8 @@ export function EditCoordsPage() {
             Допускается точка или запятая в десятичной части.
           </CaptionLabel>
 
-          <Group grow align="flex-start">
+          {/* SimpleGrid вместо Group grow — на телефоне поля в столбец. */}
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" verticalSpacing="md">
             <TextInput
               label="Широта"
               placeholder="например, 55.755826"
@@ -224,7 +317,7 @@ export function EditCoordsPage() {
               onChange={(e) => setAccInput(e.currentTarget.value)}
               error={accInvalid ? 'Должно быть неотрицательным числом' : undefined}
             />
-          </Group>
+          </SimpleGrid>
 
           {accuracyLow && (
             <Alert color="yellow" variant="light">
@@ -268,6 +361,36 @@ export function EditCoordsPage() {
               setAccInput('');
             }}
           />
+        </Stack>
+      </CloudCard>
+
+      {/* D41. Адрес определяется по координатам. Правки руками мы не
+          затираем: как только юзер вписал своё — поле его. */}
+      <CloudCard>
+        <Stack gap="md">
+          <Group justify="space-between" align="center">
+            <SubTitleLabel>Адрес</SubTitleLabel>
+            {addressResolving && (
+              <Group gap="xs">
+                <Loader size="xs" color="azure" />
+                <CaptionLabel>Определяем адрес…</CaptionLabel>
+              </Group>
+            )}
+          </Group>
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="md">
+            <TextInput
+              label="Страна"
+              placeholder="определится по координатам"
+              value={country}
+              onChange={(e) => setCountry(e.currentTarget.value)}
+            />
+            <TextInput
+              label="Город"
+              placeholder="определится по координатам"
+              value={city}
+              onChange={(e) => setCity(e.currentTarget.value)}
+            />
+          </SimpleGrid>
         </Stack>
       </CloudCard>
 

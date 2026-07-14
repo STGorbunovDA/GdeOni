@@ -49,6 +49,7 @@ using GdeOni.Application.Legal.Commands.AcceptLegal.UseCase;
 using GdeOni.Application.Legal.Queries.GetLegalDocument.UseCase;
 using GdeOni.Application.Admin.Queries.GetAdminStats.UseCase;
 using GdeOni.Application.Events.Queries.GetHolidays.UseCase;
+using GdeOni.Application.Geo.Queries.ReverseGeocode.UseCase;
 using GdeOni.Application.Routing.Queries.GetRouteToGrave.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CreatePayment.UseCase;
@@ -65,6 +66,7 @@ using GdeOni.Application.Support.Commands.CreateWithAttachments.UseCase;
 using GdeOni.Application.Support.Commands.Reopen.UseCase;
 using GdeOni.Application.Support.Queries.GetAttachmentById.UseCase;
 using GdeOni.Application.Support.Commands.UpdateSeverity.UseCase;
+using GdeOni.Application.Support.Commands.ForceClose.UseCase;
 using GdeOni.Application.Support.Commands.UpdateStatus.UseCase;
 using GdeOni.Application.Support.Queries.GetAll.UseCase;
 using GdeOni.Application.Support.Queries.GetById.UseCase;
@@ -179,6 +181,9 @@ public static class DependencyInjection
         // F38. Справка по системе для админа (счётчики).
         services.AddScoped<IGetAdminStatsUseCase, GetAdminStatsUseCase>();
 
+        // D41. Обратное геокодирование: координаты → город.
+        services.AddScoped<IReverseGeocodeUseCase, ReverseGeocodeUseCase>();
+
         // D16. Subscription use cases.
         services.AddScoped<IGetMySubscriptionUseCase, GetMySubscriptionUseCase>();
         services.AddScoped<ICreatePaymentUseCase, CreatePaymentUseCase>();
@@ -216,6 +221,8 @@ public static class DependencyInjection
         services.AddScoped<IGetSupportTicketByIdUseCase, GetSupportTicketByIdUseCase>();
         services.AddScoped<IGetAllSupportTicketsUseCase, GetAllSupportTicketsUseCase>();
         services.AddScoped<IUpdateSupportTicketStatusUseCase, UpdateSupportTicketStatusUseCase>();
+        // D40. Принудительное закрытие обращения админом.
+        services.AddScoped<IForceCloseSupportTicketUseCase, ForceCloseSupportTicketUseCase>();
         services.AddScoped<IUpdateSupportTicketSeverityUseCase, UpdateSupportTicketSeverityUseCase>();
         services.AddScoped<IAcceptSupportTicketResolutionUseCase, AcceptSupportTicketResolutionUseCase>();
         services.AddScoped<IReopenSupportTicketUseCase, ReopenSupportTicketUseCase>();

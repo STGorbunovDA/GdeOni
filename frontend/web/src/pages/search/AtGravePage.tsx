@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Group,
   Loader,
   Select,
+  SimpleGrid,
   Stack,
   Switch,
   TextInput,
@@ -24,8 +25,10 @@ import {
 import { MapPicker } from '../../components/MapPicker';
 import { cloudColors } from '../../design/theme';
 import { deceasedApi } from '../../api/endpoints/deceasedApi';
+import { geoApi } from '../../api/endpoints/geoApi';
 import { RelationshipTypes } from '../../api/endpoints/trackedDeceasedApi';
 import { formatError } from '../../auth/errorMessages';
+import { mergeAutofilled } from '../../utils/addressAutofill';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import {
   tryParseAccuracy,
@@ -127,6 +130,56 @@ export function AtGravePage() {
     }
   }, [geo.position]);
 
+  // Разбор координат должен идти ДО эффекта автоадреса — он от них зависит.
+  const lat = tryParseLatitude(latInput);
+  const lon = tryParseLongitude(lonInput);
+
+  // ----- D41. Автоопределение адреса по координатам -----
+  //
+  // Эффект висит на самих координатах, а не на кнопке GPS: так он ловит
+  // разом все три способа их задать — геолокацию, клик по карте и ручной
+  // ввод. Debounce нужен именно из-за ручного ввода: без него запрос уходил
+  // бы на каждый набранный символ.
+  //
+  // 'Россия' в autoRef — это НАША подстановка по умолчанию, а не ввод
+  // юзера, поэтому её мы вправе перезаписать (вдруг захоронение в Казахстане).
+  const autoAddressRef = useRef({ country: 'Россия', city: '' });
+  const [addressResolving, setAddressResolving] = useState(false);
+
+  useEffect(() => {
+    if (lat === null || lon === null) return;
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setAddressResolving(true);
+      try {
+        const address = await geoApi.reverse(lat, lon);
+        if (cancelled) return;
+
+        setCountry((prev) =>
+          mergeAutofilled(prev, autoAddressRef.current.country, address.country),
+        );
+        setCity((prev) =>
+          mergeAutofilled(prev, autoAddressRef.current.city, address.city),
+        );
+        autoAddressRef.current = {
+          country: address.country ?? '',
+          city: address.city ?? '',
+        };
+      } catch {
+        // Геокодер молчит или адреса там нет (лес, море). Это не ошибка
+        // сценария: поля просто останутся пустыми, юзер впишет сам.
+      } finally {
+        if (!cancelled) setAddressResolving(false);
+      }
+    }, 700);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [lat, lon]);
+
   // ----- Submit -----
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -135,8 +188,6 @@ export function AtGravePage() {
     onSuccess: (resp) => navigate(`/tracked/${resp.deceasedId}`),
   });
 
-  const lat = tryParseLatitude(latInput);
-  const lon = tryParseLongitude(lonInput);
   const acc = accInput.trim() === '' ? null : tryParseAccuracy(accInput);
   const accInvalid = accInput.trim() !== '' && acc === null;
   const accuracyLow = typeof acc === 'number' && acc > 50;
@@ -218,7 +269,9 @@ export function AtGravePage() {
             Допускается точка или запятая в десятичной части.
           </CaptionLabel>
 
-          <Group grow align="flex-start">
+          {/* SimpleGrid вместо Group grow — на телефоне поля в столбец,
+              на десктопе в ряд (см. коммент в SearchPage). */}
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" verticalSpacing="md">
             <TextInput
               label="Широта"
               placeholder="например, 55.755826"
@@ -248,7 +301,7 @@ export function AtGravePage() {
               onChange={(e) => setAccInput(e.currentTarget.value)}
               error={accInvalid ? 'Должно быть неотрицательным числом' : undefined}
             />
-          </Group>
+          </SimpleGrid>
 
           {accuracyLow && (
             <Alert color="yellow" variant="light">
@@ -300,7 +353,7 @@ export function AtGravePage() {
       <CloudCard>
         <Stack gap="md">
           <SubTitleLabel>Кто это</SubTitleLabel>
-          <Group grow align="flex-start" wrap="wrap">
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" verticalSpacing="md">
             <TextInput
               label="Фамилия"
               required
@@ -318,8 +371,8 @@ export function AtGravePage() {
               value={middleName}
               onChange={(e) => setMiddleName(e.currentTarget.value)}
             />
-          </Group>
-          <Group grow align="flex-start" wrap="wrap">
+          </SimpleGrid>
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="md">
             <TextInput
               type="date"
               label="Дата рождения"
@@ -333,7 +386,7 @@ export function AtGravePage() {
               value={deathDate}
               onChange={(e) => setDeathDate(e.currentTarget.value)}
             />
-          </Group>
+          </SimpleGrid>
           <Textarea
             label="Краткое описание"
             placeholder="Несколько слов о человеке"
@@ -356,8 +409,22 @@ export function AtGravePage() {
       {/* ---------- Где захоронение ---------- */}
       <CloudCard>
         <Stack gap="md">
-          <SubTitleLabel>Где захоронение</SubTitleLabel>
-          <Group grow align="flex-start" wrap="wrap">
+          <Group justify="space-between" align="center">
+            <SubTitleLabel>Где захоронение</SubTitleLabel>
+            {addressResolving && (
+              <Group gap="xs">
+                <Loader size="xs" color="azure" />
+                <CaptionLabel>Определяем адрес…</CaptionLabel>
+              </Group>
+            )}
+          </Group>
+          {/* D41. Страна и город подставляются по координатам. Если юзер
+              поправил их руками — больше не перезаписываем (mergeAutofilled). */}
+          <CaptionLabel>
+            Страна и город заполняются автоматически по координатам. Если
+            определилось неточно — исправьте, ваш вариант сохранится.
+          </CaptionLabel>
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" verticalSpacing="md">
             <TextInput
               label="Страна"
               value={country}
@@ -373,8 +440,8 @@ export function AtGravePage() {
               value={cemeteryName}
               onChange={(e) => setCemeteryName(e.currentTarget.value)}
             />
-          </Group>
-          <Group grow align="flex-start" wrap="wrap">
+          </SimpleGrid>
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="md">
             <TextInput
               label="Участок"
               value={plotNumber}
@@ -385,7 +452,7 @@ export function AtGravePage() {
               value={graveNumber}
               onChange={(e) => setGraveNumber(e.currentTarget.value)}
             />
-          </Group>
+          </SimpleGrid>
         </Stack>
       </CloudCard>
 
