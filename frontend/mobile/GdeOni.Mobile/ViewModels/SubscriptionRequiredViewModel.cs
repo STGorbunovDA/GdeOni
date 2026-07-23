@@ -95,6 +95,17 @@ public partial class SubscriptionRequiredViewModel(
         await Shell.Current.GoToAsync("support-new?kind=Payment");
     }
 
+    /// <summary>
+    /// D44. Вход в список своих обращений. Нужен для случая «создал
+    /// обращение и нажал Назад»: без этой кнопки человек с paywall'а
+    /// уже не попал бы в переписку с админом.
+    /// </summary>
+    [RelayCommand]
+    private static async Task MyTicketsAsync()
+    {
+        await Shell.Current.GoToAsync("support-mine");
+    }
+
     [RelayCommand]
     private async Task LogoutAsync()
     {

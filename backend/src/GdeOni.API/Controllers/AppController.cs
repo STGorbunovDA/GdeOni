@@ -68,16 +68,17 @@ public sealed class AppController : ApiControllerBase
         // F39: цена подписки — оттуда же, откуда её берёт CreatePayment.
         // Один источник правды: клиент показывает ровно ту сумму, которую
         // спишет платёжный провайдер.
-        // D44: настоящий провайдер настроен? Если нет, в DI работает
-        // FakePaymentProvider с checkout-URL на example.invalid — платить
-        // физически нечем. Клиенты по флагу гасят кнопку оплаты и ведут
-        // юзера в обращение (оплата переводом).
+        // D44: можно ли РЕАЛЬНО заплатить. Не IsConfigured, а
+        // IsLivePaymentsEnabled — тестовый ключ YooKassa деньги не
+        // принимает, для юзера это то же самое, что «оплата не
+        // работает». Клиенты по флагу гасят кнопку оплаты и ведут
+        // человека в обращение (оплата переводом).
         var response = new AppFeaturesResponse(
             featureFlags.IsSubscriptionEnabled,
             featureFlags.GracePeriodDaysAfterExpiry,
             fileStorage.GetMediaBaseUrl(),
             subscriptionOptions.Value.MonthlyPriceRub,
-            yooKassaOptions.Value.IsConfigured);
+            yooKassaOptions.Value.IsLivePaymentsEnabled);
 
         return response.ToOkResponse();
     }

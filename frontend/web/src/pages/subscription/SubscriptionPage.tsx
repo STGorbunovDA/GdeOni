@@ -426,6 +426,11 @@ function PaymentsUnavailableAction() {
         >
           Написать в поддержку
         </PrimaryButton>
+        {/* D44. Уже создал обращение — нужен вход в переписку, иначе
+            после «Назад» человек не найдёт свой диалог с админом. */}
+        <GhostButton onClick={() => navigate('/support/mine')}>
+          Мои обращения
+        </GhostButton>
       </Group>
     </Stack>
   );

@@ -63,6 +63,14 @@
                         IsVisible="{Binding PaymentsUnavailable}"
                         HorizontalOptions="Fill" />
 
+                <!-- D44. Вход в свои обращения — на случай «создал и нажал
+                     Назад»: без него человек не вернётся в переписку. -->
+                <Button Text="Мои обращения"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding MyTicketsCommand}"
+                        IsVisible="{Binding PaymentsUnavailable}"
+                        HorizontalOptions="Fill" />
+
                 <Button Text="Выйти из аккаунта"
                         Style="{StaticResource GhostButton}"
                         Command="{Binding LogoutCommand}"

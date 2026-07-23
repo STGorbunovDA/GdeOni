@@ -20,7 +20,9 @@ namespace GdeOni.Mobile.ViewModels;
 ///      кнопка "Оформить снова".
 ///   5) Иначе (Expired/None) — кнопка "Оформить подписку".
 /// </summary>
-public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) : ObservableObject
+public partial class SubscriptionViewModel(
+    ISubscriptionsApi subscriptionsApi,
+    IAppApi appApi) : ObservableObject
 {
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
@@ -53,6 +55,7 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
     [NotifyPropertyChangedFor(nameof(StatusDescription))]
     [NotifyPropertyChangedFor(nameof(ShowComplimentaryBlock))]
     [NotifyPropertyChangedFor(nameof(ShowSubscribeButton))]
+    [NotifyPropertyChangedFor(nameof(ShowContactSupportButton))]
     [NotifyPropertyChangedFor(nameof(ShowCancelButton))]
     [NotifyPropertyChangedFor(nameof(ShowCancelPendingButton))]
     [NotifyPropertyChangedFor(nameof(SubscribeButtonText))]
@@ -83,7 +86,30 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
     public bool ShowSubscribeButton =>
         Current is { HasComplimentaryAccess: false }
         && Current.Status is not "Active"
-        && Current.Status is not "Trial";
+        && Current.Status is not "Trial"
+        // D44. Онлайн-оплата не подключена — кнопка увела бы на
+        // заглушку. Вместо неё показываем «Написать в поддержку».
+        && PaymentsAvailable;
+
+    /// <summary>
+    /// D44. Настроена ли РЕАЛЬНАЯ оплата (боевые ключи YooKassa).
+    /// Стартовое значение false: показать кнопку и тут же убрать хуже,
+    /// чем наоборот.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSubscribeButton))]
+    [NotifyPropertyChangedFor(nameof(ShowContactSupportButton))]
+    private bool _paymentsAvailable;
+
+    /// <summary>
+    /// D44. Кнопка обращения — там же, где была бы кнопка оплаты, и по
+    /// тем же условиям статуса: подписки нет и оплатить онлайн нечем.
+    /// </summary>
+    public bool ShowContactSupportButton =>
+        Current is { HasComplimentaryAccess: false }
+        && Current.Status is not "Active"
+        && Current.Status is not "Trial"
+        && !PaymentsAvailable;
 
     public string SubscribeButtonText => Current?.Status switch
     {
@@ -160,6 +186,19 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
             // текущий статус как есть.
             try { await subscriptionsApi.SyncAsync(); }
             catch { /* игнорируем — упадёт GetMy если нужно */ }
+
+            // D44. Подключена ли онлайн-оплата. Ошибку глушим: не
+            // узнали — считаем, что недоступна, и ведём в поддержку.
+            try
+            {
+                var features = await appApi.GetFeaturesAsync();
+                PaymentsAvailable = features.Result?.PaymentsAvailable ?? false;
+            }
+            catch
+            {
+                PaymentsAvailable = false;
+            }
+
             var envelope = await subscriptionsApi.GetMyAsync();
             Current = envelope.Result;
             if (envelope.Result is null)
@@ -350,6 +389,27 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>
+    /// D44. Уводит в форму обращения с преднастроенной темой «Оплата».
+    /// Показывается вместо кнопки оплаты, пока онлайн-платежи не
+    /// подключены: оплата переводом, доступ админ выдаёт вручную.
+    /// </summary>
+    [RelayCommand]
+    private static async Task ContactSupportAsync()
+    {
+        await Shell.Current.GoToAsync("support-new?kind=Payment");
+    }
+
+    /// <summary>
+    /// D44. Вход в список своих обращений — чтобы вернуться в переписку
+    /// после «создал обращение и ушёл».
+    /// </summary>
+    [RelayCommand]
+    private static async Task MyTicketsAsync()
+    {
+        await Shell.Current.GoToAsync("support-mine");
     }
 
     [RelayCommand]
