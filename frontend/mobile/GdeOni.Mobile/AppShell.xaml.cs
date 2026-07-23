@@ -31,6 +31,10 @@ public partial class AppShell : Shell
 
         // Auth flow.
         Routing.RegisterRoute("register", typeof(RegisterPage));
+        // D43. Восстановление пароля: запрос ссылки. Сама смена пароля
+        // происходит на сайте — ссылка из письма открывается браузером.
+        Routing.RegisterRoute(
+            "forgot-password", typeof(GdeOni.Mobile.Views.Auth.ForgotPasswordPage));
 
         // Tracked flow: deceased-search → deceased-preview → at-grave →
         // deceased-details + archive. Preview промежуточный шаг

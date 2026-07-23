@@ -69,6 +69,16 @@ public partial class LoginViewModel(
         }
     }
 
+    /// <summary>
+    /// D43. Переход к восстановлению пароля. Ссылка нужна именно здесь:
+    /// человек понимает, что пароль не подходит, ровно на этом экране.
+    /// </summary>
+    [RelayCommand]
+    private static async Task GoToForgotPasswordAsync()
+    {
+        await Shell.Current.GoToAsync("forgot-password");
+    }
+
     [RelayCommand]
     private async Task GoToRegisterAsync()
     {

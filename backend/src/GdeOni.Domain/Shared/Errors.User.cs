@@ -51,6 +51,18 @@ public static partial class Errors
         public static Error CurrentPasswordInvalid() =>
             Error.Unauthorized("user.current_password.invalid", "Current password is invalid");
 
+        /// <summary>
+        /// D43. Токен сброса не найден, не совпал или уже использован.
+        /// Намеренно не отличается от «токен чужой» — по тексту ошибки
+        /// не должно быть видно, существует ли такой токен вообще.
+        /// </summary>
+        public static Error PasswordResetTokenInvalid() =>
+            Error.Unauthorized("user.password_reset_token.invalid", "Password reset link is invalid");
+
+        /// <summary>D43. Срок действия ссылки из письма истёк.</summary>
+        public static Error PasswordResetTokenExpired() =>
+            Error.Unauthorized("user.password_reset_token.expired", "Password reset link has expired");
+
         public static Error RoleInvalid() =>
             Error.Validation("user.role.invalid", "User role is invalid");
 

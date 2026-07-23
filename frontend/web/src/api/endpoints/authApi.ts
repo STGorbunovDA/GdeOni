@@ -38,6 +38,34 @@ export const authApi = {
       // Игнорируем — клиент всё равно чистит local state.
     }
   },
+
+  /**
+   * D43. POST /api/auth/forgot-password — запрос ссылки восстановления.
+   *
+   * Бэк ВСЕГДА отвечает 200, даже если такого email нет: иначе по коду
+   * ответа можно было бы перебором выяснить, кто зарегистрирован.
+   * Поэтому UI обязан показывать одинаковый текст в любом случае —
+   * «если адрес зарегистрирован, письмо отправлено».
+   */
+  async forgotPassword(email: string): Promise<void> {
+    await unwrap(
+      apiClient.post<ApiEnvelope<null>>('/api/auth/forgot-password', { email }),
+    );
+  },
+
+  /**
+   * D43. POST /api/auth/reset-password — установка нового пароля по
+   * токену из письма. Здесь ошибку показываем честно: человек уже
+   * перешёл по ссылке и должен понять, что она устарела.
+   */
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    await unwrap(
+      apiClient.post<ApiEnvelope<null>>('/api/auth/reset-password', {
+        token,
+        newPassword,
+      }),
+    );
+  },
 };
 
 /**

@@ -6,6 +6,12 @@ public sealed record RefreshRequest(string RefreshToken);
 
 public sealed record LogoutRequest(string RefreshToken);
 
+/// <summary>
+/// D43. Запрос ссылки восстановления пароля. Бэк всегда отвечает
+/// успехом — существует ли такой аккаунт, наружу не сообщается.
+/// </summary>
+public sealed record ForgotPasswordRequest(string Email);
+
 public sealed record LoginResponse(
     Guid Id,
     string Email,

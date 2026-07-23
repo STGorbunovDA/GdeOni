@@ -344,6 +344,10 @@ public sealed partial class User : Entity<Guid>
             return UnitResult.Success<Error>();
 
         Email = emailResult.Value;
+        // D43. Ссылка сброса ушла на СТАРЫЙ адрес — после смены email она
+        // обязана умереть, иначе прежний почтовый ящик остаётся ключом
+        // к аккаунту.
+        ClearPasswordResetToken();
         SecurityStamp = Guid.NewGuid();
         Touch();
         return UnitResult.Success<Error>();
@@ -355,6 +359,9 @@ public sealed partial class User : Entity<Guid>
             return Errors.User.PasswordHashRequired();
 
         PasswordHash = newPasswordHash;
+        // D43. Человек вспомнил пароль и сменил его сам — ранее
+        // отправленная ссылка восстановления перестаёт работать.
+        ClearPasswordResetToken();
         SecurityStamp = Guid.NewGuid();
         Touch();
         return UnitResult.Success<Error>();

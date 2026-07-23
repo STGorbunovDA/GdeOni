@@ -723,6 +723,15 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("password_hash");
 
+                    b.Property<DateTime?>("PasswordResetTokenExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("password_reset_token_expires_at_utc");
+
+                    b.Property<string>("PasswordResetTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("password_reset_token_hash");
+
                     b.Property<DateTime?>("PrivacyPolicyAcceptedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("privacy_policy_accepted_at_utc");
@@ -789,6 +798,10 @@ namespace GdeOni.Infrastructure.Migrations
                     b.HasIndex("IsBlocked")
                         .HasDatabaseName("ix_users_is_blocked")
                         .HasFilter("is_blocked = true");
+
+                    b.HasIndex("PasswordResetTokenHash")
+                        .HasDatabaseName("ix_users_password_reset_token_hash")
+                        .HasFilter("password_reset_token_hash IS NOT NULL");
 
                     b.HasIndex("RegisteredAtUtc")
                         .IsDescending()

@@ -111,6 +111,18 @@ export function LoginPage() {
               Войти
             </PrimaryButton>
 
+            {/* D43. Ссылка восстановления — сразу под кнопкой входа:
+                именно здесь человек понимает, что пароль не подходит. */}
+            <CaptionLabel>
+              <Anchor
+                component={Link}
+                to="/forgot-password"
+                c={cloudColors.azureDeep}
+              >
+                Забыли пароль?
+              </Anchor>
+            </CaptionLabel>
+
             <CaptionLabel>
               Нет аккаунта?{' '}
               <Anchor component={Link} to="/register" c={cloudColors.azureDeep}>

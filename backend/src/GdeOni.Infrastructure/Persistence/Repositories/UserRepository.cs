@@ -84,6 +84,14 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
     }
 
+    public Task<User?> GetByPasswordResetTokenHash(
+        string tokenHash,
+        CancellationToken cancellationToken)
+    {
+        return dbContext.Users
+            .FirstOrDefaultAsync(x => x.PasswordResetTokenHash == tokenHash, cancellationToken);
+    }
+
     public Task<string?> GetEmailById(Guid userId, CancellationToken cancellationToken)
     {
         return dbContext.Users

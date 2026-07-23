@@ -1,8 +1,10 @@
 using GdeOni.API.Models.Auth;
 using GdeOni.API.Models.Users;
+using GdeOni.Application.Auth.ForgotPassword.Model;
 using GdeOni.Application.Auth.Login.Model;
 using GdeOni.Application.Auth.Logout.Model;
 using GdeOni.Application.Auth.Refresh.Model;
+using GdeOni.Application.Auth.ResetPassword.Model;
 
 namespace GdeOni.API.Mappers;
 
@@ -24,6 +26,20 @@ public static class AuthMapping
     {
         ArgumentNullException.ThrowIfNull(request);
         return new RefreshCommand(request.RefreshToken);
+    }
+
+    /// <summary>D43. Маппит DTO запроса ссылки восстановления.</summary>
+    public static ForgotPasswordCommand ToCommand(this ForgotPasswordRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return new ForgotPasswordCommand(request.Email);
+    }
+
+    /// <summary>D43. Маппит DTO установки нового пароля по токену.</summary>
+    public static ResetPasswordCommand ToCommand(this ResetPasswordRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return new ResetPasswordCommand(request.Token, request.NewPassword);
     }
 
     /// <summary>Маппит DTO выхода из системы в команду use case.</summary>

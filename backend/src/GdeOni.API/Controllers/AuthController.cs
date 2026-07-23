@@ -4,11 +4,13 @@ using GdeOni.API.Models.Auth;
 using GdeOni.API.Models.Users;
 using GdeOni.API.RateLimiting;
 using GdeOni.API.Response;
+using GdeOni.Application.Auth.ForgotPassword.UseCase;
 using GdeOni.Application.Auth.Login.Model;
 using GdeOni.Application.Auth.Login.UseCase;
 using GdeOni.Application.Auth.Logout.UseCase;
 using GdeOni.Application.Auth.Refresh.Model;
 using GdeOni.Application.Auth.Refresh.UseCase;
+using GdeOni.Application.Auth.ResetPassword.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -39,6 +41,53 @@ public sealed class AuthController : ApiControllerBase
     {
         var result = await loginUseCase.Execute(request.ToCommand(), cancellationToken);
         return FromResult(result);
+    }
+
+    /// <summary>
+    /// D43. Запрашивает ссылку восстановления пароля на указанный email.
+    /// </summary>
+    /// <remarks>
+    /// Всегда возвращает 200, даже если такого пользователя нет. Это
+    /// сделано намеренно: иначе по коду ответа можно было бы перебором
+    /// выяснить, какие адреса зарегистрированы в сервисе. Клиенту в любом
+    /// случае показываем «если адрес зарегистрирован, письмо отправлено».
+    /// </remarks>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request,
+        [FromServices] IForgotPasswordUseCase forgotPasswordUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await forgotPasswordUseCase.Execute(request.ToCommand(), cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D43. Устанавливает новый пароль по токену из письма.
+    /// </summary>
+    /// <remarks>
+    /// Токен одноразовый и с ограниченным сроком жизни. Успешный сброс
+    /// закрывает все активные сессии пользователя на всех устройствах.
+    /// </remarks>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequest request,
+        [FromServices] IResetPasswordUseCase resetPasswordUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await resetPasswordUseCase.Execute(request.ToCommand(), cancellationToken);
+        return FromUnitResult(result);
     }
 
     /// <summary>

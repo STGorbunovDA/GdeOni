@@ -328,6 +328,8 @@ public static class MauiProgram
 
         services.AddTransient<LoginViewModel>();
         services.AddTransient<RegisterViewModel>();
+        // D43. Восстановление пароля.
+        services.AddTransient<ForgotPasswordViewModel>();
         services.AddTransient<TrackedListViewModel>();
         services.AddTransient<EventsViewModel>();
         services.AddTransient<RouteViewModel>();
@@ -367,6 +369,7 @@ public static class MauiProgram
 
         services.AddTransient<LoginPage>();
         services.AddTransient<RegisterPage>();
+        services.AddTransient<GdeOni.Mobile.Views.Auth.ForgotPasswordPage>();
         services.AddTransient<TrackedListPage>();
         services.AddTransient<GdeOni.Mobile.Views.Events.EventsPage>();
         services.AddTransient<RoutePage>();

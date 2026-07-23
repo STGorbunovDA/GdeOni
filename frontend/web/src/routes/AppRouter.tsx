@@ -1,6 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { RegisterPage } from '../pages/auth/RegisterPage';
+import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from '../pages/auth/ResetPasswordPage';
 import { TrackedListPage } from '../pages/tracked/TrackedListPage';
 import { DeceasedDetailsPage } from '../pages/tracked/DeceasedDetailsPage';
 import { EditCoordsPage } from '../pages/tracked/EditCoordsPage';
@@ -69,6 +71,12 @@ export function AppRouter() {
         {/* Публичные */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        {/* D43. Восстановление пароля — публичные роуты: юзер по
+            определению не может войти. Адрес /reset-password должен
+            совпадать с PasswordReset:WebResetUrl в конфиге бэка,
+            иначе ссылка из письма приведёт в никуда. */}
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         {/* F27. Публичная страница скачивания APK — доступна анонимам. */}
         <Route path="/download" element={<DownloadPage />} />
         {/* F24 / D19. Публичные legal-документы — доступны до логина,

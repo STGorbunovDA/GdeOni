@@ -87,7 +87,11 @@ public static class DependencyInjection
         // экземпляра. Singleton экономит аллокацию на каждый запрос
         // (см. D11.7.2).
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
-        services.AddSingleton<IRefreshTokenFactory, RefreshTokenFactory>();
+        services.AddSingleton<RefreshTokenFactory>();
+        services.AddSingleton<IRefreshTokenFactory>(sp => sp.GetRequiredService<RefreshTokenFactory>());
+        // D43. Тот же экземпляр под вторым именем — ссылке восстановления
+        // пароля нужна ровно та же криптография (32 байта + SHA-256).
+        services.AddSingleton<ISecureTokenFactory>(sp => sp.GetRequiredService<RefreshTokenFactory>());
 
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
 

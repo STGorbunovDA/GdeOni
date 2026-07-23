@@ -28,6 +28,11 @@ const KNOWN_CODES: Record<string, string> = {
   'user.user_name.too_long': 'Слишком длинное имя пользователя.',
   'user.full_name.too_long': 'Слишком длинное полное имя.',
   'user.current_password.invalid': 'Текущий пароль введён неверно.',
+  // D43. Восстановление пароля по ссылке из письма.
+  'user.password_reset_token.invalid':
+    'Ссылка недействительна или уже использована. Запросите восстановление ещё раз.',
+  'user.password_reset_token.expired':
+    'Срок действия ссылки истёк. Запросите восстановление ещё раз.',
 
   // Authorization
   'user.forbidden': 'У вас нет доступа к этому действию.',

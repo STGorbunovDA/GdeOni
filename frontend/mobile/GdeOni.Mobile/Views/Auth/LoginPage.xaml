@@ -56,6 +56,13 @@
                                 Style="{StaticResource GhostButton}"
                                 Command="{Binding GoToRegisterCommand}"
                                 IsEnabled="{Binding IsNotBusy}" />
+
+                        <!-- D43. Восстановление пароля. -->
+                        <Button Text="Забыли пароль?"
+                                Style="{StaticResource GhostButton}"
+                                FontSize="14"
+                                Command="{Binding GoToForgotPasswordCommand}"
+                                IsEnabled="{Binding IsNotBusy}" />
                     </VerticalStackLayout>
                 </Border>
 

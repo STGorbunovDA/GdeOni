@@ -105,3 +105,32 @@ export const changePasswordSchema = z
   });
 
 export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>;
+
+/**
+ * D43. Запрос ссылки восстановления — только email.
+ */
+export const forgotPasswordSchema = z.object({
+  email: z.string().min(1, 'Введите email').email('Невалидный email'),
+});
+
+export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
+
+/**
+ * D43. Установка нового пароля по ссылке из письма. Текущий пароль не
+ * спрашиваем — человек его как раз и не помнит; подтверждением личности
+ * служит токен из письма.
+ */
+export const resetPasswordSchema = z
+  .object({
+    newPassword: z
+      .string()
+      .min(MIN_PASSWORD_LENGTH, `Пароль не короче ${MIN_PASSWORD_LENGTH} символов`)
+      .max(MAX_PASSWORD_LENGTH, `Пароль не длиннее ${MAX_PASSWORD_LENGTH} символов`),
+    confirmPassword: z.string().min(1, 'Повторите новый пароль'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Пароли не совпадают',
+    path: ['confirmPassword'],
+  });
+
+export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;

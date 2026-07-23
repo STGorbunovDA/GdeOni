@@ -97,6 +97,12 @@ public static class DependencyInjection
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
 
+        // D43. Восстановление пароля. Секция опциональна: без неё
+        // (WebResetUrl пуст) письма не отправляются, но приложение
+        // стартует — как и с невыключенным SMTP.
+        services.Configure<PasswordResetOptions>(
+            configuration.GetSection(PasswordResetOptions.SectionName));
+
         var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
                          ?? throw new InvalidOperationException("JWT settings are not configured.");
 

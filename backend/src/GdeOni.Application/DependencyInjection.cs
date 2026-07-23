@@ -2,7 +2,9 @@
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Auth.Login.UseCase;
 using GdeOni.Application.Auth.Logout.UseCase;
+using GdeOni.Application.Auth.ForgotPassword.UseCase;
 using GdeOni.Application.Auth.Refresh.UseCase;
+using GdeOni.Application.Auth.ResetPassword.UseCase;
 using GdeOni.Application.Complimentary.Commands.Grant.UseCase;
 using GdeOni.Application.Complimentary.Commands.Revoke.UseCase;
 using GdeOni.Application.Subscriptions.Commands.RestartTrialByAdmin.UseCase;
@@ -106,6 +108,9 @@ public static class DependencyInjection
         services.AddScoped<ILoginUseCase, LoginUseCase>();
         services.AddScoped<IRefreshUseCase, RefreshUseCase>();
         services.AddScoped<ILogoutUseCase, LogoutUseCase>();
+        // D43. Восстановление пароля по ссылке из письма.
+        services.AddScoped<IForgotPasswordUseCase, ForgotPasswordUseCase>();
+        services.AddScoped<IResetPasswordUseCase, ResetPasswordUseCase>();
 
         services.AddScoped<IRegisterUserUseCase, RegisterUserUseCase>();
         services.AddScoped<IGetUserByIdUseCase, GetUserByIdUseCase>();
