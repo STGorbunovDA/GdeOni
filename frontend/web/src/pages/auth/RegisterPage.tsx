@@ -28,6 +28,7 @@ import {
   registerSchema,
 } from '../../auth/schemas';
 import { formatError } from '../../auth/errorMessages';
+import { parseDateInputValue, toDateInputValue } from '../../utils/formatDate';
 
 /**
  * F4. Регистрация: email + password + confirm + (опционально) имя.
@@ -68,7 +69,7 @@ export function RegisterPage() {
         password: values.password,
         userName: values.userName?.trim() || undefined,
         // ISO date «yyyy-MM-dd» без учёта таймзоны — DateOnly на бэке.
-        birthDate: formatBirthDate(values.birthDate),
+        birthDate: toDateInputValue(values.birthDate),
       });
 
       // Регистрация без токенов — сразу login с теми же creds.
@@ -142,11 +143,15 @@ export function RegisterPage() {
                 <TextInput
                   type="date"
                   label="Дата рождения"
-                  max={formatBirthDate(new Date())}
-                  value={field.value ? formatBirthDate(field.value) : ''}
+                  // min/max — браузерный guard: календарь не даст выбрать
+                  // будущее и заведомо нереальный год. Зод проверяет то же
+                  // самое на сабмите (ввод с клавиатуры min/max не режет).
+                  min="1900-01-01"
+                  max={toDateInputValue(new Date())}
+                  value={field.value ? toDateInputValue(field.value) : ''}
                   onChange={(e) => {
                     const v = e.currentTarget.value;
-                    field.onChange(v ? parseDateInput(v) : undefined);
+                    field.onChange(v ? parseDateInputValue(v) : undefined);
                   }}
                   error={errors.birthDate?.message}
                 />
@@ -227,25 +232,7 @@ export function RegisterPage() {
   );
 }
 
-/**
- * Форматирует Date в ISO date «yyyy-MM-dd» без учёта таймзоны — так
- * бэк примет DateOnly без сюрпризов от смещения. `toISOString()` не
- * подходит, потому что уводит дату в UTC и может сдвинуть день.
- */
-function formatBirthDate(value: Date): string {
-  const y = value.getFullYear();
-  const m = String(value.getMonth() + 1).padStart(2, '0');
-  const d = String(value.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-/**
- * Парсит значение нативного <input type="date"> («yyyy-MM-dd») в
- * локальную Date. Собираем через конструктор Y/M/D, чтобы избежать
- * UTC-сдвига, который даёт new Date("yyyy-MM-dd").
- */
-function parseDateInput(value: string): Date | undefined {
-  const [y, m, d] = value.split('-').map(Number);
-  if (!y || !m || !d) return undefined;
-  return new Date(y, m - 1, d);
-}
+// Локальные копии форматтера/парсера дат удалены: они дублировали
+// utils/formatDate и содержали баг round-trip (год 0–99 → 1900+год),
+// из-за которого набранный 1987 превращался в 1901 и не правился.
+// Теперь страница использует общие toDateInputValue/parseDateInputValue.

@@ -21,6 +21,13 @@ export const MAX_PASSWORD_LENGTH = 128;
  */
 export const MIN_ALLOWED_AGE = 14;
 
+/**
+ * Нижняя граница года рождения. Не бизнес-правило, а санитарная
+ * проверка ввода: отсекает недонабранный год из нативного date-инпута
+ * (0001, 0019, 0198 — все они «старше 14 лет» и иначе прошли бы).
+ */
+export const MIN_ALLOWED_BIRTH_YEAR = 1900;
+
 function calculateAge(birthDate: Date, today: Date): number {
   let age = today.getFullYear() - birthDate.getFullYear();
   const m = today.getMonth() - birthDate.getMonth();
@@ -61,6 +68,14 @@ export const registerSchema = z
     // (User.Register + TimeProvider), но UX без front-guard хуже.
     birthDate: z
       .date({ message: 'Укажите дату рождения' })
+      // Пока человек набирает год с клавиатуры, браузер отдаёт
+      // промежуточные даты (0001-…, 0019-…, 0198-…). Такие значения
+      // проходят возрастной гард (им «больше 14 лет»), поэтому нужен
+      // отдельный нижний предел — иначе недонабранный год уедет на бэк.
+      .refine(
+        (d) => d.getFullYear() >= MIN_ALLOWED_BIRTH_YEAR,
+        { message: 'Проверьте год рождения' },
+      )
       .refine(
         (d) => d <= new Date(),
         { message: 'Дата рождения не может быть в будущем' },
