@@ -12,6 +12,10 @@ namespace GdeOni.API.Security;
 /// </summary>
 public sealed class SecurityStampInvalidator(IMemoryCache memoryCache) : ISecurityStampInvalidator
 {
+    /// <summary>
+    /// Инвалидирует кеш SecurityStamp и SubscriptionAccess для
+    /// пользователя, чтобы ближайшая проверка токена обратилась в БД.
+    /// </summary>
     public void Invalidate(Guid userId)
     {
         memoryCache.Remove(DependencyInjection.SecurityStampCacheKey(userId));

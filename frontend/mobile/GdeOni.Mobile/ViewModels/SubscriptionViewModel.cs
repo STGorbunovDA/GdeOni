@@ -20,7 +20,9 @@ namespace GdeOni.Mobile.ViewModels;
 ///      кнопка "Оформить снова".
 ///   5) Иначе (Expired/None) — кнопка "Оформить подписку".
 /// </summary>
-public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) : ObservableObject
+public partial class SubscriptionViewModel(
+    ISubscriptionsApi subscriptionsApi,
+    IAppApi appApi) : ObservableObject
 {
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
@@ -53,9 +55,19 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
     [NotifyPropertyChangedFor(nameof(StatusDescription))]
     [NotifyPropertyChangedFor(nameof(ShowComplimentaryBlock))]
     [NotifyPropertyChangedFor(nameof(ShowSubscribeButton))]
+    [NotifyPropertyChangedFor(nameof(ShowContactSupportButton))]
     [NotifyPropertyChangedFor(nameof(ShowCancelButton))]
+    [NotifyPropertyChangedFor(nameof(ShowCancelPendingButton))]
     [NotifyPropertyChangedFor(nameof(SubscribeButtonText))]
     private MySubscriptionResponse? _current;
+
+    /// <summary>
+    /// D16. Кнопка «Отменить оплату» показывается только на PendingPayment
+    /// — юзер нажал «Назад» на странице YooKassa и хочет освободиться
+    /// от Pending.
+    /// </summary>
+    public bool ShowCancelPendingButton =>
+        Current is { HasComplimentaryAccess: false, Status: "PendingPayment" };
 
     public bool ShowComplimentaryBlock => Current?.HasComplimentaryAccess == true;
 
@@ -64,19 +76,45 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
     // активный доступ, оформлять/отменять до конца trial бессмысленно.
     public bool ShowCancelButton => false;
 
-    // Кнопка "Оформить" показывается только когда подписка действительно
-    // не активна: Cancelled, Expired, NeedSubscription (нет статуса).
-    // На Trial, Active и PendingPayment — скрыта (у юзера и так доступ
-    // или он уже в процессе оплаты).
+    // Кнопка "Оформить" показывается когда подписка не активна:
+    // Cancelled, Expired, PendingPayment, None. На Trial/Active — скрыта
+    // (у юзера и так доступ). PendingPayment раньше был скрыт, но
+    // юзер мог нажать «Назад» на странице YooKassa и застрять в Pending
+    // до автоотмены (~10 мин) — теперь кнопка есть, и повторный клик
+    // либо переиспользует существующий CheckoutUrl (D23), либо создаёт
+    // новый.
     public bool ShowSubscribeButton =>
         Current is { HasComplimentaryAccess: false }
         && Current.Status is not "Active"
         && Current.Status is not "Trial"
-        && Current.Status is not "PendingPayment";
+        // D44. Онлайн-оплата не подключена — кнопка увела бы на
+        // заглушку. Вместо неё показываем «Написать в поддержку».
+        && PaymentsAvailable;
+
+    /// <summary>
+    /// D44. Настроена ли РЕАЛЬНАЯ оплата (боевые ключи YooKassa).
+    /// Стартовое значение false: показать кнопку и тут же убрать хуже,
+    /// чем наоборот.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSubscribeButton))]
+    [NotifyPropertyChangedFor(nameof(ShowContactSupportButton))]
+    private bool _paymentsAvailable;
+
+    /// <summary>
+    /// D44. Кнопка обращения — там же, где была бы кнопка оплаты, и по
+    /// тем же условиям статуса: подписки нет и оплатить онлайн нечем.
+    /// </summary>
+    public bool ShowContactSupportButton =>
+        Current is { HasComplimentaryAccess: false }
+        && Current.Status is not "Active"
+        && Current.Status is not "Trial"
+        && !PaymentsAvailable;
 
     public string SubscribeButtonText => Current?.Status switch
     {
         "Cancelled" => "Оформить снова",
+        "PendingPayment" => "Продолжить оплату",
         _ => "Оформить подписку",
     };
 
@@ -121,7 +159,11 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
 
             return Current.Status switch
             {
-                "Trial" or "Active" or "Cancelled" or "PendingPayment" when Current.ExpiresAtUtc is { } expiry =>
+                "PendingPayment" =>
+                    "Ждём подтверждение оплаты от YooKassa. Если вы " +
+                    "не завершили оплату — нажмите «Продолжить оплату», " +
+                    "чтобы вернуться на страницу платежа.",
+                "Trial" or "Active" or "Cancelled" when Current.ExpiresAtUtc is { } expiry =>
                     $"До {expiry.ToLocalTime():dd.MM.yyyy} ({Current.DaysUntilExpiry} дн.)",
                 "Expired" => "Срок подписки закончился. Оформите снова, чтобы продолжить пользоваться приложением.",
                 _ => "Оформите подписку для полного доступа.",
@@ -138,6 +180,25 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
         {
             IsBusy = true;
             ErrorMessage = null;
+            // D16 pull-fallback: перед каждым GetMy просим бэк подтянуть
+            // свежий статус у YooKassa. Идемпотентно, no-op когда
+            // синхронизировать нечего. Ошибку глотаем — GetMy отдаст
+            // текущий статус как есть.
+            try { await subscriptionsApi.SyncAsync(); }
+            catch { /* игнорируем — упадёт GetMy если нужно */ }
+
+            // D44. Подключена ли онлайн-оплата. Ошибку глушим: не
+            // узнали — считаем, что недоступна, и ведём в поддержку.
+            try
+            {
+                var features = await appApi.GetFeaturesAsync();
+                PaymentsAvailable = features.Result?.PaymentsAvailable ?? false;
+            }
+            catch
+            {
+                PaymentsAvailable = false;
+            }
+
             var envelope = await subscriptionsApi.GetMyAsync();
             Current = envelope.Result;
             if (envelope.Result is null)
@@ -288,6 +349,67 @@ public partial class SubscriptionViewModel(ISubscriptionsApi subscriptionsApi) :
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private async Task CancelPendingAsync()
+    {
+        var page = Shell.Current?.CurrentPage;
+        if (page is not null)
+        {
+            var confirmed = await page.DisplayAlertAsync(
+                "Отменить оплату?",
+                "Незавершённый платёж будет закрыт. Вы сможете оформить " +
+                "подписку заново, когда будете готовы.",
+                "Отменить оплату",
+                "Не отменять");
+            if (!confirmed) return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = null;
+            await subscriptionsApi.CancelPendingAsync();
+            await LoadAsync();
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (HttpRequestException httpEx)
+        {
+            ErrorMessage = $"Сетевая ошибка: {httpEx.Message}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// D44. Уводит в форму обращения с преднастроенной темой «Оплата».
+    /// Показывается вместо кнопки оплаты, пока онлайн-платежи не
+    /// подключены: оплата переводом, доступ админ выдаёт вручную.
+    /// </summary>
+    [RelayCommand]
+    private static async Task ContactSupportAsync()
+    {
+        await Shell.Current.GoToAsync("support-new?kind=Payment");
+    }
+
+    /// <summary>
+    /// D44. Вход в список своих обращений — чтобы вернуться в переписку
+    /// после «создал обращение и ушёл».
+    /// </summary>
+    [RelayCommand]
+    private static async Task MyTicketsAsync()
+    {
+        await Shell.Current.GoToAsync("support-mine");
     }
 
     [RelayCommand]

@@ -40,4 +40,26 @@ public sealed class YooKassaOptions
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(SecretKey)
         && !string.IsNullOrWhiteSpace(ShopId);
+
+    /// <summary>
+    /// D44. Можно ли РЕАЛЬНО оплатить — то есть настроен боевой ключ
+    /// (<c>live_*</c>), а не тестовый. Отдаётся клиентам как
+    /// <c>PaymentsAvailable</c>: по нему они решают, показывать кнопку
+    /// оплаты или вести человека в поддержку (оплата переводом).
+    ///
+    /// Почему НЕ <see cref="IsConfigured"/>. Тестовый ключ
+    /// (<c>test_*</c>) — это рабочая интеграция, но деньги по ней не
+    /// приходят. Для пользователя это ровно то же, что «оплата не
+    /// работает», поэтому кнопку показывать нельзя. Заодно это страхует
+    /// от худшего сценария: тестовые ключи случайно уехали на прод,
+    /// человек «оплачивает», деньги не приходят, а он считает, что
+    /// заплатил.
+    ///
+    /// <see cref="IsConfigured"/> при этом не трогаем — он про выбор
+    /// провайдера в DI, и на тестовых ключах YooKassa-провайдер должен
+    /// работать (иначе не проверить интеграцию до боевых ключей).
+    /// </summary>
+    public bool IsLivePaymentsEnabled =>
+        IsConfigured
+        && SecretKey.StartsWith("live_", StringComparison.OrdinalIgnoreCase);
 }

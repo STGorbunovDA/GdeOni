@@ -22,6 +22,7 @@ public sealed class WebhookIpWhitelistMiddleware
     private readonly List<(IPAddress NetworkAddress, int PrefixLength)> _allowedNetworks;
     private readonly ILogger<WebhookIpWhitelistMiddleware> _logger;
 
+    /// <summary>Конструирует middleware, парсит CIDR-блоки из конфигурации.</summary>
     public WebhookIpWhitelistMiddleware(
         RequestDelegate next,
         IOptions<WebhookSecurityOptions> options,
@@ -32,6 +33,7 @@ public sealed class WebhookIpWhitelistMiddleware
         _allowedNetworks = ParseCidrs(options.Value.AllowedCidrs, logger);
     }
 
+    /// <summary>Точка входа middleware: пропускает или отбивает webhook по IP-whitelist.</summary>
     public async Task InvokeAsync(HttpContext context)
     {
         // No-op: ничего не настроено или путь не webhook.

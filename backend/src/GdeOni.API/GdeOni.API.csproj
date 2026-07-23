@@ -44,6 +44,15 @@
       </Content>
     </ItemGroup>
 
+    <!-- D19.9. Канонические тексты Privacy Policy / Terms of Use лежат в
+         backend/docs/legal и едут с API: оба клиента получают их через
+         GET /api/legal/*, своей копии не держат. Файлы v1 (архив старых
+         редакций) в сборку НЕ включаем — отдаётся только актуальная. -->
+    <ItemGroup>
+      <Content Include="..\..\docs\legal\privacy-policy.md" Link="Legal\privacy-policy.md" CopyToOutputDirectory="PreserveNewest" />
+      <Content Include="..\..\docs\legal\terms-of-use.md" Link="Legal\terms-of-use.md" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
     <PropertyGroup>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>

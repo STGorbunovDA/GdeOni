@@ -17,7 +17,8 @@ public sealed record MemoryItemViewModel(
     Guid Id,
     string Text,
     DateTime CreatedAtUtc,
-    bool CanEdit)
+    bool CanEdit,
+    string AuthorDisplay)
 {
     public static MemoryItemViewModel From(
         DeceasedMemoryResponse memory,
@@ -32,10 +33,17 @@ public sealed record MemoryItemViewModel(
             memoryAuthorUserId: memory.AuthorUserId,
             cardCreatedByUserId: cardCreatedByUserId);
 
+        // F12: AuthorName из бэка (FullName ?? UserName); fallback "Аноним"
+        // если бэк ещё старый или автор удалил аккаунт.
+        var authorDisplay = string.IsNullOrWhiteSpace(memory.AuthorName)
+            ? "Аноним"
+            : memory.AuthorName;
+
         return new MemoryItemViewModel(
             memory.Id,
             memory.Text,
             memory.CreatedAtUtc,
-            canEdit);
+            canEdit,
+            authorDisplay);
     }
 }

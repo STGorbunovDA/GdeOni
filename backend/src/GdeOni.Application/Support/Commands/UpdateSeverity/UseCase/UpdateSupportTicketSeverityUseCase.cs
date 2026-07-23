@@ -25,7 +25,7 @@ public sealed class UpdateSupportTicketSeverityUseCase(
         UpdateSupportTicketSeverityCommand command,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.IsAdmin())
+        if (!currentUserService.IsSuperAdmin())
             return Errors.User.UserForbidden();
 
         var ticket = await ticketRepository.GetById(command.TicketId, cancellationToken);

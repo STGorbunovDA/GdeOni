@@ -3,8 +3,13 @@ using Microsoft.OpenApi.Models;
 
 namespace GdeOni.API.Extensions;
 
+/// <summary>
+/// Регистрация Swagger/OpenAPI генератора с поддержкой JWT-авторизации
+/// и подключением XML-комментариев из сгенерированного doc-файла.
+/// </summary>
 public static class SwaggerExtensions
 {
+    /// <summary>Регистрирует SwaggerGen с включёнными XML-комментариями и Bearer-схемой.</summary>
     public static IServiceCollection AddCustomSwagger(this IServiceCollection services)
     {
         services.AddSwaggerGen(c =>

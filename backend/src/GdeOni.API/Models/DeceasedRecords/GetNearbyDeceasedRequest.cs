@@ -7,7 +7,9 @@ namespace GdeOni.API.Models.DeceasedRecords;
 /// </summary>
 public sealed class GetNearbyDeceasedRequest
 {
+    /// <summary>Широта GPS-координаты пользователя.</summary>
     public double Latitude { get; set; }
+    /// <summary>Долгота GPS-координаты пользователя.</summary>
     public double Longitude { get; set; }
 
     /// <summary>
@@ -17,6 +19,8 @@ public sealed class GetNearbyDeceasedRequest
     /// </summary>
     public double RadiusMeters { get; set; } = 100;
 
+    /// <summary>Номер страницы (от 1).</summary>
     public int Page { get; set; } = 1;
+    /// <summary>Размер страницы.</summary>
     public int PageSize { get; set; } = 20;
 }

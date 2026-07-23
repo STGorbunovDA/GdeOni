@@ -9,6 +9,11 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace GdeOni.API.Security;
 
+/// <summary>
+/// Реализация <see cref="IJwtProvider"/> на базе
+/// <see cref="JwtSecurityTokenHandler"/>. Формирует подписанный
+/// HS256 access-токен с минимальным набором claim'ов (без PII).
+/// </summary>
 public sealed class JwtProvider(
     IOptions<JwtOptions> options,
     IMemoryCache memoryCache,
@@ -17,6 +22,10 @@ public sealed class JwtProvider(
 {
     private readonly JwtOptions _options = options.Value;
 
+    /// <summary>
+    /// Генерирует подписанный JWT для пользователя и одновременно
+    /// прогревает кеш SecurityStamp (write-through).
+    /// </summary>
     public AccessToken GenerateAccessToken(User user)
     {
         // PII в JWT — это утечка: токен живёт в local storage клиента

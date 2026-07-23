@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- F27. SEO / social preview. Минимум для превью ссылки в
+         мессенджерах и поисковой выдачи. -->
+    <title>ГдеОни — сайт поиска умерших</title>
+    <meta
+      name="description"
+      content="Каталог мест захоронений с GPS-координатами: быстро находите могилы близких, делитесь местом с родственниками, храните семейную память."
+    />
+
+    <meta property="og:title" content="ГдеОни" />
+    <meta
+      property="og:description"
+      content="Каталог мест захоронений с GPS-координатами."
+    />
+    <meta property="og:image" content="/favicon.svg" />
+    <meta property="og:type" content="website" />
+
+    <!-- Шрифты подключены локально (src/assets/fonts/fonts.css, импорт
+         в main.tsx). Google Fonts НЕ используем: сайт должен работать
+         на сервере без внешнего интернета и без утечки IP посетителей
+         на сторонний CDN. -->
+
+    <!-- F37. Ставим схему до первой отрисовки. Без этого React успевает
+         показать светлый фон, и тёмная тема моргает белым при каждой
+         загрузке. Ключ и значения — те же, что у Mantine
+         localStorageColorSchemeManager в main.tsx. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('gdeoni-color-scheme') || 'auto';
+          var dark =
+            stored === 'dark' ||
+            (stored === 'auto' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.setAttribute(
+            'data-mantine-color-scheme',
+            dark ? 'dark' : 'light',
+          );
+        } catch (e) {
+          /* приватный режим без localStorage — остаёмся на светлой */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

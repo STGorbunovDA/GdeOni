@@ -92,6 +92,23 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- D34. Если тикет создан с карточки умершего — кнопка
+                     быстрого перехода. Парсится из Description маркером
+                     "ID карточки: {guid}". -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding HasDeceasedRef}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Связанная карточка умершего"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Это обращение пришло из карточки умершего. Открыть карточку?"
+                               Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Открыть карточку"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding OpenDeceasedCommand}"
+                                HorizontalOptions="Fill" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <!-- Описание -->
                 <Border Style="{StaticResource CloudCard}">
                     <VerticalStackLayout Spacing="8">
@@ -115,6 +132,70 @@
                                LineBreakMode="WordWrap" />
                     </VerticalStackLayout>
                 </Border>
+
+                <!-- D33. Вложения от юзера. Тап — открывает файл в браузере
+                     (presigned URL). Браузер сам решает: фото / PDF
+                     показать inline, или предложить скачать на устройство. -->
+                <Label Text="Вложения"
+                       Style="{StaticResource SubTitleLabel}"
+                       Margin="4,8,0,0"
+                       IsVisible="{Binding HasAttachments}" />
+
+                <CollectionView ItemsSource="{Binding Attachments}"
+                                SelectionMode="None"
+                                IsVisible="{Binding HasAttachments}"
+                                x:Name="AttachmentsList">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vmsup:AttachmentDisplayItem">
+                            <Border WidthRequest="100"
+                                    HeightRequest="120"
+                                    StrokeThickness="1"
+                                    Stroke="{StaticResource Sky}"
+                                    Padding="0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="10" />
+                                </Border.StrokeShape>
+                                <!-- D35. Тап показывает ActionSheet:
+                                     "Открыть на весь экран" / "Сделать
+                                     главным фото умершего" (если есть
+                                     DeceasedRefId и это фото). -->
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference AttachmentsList}, Path=BindingContext.PhotoLongPressCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Grid RowDefinitions="*,Auto">
+                                    <Label Grid.Row="0"
+                                           FontSize="36"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label"
+                                                         Binding="{Binding IsImage}"
+                                                         Value="True">
+                                                <Setter Property="Text" Value="🖼" />
+                                            </DataTrigger>
+                                            <DataTrigger TargetType="Label"
+                                                         Binding="{Binding IsImage}"
+                                                         Value="False">
+                                                <Setter Property="Text" Value="📄" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                    <Label Grid.Row="1"
+                                           Text="{Binding SizeLabel}"
+                                           FontSize="10"
+                                           TextColor="{StaticResource Azure}"
+                                           HorizontalOptions="Center"
+                                           Padding="2,4" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
 
                 <!-- D25.2. Полная переписка. Для админа: свои (Admin)
                      белые справа, юзер (User) жёлтые слева. -->
@@ -152,9 +233,29 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
-                <!-- Смена статуса (скрыта если уже Resolved) -->
+                <!-- D44. Ответ пользователю БЕЗ смены статуса. Раньше,
+                     чтобы написать, приходилось помечать обращение
+                     решённым. Доступен на любой стадии, включая
+                     закрытое обращение. -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Ответ пользователю"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Editor Placeholder="Напишите сообщение…"
+                                Text="{Binding NewMessageText}"
+                                AutoSize="TextChanges"
+                                HeightRequest="90"
+                                BackgroundColor="{StaticResource Cloud}" />
+                        <Button Text="Отправить"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding SendMessageCommand}"
+                                IsEnabled="{Binding IsSaving, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Смена статуса (скрыта на Resolved и Closed — бэк не пустит) -->
                 <Border Style="{StaticResource CloudCard}"
-                        IsVisible="{Binding IsResolved, Converter={StaticResource InvertedBool}}">
+                        IsVisible="{Binding CanEditStatus}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Сменить статус"
                                Style="{StaticResource SubTitleLabel}" />
@@ -178,9 +279,9 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Смена severity (скрыта если уже Resolved — бэк не пустит) -->
+                <!-- Смена severity (скрыта на Resolved и Closed — бэк не пустит) -->
                 <Border Style="{StaticResource CloudCard}"
-                        IsVisible="{Binding IsResolved, Converter={StaticResource InvertedBool}}">
+                        IsVisible="{Binding CanEditStatus}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="Сменить приоритет"
                                Style="{StaticResource SubTitleLabel}" />
@@ -191,6 +292,30 @@
                                 Command="{Binding SaveSeverityCommand}"
                                 IsEnabled="{Binding IsSaving, Converter={StaticResource InvertedBool}}" />
                     </VerticalStackLayout>
+                </Border>
+
+                <!-- D40. Принудительное закрытие: доступно из ЛЮБОГО статуса,
+                     кроме уже закрытого. Нужно, когда юзер забыл подтвердить
+                     решение и обращение висит вечно. -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding CanForceClose}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Закрыть принудительно"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Закрывает обращение без подтверждения пользователя. Переоткрыть он его уже не сможет. Причину увидит в переписке."
+                               Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Закрыть принудительно"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding ForceCloseCommand}"
+                                IsEnabled="{Binding IsSaving, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Пояснение для уже закрытого обращения. -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding IsClosed}">
+                    <Label Text="Обращение закрыто принудительно — пользователь переоткрыть его не может. Если закрыли по ошибке, верните его в работу сменой статуса выше."
+                           Style="{StaticResource CaptionLabel}" />
                 </Border>
 
                 <ActivityIndicator IsRunning="{Binding IsSaving}"

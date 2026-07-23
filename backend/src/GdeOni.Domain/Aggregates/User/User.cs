@@ -13,6 +13,14 @@ public sealed partial class User : Entity<Guid>
     public const int MaxPasswordHash = 1000;
     public const int MaxComplimentaryNoteLength = 500;
     public const int MaxBlockReasonLength = 500;
+
+    /// <summary>
+    /// D19. Минимальный возраст пользователя (Условия использования,
+    /// п. 3.4). Ниже — регистрация отбивается ошибкой
+    /// <c>user.birth_date.min_age</c>.
+    /// </summary>
+    public const int MinAllowedAge = 14;
+
     public string Email { get; private set; }
 
     /// <summary>
@@ -29,6 +37,16 @@ public sealed partial class User : Entity<Guid>
     public string UserNameNormalized { get; private set; }
 
     public string? FullName { get; private set; }
+
+    /// <summary>
+    /// D19. Дата рождения пользователя. Обязательное поле при новой
+    /// регистрации (после введения возрастного гарда) — проверяется
+    /// в <see cref="Register"/>. Nullable для обратной совместимости
+    /// с юзерами, зарегистрированными до миграции: у них поле остаётся
+    /// null, но повторно проходить онбординг никто не заставляет.
+    /// </summary>
+    public DateOnly? BirthDate { get; private set; }
+
     public string PasswordHash { get; private set; }
     public UserRole Role { get; private set; }
     public DateTime RegisteredAtUtc { get; }
@@ -130,6 +148,7 @@ public sealed partial class User : Entity<Guid>
         string userName,
         string userNameNormalized,
         string? fullName,
+        DateOnly? birthDate,
         string passwordHash,
         UserRole role,
         DateTime registeredAtUtc) : base(id)
@@ -138,6 +157,7 @@ public sealed partial class User : Entity<Guid>
         UserName = userName;
         UserNameNormalized = userNameNormalized;
         FullName = fullName;
+        BirthDate = birthDate;
         PasswordHash = passwordHash;
         Role = role;
         RegisteredAtUtc = registeredAtUtc;
@@ -145,6 +165,42 @@ public sealed partial class User : Entity<Guid>
         Subscription = Subscription.Initial();
     }
 
+    /// <summary>
+    /// D19. Регистрация нового пользователя. <paramref name="birthDate"/>
+    /// обязателен для новой регистрации: не в будущем и подтверждает
+    /// минимальный возраст <see cref="MinAllowedAge"/> (14 лет).
+    ///
+    /// <paramref name="nowUtc"/> нужен для проверки возраста относительно
+    /// «сейчас» — TimeProvider из use case (в тестах фейковый).
+    /// </summary>
+    public static Result<User, Error> Register(
+        string email,
+        string passwordHash,
+        DateOnly birthDate,
+        DateTime nowUtc,
+        string? fullName = null,
+        string? userName = null,
+        UserRole role = UserRole.RegularUser)
+    {
+        if (!Enum.IsDefined(typeof(UserRole), role) ||
+            role == UserRole.Unknown ||
+            role == UserRole.SuperAdmin)
+        {
+            return Errors.User.RoleInvalid();
+        }
+
+        var birthDateResult = ValidateBirthDate(birthDate, nowUtc);
+        if (birthDateResult.IsFailure)
+            return birthDateResult.Error;
+
+        return BuildUser(email, passwordHash, fullName, userName, birthDate, role);
+    }
+
+    /// <summary>
+    /// Legacy-фабрика для обратной совместимости с тестами и сценариями,
+    /// где возраст ещё не собирался (до введения возрастного гарда).
+    /// Не показывать в API — только internal usage.
+    /// </summary>
     public static Result<User, Error> Register(
         string email,
         string passwordHash,
@@ -159,7 +215,7 @@ public sealed partial class User : Entity<Guid>
             return Errors.User.RoleInvalid();
         }
 
-        return BuildUser(email, passwordHash, fullName, userName, role);
+        return BuildUser(email, passwordHash, fullName, userName, birthDate: null, role);
     }
 
     /// <summary>
@@ -174,7 +230,35 @@ public sealed partial class User : Entity<Guid>
         string? fullName = null,
         string? userName = null)
     {
-        return BuildUser(email, passwordHash, fullName, userName, UserRole.SuperAdmin);
+        return BuildUser(email, passwordHash, fullName, userName, birthDate: null, UserRole.SuperAdmin);
+    }
+
+    /// <summary>
+    /// Проверка даты рождения — не в будущем и удовлетворяет
+    /// <see cref="MinAllowedAge"/>. Вынесена в отдельный метод, чтобы
+    /// переиспользовать в тестах и при возможных будущих проверках
+    /// возраста.
+    /// </summary>
+    internal static UnitResult<Error> ValidateBirthDate(DateOnly birthDate, DateTime nowUtc)
+    {
+        var today = DateOnly.FromDateTime(nowUtc);
+        if (birthDate > today)
+            return Errors.User.BirthDateInvalid();
+
+        var age = CalculateAge(birthDate, today);
+        if (age < MinAllowedAge)
+            return Errors.User.BirthDateMinAgeNotMet(MinAllowedAge);
+
+        return UnitResult.Success<Error>();
+    }
+
+    private static int CalculateAge(DateOnly birthDate, DateOnly today)
+    {
+        var age = today.Year - birthDate.Year;
+        // Если день рождения в этом году ещё не наступил — отнимаем 1.
+        if (birthDate > today.AddYears(-age))
+            age--;
+        return age;
     }
 
     private static Result<User, Error> BuildUser(
@@ -182,6 +266,7 @@ public sealed partial class User : Entity<Guid>
         string passwordHash,
         string? fullName,
         string? userName,
+        DateOnly? birthDate,
         UserRole role)
     {
         if (string.IsNullOrWhiteSpace(passwordHash))
@@ -206,6 +291,7 @@ public sealed partial class User : Entity<Guid>
                 userNameResult.Value.Display,
                 userNameResult.Value.Normalized,
                 fullNameResult.Value,
+                birthDate,
                 passwordHash,
                 role,
                 DateTime.UtcNow));
@@ -258,6 +344,10 @@ public sealed partial class User : Entity<Guid>
             return UnitResult.Success<Error>();
 
         Email = emailResult.Value;
+        // D43. Ссылка сброса ушла на СТАРЫЙ адрес — после смены email она
+        // обязана умереть, иначе прежний почтовый ящик остаётся ключом
+        // к аккаунту.
+        ClearPasswordResetToken();
         SecurityStamp = Guid.NewGuid();
         Touch();
         return UnitResult.Success<Error>();
@@ -269,6 +359,9 @@ public sealed partial class User : Entity<Guid>
             return Errors.User.PasswordHashRequired();
 
         PasswordHash = newPasswordHash;
+        // D43. Человек вспомнил пароль и сменил его сам — ранее
+        // отправленная ссылка восстановления перестаёт работать.
+        ClearPasswordResetToken();
         SecurityStamp = Guid.NewGuid();
         Touch();
         return UnitResult.Success<Error>();
@@ -424,6 +517,28 @@ public sealed partial class User : Entity<Guid>
         }
 
         Subscription = Subscription.WithCancelled(nowUtc);
+        Touch();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D16. Юзер отменил незавершённую оплату (например, тапнул
+    /// «Назад» на странице YooKassa и хочет освободиться от зависшего
+    /// PendingPayment). Возвращает подписку в состояние без плана:
+    /// если ExpiresAtUtc всё ещё в будущем — Trial (доступ сохраняется),
+    /// иначе — Expired.
+    ///
+    /// Упрощение: не сохраняем факт того, что подписка раньше была
+    /// Cancelled/Active/etc. В подавляющем большинстве случаев эта
+    /// операция вызывается сразу после Trial → PendingPayment; для
+    /// UX «есть доступ до X» это неотличимо.
+    /// </summary>
+    public UnitResult<Error> CancelPendingPayment(DateTime nowUtc)
+    {
+        if (Subscription.Status != SubscriptionStatus.PendingPayment)
+            return Errors.Subscription.NotCancellable();
+
+        Subscription = Subscription.WithPendingCancelled(nowUtc);
         Touch();
         return UnitResult.Success<Error>();
     }

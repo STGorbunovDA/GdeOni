@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             x:Name="Page"
              x:Class="GdeOni.Mobile.Views.Support.SupportNewPage"
              x:DataType="vm:SupportNewViewModel"
              Style="{StaticResource CloudPage}"
@@ -43,6 +44,90 @@
                                 HeightRequest="180"
                                 AutoSize="TextChanges"
                                 Text="{Binding Description}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- D33. Вложения — до 5 файлов (JPEG/PNG/PDF). -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Файлы" Style="{StaticResource CaptionLabel}" />
+                        <Label Text="Прикрепите фото или PDF, чтобы помочь администратору быстрее разобраться. Максимум 5 файлов."
+                               Style="{StaticResource CaptionLabel}"
+                               FontSize="12" />
+
+                        <Button Text="{Binding AttachmentsLabel}"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding PickAttachmentCommand}"
+                                HorizontalOptions="Fill" />
+
+                        <CollectionView ItemsSource="{Binding Attachments}"
+                                        IsVisible="{Binding HasAttachments}"
+                                        SelectionMode="None">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PickedAttachment">
+                                    <Border WidthRequest="100"
+                                            HeightRequest="120"
+                                            StrokeThickness="1"
+                                            Stroke="{StaticResource Sky}"
+                                            Padding="0">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="10" />
+                                        </Border.StrokeShape>
+                                        <Grid RowDefinitions="*,Auto">
+
+                                            <!-- Превью: для PDF — иконка; для фото оставляем место (превью
+                                                 байтов в MAUI требует platform-specific подгрузки, обходимся
+                                                 названием файла снизу). -->
+                                            <Grid Grid.Row="0">
+                                                <Label FontSize="36"
+                                                       HorizontalOptions="Center"
+                                                       VerticalOptions="Center">
+                                                    <Label.Triggers>
+                                                        <DataTrigger TargetType="Label"
+                                                                     Binding="{Binding IsImage}"
+                                                                     Value="True">
+                                                            <Setter Property="Text" Value="🖼" />
+                                                        </DataTrigger>
+                                                        <DataTrigger TargetType="Label"
+                                                                     Binding="{Binding IsImage}"
+                                                                     Value="False">
+                                                            <Setter Property="Text" Value="📄" />
+                                                        </DataTrigger>
+                                                    </Label.Triggers>
+                                                </Label>
+                                            </Grid>
+
+                                            <Label Grid.Row="1"
+                                                   Text="{Binding SizeLabel}"
+                                                   FontSize="10"
+                                                   TextColor="{StaticResource Azure}"
+                                                   HorizontalOptions="Center"
+                                                   Padding="2,4" />
+
+                                            <!-- Кнопка удаления вложения. -->
+                                            <Button Grid.Row="0"
+                                                    Text="✕"
+                                                    FontSize="12"
+                                                    FontAttributes="Bold"
+                                                    BackgroundColor="#C0392B"
+                                                    TextColor="White"
+                                                    CornerRadius="12"
+                                                    WidthRequest="24"
+                                                    HeightRequest="24"
+                                                    Padding="0"
+                                                    HorizontalOptions="End"
+                                                    VerticalOptions="Start"
+                                                    Margin="0,4,4,0"
+                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.RemoveAttachmentCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
                     </VerticalStackLayout>
                 </Border>
 

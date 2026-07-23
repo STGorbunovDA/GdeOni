@@ -7,6 +7,10 @@ namespace GdeOni.API.Observability;
 /// </summary>
 public static class SentryRegistration
 {
+    /// <summary>
+    /// Регистрирует и поднимает Sentry на уровне WebHost, если в
+    /// конфигурации задан DSN. Без DSN метод no-op.
+    /// </summary>
     public static WebApplicationBuilder AddCustomSentry(this WebApplicationBuilder builder)
     {
         var section = builder.Configuration.GetSection(SentryOptions.SectionName);

@@ -1,8 +1,13 @@
-﻿namespace GdeOni.API.Models.Users;
+namespace GdeOni.API.Models.Users;
 
+/// <summary>
+/// Запрос обновления профиля текущего пользователя.
+/// </summary>
 public sealed class UpdateUserProfileRequest
 {
+    /// <summary>Новый логин пользователя.</summary>
     public string UserName { get; set; } = null!;
+    /// <summary>Новое полное имя пользователя.</summary>
     public string? FullName { get; set; }
 
     /// <summary>

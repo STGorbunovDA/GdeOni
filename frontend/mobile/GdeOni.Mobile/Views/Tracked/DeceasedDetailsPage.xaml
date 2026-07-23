@@ -38,9 +38,10 @@
                             Padding="16,8"
                             FontSize="14" />
 
-                    <!-- E26. Кнопка перехода на EditDeceasedPage. Видимость
-                         не управляется тут — 403 от бэка обработает страница
-                         редактирования (см. ICanEditDeceasedPolicy на бэке). -->
+                    <!-- E26. Кнопка перехода на EditDeceasedPage — только
+                         админам. Обычный юзер правит карточку через
+                         "Написать в поддержку" (карточка ссылается на
+                         deceasedId в шаблоне обращения). -->
                     <Button Grid.Column="2"
                             Text="Изменить"
                             Style="{StaticResource PrimaryButton}"
@@ -48,7 +49,7 @@
                             HorizontalOptions="End"
                             Padding="16,8"
                             FontSize="14"
-                            IsVisible="{Binding HasData}" />
+                            IsVisible="{Binding IsCurrentUserAdmin}" />
 
                     <!-- Удаление карточки — только админам. Backend дублирует
                          проверку роли независимо от UI. -->
@@ -174,6 +175,7 @@
                             <Button Text="Поправить координаты"
                                     Style="{StaticResource GhostButton}"
                                     Command="{Binding EditCoordinatesCommand}"
+                                    IsVisible="{Binding CanEditCoordinates}"
                                     HorizontalOptions="Fill" />
                         </VerticalStackLayout>
                     </Border>
@@ -300,14 +302,19 @@
                                    Text="Пока нет воспоминаний. Нажмите ＋, чтобы поделиться первым."
                                    Style="{StaticResource CaptionLabel}" />
 
-                            <CollectionView ItemsSource="{Binding Memories}"
-                                            SelectionMode="None"
-                                            HeightRequest="{OnIdiom Phone=400, Desktop=600}"
-                                            IsVisible="{Binding HasMemories}">
-                                <CollectionView.ItemsLayout>
-                                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
-                                </CollectionView.ItemsLayout>
-                                <CollectionView.ItemTemplate>
+                            <!--
+                                BindableLayout вместо CollectionView: список
+                                "коротких" воспоминаний (десятки максимум) внутри
+                                ScrollView. CollectionView внутри ScrollView
+                                требовал HeightRequest, иначе схлопывался — а
+                                фиксированный 400px давал пустую зону при одном
+                                воспоминании. BindableLayout берёт ровно столько,
+                                сколько нужно содержимому.
+                            -->
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Memories}"
+                                                 Spacing="8"
+                                                 IsVisible="{Binding HasMemories}">
+                                <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:MemoryItemViewModel">
                                         <SwipeView>
                                             <SwipeView.RightItems>
@@ -332,6 +339,10 @@
                                                     <RoundRectangle CornerRadius="10" />
                                                 </Border.StrokeShape>
                                                 <VerticalStackLayout Spacing="6">
+                                                    <Label Text="{Binding AuthorDisplay}"
+                                                           TextColor="{StaticResource AzureDeep}"
+                                                           FontSize="12"
+                                                           FontAttributes="Bold" />
                                                     <Label Text="{Binding Text}"
                                                            Style="{StaticResource BodyLabel}" />
                                                     <Label Text="{Binding CreatedAtUtc, StringFormat='{0:dd.MM.yyyy}'}"
@@ -345,8 +356,24 @@
                                             </Border>
                                         </SwipeView>
                                     </DataTemplate>
-                                </CollectionView.ItemTemplate>
-                            </CollectionView>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- D34. Написать в поддержку с контекстом текущей
+                         карточки. SupportNewPage сам подставит имя и
+                         даты в готовый шаблон Description. -->
+                    <Border Style="{StaticResource CloudCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Нужна помощь по этой карточке?"
+                                   Style="{StaticResource SubTitleLabel}" />
+                            <Label Text="Например, нет фото или ошибка в данных. Администратор увидит ваше обращение в админ-панели."
+                                   Style="{StaticResource CaptionLabel}" />
+                            <Button Text="Написать в поддержку"
+                                    Style="{StaticResource GhostButton}"
+                                    Command="{Binding OpenSupportFromDeceasedCommand}"
+                                    HorizontalOptions="Fill" />
                         </VerticalStackLayout>
                     </Border>
 

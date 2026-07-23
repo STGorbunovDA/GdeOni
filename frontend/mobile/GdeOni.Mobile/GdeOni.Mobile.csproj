@@ -29,8 +29,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#5FA8D3" />
-		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#E6F4FB" BaseSize="128,128" />
+		<!-- Цвета иконки и сплэша — палитра Medilab (accent / светлый фон). -->
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#1977CC" />
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#F1F7FC" BaseSize="128,128" />
 
 		<MauiImage Include="Resources\Images\*" />
 		<MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />

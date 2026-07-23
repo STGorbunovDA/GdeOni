@@ -30,6 +30,12 @@ public sealed class SupportTicket : Entity<Guid>
     public const int MaxDetailsLength = 8000;
     public const int MaxUserReplyLength = 4000;
 
+    /// <summary>D33. Максимум вложений на тикет.</summary>
+    public const int MaxAttachmentsPerTicket = 5;
+
+    /// <summary>D33. Суммарный размер всех вложений (50 MB).</summary>
+    public const long MaxAttachmentsTotalSizeBytes = 50L * 1024 * 1024;
+
     public Guid? UserId { get; private set; }
     public SupportTicketSource Source { get; private set; }
     public SupportTicketKind Kind { get; private set; }
@@ -81,6 +87,13 @@ public sealed class SupportTicket : Entity<Guid>
     /// </summary>
     private readonly List<SupportTicketMessage> _messages = new();
     public IReadOnlyCollection<SupportTicketMessage> Messages => _messages.AsReadOnly();
+
+    /// <summary>
+    /// D33. Файлы, которые юзер приложил при создании тикета (до 5).
+    /// Reopen не добавляет вложения — только initial.
+    /// </summary>
+    private readonly List<SupportTicketAttachment> _attachments = new();
+    public IReadOnlyCollection<SupportTicketAttachment> Attachments => _attachments.AsReadOnly();
 
     public DateTime CreatedAtUtc { get; }
     public DateTime? UpdatedAtUtc { get; private set; }
@@ -212,6 +225,16 @@ public sealed class SupportTicket : Entity<Guid>
         if (newStatus == Status)
             return UnitResult.Success<Error>();
 
+        // D40. В Closed нельзя попасть обычной сменой статуса — только через
+        // ForceClose, где причина обязательна. Иначе закрыть можно было бы
+        // молча, и юзер не понял бы, что случилось с его обращением.
+        if (newStatus == SupportTicketStatus.Closed)
+            return Errors.Support.StatusInvalid();
+
+        // D40 (правка): из Closed админ ВЫЙТИ может — вернуть обращение в
+        // работу. Терминальность закрытия направлена на ЮЗЕРА (Reopen /
+        // AcceptResolution из Closed запрещены), а не на админа: тот мог
+        // закрыть по ошибке или не то обращение, и обязан уметь откатить.
         if (Status == SupportTicketStatus.Resolved)
             return Errors.Support.AlreadyResolved();
 
@@ -256,6 +279,9 @@ public sealed class SupportTicket : Entity<Guid>
             return Errors.Support.SeverityInvalid();
         }
 
+        // D40 (правка): на Closed приоритет менять можно — админ мог закрыть
+        // ошибочно и разбирает обращение дальше. Запрещён он только на
+        // Resolved, где точку ставит юзер.
         if (Status == SupportTicketStatus.Resolved)
             return Errors.Support.AlreadyResolved();
 
@@ -263,6 +289,50 @@ public sealed class SupportTicket : Entity<Guid>
             return UnitResult.Success<Error>();
 
         Severity = newSeverity;
+        UpdatedAtUtc = nowUtc;
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D40. Админ закрывает обращение принудительно — из любого статуса.
+    ///
+    /// Зачем: Resolved не терминален, точку в нём ставит юзер
+    /// (AcceptResolution). Если юзер просто забыл это сделать — обращение
+    /// висит в списке бесконечно. Force-close ставит точку за него.
+    ///
+    /// Note обязателен: закрытие «через голову» пользователя должно быть
+    /// объяснено — причина уходит в переписку отдельным сообщением, чтобы
+    /// юзер увидел, почему обращение закрыли.
+    ///
+    /// Из Closed переоткрыть нельзя: Reopen требует Resolved, а
+    /// AcceptResolution — тоже. Это конец жизненного цикла.
+    /// </summary>
+    public UnitResult<Error> ForceClose(Guid adminId, string closeNote, DateTime nowUtc)
+    {
+        if (Status == SupportTicketStatus.Closed)
+            return Errors.Support.AlreadyClosed();
+
+        if (string.IsNullOrWhiteSpace(closeNote))
+            return Errors.Support.ResolutionNoteRequired();
+
+        var trimmedNote = closeNote.Trim();
+        if (trimmedNote.Length > MaxResolutionNoteLength)
+            return Errors.Support.ResolutionNoteTooLong(MaxResolutionNoteLength);
+
+        // Причина закрытия — сообщение в переписке от админа: юзер должен
+        // увидеть её в истории, а не только в служебном поле.
+        var msg = SupportTicketMessage.CreateFromAdmin(Id, adminId, trimmedNote, nowUtc);
+        if (msg.IsFailure) return msg.Error;
+        _messages.Add(msg.Value);
+
+        // Переиспользуем Resolution*-поля: семантика «кто и когда поставил
+        // точку» та же, отдельные Closed*-колонки не завели бы ничего,
+        // кроме миграции и дублирующей логики.
+        ResolutionNote = trimmedNote;
+        ResolvedByUserId = adminId == Guid.Empty ? null : adminId;
+        ResolvedAtUtc = nowUtc;
+
+        Status = SupportTicketStatus.Closed;
         UpdatedAtUtc = nowUtc;
         return UnitResult.Success<Error>();
     }
@@ -341,6 +411,129 @@ public sealed class SupportTicket : Entity<Guid>
         }
 
         return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D44. Свободное сообщение от ПОЛЬЗОВАТЕЛЯ в переписку.
+    ///
+    /// <para>До D44 юзер мог написать в тикет ровно одним способом —
+    /// переоткрыв его (Reopen), а для этого тикет должен был находиться
+    /// в статусе Resolved. То есть «просто ответить» было нельзя, и
+    /// диалога не получалось. Теперь есть обычное сообщение.</para>
+    ///
+    /// <para>Разрешено только в Open / InProgress:</para>
+    /// <list type="bullet">
+    ///   <item>Resolved — у юзера есть явный выбор «принять» или
+    ///   «переоткрыть», и подменять его сообщением нельзя: иначе
+    ///   ReopenedCount перестанет отражать реальность.</item>
+    ///   <item>Closed — терминальный статус ДЛЯ ЮЗЕРА (D40).</item>
+    /// </list>
+    /// </summary>
+    public UnitResult<Error> AddUserMessage(
+        Guid authorUserId,
+        string text,
+        DateTime nowUtc)
+    {
+        // Писать можно только в СВОЁ обращение — та же проверка, что в
+        // Reopen. Держим её в домене, а не только в use case: обращения
+        // содержат переписку об оплате и персональные данные, и чужой
+        // тикет не должен быть доступен даже при ошибке в слое выше.
+        if (UserId is null || UserId.Value != authorUserId)
+            return Errors.Support.ModifyForbidden();
+
+        if (Status is not (SupportTicketStatus.Open or SupportTicketStatus.InProgress))
+            return Errors.Support.MessageNotAllowedInStatus();
+
+        var messageResult = AppendMessage(
+            SupportTicketMessage.CreateFromUser(Id, authorUserId, text, nowUtc));
+        if (messageResult.IsFailure)
+            return messageResult.Error;
+
+        // Те же поля, что обновляет Reopen: админский список показывает
+        // по ним «последняя реплика юзера», и сообщение обязано туда
+        // попадать — иначе свежий ответ не поднимет тикет в работе.
+        LastUserReply = messageResult.Value.Text;
+        LastUserReplyAtUtc = nowUtc;
+        UpdatedAtUtc = nowUtc;
+
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D44. Свободное сообщение от АДМИНА в переписку.
+    ///
+    /// <para>Раньше админ мог написать, только пометив обращение
+    /// решённым (ChangeStatus → Resolved) или закрыв принудительно —
+    /// то есть чтобы задать уточняющий вопрос, приходилось врать
+    /// статусом. Теперь ответ и смена статуса развязаны.</para>
+    ///
+    /// <para>Статус не ограничиваем: админ имеет право дописать в
+    /// обращение на любой стадии, в том числе после закрытия
+    /// (например, вернуться с реквизитами). Сообщение статус НЕ меняет —
+    /// это отдельное осознанное действие.</para>
+    /// </summary>
+    public UnitResult<Error> AddAdminMessage(
+        Guid adminId,
+        string text,
+        DateTime nowUtc)
+    {
+        if (adminId == Guid.Empty)
+            return Errors.Support.ModifyForbidden();
+
+        var messageResult = AppendMessage(
+            SupportTicketMessage.CreateFromAdmin(Id, adminId, text, nowUtc));
+        if (messageResult.IsFailure)
+            return messageResult.Error;
+
+        UpdatedAtUtc = nowUtc;
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// Общий хвост обоих Add*Message: разворачивает Result фабрики и
+    /// кладёт сообщение в коллекцию. Валидацию текста (пустота, длина)
+    /// делает сама фабрика — здесь её не дублируем.
+    /// </summary>
+    private Result<SupportTicketMessage, Error> AppendMessage(
+        Result<SupportTicketMessage, Error> created)
+    {
+        if (created.IsFailure)
+            return created.Error;
+
+        _messages.Add(created.Value);
+        return created.Value;
+    }
+
+    /// <summary>
+    /// D33. Добавить вложение к тикету. Вызывается use case'ом после
+    /// успешной загрузки файла в MinIO. Проверяет:
+    /// — лимит количества (5);
+    /// — суммарный размер (50 MB, с учётом уже добавленных).
+    /// Per-файл валидация MIME/magic-bytes/размер делается на
+    /// Application слое через FileValidator до вызова.
+    /// </summary>
+    public Result<SupportTicketAttachment, Error> AddAttachment(
+        string originalFileName,
+        string bucket,
+        string storageKey,
+        string contentType,
+        long sizeBytes,
+        DateTime nowUtc)
+    {
+        if (_attachments.Count >= MaxAttachmentsPerTicket)
+            return Errors.Support.AttachmentsLimitExceeded(MaxAttachmentsPerTicket);
+
+        var totalSizeAfter = _attachments.Sum(a => a.SizeBytes) + sizeBytes;
+        if (totalSizeAfter > MaxAttachmentsTotalSizeBytes)
+            return Errors.Support.AttachmentsTotalSizeExceeded(MaxAttachmentsTotalSizeBytes);
+
+        var created = SupportTicketAttachment.Create(
+            Id, originalFileName, bucket, storageKey, contentType, sizeBytes, nowUtc);
+        if (created.IsFailure)
+            return created.Error;
+
+        _attachments.Add(created.Value);
+        return created.Value;
     }
 
     private static Result<(string Title, string Description), Error> ValidateContent(

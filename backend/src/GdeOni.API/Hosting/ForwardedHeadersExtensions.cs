@@ -5,6 +5,9 @@ using Microsoft.Extensions.Configuration;
 
 namespace GdeOni.API.Hosting;
 
+/// <summary>
+/// Регистрация ForwardedHeadersMiddleware для работы за reverse-proxy.
+/// </summary>
 public static class ForwardedHeadersExtensions
 {
     /// <summary>

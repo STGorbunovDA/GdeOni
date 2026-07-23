@@ -12,16 +12,6 @@
 
     <Grid RowDefinitions="Auto,*,Auto,Auto">
 
-        <Ellipse Grid.Row="0"
-                 Fill="White"
-                 Opacity="0.45"
-                 WidthRequest="240"
-                 HeightRequest="130"
-                 HorizontalOptions="End"
-                 VerticalOptions="Start"
-                 TranslationX="60"
-                 TranslationY="40" />
-
         <!-- Header -->
         <VerticalStackLayout Grid.Row="0" Padding="24,40,24,12" Spacing="6">
             <Label Text="Маршрут"
@@ -56,7 +46,7 @@
                                 <TapGestureRecognizer Tapped="OnCandidateTapped" />
                             </Border.GestureRecognizers>
 
-                            <Grid ColumnDefinitions="Auto,*"
+                            <Grid ColumnDefinitions="Auto,Auto,*"
                                   ColumnSpacing="12"
                                   RowDefinitions="Auto,Auto"
                                   RowSpacing="2">
@@ -66,13 +56,37 @@
                                           Color="{StaticResource Azure}"
                                           VerticalOptions="Center" />
 
-                                <Label Grid.Row="0" Grid.Column="1"
+                                <!-- Аватарка: BoxView+🕊 как плейсхолдер всегда снизу,
+                                     Image сверху — если URL пустой, ничего не отрендерит
+                                     и плейсхолдер останется виден (паттерн как в
+                                     AdminFindDeceasedPage). -->
+                                <Border Grid.Column="1" Grid.RowSpan="2"
+                                        StrokeThickness="0"
+                                        WidthRequest="44"
+                                        HeightRequest="44"
+                                        VerticalOptions="Center">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="22" />
+                                    </Border.StrokeShape>
+                                    <Grid>
+                                        <BoxView Color="{StaticResource Sky}" />
+                                        <Label Text="🕊"
+                                               FontSize="20"
+                                               Opacity="0.6"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center" />
+                                        <Image Source="{Binding MainPhotoUrl}"
+                                               Aspect="AspectFill" />
+                                    </Grid>
+                                </Border>
+
+                                <Label Grid.Row="0" Grid.Column="2"
                                        Text="{Binding FullName}"
                                        Style="{StaticResource SubTitleLabel}"
                                        FontSize="16"
                                        LineBreakMode="TailTruncation" />
 
-                                <Label Grid.Row="1" Grid.Column="1"
+                                <Label Grid.Row="1" Grid.Column="2"
                                        Text="{Binding Subtitle}"
                                        Style="{StaticResource CaptionLabel}"
                                        LineBreakMode="TailTruncation" />

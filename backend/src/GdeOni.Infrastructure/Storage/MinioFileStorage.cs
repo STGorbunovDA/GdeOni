@@ -43,6 +43,92 @@ internal sealed class MinioFileStorage : IFileStorage
             request.OriginalFileName);
     }
 
+    public async Task<StoredFile> UploadToBucketAsync(
+        string bucket,
+        string keyPrefix,
+        string originalFileName,
+        string contentType,
+        long sizeBytes,
+        Stream content,
+        CancellationToken cancellationToken)
+    {
+        var extension = SanitizeExtension(originalFileName);
+        var safePrefix = string.IsNullOrWhiteSpace(keyPrefix) ? "misc" : keyPrefix.Trim('/');
+        var objectKey = $"{safePrefix}/{Guid.NewGuid()}{extension}";
+
+        var args = new PutObjectArgs()
+            .WithBucket(bucket)
+            .WithObject(objectKey)
+            .WithStreamData(content)
+            .WithObjectSize(sizeBytes)
+            .WithContentType(contentType);
+
+        await _client.PutObjectAsync(args, cancellationToken);
+
+        return new StoredFile(
+            bucket,
+            objectKey,
+            contentType,
+            sizeBytes,
+            originalFileName);
+    }
+
+    public async Task<StoredFile> CopyObjectAsync(
+        string sourceBucket,
+        string sourceObjectKey,
+        string destBucket,
+        string destKeyPrefix,
+        string fileName,
+        string contentType,
+        long sizeBytes,
+        CancellationToken cancellationToken)
+    {
+        var extension = SanitizeExtension(fileName);
+        var safePrefix = string.IsNullOrWhiteSpace(destKeyPrefix) ? "misc" : destKeyPrefix.Trim('/');
+        var destObjectKey = $"{safePrefix}/{Guid.NewGuid()}{extension}";
+
+        var source = new CopySourceObjectArgs()
+            .WithBucket(sourceBucket)
+            .WithObject(sourceObjectKey);
+
+        var args = new CopyObjectArgs()
+            .WithBucket(destBucket)
+            .WithObject(destObjectKey)
+            .WithCopyObjectSource(source);
+
+        await _client.CopyObjectAsync(args, cancellationToken);
+
+        return new StoredFile(
+            destBucket,
+            destObjectKey,
+            contentType,
+            sizeBytes,
+            fileName);
+    }
+
+    public Task<StoredFile> CopyObjectByKindAsync(
+        string sourceBucket,
+        string sourceObjectKey,
+        MediaKind destKind,
+        Guid deceasedId,
+        string fileName,
+        string contentType,
+        long sizeBytes,
+        CancellationToken cancellationToken)
+    {
+        var destBucket = ResolveBucket(destKind);
+        var keyPrefix = $"{destKind.ToString().ToLowerInvariant()}/{deceasedId}";
+        return CopyObjectAsync(
+            sourceBucket,
+            sourceObjectKey,
+            destBucket,
+            keyPrefix,
+            fileName,
+            contentType,
+            sizeBytes,
+            cancellationToken);
+    }
+
     public Task DeleteAsync(string bucket, string objectKey, CancellationToken cancellationToken)
     {
         var args = new RemoveObjectArgs()
@@ -54,11 +140,14 @@ internal sealed class MinioFileStorage : IFileStorage
 
     public string GetPublicUrl(string bucket, string objectKey)
     {
-        var baseUrl = string.IsNullOrWhiteSpace(_options.PublicBaseUrl)
+        return $"{GetMediaBaseUrl()}/{bucket}/{Uri.EscapeDataString(objectKey)}";
+    }
+
+    public string GetMediaBaseUrl()
+    {
+        return string.IsNullOrWhiteSpace(_options.PublicBaseUrl)
             ? $"{(_options.UseSsl ? "https" : "http")}://{_options.Endpoint}"
             : _options.PublicBaseUrl.TrimEnd('/');
-
-        return $"{baseUrl}/{bucket}/{Uri.EscapeDataString(objectKey)}";
     }
 
     public async Task<string> GetPresignedUrlAsync(
@@ -87,6 +176,37 @@ internal sealed class MinioFileStorage : IFileStorage
         // знает только host:port. Дописываем prefix вручную перед
         // первым "/" после хоста.
         return ApplyPublicPathPrefix(url, _options.PublicBaseUrl);
+    }
+
+    public async Task<DownloadedFile> DownloadAsync(
+        string bucket,
+        string objectKey,
+        CancellationToken cancellationToken)
+    {
+        // MinIO SDK даёт поток через callback. Заворачиваем в MemoryStream,
+        // чтобы контроллер мог стримить клиенту независимо от того, дожил
+        // ли исходный поток до конца. Для F13 это PDF до 25 MB — память
+        // не критична. Большие файлы (если появятся) надо будет переделать
+        // на pipe/PipeReader, чтобы не буферизировать.
+        var ms = new MemoryStream();
+        var args = new GetObjectArgs()
+            .WithBucket(bucket)
+            .WithObject(objectKey)
+            .WithCallbackStream(async (stream, ct) =>
+            {
+                await stream.CopyToAsync(ms, ct);
+            });
+
+        var stat = await _client.GetObjectAsync(args, cancellationToken);
+
+        ms.Position = 0;
+        // Stat иногда отдаёт ContentType пустой (SDK quirk на старых
+        // версиях). В таком случае fallback на application/octet-stream
+        // — браузер сам разберётся (для PDF mime обычно проставлен).
+        var contentType = string.IsNullOrWhiteSpace(stat.ContentType)
+            ? "application/octet-stream"
+            : stat.ContentType;
+        return new DownloadedFile(ms, contentType, stat.Size);
     }
 
     internal static string ApplyPublicPathPrefix(string presignedUrl, string? publicBaseUrl)

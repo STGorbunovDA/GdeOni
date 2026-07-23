@@ -6,6 +6,7 @@ using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
 using GdeOni.Mobile.Services.Auth;
 using GdeOni.Mobile.Services.Geolocation;
+using GdeOni.Mobile.Services.Media;
 using GdeOni.Mobile.Shared.Notifications;
 using Refit;
 
@@ -19,7 +20,8 @@ public partial class DeceasedDetailsViewModel(
     IDeceasedRecordsApi deceasedRecordsApi,
     IGeolocationService geolocationService,
     IAuthService authService,
-    ILocalNotificationScheduler notificationScheduler) : ObservableObject
+    ILocalNotificationScheduler notificationScheduler,
+    IPublicHostsService publicHosts) : ObservableObject
 {
     // Кешируем текущий userId на время жизни VM. Используется для вычисления
     // CanEdit у воспоминаний (см. MemoryItemViewModel.From).
@@ -29,7 +31,20 @@ public partial class DeceasedDetailsViewModel(
     // (а не на бэке) — UX-обнаружение: незачем показывать кнопку, которая
     // у не-админа вернёт 403. Сам DELETE всё равно проверяет роль на бэке.
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanEditCoordinates))]
     private bool _isCurrentUserAdmin;
+
+    /// <summary>
+    /// "Поправить координаты" доступно автору карточки или админу.
+    /// Зеркало ICanEditDeceasedPolicy на бэке (PUT burial-location).
+    /// Скрываем для остальных, чтобы не сбивать UI заведомо нерабочей
+    /// кнопкой (бэк всё равно вернёт 403).
+    /// </summary>
+    public bool CanEditCoordinates =>
+        IsCurrentUserAdmin
+        || (Data is not null
+            && _currentUserId.HasValue
+            && Data.Deceased.CreatedByUserId == _currentUserId.Value);
     [ObservableProperty]
     private string _deceasedId = "";
 
@@ -45,6 +60,7 @@ public partial class DeceasedDetailsViewModel(
     [NotifyPropertyChangedFor(nameof(MainPhotoUrl))]
     [NotifyPropertyChangedFor(nameof(HasMainPhoto))]
     [NotifyPropertyChangedFor(nameof(HasNoMainPhoto))]
+    [NotifyPropertyChangedFor(nameof(CanEditCoordinates))]
     private MyTrackedDeceasedDetailsResponse? _data;
 
     [ObservableProperty]
@@ -216,7 +232,9 @@ public partial class DeceasedDetailsViewModel(
                 return;
             }
 
-            Data = envelope.Result;
+            // D36: подменяем MainPhotoUrl на собранный из bucket+key.
+            var resolvedDeceased = await envelope.Result.Deceased.ResolveMainPhotoAsync(publicHosts);
+            Data = envelope.Result with { Deceased = resolvedDeceased };
 
             var createdBy = envelope.Result.Deceased.CreatedByUserId;
             Memories.Clear();
@@ -613,6 +631,28 @@ public partial class DeceasedDetailsViewModel(
     {
         if (item is null || !Guid.TryParse(DeceasedId, out var deceasedId)) return;
 
+        // Документы НЕЛЬЗЯ открывать через FullScreenPhotoPage — он рендерит
+        // URL как Image.Source, для PDF/Word и т.п. получится чёрный экран.
+        // Открываем системным viewer'ом через Launcher (тот же паттерн что
+        // в SupportDetailsViewModel). URL у документа — короткоживущий
+        // presigned (GetMediaList отдаёт IsPresigned=true).
+        if (item.Kind == MediaKinds.DocumentString)
+        {
+            if (string.IsNullOrEmpty(item.Url)) return;
+            try
+            {
+                await Launcher.OpenAsync(new Uri(item.Url));
+            }
+            catch
+            {
+                // Launcher кидает если URI невалиден или на устройстве нет
+                // приложения для открытия. Молча игнорим — UI и так
+                // непрогружен; пользователю достаточно крестика, чтобы
+                // вернуться.
+            }
+            return;
+        }
+
         // D27.1. Юзер — открываем полноэкранный просмотр.
         if (!IsCurrentUserAdmin)
         {
@@ -628,7 +668,11 @@ public partial class DeceasedDetailsViewModel(
         // D27.1. Полноэкранный просмотр — первым пунктом, чтобы и
         // админ мог посмотреть фото без необходимости открывать
         // отдельно admin-страницу.
-        var actions = new List<string> { "Открыть на весь экран" };
+        // Для документа вместо "Открыть на весь экран" даём "Открыть
+        // документ" — FullScreenPhotoPage не умеет рендерить PDF/Word
+        // (Image.Source даст чёрный экран), нужен системный viewer.
+        var isDocument = item.Kind == MediaKinds.DocumentString;
+        var actions = new List<string> { isDocument ? "Открыть документ" : "Открыть на весь экран" };
         // "Сделать главным" доступна только для DeceasedPhoto и только
         // если ещё не main — на GravePhoto/Document main-photo нет смысла.
         var canBeMain = item.Kind == MediaKinds.DeceasedPhotoString && !item.IsMainPhoto;
@@ -648,6 +692,13 @@ public partial class DeceasedDetailsViewModel(
                 {
                     var encoded = Uri.EscapeDataString(item.Url);
                     await Shell.Current.GoToAsync($"photo-viewer?url={encoded}");
+                }
+                break;
+            case "Открыть документ":
+                if (!string.IsNullOrEmpty(item.Url))
+                {
+                    try { await Launcher.OpenAsync(new Uri(item.Url)); }
+                    catch { /* нет viewer'а на устройстве — молча */ }
                 }
                 break;
             case "Сделать главным":
@@ -730,6 +781,18 @@ public partial class DeceasedDetailsViewModel(
             if (photo is null) return;
 
             await using var stream = await photo.OpenReadAsync();
+
+            // D35. Локальная проверка лимита 10MB до отправки на бэк.
+            if (stream.CanSeek)
+            {
+                var error = Services.Media.MediaSizeLimits.CheckPhoto(stream.Length);
+                if (error is not null)
+                {
+                    ErrorMessage = error;
+                    return;
+                }
+            }
+
             await UploadStreamAsync(deceasedId, stream, photo.FileName, photo.ContentType, kind);
         }
         catch (PermissionException)
@@ -759,6 +822,18 @@ public partial class DeceasedDetailsViewModel(
             if (doc is null) return;
 
             await using var stream = await doc.OpenReadAsync();
+
+            // D35. Лимит документа 25MB локально.
+            if (stream.CanSeek)
+            {
+                var error = Services.Media.MediaSizeLimits.CheckDocument(stream.Length);
+                if (error is not null)
+                {
+                    ErrorMessage = error;
+                    return;
+                }
+            }
+
             await UploadStreamAsync(deceasedId, stream, doc.FileName, doc.ContentType, MediaKinds.Document);
         }
         catch (Exception ex)
@@ -842,16 +917,19 @@ public partial class DeceasedDetailsViewModel(
 
             foreach (var item in envelope.Result.Items)
             {
-                switch (item.Kind)
+                // D36: для фото пересобираем Url через PublicHostsService.
+                // Для документов (IsPresigned) extension оставляет Url как есть.
+                var resolved = await item.ResolveUrlAsync(publicHosts);
+                switch (resolved.Kind)
                 {
                     case MediaKinds.DeceasedPhotoString:
-                        DeceasedPhotos.Add(item);
+                        DeceasedPhotos.Add(resolved);
                         break;
                     case MediaKinds.GravePhotoString:
-                        GravePhotos.Add(item);
+                        GravePhotos.Add(resolved);
                         break;
                     case MediaKinds.DocumentString:
-                        Documents.Add(item);
+                        Documents.Add(resolved);
                         break;
                 }
             }
@@ -1121,5 +1199,25 @@ public partial class DeceasedDetailsViewModel(
             await notificationScheduler.ScheduleAnniversaryAsync(
                 new AnniversaryReminder(deceasedId, fullName, Data.Deceased.DeathDate, AnniversaryKind.Death));
         }
+    }
+
+    /// <summary>
+    /// D34. Перейти на создание обращения с контекстом текущего умершего.
+    /// SupportNewPage сам распознает deceasedId/deceasedFullName/lifePeriod
+    /// и заполнит готовый шаблон в Description (юзеру остаётся выбрать
+    /// тему и дописать суть проблемы).
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenSupportFromDeceasedAsync()
+    {
+        if (Data is null) return;
+        var d = Data.Deceased;
+        var query = new Dictionary<string, object>
+        {
+            ["deceasedId"] = d.Id.ToString(),
+            ["deceasedFullName"] = d.FullName ?? "",
+            ["deceasedLifePeriod"] = LifePeriod,
+        };
+        await Shell.Current.GoToAsync("support-new", query);
     }
 }

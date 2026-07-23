@@ -39,6 +39,10 @@ public sealed class UploadMediaUseCase(
         if (validationResult.IsFailure)
             return validationResult.Error;
 
+        // D32: ValidateMagicBytesAsync теперь возвращает Stream, готовый
+        // к стримингу в storage без Seek(0). Прочитанные первые 12 байт
+        // склеиваются обратно через PrefixedStream — MinIO SDK получит
+        // цельный поток за один проход.
         var magicBytesResult = await FileValidator.ValidateMagicBytesAsync(
             command.Content,
             command.ContentType,
@@ -46,6 +50,8 @@ public sealed class UploadMediaUseCase(
             cancellationToken);
         if (magicBytesResult.IsFailure)
             return magicBytesResult.Error;
+
+        var uploadStream = magicBytesResult.Value;
 
         // GetById без Include(Media) — Deceased.AddMedia больше не сканирует
         // _media по StorageKey (D7.35), уникальность держит unique-индекс +
@@ -70,7 +76,10 @@ public sealed class UploadMediaUseCase(
             OriginalFileName = command.OriginalFileName,
             ContentType = command.ContentType,
             SizeBytes = command.SizeBytes,
-            Content = command.Content
+            // D32: uploadStream — это PrefixedStream вокруг command.Content
+            // с уже встроенными первыми 12 байтами, поэтому MinIO получит
+            // полный файл за один проход без Seek/повторного чтения.
+            Content = uploadStream
         };
 
         var stored = await fileStorage.UploadAsync(uploadRequest, cancellationToken);

@@ -7,7 +7,7 @@
              Style="{StaticResource CloudPage}"
              Shell.NavBarIsVisible="False"
              Shell.TabBarIsVisible="False"
-             Title="Проблемы">
+             Title="Обращения">
 
     <Grid>
         <ScrollView>
@@ -19,7 +19,7 @@
                         HorizontalOptions="Start"
                         Padding="16,8" />
 
-                <Label Text="Проблемы" Style="{StaticResource TitleLabel}" />
+                <Label Text="Обращения" Style="{StaticResource TitleLabel}" />
                 <Label Text="Обращения пользователей и автоматические инциденты."
                        Style="{StaticResource CaptionLabel}" />
 

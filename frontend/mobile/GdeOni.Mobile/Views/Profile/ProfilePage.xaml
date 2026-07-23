@@ -10,25 +10,6 @@
              Title="{Binding Title}">
 
     <Grid RowDefinitions="*,Auto">
-        <Ellipse Grid.Row="0"
-                 Fill="White"
-                 Opacity="0.5"
-                 WidthRequest="240"
-                 HeightRequest="130"
-                 HorizontalOptions="Start"
-                 VerticalOptions="Start"
-                 TranslationX="-70"
-                 TranslationY="40" />
-        <Ellipse Grid.Row="0"
-                 Fill="White"
-                 Opacity="0.35"
-                 WidthRequest="180"
-                 HeightRequest="100"
-                 HorizontalOptions="End"
-                 VerticalOptions="End"
-                 TranslationX="40"
-                 TranslationY="20" />
-
         <ScrollView Grid.Row="0">
             <VerticalStackLayout Padding="24,40,24,24" Spacing="20">
                 <Label Text="Профиль"

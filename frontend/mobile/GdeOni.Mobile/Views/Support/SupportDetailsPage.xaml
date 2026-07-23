@@ -77,6 +77,65 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- D33. Вложения, приложенные при создании. Тап — открывает
+                     файл в браузере (presigned URL). -->
+                <Label Text="Вложения"
+                       Style="{StaticResource SubTitleLabel}"
+                       Margin="4,8,0,0"
+                       IsVisible="{Binding HasAttachments}" />
+
+                <CollectionView ItemsSource="{Binding Attachments}"
+                                SelectionMode="None"
+                                IsVisible="{Binding HasAttachments}"
+                                x:Name="AttachmentsList">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vmsup:AttachmentDisplayItem">
+                            <Border WidthRequest="100"
+                                    HeightRequest="120"
+                                    StrokeThickness="1"
+                                    Stroke="{StaticResource Sky}"
+                                    Padding="0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="10" />
+                                </Border.StrokeShape>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference AttachmentsList}, Path=BindingContext.OpenAttachmentCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Grid RowDefinitions="*,Auto">
+                                    <Label Grid.Row="0"
+                                           FontSize="36"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label"
+                                                         Binding="{Binding IsImage}"
+                                                         Value="True">
+                                                <Setter Property="Text" Value="🖼" />
+                                            </DataTrigger>
+                                            <DataTrigger TargetType="Label"
+                                                         Binding="{Binding IsImage}"
+                                                         Value="False">
+                                                <Setter Property="Text" Value="📄" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                    <Label Grid.Row="1"
+                                           Text="{Binding SizeLabel}"
+                                           FontSize="10"
+                                           TextColor="{StaticResource Azure}"
+                                           HorizontalOptions="Center"
+                                           Padding="2,4" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
                 <!-- D25.2. Полная переписка. Каждое сообщение —
                      отдельная карточка-"пузырь". -->
                 <Label Text="Переписка"
@@ -112,6 +171,27 @@
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
+
+                <!-- D44. Ответ в переписку. Показываем, пока обращение
+                     в работе: на «Решено» ниже есть отдельные кнопки
+                     (закрепить / продолжить спор), на «Закрыто»
+                     переписка окончена. -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding CanWriteMessage}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Ваше сообщение"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Editor Placeholder="Напишите ответ…"
+                                Text="{Binding NewMessageText}"
+                                AutoSize="TextChanges"
+                                HeightRequest="90"
+                                BackgroundColor="{StaticResource Cloud}" />
+                        <Button Text="Отправить"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding SendMessageCommand}"
+                                IsEnabled="{Binding IsSaving, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
 
                 <!-- Плашка "юзер закрепил" -->
                 <Border Style="{StaticResource CloudCard}"

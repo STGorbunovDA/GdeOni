@@ -2,7 +2,9 @@
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Auth.Login.UseCase;
 using GdeOni.Application.Auth.Logout.UseCase;
+using GdeOni.Application.Auth.ForgotPassword.UseCase;
 using GdeOni.Application.Auth.Refresh.UseCase;
+using GdeOni.Application.Auth.ResetPassword.UseCase;
 using GdeOni.Application.Complimentary.Commands.Grant.UseCase;
 using GdeOni.Application.Complimentary.Commands.Revoke.UseCase;
 using GdeOni.Application.Subscriptions.Commands.RestartTrialByAdmin.UseCase;
@@ -38,6 +40,7 @@ using GdeOni.Application.DeceasedRecords.Queries.GetAgeAtDeath.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetAll.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetById.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetDistance.UseCase;
+using GdeOni.Application.DeceasedRecords.Queries.DownloadMedia.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaById.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetMediaList.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.GetNearbyDeceased.UseCase;
@@ -46,17 +49,28 @@ using GdeOni.Application.DeceasedRecords.Queries.GetDeceasedEdits.UseCase;
 using GdeOni.Application.DeceasedRecords.Queries.HasMemories.UseCase;
 using GdeOni.Application.Legal.Commands.AcceptLegal.UseCase;
 using GdeOni.Application.Legal.Queries.GetLegalDocument.UseCase;
+using GdeOni.Application.Admin.Queries.GetAdminStats.UseCase;
+using GdeOni.Application.Events.Queries.GetHolidays.UseCase;
+using GdeOni.Application.Geo.Queries.ReverseGeocode.UseCase;
 using GdeOni.Application.Routing.Queries.GetRouteToGrave.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CreatePayment.UseCase;
 using GdeOni.Application.Subscriptions.Commands.ProcessPaymentWebhook.UseCase;
+using GdeOni.Application.Subscriptions.Commands.SyncSubscription.UseCase;
+using GdeOni.Application.Subscriptions.Commands.CancelPendingPayment.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetAdminPayments.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMyPayments.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMySubscription.UseCase;
 using GdeOni.Application.Support.Commands.AcceptResolution.UseCase;
+using GdeOni.Application.Support.Commands.CopyAttachmentToDeceasedMedia.UseCase;
 using GdeOni.Application.Support.Commands.Create.UseCase;
+using GdeOni.Application.Support.Commands.CreateWithAttachments.UseCase;
+using GdeOni.Application.Support.Commands.AddAdminMessage.UseCase;
+using GdeOni.Application.Support.Commands.AddUserMessage.UseCase;
 using GdeOni.Application.Support.Commands.Reopen.UseCase;
+using GdeOni.Application.Support.Queries.GetAttachmentById.UseCase;
 using GdeOni.Application.Support.Commands.UpdateSeverity.UseCase;
+using GdeOni.Application.Support.Commands.ForceClose.UseCase;
 using GdeOni.Application.Support.Commands.UpdateStatus.UseCase;
 using GdeOni.Application.Support.Queries.GetAll.UseCase;
 using GdeOni.Application.Support.Queries.GetById.UseCase;
@@ -96,6 +110,9 @@ public static class DependencyInjection
         services.AddScoped<ILoginUseCase, LoginUseCase>();
         services.AddScoped<IRefreshUseCase, RefreshUseCase>();
         services.AddScoped<ILogoutUseCase, LogoutUseCase>();
+        // D43. Восстановление пароля по ссылке из письма.
+        services.AddScoped<IForgotPasswordUseCase, ForgotPasswordUseCase>();
+        services.AddScoped<IResetPasswordUseCase, ResetPasswordUseCase>();
 
         services.AddScoped<IRegisterUserUseCase, RegisterUserUseCase>();
         services.AddScoped<IGetUserByIdUseCase, GetUserByIdUseCase>();
@@ -150,6 +167,7 @@ public static class DependencyInjection
         services.AddScoped<IUploadMediaUseCase, UploadMediaUseCase>();
         services.AddScoped<IGetMediaListUseCase, GetMediaListUseCase>();
         services.AddScoped<IGetMediaByIdUseCase, GetMediaByIdUseCase>();
+        services.AddScoped<IDownloadMediaUseCase, DownloadMediaUseCase>();
         services.AddScoped<IDeleteMediaUseCase, DeleteMediaUseCase>();
         services.AddScoped<ISetMainMediaPhotoUseCase, SetMainMediaPhotoUseCase>();
         services.AddScoped<IUpdateMediaDescriptionUseCase, UpdateMediaDescriptionUseCase>();
@@ -164,11 +182,27 @@ public static class DependencyInjection
 
         services.AddScoped<IGetRouteToGraveUseCase, GetRouteToGraveUseCase>();
 
+        // События: справочник праздников (вычисляемый, без БД).
+        services.AddScoped<IGetHolidaysUseCase, GetHolidaysUseCase>();
+
+        // F38. Справка по системе для админа (счётчики).
+        services.AddScoped<IGetAdminStatsUseCase, GetAdminStatsUseCase>();
+
+        // D41. Обратное геокодирование: координаты → город.
+        services.AddScoped<IReverseGeocodeUseCase, ReverseGeocodeUseCase>();
+
         // D16. Subscription use cases.
         services.AddScoped<IGetMySubscriptionUseCase, GetMySubscriptionUseCase>();
         services.AddScoped<ICreatePaymentUseCase, CreatePaymentUseCase>();
         services.AddScoped<ICancelSubscriptionUseCase, CancelSubscriptionUseCase>();
         services.AddScoped<IProcessPaymentWebhookUseCase, ProcessPaymentWebhookUseCase>();
+        // Pull-fallback вместо webhook: работает и когда localhost
+        // недоступен снаружи (dev), и как safety-net в проде.
+        services.AddScoped<ISyncSubscriptionUseCase, SyncSubscriptionUseCase>();
+        // Юзер тапнул «Отменить» на PendingPayment (например, нажал
+        // «Назад» на странице YooKassa) — сбрасывает Pending платёж
+        // и возвращает подписку в Trial/Expired.
+        services.AddScoped<ICancelPendingPaymentUseCase, CancelPendingPaymentUseCase>();
         // D23. Payments history use cases.
         services.AddScoped<IGetMyPaymentsUseCase, GetMyPaymentsUseCase>();
         services.AddScoped<IGetAdminPaymentsUseCase, GetAdminPaymentsUseCase>();
@@ -194,9 +228,28 @@ public static class DependencyInjection
         services.AddScoped<IGetSupportTicketByIdUseCase, GetSupportTicketByIdUseCase>();
         services.AddScoped<IGetAllSupportTicketsUseCase, GetAllSupportTicketsUseCase>();
         services.AddScoped<IUpdateSupportTicketStatusUseCase, UpdateSupportTicketStatusUseCase>();
+        // D40. Принудительное закрытие обращения админом.
+        services.AddScoped<IForceCloseSupportTicketUseCase, ForceCloseSupportTicketUseCase>();
         services.AddScoped<IUpdateSupportTicketSeverityUseCase, UpdateSupportTicketSeverityUseCase>();
         services.AddScoped<IAcceptSupportTicketResolutionUseCase, AcceptSupportTicketResolutionUseCase>();
         services.AddScoped<IReopenSupportTicketUseCase, ReopenSupportTicketUseCase>();
+        // D44. Свободная переписка в обращении (без смены статуса).
+        services.AddScoped<IAddUserMessageUseCase, AddUserMessageUseCase>();
+        services.AddScoped<IAddAdminMessageUseCase, AddAdminMessageUseCase>();
+
+        // D33. Тикет с вложениями (multipart) + скачивание вложений.
+        services.AddScoped<
+            ICreateSupportTicketWithAttachmentsUseCase,
+            CreateSupportTicketWithAttachmentsUseCase>();
+        services.AddScoped<
+            IGetSupportAttachmentByIdUseCase,
+            GetSupportAttachmentByIdUseCase>();
+
+        // D35. Универсальное копирование вложения тикета в media умершего:
+        // главное фото / галерея / фото могилы / документ.
+        services.AddScoped<
+            ICopyAttachmentToDeceasedMediaUseCase,
+            CopyAttachmentToDeceasedMediaUseCase>();
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         return services;

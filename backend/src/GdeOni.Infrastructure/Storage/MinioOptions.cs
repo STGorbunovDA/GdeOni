@@ -56,4 +56,11 @@ public sealed class MinioBucketsOptions
     public string DeceasedPhotos { get; set; } = "deceased-photos";
     public string GravePhotos { get; set; } = "grave-photos";
     public string DeceasedDocuments { get; set; } = "deceased-documents";
+
+    /// <summary>
+    /// D33. Вложения в обращения в поддержку: фото и PDF, которые юзер
+    /// прикладывает к тикету. Доступ только через presigned URL —
+    /// public URL для этого bucket'а не выдаётся (потенциальные ПД).
+    /// </summary>
+    public string SupportAttachments { get; set; } = "support-attachments";
 }

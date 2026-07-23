@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
+using GdeOni.Mobile.Services.Media;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
@@ -19,7 +20,8 @@ namespace GdeOni.Mobile.ViewModels;
 [QueryProperty(nameof(DeceasedId), "deceasedId")]
 public partial class DeceasedPreviewViewModel(
     IDeceasedRecordsApi deceasedApi,
-    ITrackedDeceasedApi trackingApi) : ObservableObject
+    ITrackedDeceasedApi trackingApi,
+    IPublicHostsService publicHosts) : ObservableObject
 {
     [ObservableProperty]
     private string _deceasedId = "";
@@ -111,11 +113,13 @@ public partial class DeceasedPreviewViewModel(
                 Data = null;
                 return;
             }
-            Data = details.Result;
+            // D36: подменяем MainPhotoUrl на собранный из bucket+key.
+            // Старый бэк (без bucket+key) тогда оставит MainPhotoUrl как есть.
+            Data = await details.Result.ResolveMainPhotoAsync(publicHosts);
             // Главное фото приходит прямо в ответе details (MainPhotoUrl),
             // без отдельного запроса за /media. Раньше тут был N+1: грузили
             // всю коллекцию media только ради url одного главного фото.
-            MainPhotoUrl = details.Result.MainPhotoUrl;
+            MainPhotoUrl = Data.MainPhotoUrl;
 
             // 2. Проверяем, отслеживаем ли уже (от этого зависит текст
             // кнопки и поведение тапа).

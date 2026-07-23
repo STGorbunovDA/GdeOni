@@ -49,9 +49,13 @@ public sealed class RegisterUserUseCase(
 
         var passwordHash = passwordHasher.Hash(command.Password);
 
+        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
+
         var userResult = User.Register(
             command.Email,
             passwordHash,
+            command.BirthDate,
+            nowUtc,
             command.FullName,
             command.UserName);
 
@@ -64,7 +68,6 @@ public sealed class RegisterUserUseCase(
         // на длительность из SubscriptionOptions (30 дней по дефолту).
         // Решение 2026-05-14: первый месяц бесплатно. StartTrial
         // idempotent — повторный вызов на не-None ничего не сделает.
-        var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
         var trialResult = user.StartTrial(
             nowUtc,
             subscriptionOptions.Value.TrialDuration);

@@ -117,6 +117,15 @@ public sealed class SupportTicketConfiguration : IEntityTypeConfiguration<Suppor
         builder.Navigation(x => x.Messages)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        // D33. Attachments — каскадное удаление при удалении тикета.
+        // Аналогично Messages — backing field _attachments.
+        builder.HasMany(x => x.Attachments)
+            .WithOne()
+            .HasForeignKey(a => a.TicketId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(x => x.Attachments)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         // "Мои обращения" юзера — выборка по user_id + сортировка по
         // CreatedAtUtc DESC.
         builder.HasIndex(x => x.UserId)

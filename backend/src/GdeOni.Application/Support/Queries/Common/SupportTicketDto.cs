@@ -39,4 +39,11 @@ public sealed class SupportTicketDto
     /// Заполняется только в GetById query, в листинге null.
     /// </summary>
     public List<SupportTicketMessageDto>? Messages { get; set; }
+
+    /// <summary>
+    /// D33. Файлы, приложенные юзером при создании тикета. Только
+    /// метаданные — presigned URL клиент запрашивает отдельной ручкой.
+    /// Заполняется только в GetById query, в листинге null.
+    /// </summary>
+    public List<SupportTicketAttachmentDto>? Attachments { get; set; }
 }

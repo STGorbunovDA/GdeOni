@@ -9553,6 +9553,53 @@ Mantine theme:
     оставляем для empty-state'ов и заголовков, где они работают.
 
 ---------------------------------------------------------------------
+F2.1. Layout и навигация (web)
+---------------------------------------------------------------------
+
+Mobile использует AppShell с нижним табом (AppBottomBar): три
+таба "Отслеживаемые / Маршрут / Профиль", по нажатию на админ-таб
+открывается отдельная страница AdminPage. На web аналогом будет
+боковая навигация (sidebar) — на desktop она всегда видна, на
+мобильных брейкпоинтах сжимается в гамбургер.
+
+Решение 2026-06-12: пока делаем только sidebar (без top-nav),
+после реализации — оценим UX и решим, стоит ли добавлять верхнюю
+панель (поиск / уведомления). До этого момента — никаких top-nav.
+
+Структура `<AppLayout>` (React Router root layout):
+
+[ ] Sidebar (240px на desktop):
+    - Логотип / название "GdeOni" наверху → ссылка на "/".
+    - Пункты меню (NavLink, активный пункт подсвечен Azure):
+      1. "Отслеживаемые" → `/tracked` (F9).
+      2. "Маршрут" → `/route` (F14).
+      3. "Архив" → `/tracked/archive` (F10) — отдельный пункт,
+         не как табик внутри tracked, чтобы юзер всегда видел
+         "где он".
+      4. "Профиль" → `/profile` (F16).
+      5. (Если currentUser.role in [Admin, SuperAdmin])
+         "Админка" → `/admin` (F17). Виден ТОЛЬКО админам.
+    - Внизу сайдбара мелким шрифтом "Версия: {sha}" (F22).
+[ ] Основное содержимое (Outlet) занимает остаток ширины.
+[ ] Mobile breakpoint (Mantine `sm` ~ 768px):
+    - Sidebar превращается в Drawer, открывается по гамбургер-иконке
+      в правом верхнем углу (Mantine AppShell — стандартный шаблон).
+    - Контент использует всю ширину.
+[ ] Layout рендерится только для аутентифицированных. Auth-страницы
+    (/auth/*) — отдельный layout без sidebar (центровка hero).
+[ ] PaywallGuard и AnniversaryModal (F11.2) живут на уровне
+    `<AppLayout>` (выше Outlet'а), чтобы переход между страницами
+    их не сбрасывал.
+
+Что НЕ делаем сейчас (отложено до получения UX-фидбека):
+
+- Top-nav с поиском.
+- Виджет уведомлений (колокольчик) — нет backend endpoint'а.
+- Breadcrumbs — на mobile нет, без них юзер не пропадёт.
+- Tabbed sub-navigation (типа "Активные / Архив" внутри tracked) —
+  пока разводим страницами.
+
+---------------------------------------------------------------------
 F3. Конфигурация и HTTP-клиент (~ E4)
 ---------------------------------------------------------------------
 
@@ -9831,6 +9878,195 @@ F11. Карточка умершего (~ E9)
     галереи (F13).
 [ ] Хедер-действия: "В архив" (PATCH Status=Archived,
     E9.1) или "Восстановить" (если IsArchived).
+[ ] Кнопка "Изменить" в хедере — ТОЛЬКО админу
+    (currentUser.role in [Admin, SuperAdmin]) → ведёт на
+    F11.1 (страница редактирования). Обычный юзер кнопку
+    не видит (зеркало mobile-решения от 2026-06-12: чтобы
+    юзер не правил чужую карточку напрямую, а слал админу).
+[ ] Блок "Нужна помощь по этой карточке?" в конце страницы
+    (после Воспоминаний). GhostButton "Написать в поддержку"
+    → переход на /support/new?deceasedId={id}&deceasedFullName={...}
+    &deceasedLifePeriod={...}. SupportNewPage подставит шаблон
+    Description с маркером "ID карточки: {guid}" — админ из
+    своей админки увидит ссылку быстрого перехода (F34).
+    Это путь, которым юзер просит правку карточки, не имея
+    кнопки "Изменить".
+[ ] Кнопка "Поправить координаты" — остаётся доступной всем
+    (это не правка содержания карточки, а уточнение GPS).
+
+---------------------------------------------------------------------
+F11.1. Редактирование карточки умершего (web, admin-only) — зеркало E26
+---------------------------------------------------------------------
+
+Страница `/admin/deceased/:deceasedId/edit`. Доступна ТОЛЬКО админам
+(currentUser.role in [Admin, SuperAdmin]); обычный юзер не имеет на
+F11 кнопки "Изменить" и попасть сюда не может. На запрос без роли
+бэк возвращает 403 (DeceasedRecordsController PUT-эндпоинты дёргают
+ICanEditDeceasedPolicy) — web в этом случае редиректит обратно на
+F11 (или на /admin если попал по прямой ссылке).
+
+Решение 2026-06-12: правка карточки у обычного юзера убрана — путь
+правки идёт через "Написать в поддержку" (F11 + F34). Это снимает
+с веба задачу защищать форму редактирования от вандализма.
+
+Mobile-аналог: EditDeceasedPage / EditDeceasedViewModel — три
+независимые секции с раздельными PATCH-вызовами:
+  - PUT  /api/deceased-records/:id              (основное)
+  - PUT  /api/deceased-records/:id/metadata     (метаданные)
+  - PUT  /api/deceased-records/:id/burial-location (место захоронения)
+Раздельные PATCH'и нужны потому что:
+  - проще обработать частичную ошибку (например, основное сохранилось,
+    метаданные слетели по валидации);
+  - в audit-log одна запись = один Kind (MainInfo / Metadata /
+    BurialLocation), читать админу в истории правок (F17.9) понятнее.
+
+Структура страницы:
+
+[ ] Хедер: BackButton "Назад к карточке" + Title "Редактирование:
+    {FullName}". Если 404 при загрузке — показать ошибку и
+    кнопку назад.
+[ ] Загрузка карточки: GET /api/users/me/tracked-deceased/{id}
+    (тот же эндпоинт что и F11 — даёт MyTrackedDeceasedDetailsResponse
+    с полным DeceasedDto). Если 403 (юзер не отслеживает и не админ
+    — редко, тут под админом всё ок) — error message + back.
+[ ] Inline-индикаторы ошибки/успеха внутри каждой секции
+    (statusMessage / errorMessage), не общий toast — чтобы юзер
+    видел, какая секция сохранилась, а какая нет.
+
+Секция 1: Основное (FirstName, LastName, MiddleName, BirthDate,
+DeathDate, ShortDescription, Biography).
+
+[ ] Inputs (required: FirstName, LastName, DeathDate).
+[ ] BirthDate — toggle "Указать дату рождения" + DatePicker. Если
+    выключен — отправляем null.
+[ ] Textarea для ShortDescription (max ~500 char) и Biography
+    (без жёсткого лимита, но рекомендованно показать счётчик символов).
+[ ] Кнопка "Сохранить основное" → PUT /api/deceased-records/:id
+    с body { firstName, lastName, middleName, birthDate?, deathDate,
+    shortDescription?, biography? }.
+[ ] No-op guard на бэке: если поля идентичны текущим, домен вернёт
+    Success без UpdatedAtUtc и не сменит SecurityStamp (см. CLAUDE.md
+    D11.9.2). UI просто показывает "Сохранено" в обоих случаях.
+[ ] Обработка 409 unique-constraint (search_key) — показать
+    user-friendly текст: "Карточка с такими данными уже существует.
+    Проверьте имя/даты/место захоронения." (зеркало
+    EditDeceasedViewModel.HandleSaveError).
+
+Секция 2: Метаданные (Epitaph, Religion, Source, IsMilitaryService,
+AdditionalInfo).
+
+[ ] Inputs (всё optional).
+[ ] Кнопка "Сохранить метаданные" → PUT /api/deceased-records/:id/metadata
+    с body { epitaph?, religion?, source?, isMilitaryService,
+    additionalInfo? }.
+[ ] Пустые строки на UI трактуются как null — extension-метод
+    NullIfEmpty (в mobile EditDeceasedViewModel.NullIfEmpty).
+[ ] Кнопка "Очистить метаданные" — отдельный PUT с body, где все
+    поля null + isMilitaryService=false. Опционально, если решим
+    что нужно (mobile сейчас не имеет, но есть домен-метод
+    Deceased.ClearMetadata).
+
+Секция 3: Место захоронения (Latitude, Longitude, AccuracyMeters,
+Country, Region, City, CemeteryName, PlotNumber, GraveNumber).
+
+[ ] Координаты:
+    - LatitudeInput / LongitudeInput / AccuracyInput — string,
+      парсятся через CoordinateParser (Shared.Utils, уже общий
+      между mobile и web будущим). Запятая и точка как разделитель.
+    - HasCoordinates computed: оба парсятся валидно. Кнопка
+      "Сохранить место" disabled пока false.
+    - GhostButton "Взять текущие координаты" (browser geolocation
+      F5) — заполняет LatitudeInput/LongitudeInput/AccuracyInput.
+[ ] Адресные поля: Country (default "Россия"), Region, City,
+    CemeteryName, PlotNumber, GraveNumber.
+[ ] Кнопка "Сохранить место" → PUT /api/deceased-records/:id/burial-location
+    с body { latitude, longitude, accuracyMeters?, country, region?,
+    city?, cemeteryName?, plotNumber?, graveNumber? }.
+[ ] PUT без burial-location body (или PUT { hasLocation: false })
+    — бэк удалит owned-объект BurialLocation. Mobile сейчас этого
+    не делает (форма всегда что-то отправляет), на web решаем по
+    надобности. Скорее всего не нужно — если у карточки нет
+    координат, она остаётся без burial-location, ничего удалять
+    не надо.
+
+Что НЕ делаем в F11.1:
+
+- Загрузка медиа (фото/документы) — это F13.
+- Удаление карточки — это F17.X (admin delete deceased).
+- Верификация ✓ — это F17.15 кнопка на admin-view.
+- Изменение MainPhoto — это F13 в галерее фото умершего.
+- Архивирование — это F11 хедер.
+- История правок — отдельная страница F17.9.
+
+Tests (Vitest):
+
+[ ] Форма отправляет только заполненные поля, NullIfEmpty работает.
+[ ] При 409 → user-friendly текст показан, форма не очищена.
+[ ] CoordinateParser обрабатывает запятую и точку (уже покрыто
+    в GdeOni.Mobile.Tests, переиспользуем shared).
+[ ] При не-admin (mock currentUser) → редирект на F11.
+
+---------------------------------------------------------------------
+F11.2. Модальное напоминание о годовщинах (web) — упрощённый E23
+---------------------------------------------------------------------
+
+Mobile E23 — локальные WorkManager-уведомления через AlarmManager
+(годовщина смерти / рождения у отслеживаемых, если у tracking-записи
+NotifyOnDeathAnniversary=true / NotifyOnBirthAnniversary=true). На
+web их нет (нельзя надёжно дать background-уведомление без открытой
+вкладки), но юзеру всё равно нужно "не забыть" зайти к могиле.
+
+Решение (2026-06-12): при входе на любую защищённую страницу — JS
+проверяет годовщины и при наличии показывает блокирующую модалку.
+Это аналог Alert на mobile, только in-app (юзер уже зашёл).
+
+[ ] Hook `useTodayAnniversaries(trackedItems)` — pure-функция:
+    из списка tracked деталей фильтрует тех, у кого:
+    - сегодня (или завтра ± lookhead 1 день) день смерти/рождения;
+    - соответствующий notify-флаг = true;
+    - status === Active (архивных пропускаем).
+    Дата сравнения — локальная (юзера), не UTC. Логика чистая,
+    тестируемо без React.
+[ ] При входе в защищённый layout — useEffect: вычислить список,
+    если непустой → открыть модалку. Модалка модальная (overlay
+    z-index 9999, backdrop click ничего не делает, ESC не закрывает).
+[ ] В модалке:
+    - Заголовок "Сегодня годовщина" (или "Завтра годовщина" —
+      если попал именно за день до).
+    - Список с миниатюрами умерших, их именами, типом годовщины
+      ("День смерти 09.06" / "День рождения 01.01") и числом лет
+      (если есть BirthDate).
+    - На каждой строке — кнопка "Открыть карточку" → /tracked/:id.
+    - Внизу кнопка "ОК" (PrimaryButton).
+[ ] Пока кнопка ОК не нажата — навигация заблокирована. Это
+    достигается тем, что модалка отрендерена на уровне Layout-компонента
+    выше Outlet'а. Боковая навигация и контент за overlay недоступны.
+[ ] LocalStorage флаг `anniversary_modal_shown_{YYYY-MM-DD}` — после
+    нажатия ОК записываем. На следующих переходах в этот же день
+    модалка не открывается (важно: иначе будет всплывать каждые
+    `Outlet`-переходы).
+[ ] При смене дня (юзер оставил вкладку открытой через полночь)
+    проверять заново — useEffect на дату через `useDateChange`
+    hook (раз в 5 минут tick). Опционально, можно пропустить —
+    юзер всё равно перезагрузит вкладку.
+
+Кейсы:
+
+[ ] Юзер заходит 09.06 утром, у него умерший с DeathDate=09.06.2026,
+    NotifyOnDeathAnniversary=true → модалка. ОК → дальше работает
+    как обычно.
+[ ] Юзер заходит 09.06, у него три tracked-записи с днём рождения /
+    смерти сегодня → одна модалка со списком из трёх.
+[ ] У юзера нет совпадений → модалка не появляется.
+[ ] Архивная карточка с подходящей датой — не показывается (status
+    !== Active).
+[ ] Уведомление выключено (notify=false) — не показывается.
+
+Tests (Vitest):
+
+[ ] useTodayAnniversaries pure: разные комбинации дат и флагов.
+[ ] Render: модалка появляется при непустом списке.
+[ ] LocalStorage флаг подавляет повторный показ в тот же день.
 
 ---------------------------------------------------------------------
 F12. Воспоминания CRUD (~ E12)
@@ -10866,6 +11102,1138 @@ Down-миграция дропает только эти два индекса, 
 трогает (используется другими).
 
 ---------------------------------------------------------------------
+D32. Streaming upload медиа — один проход по байтам
+---------------------------------------------------------------------
+
+Раньше FileValidator.ValidateMagicBytesAsync требовал
+Stream.CanSeek=true: читал первые 12 байт, делал Seek(0) назад,
+дальше MinIO SDK читал тот же файл ещё раз. Это работало только
+для seekable-потоков (IFormFile под капотом — FileBufferingReadStream
+который буферизует в RAM до 30KB и затем на диск) и блокировало
+будущий переход на Request.BodyReader / NetworkStream — там
+CanSeek=false.
+
+Что сделал:
+- FileValidator.ValidateMagicBytesAsync теперь возвращает
+  Result<Stream, Error> вместо UnitResult<Error>. На успехе
+  возвращает PrefixedStream — обёртка, у которой первые 12 байт
+  отдаются из in-memory буфера, а дальше она проксирует чтение
+  в оригинальный Stream без Seek.
+- Убрал требование CanSeek=true и сохранение/восстановление
+  Position — больше не нужны, поток читается за один проход.
+- UploadMediaUseCase: складывает uploadStream в UploadFileRequest.Content,
+  MinIO SDK получает PrefixedStream и стримит файл целиком за один pass.
+
+Новый файл: backend/src/GdeOni.Application/Abstractions/Storage/PrefixedStream.cs
+— read-only Stream, не поддерживает Seek/Position/Length/Write, отдаёт
+сначала префикс (прочитанные magic bytes), потом — inner stream.
+
+Контракт публичного API не изменился: контроллер всё ещё принимает
+[FromForm] IFormFile, мобильный клиент не правился.
+
+Эффект:
+- Убран лишний read первых 12 байт (раньше делался дважды: при
+  валидации и при PutObject).
+- Pipeline теперь готов к non-seekable streams — если в будущем
+  захотим взять Request.BodyReader напрямую (для обхода
+  FileBufferingReadStream), достаточно сменить контроллер, FileValidator
+  и MinioFileStorage уже работают.
+- Memory footprint снизился на ~12 байт per upload (мелочь),
+  главный профит — архитектурный.
+
+Тесты:
+- Application: все 229 тестов, включая Upload_MagicBytesMismatch,
+  Upload_SaveFails_DeletesFileFromStorageAndRethrows, Upload_Admin_AutoApprovesAndSaves —
+  зелёные.
+- Integration: 111 тестов с реальным MinIO под Testcontainers,
+  включая загрузку реальных файлов и проверку хэша — зелёные.
+
+---------------------------------------------------------------------
+D33. Вложения в обращения в поддержку (mobile)
+---------------------------------------------------------------------
+
+Сценарий: юзер добавил умершего, увидел что фото нет — пишет
+обращение в поддержку, прикладывает доки наследства + фото
+умершего. Админ открывает тикет, видит превью, открывает фото на
+весь экран / скачивает PDF, потом руками добавляет к карточке
+умершего через обычный media-флоу (D26).
+
+Лимиты:
+- До 5 файлов на тикет.
+- Форматы: JPEG / PNG / PDF.
+- Размер: фото ≤10 MB, PDF ≤25 MB, суммарно ≤50 MB.
+- Magic-bytes валидация и per-MIME allow-list (как для media в D26).
+
+Новая тема: SupportTicketKind.Photo = 6. В UI: "Фото" в пикере
+после "Вопрос", перед "Другое". Бэк-фильтры (kind = "Photo")
+автоматически работают через существующий
+GetPagedForAdmin(SupportTicketKind?).
+
+Архитектура:
+- Domain: SupportTicketAttachment entity, коллекция _attachments
+  в SupportTicket, метод AddAttachment с guard'ами
+  MaxAttachmentsPerTicket=5 и MaxAttachmentsTotalSizeBytes=50MB.
+- Errors.Support.Attachment* — 7 новых кодов
+  (limit_exceeded, total_size_exceeded, file_name.*, content_type.*,
+  size.invalid, not_found).
+- Infrastructure:
+  * SupportTicketAttachmentConfiguration — таблица
+    support_ticket_attachments (FK на support_tickets, ON DELETE CASCADE,
+    unique storage_key).
+  * Bucket support-attachments в MinioBucketsOptions, создаётся в
+    MinioBootstrap с publicRead: false — доступ строго через
+    presigned URL (потенциальные ПД в файлах).
+  * IFileStorage.UploadToBucketAsync — новый метод для загрузки в
+    произвольный bucket с явно заданным prefix'ом storage key.
+    UseCase'ы media продолжают использовать UploadAsync(kind),
+    support — новый метод. Тот же MinioFileStorage, тот же
+    PrefixedStream pipeline из D32.
+  * ISupportAttachmentsBucketResolver / SupportAttachmentsBucketResolver
+    — Application не знает про MinioOptions, читает имя bucket'а
+    через резолвер.
+- Application:
+  * CreateSupportTicketWithAttachmentsUseCase — multipart upload,
+    per-файл валидация через FileValidator (DeceasedPhoto для image/*
+    или Document для application/pdf), создание тикета, загрузка
+    каждого файла в support-attachments, AddAttachment, Save в одну
+    транзакцию. При ошибке — best-effort DeleteAsync всех загруженных
+    файлов.
+  * GetSupportAttachmentByIdUseCase — возвращает presigned URL (TTL
+    1 час). Юзеру выдаётся только своё, админу — любое; 404 при
+    отсутствии доступа (не подсвечиваем существование чужих файлов).
+- API:
+  * POST /api/support-tickets/with-attachments — multipart/form-data,
+    поля kind/title/description + files[]. Старая JSON-ручка
+    POST /api/support-tickets остаётся без изменений — клиент дёргает
+    её когда вложений нет.
+  * GET /api/support-tickets/{ticketId}/attachments/{attachmentId}
+    — presigned URL для скачивания.
+- SupportTicketDto.Attachments в GetById response (юзер и админ
+  видят список метаданных без URL'ов; URL'ы клиент запрашивает
+  отдельным запросом по тапу).
+- GetByIdWithAttachments — облегчённый аналог GetByIdWithMessages
+  для скачивания (Include только Attachments).
+- Миграция: D33_AddSupportTicketAttachments.
+
+Mobile:
+- ISupportApi: CreateWithAttachmentsAsync (Refit Multipart с
+  StreamPart) + GetAttachmentAsync.
+- SupportNewViewModel:
+  * Новая тема "Фото" в KindOptions.
+  * ObservableCollection<PickedAttachment> Attachments — выбранные
+    через FilePicker файлы (хранятся в byte[] до отправки).
+  * PickAttachmentCommand — открывает FilePicker, валидирует
+    MIME / per-file size / total size локально (fail-fast до бэка).
+  * RemoveAttachmentCommand — убирает выбранный файл.
+  * SubmitAsync — если Attachments.Count == 0, идёт по старой JSON-
+    ручке (без multipart-overhead'а); иначе CreateWithAttachmentsAsync.
+- SupportNewPage.xaml: секция "Файлы" с кнопкой "Прикрепить файл
+  (N/5)" + горизонтальный CollectionView миниатюр (🖼 для фото,
+  📄 для PDF, размер, кнопка ✕).
+- SupportDetailsViewModel + AdminSupportDetailsViewModel:
+  ObservableCollection<AttachmentDisplayItem> + OpenAttachmentCommand
+  (GetAttachmentAsync → Launcher.OpenAsync — браузер сам решает
+  inline-показ или скачивание).
+- SupportDetailsPage.xaml + AdminSupportDetailsPage.xaml: секция
+  "Вложения" перед "Переписка". Та же DataTemplate с миниатюрой.
+- SupportDisplay.Kind: добавлен mapping "Photo" → "Фото".
+
+Тесты:
+- Domain 215, Application 229, Integration 111 — зелёные.
+
+---------------------------------------------------------------------
+F33. Вложения в обращения в поддержку (web)
+---------------------------------------------------------------------
+
+Зеркало mobile D33 для веб-клиента. Бэк-ручки уже есть и
+переиспользуются: POST /api/support-tickets/with-attachments и
+GET /api/support-tickets/{ticketId}/attachments/{attachmentId}.
+
+Юзерская часть:
+[ ] В форме создания обращения добавить блок "Файлы" с кнопкой
+    "Прикрепить файл (N/5)". На клик — открыть system file picker
+    с accept="image/jpeg,image/png,application/pdf".
+[ ] Локальная валидация перед отправкой: 5 файлов max, per-file
+    лимит (фото 10 MB, PDF 25 MB), суммарно ≤50 MB. Показывать
+    inline-ошибку при превышении.
+[ ] Горизонтальный grid превью: для фото — реальный thumbnail
+    через URL.createObjectURL(file), для PDF — иконка 📄.
+    Кнопка ✕ для удаления.
+[ ] При Submit:
+    - если выбранных файлов 0 → POST /api/support-tickets (JSON);
+    - иначе → POST /api/support-tickets/with-attachments
+      (FormData с files[]).
+[ ] Новая тема "Фото" в селекте темы обращения (см. SupportTicketKind.Photo).
+[ ] На странице "Мои обращения / детали" — секция "Вложения"
+    с миниатюрами. Тап → GET attachments/{id} → window.open(presignedUrl).
+
+Админская часть:
+[ ] В фильтрах админ-листинга тикетов — опция "Тема: Фото"
+    автоматически работает через GetPagedForAdmin(kind=Photo).
+[ ] В админской карточке тикета — та же секция "Вложения" с
+    миниатюрами (для фото — реальный preview через GET attachment;
+    для PDF — иконка).
+[ ] Тап на фото → fullscreen overlay (или открыть в новой вкладке).
+    Тап на PDF → window.open в новой вкладке.
+[ ] Кнопка "Скачать": <a href={presignedUrl} download={fileName}>
+    — стандартное браузерное скачивание.
+
+---------------------------------------------------------------------
+D34. Быстрый переход в поддержку из карточки умершего (mobile)
+---------------------------------------------------------------------
+
+UX-фича: юзер открыл карточку умершего, увидел проблему (нет фото,
+ошибка в датах, и т.п.) — хочет сразу написать в поддержку, чтобы
+не вспоминать про кого. Кнопка "Написать в поддержку" прямо в
+карточке + готовый шаблон Description с данными карточки. Админ
+получает обратную кнопку — из тикета сразу в карточку.
+
+Mobile:
+- DeceasedDetailsPage.xaml: после блока "Воспоминания" добавлена
+  карточка с текстом "Нужна помощь по этой карточке?" + кнопка
+  "Написать в поддержку" (видна всем юзерам).
+- DeceasedDetailsViewModel.OpenSupportFromDeceasedCommand —
+  навигация Shell.GoToAsync("support-new", query) с параметрами
+  deceasedId / deceasedFullName / deceasedLifePeriod.
+- SupportNewViewModel принимает три QueryProperty. Когда все три
+  приходят, один раз заполняется шаблон:
+    Title    = "По карточке: {FullName}"
+    Description = "Карточка умершего: {FullName}
+                   Жизнь: {LifePeriod}
+                   ID карточки: {guid}
+
+                   ---
+
+                   Опишите проблему ниже:"
+  Тема по умолчанию НЕ выставляется — юзер сам выбирает
+  ("Submit" заблокирован до выбора темы — CanSubmit).
+- Маркер "ID карточки: {guid}" — это не просто текст, это
+  машинно-читаемая привязка. См. SupportDeceasedRefParser:
+  Regex выдёргивает Guid после маркера. Если юзер удалил строку
+  при редактировании — кнопка перехода у админа пропадает,
+  ничего страшного.
+
+Админ-сторона:
+- AdminSupportDetailsViewModel.DeceasedRefId — парсится из
+  Description через SupportDeceasedRefParser.TryExtract при загрузке
+  тикета. Если найден — HasDeceasedRef = true, в UI появляется
+  карточка "Связанная карточка умершего" с кнопкой "Открыть
+  карточку". Переход через admin-deceased-view (D27) — админ-режим
+  без требования трекинга.
+
+Бэка не трогали: маркер живёт внутри Description, бэк ничего не
+знает про эту связь. Если в будущем понадобится явная связь
+(аналитика, фильтры) — добавим nullable колонку
+support_tickets.deceased_id, миграция тривиальная.
+
+---------------------------------------------------------------------
+F34. Быстрый переход в поддержку из карточки умершего (web)
+---------------------------------------------------------------------
+
+Зеркало mobile D34 для веб-клиента. Бэк остаётся как есть.
+
+Юзерская часть:
+[ ] На странице карточки умершего (/deceased/{id}) — секция
+    "Нужна помощь по этой карточке?" с кнопкой "Написать в
+    поддержку". Видна всем авторизованным юзерам.
+[ ] Кнопка ведёт на /support/new с query-параметрами
+    ?deceasedId={id}&deceasedFullName={name}&deceasedLifePeriod={dates}.
+[ ] На /support/new — если есть deceasedId в query, заполнить
+    Title="По карточке: {name}" и Description шаблоном с маркером
+    "ID карточки: {guid}". Тема НЕ выставляется, юзер сам выбирает.
+[ ] Submit неактивен пока тема не выбрана (тот же CanSubmit что
+    для пустого title/description).
+
+Админская часть:
+[ ] На странице админ-просмотра тикета — парсить Description
+    регэкспом по маркеру "ID карточки: ..." (тот же что в mobile
+    SupportDeceasedRefParser).
+[ ] Если найден — показывать секцию "Связанная карточка умершего"
+    с кнопкой, ведущей на /admin/deceased/{id} (admin-deceased-view).
+
+Регэксп для веба:
+    /ID карточки:\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/
+
+---------------------------------------------------------------------
+D35. Action sheet на вложении тикета + PDF preview + лимит фото (mobile)
+---------------------------------------------------------------------
+
+Три связанные UX-доработки поверх D33.
+
+A. Copy attachment в media умершего.
+   Сценарий: админ видит в тикете 3 фото и PDF, прикреплённых
+   юзером по теме "Фото". Одно фото нужно сделать главным,
+   второе — в галерею, третье — как фото могилы, PDF — как
+   документ. Всё через ActionSheet, без скачивания и
+   повторной загрузки.
+
+   Backend (одна универсальная ручка вместо четырёх):
+   — IFileStorage.CopyObjectAsync: server-side MinIO copy через
+     CopyObjectAsync(CopyObjectArgs(WithCopyObjectSource(...))).
+     Файл не качается клиенту.
+   — IFileStorage.CopyObjectByKindAsync: перегрузка, которая
+     сама выбирает целевой bucket по MediaKind через тот же
+     ResolveBucket-резолвер, что и UploadAsync — Application
+     не знает имён bucket'ов.
+   — CopyAttachmentToDeceasedMediaUseCase: only-admin;
+     загружает SupportTicket с Attachments; проверяет
+     согласование contentType ↔ MediaKind
+       (image/* → DeceasedPhoto или GravePhoto;
+        application/pdf → Document);
+     загружает Deceased; server-side copy в нужный bucket;
+     AddMedia → Approve → опционально SetMainPhoto при
+     makeMain=true; rollback DeleteAsync копии при ошибке.
+   — POST /api/admin/support-tickets/{ticketId}/attachments/{attId}/copy-to-deceased
+     с query ?deceasedId={id}&mediaKind={kind}&makeMain={bool}.
+     makeMain допустим только при mediaKind=DeceasedPhoto
+     (ловит CopyAttachmentToDeceasedMediaCommandValidator).
+   — Вложение в тикете остаётся (дублирование для истории).
+   — Старый POST .../promote-to-main-photo удалён вместе с
+     PromoteAttachmentToMainPhotoUseCase — заменён универсальным.
+
+   Mobile:
+   — AdminSupportDetailsViewModel.PhotoLongPressCommand: тап на
+     вложение в админ-просмотре открывает ActionSheet.
+     Состав опций зависит от типа и наличия DeceasedRefId
+     (см. BuildActionSheetOptions):
+       Фото без DeceasedRefId: "Открыть на весь экран".
+       Фото с DeceasedRefId: + "Сделать главным фото",
+         "Добавить в галерею умершего", "Добавить как фото могилы".
+       PDF без DeceasedRefId: "Открыть" (Launcher).
+       PDF с DeceasedRefId: + "Добавить как документ умершего".
+     Подтверждение через DisplayAlert + текст с именем файла,
+     потом ISupportApi.CopyAttachmentToDeceasedAsync.
+   — Названо PhotoLongPress исторически — фактически срабатывает
+     на одиночный тап → ActionSheet. Это надёжнее true-long-press
+     в MAUI.
+
+B. Inline PDF preview — НЕ делаем.
+   Попробовал через WebView (PdfPreviewPage) — оказалось, что
+   Android WebView (android.webkit.WebView) НЕ рендерит PDF
+   inline. Это не desktop Chrome — PDF viewer в Chrome browser
+   app живёт отдельно. Результат: белый экран при открытии PDF.
+   Откатил, файлы удалены (PdfPreviewPage.xaml и route
+   "pdf-preview").
+   Альтернативы:
+   — Google Docs Viewer (?embedded=true&url={presignedUrl}) —
+     отправляет presigned URL на серверы Google. В тикетах могут
+     быть паспортные данные / свидетельства о наследстве, утечка
+     к третьей стороне недопустима.
+   — Syncfusion.Maui.PdfViewer / PDFTron — платная лицензия
+     (~$995/year), оверкилл для нишевого сценария.
+   Решение: оставляем Launcher.OpenAsync — юзер выходит в
+   системный PDF-вьюер (Adobe Reader / Drive / Файлы), но это
+   безопасно и работает везде. Внутри-приложения остаётся только
+   inline-просмотр фото.
+
+   В OpenAttachmentAsync маршрутизация по contentType:
+     image/* → photo-viewer (D27.1, FullScreenPhotoPage);
+     application/pdf и прочее → Launcher.OpenAsync.
+
+C. Локальный лимит 10MB фото при загрузке media.
+   FileValidator.ValidatePhoto на бэке ловил >10MB только после
+   полной загрузки на сервер — юзер тратил трафик и время на
+   аплоад 15MB фото, чтобы получить 400. Теперь:
+   — Services/Media/MediaSizeLimits — константы MaxPhotoSizeBytes
+     (10MB) и MaxDocumentSizeBytes (25MB) + helper'ы CheckPhoto /
+     CheckDocument возвращающие пользовательский текст ошибки.
+   — DeceasedDetailsViewModel.UploadPhotoAsync /
+     AdminDeceasedViewViewModel.UploadPhotoAsync: проверка
+     stream.Length до отправки на бэк (только если stream.CanSeek;
+     content-provider:// streams без Length оставляем на серверную
+     проверку — fallback).
+   — Сообщение: "Фото больше 10 МБ — выберите файл поменьше."
+     ("документ" — аналогично для документа > 25 МБ).
+
+---------------------------------------------------------------------
+D36. Endpoint-aware media URL contract
+---------------------------------------------------------------------
+
+Проблема (обнаружена 2026-06-12 при тестировании F6 на web):
+бэк отдаёт абсолютные media-URL с хостом MinIO, прочитанным из
+appsettings.Development.json (Minio:PublicBaseUrl=http://10.0.2.2:9000).
+10.0.2.2 — это специальный IP Android-эмулятора, по которому он
+достигает хост-машину. Mobile видит фото нормально, web-браузер в
+Windows такого IP не понимает.
+
+Сейчас (workaround) на web живёт src/utils/mediaUrl.ts:rewriteEmulatorHost,
+который подменяет 10.0.2.2 → localhost при чтении ответа. На production
+он станет no-op, потому что PublicBaseUrl будет домен CDN/MinIO.
+Помечено как dev-only.
+
+Что хочется убрать к prod-релизу:
+- Бэк не должен решать host за клиента. Сейчас один и тот же
+  DeceasedListItem.MainPhotoUrl содержит host который работает
+  только для одного типа клиента.
+- iOS-симулятор (когда добавим в I8) будет иметь свой маппинг —
+  третья замена хоста на web нелогична.
+- Production-конфиг хрупкий: забыли поставить PublicBaseUrl=https://files.gdeoni.ru
+  → MinIO выдаст внутренний docker-hostname (minio:9000) → никто
+  не увидит фото и об этом узнаем только в прод.
+
+Решение: разнести **identification** медиа (что это за файл) и
+**delivery** (как до него добраться). Бэк отдаёт bucket+key, каждый
+клиент строит URL под свою сеть из конфига mediaBaseUrl.
+
+Backend contract migration:
+
+[ ] Добавить в DTO листингов и детальных ответов поля:
+    - MediaBucket: string  ("deceased-photos" | "grave-photos" |
+      "deceased-documents" | "support-attachments")
+    - MediaStorageKey: string  (объектный ключ внутри bucket)
+    Это касается:
+    - GetAllDeceasedItemResponse.MainPhoto*
+    - MyTrackedDeceasedDetailsResponse.MainPhoto* + Media[]
+    - NearbyDeceasedItemResponse.MainPhoto*
+    - GetDeceasedByIdResult.MainPhoto* + Media[]
+    - SupportTicketDetailsResponse.Attachments[]
+[ ] MainPhotoUrl сохраняем как deprecated (computed на бэке как и
+    сейчас) на 1-2 релизных цикла, чтобы старые клиенты не сломались.
+    После выхода новых клиентов — удалить.
+[ ] Endpoint конфиг (новое поле AppFeaturesResponse, D17):
+    - MediaBaseUrl: string  ("https://files.gdeoni.ru" в prod,
+      "http://localhost:9000" / "http://10.0.2.2:9000" в dev).
+    Клиент тянет один раз и кеширует — F22 на web и E22 на mobile
+    уже забирают /api/app/features.
+
+Client behavior:
+
+[ ] Web (web/src/utils/mediaUrl.ts):
+    - getMediaUrl(bucket, key) = `${mediaBaseUrl}/${bucket}/${encodeURIComponent(key)}`
+    - rewriteEmulatorHost удалить.
+[ ] Mobile (E22 PublicHostsService):
+    - Тот же getMediaUrl, но с дефолтом 10.0.2.2 для DEBUG-сборок
+      без VITE-аналога.
+[ ] Production deploy:
+    - MediaBaseUrl в bootstrap-чеклисте (F18/D-deploy): без него
+      /api/app/features валится fail-fast как и Cors:AllowedOrigins
+      (D7.64).
+
+Что НЕ делаем в D36:
+- Presigned URL для media-фото — отдельный пункт (см. ниже D36.1).
+- Кэширование клиентом mediaBaseUrl — это будет через TanStack
+  Query (web) / в memory cache (mobile) автоматически.
+
+Статус rollout (2026-06-16):
+- Бэк: bucket+storageKey в 4 DTO (Listing/Nearby/MyTracked-List/Details).
+  MediaBaseUrl в /api/app/features. MainPhotoUrl deprecated, на 1-2
+  релизных цикла сохраняется для совместимости со старыми клиентами.
+- Mobile: AppFeaturesResponse + MediaBaseUrl, новый IPublicHostsService
+  с in-memory кэшем и DEBUG-дефолтом http://10.0.2.2:9000. MediaUrl
+  Resolve Extensions подменяют DTO.MainPhotoUrl результатом
+  buildMediaUrl(bucket, key) — XAML не меняем, биндинги те же.
+- Web: removed rewriteMediaHost workaround; страницы тянут
+  mediaBaseUrl из useAppFeatures и строят URL через buildMediaUrl.
+- Media-галерея D36 (2026-06-16): GetMediaList отдаёт Bucket+StorageKey.
+  Mobile MediaListItem +Bucket?/StorageKey?; MediaUrlResolveExtensions
+  .ResolveUrlAsync пересобирает Url для фото (Kind != Document), для
+  документов оставляет presigned URL как есть. DeceasedDetailsViewModel
+  и AdminDeceasedViewViewModel вызывают ResolveUrlAsync в LoadMediaAsync.
+- Web для media-галереи (F13) — пока не делалось, у веба нет соответствующих
+  страниц. Контракт уже готов: bucket+key есть в /api/deceased-records/{id}/media.
+
+D36.1 (опционально, отдельный пункт): presigned URL для приватных
+media. Сейчас все media public-read (sознательный MVP-trade-off,
+D7.45). Если решим скрывать неавторизованным — переходим на presigned
+URL, что инвалидирует CDN-кеш и требует TTL-логики на клиенте.
+Откладываем до bug-report о приватности.
+
+---------------------------------------------------------------------
+D37. Email-напоминания о годовщинах (пересмотр D18)
+---------------------------------------------------------------------
+
+Решение 2026-07-11: добавляем СЕРВЕРНЫЙ email-канал и фоновую
+рассылку писем о годовщинах смерти/рождения отслеживаемых умерших.
+
+Контекст и связь с D18: в D18 (2026-05-19) годовщины были отданы
+ТОЛЬКО мобильному клиенту (локальные WorkManager-уведомления,
+E23), сервер не слал ничего — намеренно, чтобы не тянуть FCM.
+D37 НЕ отменяет E23, а дополняет его: у web-пользователей нет
+мобильного клиента, значит единственный канал напоминаний для них —
+email. Мобильные пользователи могут получать и локальный push (E23),
+и письмо (D37). Пункт D18 «Backend: никаких BackgroundService /
+notification_log таблиц» в этой части пересмотрен — email-канал их
+требует.
+
+Что делаем:
+
+1) Application (чистая, покрыта юнит-тестами, без БД/SMTP):
+   - `Abstractions/Email/IEmailSender` + `EmailMessage` (record:
+     ToEmail/ToName/Subject/TextBody/HtmlBody). `IsEnabled` = false,
+     если канал не сконфигурирован.
+   - `Anniversaries/AnniversaryKind` (Death=1, Birth=2 — значения
+     стабильны, идут в БД).
+   - `Anniversaries/AnniversaryOccurrence.TryGet(eventDate, today,
+     out years)` — совпадает ли сегодня годовщина + число полных лет
+     (≥1). 29 февраля в невисокосный год отмечаем 28-го (зеркало
+     mobile `AnniversaryDateCalculator`).
+   - `Anniversaries/AnniversaryEmailContent.Build(...)` — тема +
+     text/HTML тело на русском.
+   - `Common/Shared/RussianPlural.Years(n)` — «1 год / 2 года / 5 лет».
+
+2) Infrastructure:
+   - `Email/EmailOptions` (секция `Email`) + `SmtpEmailSender`
+     (встроенный `System.Net.Mail.SmtpClient`, без новых NuGet) +
+     `NoOpEmailSender`. DI выбирает Smtp vs NoOp по `IsConfigured`
+     (есть Host+FromEmail) — зеркало Fake vs YooKassa провайдера.
+     Не сконфигурирован → приложение поднимается без почтового
+     сервера (dev / integration-тесты).
+   - `Notifications/SentAnniversaryEmail` — инфра-сущность лога
+     отправленных (дедуп), НЕ доменный агрегат. Уникальный индекс
+     `ux_sent_anniversary_emails_user_deceased_kind_date` на
+     (user_id, deceased_id, kind, anniversary_date). Cascade от
+     User и Deceased.
+   - `Notifications/AnniversaryEmailOptions` (секция
+     `AnniversaryEmails`, `Enabled=false` по умолчанию).
+   - `Notifications/AnniversaryEmailService : BackgroundService` —
+     раз в сутки в `SendAtHourLocal` по `TimeZoneId` (дефолт
+     Europe/Moscow): SQL-префильтр по (month,day) сегодняшней даты
+     (+ 29.02 в невисокосный год) через join tracked_deceased ↔
+     users ↔ deceased_records (Status=Active, !IsBlocked, флаги
+     Notify*), финальное решение — через `AnniversaryOccurrence`,
+     дедуп по `sent_anniversary_emails`, отправка через IEmailSender,
+     SaveChanges после каждого письма (at-least-once, дубль-письмо не
+     критично). Структурно повторяет RefreshTokensCleanupService.
+
+3) Migration: `D37_AddSentAnniversaryEmails` (таблица
+   sent_anniversary_emails). Накатить перед стартом (fail-fast на
+   pending-миграции).
+
+Флаги подписки уже существуют: `TrackedDeceased.NotifyOnDeath
+Anniversary` / `NotifyOnBirthAnniversary` (D18 их и вводил для E23).
+Новых доменных полей/UI не требуется — переиспользуем их.
+
+Конфиг: секции `Email` и `AnniversaryEmails` в appsettings.example.json
++ описание в docs/appsettings.md. По умолчанию всё выключено —
+включать после настройки SMTP.
+
+Что НЕ делаем (отложено): событийные письма (новое воспоминание/фото
+на отслеживаемой карточке), дайджесты, per-user глобальный opt-out
+(пока управление — через флаги в самой карточке), HTML-шаблоны во
+внешних файлах, очередь/ретраи через outbox (at-least-once + дневной
+прогон достаточно для MVP-объёмов).
+
+Tests: юнит на AnniversaryOccurrence (совпадение дня, 29.02, годы),
+RussianPlural, AnniversaryEmailContent (формулировки тем/тел).
+
+---------------------------------------------------------------------
+D38. Вкладка «События»: годовщины сегодня + праздники (web + mobile)
+---------------------------------------------------------------------
+
+Решение 2026-07-11: новая вкладка «События» на обоих клиентах.
+Два блока:
+
+1) Сверху — годовщины СЕГОДНЯ среди отслеживаемых (день рождения /
+   годовщина смерти), тап ведёт на карточку умершего. Считается на
+   КЛИЕНТЕ из списка tracked-deceased (BirthDate/DeathDate уже
+   приходят) — отдельного эндпоинта не нужно. Логика «сегодня ли
+   годовщина + число лет» зеркалит D37 AnniversaryOccurrence:
+   - web: utils/anniversary.ts (anniversaryYearsToday + yearsWord);
+   - mobile: Shared AnniversaryDateCalculator.YearsSinceIfToday.
+
+2) Ниже — праздники: сегодняшние + ближайшие (30 дней),
+   сгруппированные по категориям (поминальные / православные /
+   мусульманские / государственные РФ).
+
+Backend (единый источник для обоих клиентов):
+- `Application/Events/HolidayCalculator` — чистый календарь.
+  Подвижные даты формулами: православная Пасха (алгоритм
+  Гаусса/Мееуса, юлианская → григорианская), поминальные (смещения
+  от Пасхи: Радоница = +9, Троицкая суббота = +48, мясопустная = −57,
+  субботы Великого поста = −36/−29/−22, Димитриевская = суббота ≤ 8
+  ноября), мусульманские через UmAlQuraCalendar (Ураза-байрам,
+  Курбан-байрам, Мавлид — таблично, ±1 день от объявленных).
+- `HolidayCategory` enum (Memorial/Orthodox/Muslim/State, значения
+  стабильны — идут в API).
+- Use case `GetHolidays` (Query/Response/Validator, диапазон ≤ 366
+  дней) + `GET /api/events/holidays?from=&to=` (EventsController,
+  [Authorize], [Tags("Events")]). Дефолт диапазона — сегодня…+30.
+- Юнит-тесты калькулятора: Пасха известных лет, Радоница/Троица,
+  все «родительские субботы» — субботы, фильтрация диапазона.
+
+Web (F-часть):
+- `api/endpoints/eventsApi.ts`, страница `pages/events/EventsPage.tsx`,
+  нав-вкладка «События» в AppLayout (после «Отслеживаемые»), роут
+  `/events` в gated-секции (годовщины берутся из tracked).
+
+Mobile (E-часть):
+- Refit `IEventsApi` (даты строками yyyy-MM-dd, чтобы backend
+  однозначно парсил DateOnly), `EventsViewModel`, `EventsPage.xaml`,
+  4-я вкладка «События» в AppBottomBar + ShellContent Route="events".
+  IEventsApi gated (SubscriptionGateHandler), как tracked.
+
+Что НЕ делаем: настраиваемый выбор категорий, регионально-религиозная
+персонализация, напоминания о самих праздниках (только справочный
+список), иудейские/буддийские категории (добавить по запросу).
+
+---------------------------------------------------------------------
+D19.9. Юр-тексты — на бэкенде, один источник правды
+---------------------------------------------------------------------
+
+Было: текст Политики лежал .md-файлом в бандле web
+(frontend/web/src/pages/legal/*.md), а версия документа — в
+appsettings бэка (Legal:CurrentPrivacyPolicyVersion). Два места,
+которые ОБЯЗАНЫ совпадать, но ничем не связаны. Подними версию и
+забудь обновить текст — юзер прочитает одну редакцию, а согласие
+запишется на другую. Юридически это хуже, чем не спрашивать вовсе.
+Мобилка при этом открывала веб-страницу по хардкоженному URL.
+
+Стало:
+[x] Канонические тексты — backend/docs/legal/privacy-policy.md и
+    terms-of-use.md. Старые редакции (*-v1.md) лежат рядом как архив,
+    в сборку не включаются.
+[x] csproj API копирует их в {output}/Legal/ (Content + Link).
+[x] ILegalDocumentSource (Application) + FileLegalDocumentSource (API,
+    т.к. зависит от путей хоста). Singleton, читает файл один раз.
+    Путь ищем от AppContext.BaseDirectory, а НЕ от ContentRoot: при
+    `dotnet run` ContentRoot = каталог проекта, где .md нет.
+[x] GET /api/legal/* отдаёт bodyMarkdown (поле в DTO было
+    зарезервировано ещё в D19, теперь заполнено).
+[x] Web: LegalPage тянет текст через legalApi, свою .md-копию не
+    держит. Если текст не пришёл — деградирует до ссылки на url.
+[x] Fail-fast на старте (LegalDocumentsStartupCheck): «Редакция N.» в
+    шапке .md обязана совпасть с Legal:Current*Version, иначе API не
+    поднимется. Дефолт LegalOptions тоже двигаем вместе с текстом —
+    на CI appsettings.json нет, там работают дефолты из кода.
+[x] Интеграционные тесты больше не хардкодят номер версии — берут его
+    из тех же LegalOptions.
+[ ] Mobile пока открывает веб-страницу /legal/privacy по URL из
+    RegisterViewModel (хардкод). Текст она таким образом получает с
+    бэка транзитивно — через веб. Убрать хардкод (брать Url из
+    GET /api/legal/*) или рендерить markdown нативно — по желанию,
+    не блокер.
+
+---------------------------------------------------------------------
+D41. Город по координатам (обратное геокодирование)
+---------------------------------------------------------------------
+
+Юзер стоит у могилы с телефоном. Заставлять его вбивать город руками —
+худшее, что можно придумать: координаты у нас уже есть.
+
+Ключевое решение: геокодер дёргаем С СЕРВЕРА, а не с клиента.
+Прямой запрос из браузера/мобилки отправил бы IP пользователя в Nominatim
+(серверы в ЕС), а Политика конфиденциальности (5.3) обещает отсутствие
+трансграничной передачи ПД. Через наш бэкенд наружу уходят только
+координаты могилы — это не персональные данные пользователя.
+
+[x] IReverseGeocoder (Application) + NominatimReverseGeocoder
+    (Infrastructure). Абстракция — чтобы сменить провайдера на
+    Яндекс.Геокодер, не трогая use case и клиентов.
+[x] GET /api/geo/reverse?latitude=&longitude= → country / region / city.
+[x] Кеш в памяти по округлённым до 4 знаков (~11 м) координатам, TTL 30
+    дней. Nominatim держит лимит 1 req/sec, а на одном кладбище точки
+    рядом — кеш схлопывает их в один запрос.
+[x] Nominatim кладёт в city не «Тверь», а «городской округ Тверь» —
+    режем префиксы админ-единиц (NormalizeCity). Проверено вживую:
+    Москва / Тверь / Мышкин определяются чисто.
+[x] Порядок полей: city → town → village → hamlet → municipality →
+    county. Без village на деревенском кладбище город был бы пустым.
+[x] Любая ошибка геокодера (таймаут, 429, лес/море) — НЕ падение
+    сценария: поля просто остаются под ручной ввод. Таймаут 5 сек:
+    геокодинг — подсказка, а не блокирующий шаг.
+
+Клиенты (web + mobile, одинаковое правило):
+[x] Автоопределение висит на самих координатах, а не на кнопке GPS —
+    так ловит разом все три способа их задать: геолокацию, тап по карте
+    и ручной ввод. Debounce 700 мс (иначе запрос на каждый символ).
+[x] mergeAutofilled / AddressAutofill.Merge (одно правило на обоих
+    клиентах, покрыто тестами): перезаписываем поле, только если оно
+    пустое ИЛИ в нём ровно то, что мы сами подставили в прошлый раз.
+    Как только юзер поправил — поле его, больше не трогаем.
+[x] При правке координат город обновляется, если точку сдвинули ИЛИ
+    город пуст. При простом открытии карточки с заполненным городом
+    молчим — иначе он менялся бы сам, хотя юзер ничего не двигал.
+[x] Редактор координат теперь шлёт PATCH burial-location (а не from-gps,
+    который адрес не трогает). Регион/кладбище/участок/могилу передаём
+    как есть из карточки — иначе PATCH их обнулит.
+
+Долг:
+[ ] Тайлы карты (tile.openstreetmap.org) грузятся в браузер НАПРЯМУЮ —
+    IP пользователя всё равно уходит в ЕС. Это то же нарушение 5.3, что
+    мы обошли в геокодере. Лечится проксированием тайлов через свой
+    сервер или переходом на российского поставщика карт.
+
+---------------------------------------------------------------------
+F39. Тариф 99 ₽ и цена как единый источник правды
+---------------------------------------------------------------------
+
+Тариф поднят с 49 ₽ до 99 ₽ (решение 2026-07-12).
+
+Но главное не сумма, а то, что вскрылось при её замене: цена жила в ДВУХ
+местах. Списывалась она из Subscription:MonthlyPriceRub (конфиг бэка), а
+на кнопках web и в тексте mobile «49 ₽/мес» было вписано ТЕКСТОМ — пять
+мест. Поменяй только конфиг — юзер видит 49, а с карты уходит 99. Это уже
+не косметика, а обман и повод для жалобы в поддержку.
+
+[x] GET /api/app/features отдаёт MonthlyPriceRub — из того же конфига,
+    откуда её берёт CreatePayment. Один источник правды.
+[x] Web: хук useSubscriptionPrice, страницы Subscription /
+    SubscriptionRequired подставляют цену оттуда.
+[x] Mobile: AppFeaturesResponse.MonthlyPriceRub (nullable — старый бэк
+    поля не отдаёт), SubscriptionRequiredViewModel грузит цену в OnAppearing.
+[x] Пока цена не загрузилась — показываем кнопку БЕЗ суммы. Соврать про
+    тариф хуже, чем промолчать.
+
+---------------------------------------------------------------------
+D44. Оплата переводом через обращение + переписка в тикете
+---------------------------------------------------------------------
+
+Задача владельца: пока онлайн-оплата не подключена (нет самозанятости
+и YooKassa), кнопку «Оформить подписку» погасить, а вместо неё дать
+кнопку обращения. Сценарий: триал кончился → paywall → «Написать
+в поддержку» с темой «Оплата» → переписка с владельцем → он присылает
+реквизиты → юзер платит переводом → владелец выдаёт complimentary
+доступ вручную.
+
+Разбор показал, что готова только треть: категория Payment в
+SupportTicketKind, переход на юзера из тикета и выдача бесплатного
+доступа уже были. Остальное упиралось в две вещи.
+
+БЛОКЕР 1 — ОБРАЩЕНИЯ БЫЛИ ЗАКРЫТЫ ТЕМ ЖЕ PAYWALL'ОМ.
+SupportController висел на голом [Authorize], то есть на DefaultPolicy
+= RequireActiveSubscription. Юзер с истёкшим триалом, нажав «написать»,
+получал 403 subscription.required → клиент редиректил его на
+/subscription-required → то есть на ту же страницу, откуда он нажал.
+Замкнутый круг, флоу физически не работал.
+[x] SupportController → [Authorize(Policy = BasicAuthenticated)].
+    Это баг сам по себе, независимо от D44: «напишите в поддержку» —
+    стандартный аварийный выход, и он был закрыт ровно для тех, кому
+    нужнее всего.
+
+БЛОКЕР 2 — ПЕРЕПИСКИ НЕ БЫЛО.
+SupportTicketMessage существовал, но сообщения создавались только
+побочным эффектом: админ писал через Resolve/ForceClose, юзер — через
+Reopen (а он требует статус Resolved). То есть чтобы прислать
+реквизиты, владельцу пришлось бы пометить обращение решённым, а юзеру
+для ответа — переоткрыть его. Это не чат, а его имитация.
+[x] SupportTicket.AddUserMessage / AddAdminMessage — свободные
+    сообщения, статус НЕ меняют.
+[x] Юзеру разрешено только в Open / InProgress. На Resolved у него
+    есть явный выбор «принять» / «переоткрыть», и подменять его
+    сообщением нельзя — иначе ReopenedCount перестанет отражать
+    реальность. На Closed переписка окончена (терминальность D40).
+[x] Админу статус не ограничиваем: он вправе дописать на любой стадии,
+    в том числе после закрытия (вернуться с реквизитами).
+[x] Проверка «пишу в своё обращение» — В ДОМЕНЕ, как в Reopen.
+    Обращения несут переписку об оплате и ПД: чужой тикет не должен
+    быть доступен даже при ошибке в слое выше.
+[x] AddUserMessage обновляет LastUserReply/LastUserReplyAtUtc — по ним
+    админский список показывает свежую реплику, иначе ответ не поднял
+    бы обращение в работе.
+
+ДЫРА С ФЕЙКОВЫМ ПРОВАЙДЕРОМ (уточнение severity).
+Сначала я оценил её как «любой жмёт кнопку и получает подписку даром».
+Проверка это НЕ подтвердила: FakePaymentProvider отдаёт checkout-URL
+на example.invalid, то есть кнопка ведёт на мёртвую страницу, а не
+выдаёт доступ. Бесплатная подписка требует подделки webhook, а он
+в проде закрыт IP-фильтром YooKassa (WebhookSecurity:AllowedCidrs).
+Итог: это сломанный UX + скрытый риск, если AllowedCidrs пуст.
+[x] Поэтому серверный отказ CreatePayment НЕ вводим (он и так ничего
+    не выдаёт, а блокировка сломала бы integration-тесты, где Fake
+    используется намеренно). Достаточно флага для клиентов.
+[x] GET /api/app/features → PaymentsAvailable. На mobile поле nullable:
+    старый бэк его не отдаёт, и null трактуется как «оплата
+    НЕдоступна» — показать кнопку, ведущую на заглушку, хуже, чем сразу
+    предложить обращение.
+[x] ПРАВКА (после проверки на эмуляторе): флаг считается по
+    YooKassaOptions.IsLivePaymentsEnabled, а НЕ IsConfigured. Сначала
+    взял IsConfigured — и кнопка оплаты осталась видна, потому что в
+    dev-конфиге лежат ТЕСТОВЫЕ ключи YooKassa (ShopId 1359063). Формально
+    провайдер настроен, фактически деньги не приходят: для юзера это то
+    же самое, что «оплата не работает». Теперь PaymentsAvailable = true
+    только при боевом ключе (live_*). Заодно страхует от худшего
+    сценария: тестовые ключи случайно уехали на прод, человек
+    «оплачивает», деньги не приходят, а он считает, что заплатил.
+    IsConfigured при этом не трогали — он про выбор провайдера в DI,
+    и на тестовых ключах YooKassa-провайдер должен работать.
+
+ОБРАЩЕНИЯ — ТОЛЬКО SuperAdmin (требование владельца).
+Обычные админы к переписке не допускаются: там платёжные реквизиты,
+договорённости о переводах и решение о выдаче бесплатного доступа.
+[x] ICurrentUserService.IsSuperAdmin() + реализация.
+[x] AdminSupportTicketsController → [Authorize(Roles = "SuperAdmin")].
+[x] Все support-use case'ы: IsAdmin() → IsSuperAdmin(), включая
+    просмотр чужого тикета и вложений (defense in depth).
+[x] Web: useIsSuperAdmin, гвард SuperAdminRoute, пункт меню скрыт.
+[x] Mobile: AdminViewModel.LoadRoleAsync в OnAppearing, карточка
+    «Обращения» скрыта.
+
+КЛИЕНТЫ.
+[x] Web: paywall и /subscription при PaymentsAvailable=false показывают
+    «Написать в поддержку» вместо оплаты; ссылка ведёт на
+    /support/new?kind=Payment — тема и текст подставляются сами.
+[x] Web: поле ответа в тикете у юзера (только Open/InProgress) и
+    у админа (всегда).
+[x] Mobile: то же самое — ContactSupportCommand → support-new?kind=Payment,
+    QueryProperty PresetKind в SupportNewViewModel, поля ответа на
+    обеих страницах тикета.
+[x] ПРАВКА (после проверки на эмуляторе): сначала сделал только
+    SubscriptionRequiredPage (paywall) и упустил вторую страницу —
+    Views/Profile/SubscriptionPage (её открывают из профиля и с
+    paywall'а). На вебе обе были сделаны сразу, на мобилке — нет.
+    Теперь у SubscriptionViewModel есть PaymentsAvailable,
+    ShowContactSupportButton и ContactSupportCommand.
+[x] ПРАВКА (замечание владельца): кнопка «Мои обращения» на ВСЕХ
+    экранах оплаты (web paywall + web /subscription + mobile paywall +
+    mobile /subscription). Сценарий: юзер с истёкшей подпиской создал
+    обращение и нажал Назад — без этой кнопки он бы не вернулся в
+    переписку с админом (paywall в остальном не выпускает в приложение).
+    Список обращений доступен без подписки — support-эндпоинты на
+    BasicAuthenticated, а mobile ISupportApi не под SubscriptionGate.
+
+ВОЗВРАТ К ОНЛАЙН-ОПЛАТЕ не потребует правок кода: как только в конфиг
+приедут боевые ключи YooKassa, PaymentsAvailable станет true и обе
+платформы сами вернут прежние кнопки оплаты.
+
+Тесты: 11 доменных (правила статусов, чужой тикет, полный диалог
+оплаты) + web-тест на подмену кнопки. Всего зелёных: Domain 253,
+Application 314, Web 160, Mobile 233.
+
+---------------------------------------------------------------------
+D43. Самостоятельное восстановление пароля по ссылке из письма
+---------------------------------------------------------------------
+
+Проблема (вопрос владельца 2026-07-23): восстановления пароля в сервисе
+НЕ БЫЛО ВООБЩЕ. Забыл пароль — доступ потерян навсегда. Админский сброс
+в бэкенде существовал (ChangePasswordUseCase пропускает проверку старого
+пароля, если вызывает админ не себе), но кнопки в админке нет, и это
+всё равно ручная работа с непроверяемой личностью просящего.
+
+Развилка была: полноценный флоу по почте либо только кнопка в админке.
+Выбран первый — админский вариант не работает ночью и в отпуске, а
+проверить «правда ли это он» по письму нельзя никак.
+
+СЛЕДСТВИЕ, КОТОРОЕ НАДО ПОМНИТЬ: фича ТРЕБУЕТ настроенного SMTP.
+Владелец до этого решил запускаться без почты — значит, до заполнения
+секции Email восстановление физически не работает (ссылку нечем
+доставить). Код это переживает штатно: ForgotPasswordUseCase видит
+IEmailSender.IsEnabled=false, пишет warning в лог и возвращает успех,
+токен при этом НЕ выписывается (мёртвая запись в БД не нужна).
+
+Реализация.
+[x] Поля на User: PasswordResetTokenHash + PasswordResetTokenExpiresAtUtc.
+    Не отдельная таблица (в отличие от refresh_tokens): активный токен
+    всегда РОВНО ОДИН, повторный запрос перезаписывает предыдущий — это
+    и есть нужное поведение («последнее письмо отменяет прежние ссылки»).
+[x] В БД лежит SHA-256 хеш, не сам токен. Утечка дампа не даёт сбросить
+    чужой пароль. Переиспользована криптография refresh-токенов через
+    новый ISecureTokenFactory (RefreshTokenFactory реализует оба
+    интерфейса) — дублировать 32 байта + SHA-256 ради второго сценария
+    незачем, а звать «RefreshTokenFactory» из сброса пароля — враньё
+    в имени.
+[x] Миграция D43_AddPasswordResetToken: две nullable-колонки +
+    ФИЛЬТРОВАННЫЙ индекс (WHERE hash IS NOT NULL) — активный токен есть
+    у единиц юзеров, индексировать NULL'ы смысла нет.
+[x] Проверка токена (совпадение + срок + одноразовость) живёт В ДОМЕНЕ
+    (User.ResetPasswordByToken), хотя юзера уже нашли по хешу. Инвариант
+    «пароль меняется только с валидным непросроченным токеном» не должен
+    обходиться через другой вызов.
+[x] Успешный сброс ротирует SecurityStamp + RevokeAllForUser +
+    ISecurityStampInvalidator.Invalidate. Сценарий «аккаунт увели»:
+    владелец восстанавливает пароль и тем самым выкидывает чужого.
+[x] ChangePasswordHash и ChangeEmail гасят активный токен сброса.
+    Вспомнил пароль и сменил сам / сменил email — прежнее письмо
+    перестаёт быть ключом к аккаунту (оно ушло на СТАРЫЙ адрес).
+
+ГЛАВНОЕ РЕШЕНИЕ — НЕРАЗГЛАШЕНИЕ СУЩЕСТВОВАНИЯ АККАУНТА.
+[x] POST /api/auth/forgot-password ВСЕГДА возвращает 200 — и для
+    существующего адреса, и для чужого, и для заблокированного, и при
+    упавшем SMTP. Иначе эндпоинт превращается в перечислитель
+    пользователей: прогнал список адресов, по коду ответа узнал, кто
+    зарегистрирован. Для сервиса про умерших родственников сам факт
+    «этот человек здесь есть» — чувствительная информация.
+[x] По той же причине НЕТ защиты «письмо уже отправляли недавно»:
+    разное поведение на повтор тоже утекало бы наружу. От перебора
+    защищает rate-limit политики auth (10/мин на IP).
+[x] Требование распространяется на ИНТЕРФЕЙС: и web, и mobile обязаны
+    писать условно — «ЕСЛИ аккаунт существует, письмо отправлено».
+    Прямое «письмо отправлено» сломало бы защиту прямо в UI.
+[x] А вот reset-password ошибку показывает ЧЕСТНО («ссылка устарела»):
+    человек уже перешёл по ссылке, enumeration тут не возникает —
+    токен не подбирается (32 случайных байта).
+
+Клиенты.
+[x] Web: /forgot-password и /reset-password (публичные роуты),
+    ссылка «Забыли пароль?» под кнопкой входа. Адрес /reset-password
+    ОБЯЗАН совпадать с PasswordReset:WebResetUrl в конфиге бэка.
+[x] Mobile: только экран запроса ссылки. Экрана ввода нового пароля
+    НЕТ НАМЕРЕННО — единственный способ доставить туда токен — заставить
+    человека переписывать его из письма руками. Ссылка из письма
+    открывается браузером телефона и ведёт на веб-страницу.
+[x] Конфиг: секция PasswordReset (TokenLifetimeMinutes=60, WebResetUrl,
+    AppName). Пустой WebResetUrl = письма не шлём: без рабочей ссылки
+    письмо бессмысленно.
+
+Тесты: 12 доменных (одноразовость, срок, ротация стампа, гашение при
+смене пароля/email) + 20 на use case'ы (неразглашение для неизвестного
+/ заблокированного / при упавшем SMTP, закрытие сессий, битый и
+просроченный токен).
+
+---------------------------------------------------------------------
+D42. Публичный доступ к фото: разбор и решение перед продакшеном
+---------------------------------------------------------------------
+
+Вопрос владельца перед запуском: защищены ли файлы на files.gdeoni.ru.
+Разбор по коду дал такую картину:
+
+    deceased-documents   publicRead:false → presigned 1ч  ЗАКРЫТО
+    support-attachments  publicRead:false → presigned 1ч  ЗАКРЫТО
+    deceased-photos      publicRead:TRUE  → прямая ссылка ОТКРЫТО
+    grave-photos         publicRead:TRUE  → прямая ссылка ОТКРЫТО
+
+Смягчающие обстоятельства: ключ объекта — Guid (2^122, не перебирается),
+а в bucket policy выдан только s3:GetObject без s3:ListBucket, поэтому
+перечислить содержимое анонимно нельзя. Массовой утечки нет; риск в том,
+что УТЕКШАЯ ссылка работает вечно и без авторизации.
+
+Рассматривались три варианта.
+
+[!] Б — presigned для фото (первоначальный выбор, ОТКЛОНЁН).
+    Не решает поставленную задачу: presigned — тот же ключ на
+    предъявителя, просто на час. Плюс два побочных эффекта: ссылка
+    каждый раз новая → браузер не кеширует фото (перекачка всей
+    выдачи поиска при каждой прокрутке); ссылка живёт час →
+    открытая дольше страница показывает битые картинки.
+
+[!] В — отдавать фото через backend под [Authorize] (ПРАВИЛЬНОЕ, отложено).
+    Единственный вариант, где без входа реально 401. Ссылка стабильная,
+    кеш браузера работает, ничего не протухает, MinIO можно вообще не
+    публиковать наружу. Эндпоинт-заготовка уже есть — F13
+    GET .../media/{mediaId}/download (IFileStorage.DownloadAsync).
+    Объём тот же, что у Б: клиенты перестают строить URL сами (D36),
+    правятся ~8 use case'ов + 10 страниц web + 8 ViewModel'ей mobile.
+
+[x] А — ужесточение nginx (ВЫБРАНО, решение 2026-07-23).
+    Владелец решил не трогать код перед первым выходом в прод.
+    На files.gdeoni.ru пропускаются только пути вида
+    ^/(deceased-photos|grave-photos|deceased-documents|support-attachments)/.+
+    и только GET/HEAD; всё остальное → 404. Закрыты служебный S3-API,
+    админка MinIO и попытки листинга. Добавлен X-Content-Type-Options.
+    ВАЖНО: закрывать «все бакеты кроме фото» нельзя — документы и
+    вложения тикетов ходят через ЭТОТ ЖЕ поддомен presigned-ссылками,
+    глухая блокировка их сломает.
+
+ОСТАЁТСЯ СДЕЛАТЬ ПОСЛЕ ЗАПУСКА: вариант В. Пока он не сделан, фото
+умерших и могил доступны по прямой ссылке без авторизации — это же
+основание для комментария PRIVACY-РИСК в MinioBootstrap.cs (152-ФЗ:
+распознаваемые лица на надгробиях). Инструкция по деплою (часть 18.5)
+честно описывает это ограничение владельцу.
+
+---------------------------------------------------------------------
+F40. Терминология памятных дат в «Событиях»
+---------------------------------------------------------------------
+
+Правка формулировок (решение 2026-07-19). Для умершего «день рождения»
+звучит неуместно, поэтому в блоке «События» дата закреплена за понятием:
+
+    - дата смерти  → «Година»     (было «Годовщина смерти»);
+    - дата рождения → «День памяти» (было «День рождения»).
+
+[x] Web EventsPage: строка события — «Година · N лет» / «День памяти ·
+    исполнилось бы N лет». Иконка дня памяти сменена с торта (Cake) на
+    цветок (Flower2) — торт для умершего противоречит смыслу.
+[x] Web AnniversaryModal (всплывашка после входа): заголовок «Сегодня
+    памятная дата», обе строки на новой терминологии, эмодзи 🌷/🕯.
+    Ветвление hasBirthday убрано — даты теперь равнозначно «памятные».
+[x] Mobile EventsViewModel: та же подпись «День памяти · исполнилось бы».
+[!] СОЗНАТЕЛЬНО НЕ ТРОНУТО: напоминания (push AnniversaryAlarmReceiver,
+    email AnniversaryEmailContent) и тогглы на карточке («Уведомлять в
+    годовщину рождения/смерти»). Пользователь сузил правку до «событий»
+    (сам заменил «в напоминаниях» на «в событиях»). Если решит
+    распространить — менять их одним заходом, чтобы термины сошлись.
+
+---------------------------------------------------------------------
+D40. Принудительное закрытие обращения админом
+---------------------------------------------------------------------
+
+Проблема: Resolved — НЕ терминальный статус. Админ даёт решение, а точку
+ставит юзер: либо подтверждает (AcceptResolution), либо переоткрывает
+(Reopen). Если юзер просто забыл нажать «решено» — обращение висит у
+админа в списке вечно, и вычистить его нечем.
+
+Решение — новый статус Closed («Закрыто») + отдельная кнопка «Закрыть
+принудительно».
+
+[x] SupportTicketStatus.Closed = 4. Миграция НЕ нужна: статус хранится
+    строкой (HasConversion<string>).
+[x] SupportTicket.ForceClose(adminId, closeNote, nowUtc) — закрывает из
+    ЛЮБОГО статуса (Open / InProgress / Resolved).
+[x] closeNote ОБЯЗАТЕЛЕН и уходит юзеру сообщением в переписку: обращение
+    не должно молча исчезать из его списка — он должен видеть, почему
+    закрыли.
+[x] Терминальность Closed направлена на ЮЗЕРА: Reopen и AcceptResolution
+    требуют Resolved, поэтому переоткрыть закрытое он не может.
+[x] ПРАВКА (после теста): админ ИЗ Closed выйти может — вернуть обращение
+    в работу обычной сменой статуса. Сначала я запретил это тоже, и админ
+    оказался заперт в собственном решении: закрыл не то обращение —
+    и всё, 409 «Ticket is already closed». Админ должен уметь откатить
+    свою ошибку; защищаемся мы от юзера, а не от себя.
+[x] В Closed нельзя попасть обычной сменой статуса — только через
+    force-close (иначе можно было бы закрыть без причины). Поэтому
+    Closed нет в STATUS_OPTIONS на клиентах.
+[x] POST /api/admin/support-tickets/{id}/force-close, роль проверяется и
+    в use case (defense in depth).
+[x] Web: кнопка + модалка с причиной, фильтр «Закрыто» в списке.
+[x] Mobile: карточка «Закрыть принудительно» + DisplayPromptAsync для
+    причины; блоки смены статуса/приоритета скрыты на Closed.
+[x] Админ-статистика: Closed считается вместе с Resolved — для админа это
+    одно и то же, обращение больше не в работе.
+[x] 8 доменных тестов: закрытие из любого статуса, обязательность причины,
+    сообщение в переписку, терминальность, невозможность Reopen.
+
+---------------------------------------------------------------------
+D39. Сроки хранения данных: бэкапы БД и retention логов (152-ФЗ)
+---------------------------------------------------------------------
+
+Контекст. Политика конфиденциальности (редакция 2) называет конкретные
+сроки хранения, а сервис их не соблюдает: бэкапов нет вообще, логи и
+тикеты лежат бессрочно. Само по себе отсутствие бэкапа закон не
+нарушает, а вот "обещали удалить через 90 дней и не удалили" —
+нарушение ст. 5 ч. 7 и ст. 21 152-ФЗ (уничтожение ПД по достижении
+цели), это ст. 13.11 КоАП при проверке.
+
+Текст политики уже приведён в соответствие с ФАКТИЧЕСКИМ поведением
+кода (обезличивание контента при удалении аккаунта, история правок
+живёт вместе с карточкой). Осталось реализовать то, что политика
+обещает на момент запуска. Всё ниже — БЛОКЕР ПЕРЕД ПУБЛИЧНЫМ РЕЛИЗОМ,
+не раньше: на dev-машине бэкапить нечего.
+
+ПЕРЕСМОТР (решение 2026-07-23). Развилка была из двух вариантов:
+реализовать обещанное либо перестать обещать. Выбран второй — из
+политики убраны ВСЕ числовые сроки (30 дней бэкапов, 90 дней логов,
+3 года тикетов, 5 лет платежей) и любое упоминание резервного
+копирования. Вместо чисел — условные формулировки («до удаления
+аккаунта», «в течение срока, установленного законодательством»),
+что ст. 22 ч. 3 п. 7 152-ФЗ допускает: закон требует «сроки ИЛИ
+ПОРЯДОК ИХ ОПРЕДЕЛЕНИЯ», а не обязательно конкретное число.
+Смысл: не обещать пользователю того, чего сервис не делает —
+невыполненное обещание в политике хуже его отсутствия.
+
+Из инструкции по деплою раздел про бэкапы тоже убран по решению
+владельца. ВНИМАНИЕ, риск остаётся ТЕХНИЧЕСКИМ, а не юридическим:
+без бэкапа отказ диска на VPS = безвозвратная потеря всех карточек,
+фото и аккаунтов. Пункты A ниже сохранены как рекомендация —
+делать их или нет, решает владелец; юридическим блокером они
+БОЛЬШЕ НЕ ЯВЛЯЮТСЯ, потому что политика их больше не обещает.
+
+A. Ежедневный бэкап PostgreSQL (при переезде на VPS).
+[ ] Ночной pg_dump --format=custom по cron (03:00 по времени сервера,
+    до пика и после дневной активности). Отдельный контейнер или
+    systemd-timer на хосте — не BackgroundService в API: бэкап не
+    должен падать вместе с приложением.
+[ ] Retention 30 дней (ровно то, что обещано в разделе 6 политики):
+    удалять дампы старше 30 дней тем же скриптом. Иначе диск.
+[ ] Копии — на отдельный носитель/бакет, а не на тот же диск, где
+    живёт БД (иначе это не бэкап, а иллюзия).
+[ ] Раз в квартал — ПРОВЕРКА ВОССТАНОВЛЕНИЯ на пустую базу. Непроверенный
+    бэкап = отсутствующий бэкап.
+[ ] MinIO: фото/документы тоже бэкапить (mc mirror на второй бакет),
+    иначе восстановленная БД будет ссылаться на несуществующие файлы.
+Нагрузка: pg_dump читает без блокировок; при базе < 1 ГБ это секунды
+ночью. Отдельного тюнинга не требует.
+
+B. Retention технических журналов — 90 дней.
+[ ] Serilog File sink: retainedFileCountLimit / retainedFileTimeLimit
+    = 90 дней. Сейчас файлы копятся бессрочно.
+[ ] Seq: Retention Policy на 90 дней в настройках инстанса (в самом
+    Seq, кодом не нужно).
+[ ] Логи НЕ переносим в Postgres. "Логи действий пользователя" из
+    политики закрываются техническими логами Serilog + историей правок
+    (DeceasedEdit). Отдельная audit-таблица на каждый запрос — INSERT
+    на каждый чих, линейный рост от трафика, никому не нужна. НЕ ДЕЛАЕМ.
+
+C. Очистка обращений в поддержку — 3 года.
+[ ] BackgroundService по образцу RefreshTokensCleanupService: раз в
+    сутки DELETE тикетов, закрытых более 3 лет назад (+ каскадом
+    сообщения и вложения; вложения в MinIO подчистит
+    MinioOrphanCleanupService).
+[ ] Срок в конфиг (SupportTicketsCleanup:RetentionYears), дефолт 3 —
+    как в RefreshTokensCleanup.
+Нагрузка: DELETE по индексу closed_at раз в сутки — миллисекунды.
+Реально понадобится только через 3 года после запуска, но пишем сразу:
+через 3 года про это никто не вспомнит.
+
+D. Email удалённого юзера в аудите правок — ПОЧИНИТЬ.
+[ ] DeleteUserUseCase → ReassignContent пишет DeceasedEdit с email
+    удалённого пользователя в diff'е (чтобы не потерять "кто создал").
+    Но это ПД, которые остаются после того, как юзер потребовал
+    удаления, — прямое противоречие ст. 21 152-ФЗ и нашей же политике.
+[ ] Решение: не писать email, писать обезличенный маркер (например,
+    "удалённый пользователь #<первые 8 символов Guid>"). Историю "карточка
+    была переуступлена" сохраняем, ПД — нет.
+
+---------------------------------------------------------------------
+F35. Action sheet на вложении + PDF preview + лимит фото (web)
+---------------------------------------------------------------------
+
+Зеркало mobile D35 для веб-клиента.
+
+A. Copy attachment в media умершего (web).
+[ ] В админ-просмотре тикета — меню "..." на каждом вложении.
+    При наличии deceasedRefId (parsed из Description) состав меню
+    зависит от типа:
+      Фото: "Открыть", "Сделать главным фото умершего",
+        "Добавить в галерею умершего", "Добавить как фото могилы".
+      PDF: "Открыть", "Добавить как документ умершего".
+[ ] Подтверждающий диалог → POST
+    /api/admin/support-tickets/{ticketId}/attachments/{attId}/copy-to-deceased
+    ?deceasedId={id}&mediaKind={kind}&makeMain={bool}.
+    makeMain=true допустим только при mediaKind=DeceasedPhoto.
+[ ] После успеха — toast "Готово".
+
+B. Inline PDF preview (web) — рабочее решение для веба.
+[ ] PDF вложения открывать в новой вкладке (target="_blank") —
+    desktop Chrome PDF Viewer и Firefox PDF.js работают inline
+    из коробки, в отличие от Android WebView. Поэтому для web
+    мы можем делать встроенный preview, в отличие от mobile.
+[ ] Фото — fullscreen overlay (уже планировалось в F33).
+
+C. Локальный лимит 10MB фото (web).
+[ ] При выборе фото через <input type="file"> — JS проверка
+    file.size > 10*1024*1024 до отправки. Inline-сообщение
+    "Фото больше 10 МБ — выберите файл поменьше.".
+[ ] Симметрично для документа > 25 МБ.
+
+---------------------------------------------------------------------
+F36. «Найти рядом» (web) — зеркало mobile E21
+---------------------------------------------------------------------
+
+Тот же сценарий, что на мобилке: юзер стоит на кладбище, берём его
+GPS и показываем карточки умерших в радиусе. Бэкенд уже готов —
+GET /api/deceased-records/nearby (E21), новых эндпоинтов не нужно.
+
+A. Страница /nearby (gated подпиской, как /search).
+[x] Радиус — Slider 50…500 м, шаг 10, дефолт 100 (как mobile).
+    Бэк допускает [10, 5000], но «рядом» дальше 500 м — уже не
+    «рядом», а поиск по городу (для этого есть /search).
+[x] Кнопка «Найти рядом» → requestGeolocationOnce() (F14, та же
+    трёхступенчатая стратегия) → GET /nearby. Геоошибку показываем
+    жёлтым Alert'ом (её лечит юзер), ошибку API — красным.
+[x] Результаты отсортированы бэком по возрастанию расстояния;
+    у каждой карточки бейдж расстояния (formatDistance: «120 м» /
+    «1.2 км» — зеркало mobile DistanceFormatter).
+[x] Клик по карточке → /preview/:id (F7), как на mobile: сначала
+    превью, потом подписка. Защита от ошибочного клика.
+
+B. Batch-добавление в отслеживаемые (как E21).
+[x] Checkbox на каждой карточке; уже отслеживаемые пред-отмечены и
+    подняты наверх (список тянем из GET tracked-deceased pageSize=100
+    — максимум, который принимает валидатор; у кого 100+ карточек
+    часть не пред-отметится, тот же техдолг, что на mobile).
+[x] Sticky-кнопка «Добавить выбранных (N)» → параллельные POST
+    tracked-deceased/{id} (batch-эндпоинта нет), RelationshipType=Other,
+    notify-флаги off. Идемпотентно: повторный track переводит в Active.
+[x] После успеха — сброс галок + статус «Добавлено: N», инвалидация
+    кеша tracked-list.
+
+C. Точки входа.
+[x] Кнопка «Найти рядом» в шапке /tracked (рядом с «Архив») —
+    зеркало mobile TrackedListPage.
+[x] Кнопка на /search: не нашёл поиском по ФИО — ищи по GPS.
+[ ] Отдельного пункта в sidebar НЕ добавляем: сценарий редкий
+    (юзер физически на кладбище), меню и так на 6 пунктов.
+
+---------------------------------------------------------------------
 F17.15. Найти умершего + admin-view карточки (~ D27)
 ---------------------------------------------------------------------
 
@@ -10961,6 +12329,83 @@ F18. Сборка и деплой web (~ E14)
     на public URL backend'а.
 
 ---------------------------------------------------------------------
+F18.1. При выкладке на сервер — НЕ ЗАБЫТЬ про мобильное приложение
+---------------------------------------------------------------------
+
+СЕЙЧАС (до релиза) страница /download — ЗАГЛУШКА: кнопка «Скачать APK»
+и аккордеон «Как установить APK» убраны, вместо них disabled-кнопка
+«Скоро» + текст «приложение пока в разработке» (см.
+frontend/web/src/pages/DownloadPage.tsx). Перед публичным запуском
+вернуть скачивание строго по пунктам:
+
+[ ] 1. Прописать ПРОД-URL API в mobile-конфиге
+       frontend/mobile/GdeOni.Mobile/Resources/Raw/appsettings.json
+       (Api.BaseUrl → https://api.<домен>) — URL зашивается в APK
+       на этапе сборки, поменять после уже нельзя без пересборки.
+[ ] 2. Проставить версии: backend AppVersion:MinSupportedVersion /
+       LatestVersion (appsettings) + mobile ApplicationDisplayVersion
+       и ApplicationVersion в GdeOni.Mobile.csproj (E22 version-gate).
+[ ] 3. Собрать релизный APK:
+       dotnet publish frontend/mobile/GdeOni.Mobile/GdeOni.Mobile.csproj
+         -f net10.0-android -c Release -p:AndroidPackageFormat=apk
+       (или по git-тегу через .github/workflows/mobile-release.yml).
+[ ] 4. Залить APK на хостинг и указать его адрес:
+       - backend appsettings → AppVersion:DownloadUrl;
+       - web .env.production → VITE_APK_FALLBACK_URL (fallback, если
+         бэк недоступен).
+[ ] 5. Вернуть скачивание в UI (восстановить из git — коммит-заглушка
+       «в разработке»); downloadUrl берётся из GET /api/app/version
+       через хук useAppVersion. Два места:
+       - страница /download: активная кнопка «Скачать APK» + аккордеон
+         «Как установить APK»;
+       - профиль (ProfilePage, блок «Мобильное приложение»): вернуть
+         прямую кнопку «Скачать APK» (СЕЙЧАС она открывает модалку
+         «в разработке») + кнопку-ссылку «Инструкция по установке» →
+         /download и подпись «Версия {latestVersion}».
+[ ] 6. Проверить, что пункт F20 «кнопка качает актуальный APK» снова
+       выполняется, и что APK ставится и логинится на реальном
+       телефоне против прод-API.
+
+---------------------------------------------------------------------
+F18.2. При выкладке на сервер — МЕДИА (MinIO) должны быть доступны по HTTPS
+---------------------------------------------------------------------
+
+Фото/документы лежат в MinIO (:9000). Клиент строит ссылку сам:
+mediaBaseUrl (из GET /api/app/features = appsettings Minio:PublicBaseUrl)
++ bucket + storage_key. В ДЕВЕ mediaBaseUrl=http://10.0.2.2:9000, а веб
+на https-туннеле отдаёт same-origin путь и проксирует его на MinIO через
+vite.tunnel.config.ts (proxy /deceased-photos, /grave-photos). ЭТО ТОЛЬКО
+ДЛЯ ТУННЕЛЯ — на сервере туннеля/Vite-dev нет, нужен нормальный доступ к
+MinIO по HTTPS. Иначе фото «не отображаются вообще» (mixed content +
+недоступный localhost:9000).
+
+[ ] 1. Выбрать схему доступа к MinIO на проде (одно из двух):
+       (A) same-origin через nginx: nginx на web-домене проксирует
+           `location /deceased-photos/` и `/grave-photos/` (и бакеты
+           документов, если нужны) → MinIO :9000; тогда
+           Minio:PublicBaseUrl = "" или публичный origin веб-домена.
+       (B) отдельный files-поддомен: Minio:PublicBaseUrl=https://files.<домен>,
+           а в docker-compose MinIO выставить MINIO_SERVER_URL=https://files.<домен>
+           (+ MINIO_BROWSER_REDIRECT_URL) — уже есть закомментированные
+           overrides в backend/docker-compose.yml.
+[ ] 2. Поставить Minio:PublicBaseUrl в appsettings на прод-значение
+       (НЕ http://10.0.2.2:9000 — это дев/эмулятор). Это чинит и web,
+       и mobile (mobile берёт mediaBaseUrl из /api/app/features).
+[ ] 3. Presigned-ссылки (документы, вложения support): работают только
+       если MinIO знает публичный адрес → обязателен MINIO_SERVER_URL
+       (иначе presigned указывает на внутренний minio:9000 / localhost).
+[ ] 4. Проверить public-read политику фото-бакетов. Она ставится ТОЛЬКО
+       при создании бакета (MinioBootstrap). Если бакеты уже существуют
+       без политики — выставить руками через mc/консоль (D11.6.2).
+[ ] 5. Удалить туннельные файлы (они dev-only, в прод не нужны):
+       frontend/web/vite.tunnel.config.ts и .env.tunnel.local.
+       NB: правка в frontend/web/src/utils/mediaUrl.ts (same-origin для
+       dev-MinIO на https) ПРОД-БЕЗОПАСНА — на реальном домене
+       (files.<домен>) она no-op, удалять/откатывать не нужно.
+[ ] 6. Проверить: HTTPS-страница на проде показывает фото умершего и
+       фото могилы; документы/вложения открываются по presigned.
+
+---------------------------------------------------------------------
 F19. Тесты web (~ E17 mobile-tests)
 ---------------------------------------------------------------------
 
@@ -10976,6 +12421,10 @@ Unit-тесты (Vitest):
 
 Component-тесты (Vitest + React Testing Library):
 
+[ ] EditDeceasedPage (F11.1): три формы независимо отправляются,
+    NullIfEmpty работает, при 409 — user-friendly текст.
+[ ] AnniversaryModal (F11.2): появляется при непустом списке,
+    блокирует навигацию, LocalStorage флаг подавляет повторы.
 [ ] LoginPage submit happy/sad paths.
 [ ] DeceasedSearchPage: CanSearch reactive к именам + датам.
 [ ] BurialLocationEditor: prefill + 403 → friendly message.
@@ -10993,6 +12442,10 @@ Web готов к demo/публикации, если:
 
 [ ] Регистрация / логин / logout работают.
 [ ] Refresh-токен обновляется автоматически при 401.
+[ ] Публичная страница /download с APK + FAQ (F27) доступна
+    без логина, кнопка качает актуальный APK.
+    NB: СЕЙЧАС это ЗАГЛУШКА («Скоро», приложение в разработке) —
+    вернуть скачивание при релизе строго по пунктам, см. F18.1.
 [ ] Геолокация запрашивается через browser API на HTTPS.
 [ ] "Добавить умершего" сначала открывает поиск (F6) —
     среди существующих, если не нашли — "Создать новую".
@@ -11002,6 +12455,11 @@ Web готов к demo/публикации, если:
 [ ] Открываются фото и документы (F11+F13).
 [ ] Загрузка фото/документов работает с progress (F13).
 [ ] Воспоминания CRUD (F12).
+[ ] Редактирование карточки админом (F11.1) — три секции
+    (основное / метаданные / место захоронения) с раздельными
+    PATCH'ами. Обычный юзер кнопку "Изменить" не видит.
+[ ] Модальное напоминание о годовщине при входе (F11.2) —
+    блокирует UI пока юзер не нажмёт OK.
 [ ] Маршрут single-point открывается во внешней карте (F14.1).
 [ ] Маршрут multi-point строит порядок и открывает внешний
     сервис (F14.2).
@@ -11023,6 +12481,11 @@ Web готов к demo/публикации, если:
     - управление отслеживаниями юзера (F17.12).
 [ ] Bootstrap первого SuperAdmin через seed (F17.5).
 [ ] Облачный стиль (F2) применён ко всем страницам.
+[ ] Sidebar-навигация (F2.1) на всех приватных страницах,
+    пункт "Админка" виден только админам, версия в футере.
+[ ] Истёкшая подписка (F22): юзер с isActiveNow=false попадает на
+    /subscription с paywall'ом — другие страницы (кроме whitelist)
+    недоступны.
 [ ] Production-сборка деплоится за HTTPS (F18).
 
 После F20 — web готов. Дальнейшее развитие — отдельные
@@ -11072,6 +12535,12 @@ TypeScript-типы:
 [ ] В web "версия" — это commit SHA или build-timestamp из
     `import.meta.env.VITE_APP_VERSION` (Vite подставляет на build-time).
     Сравниваем как semver через `compare-versions` или ручной парсер.
+[ ] Текущая версия видна юзеру:
+    - в футере профиля (F16) мелким шрифтом: "Версия: {sha[0..7]}";
+    - в админке (F17) в сайдбаре: то же самое + дата сборки.
+    Это нужно чтобы при обращении в поддержку юзер мог сказать,
+    на какой версии словил баг (зеркало mobile — ProfileViewModel
+    показывает версию из E22.1).
 [ ] При старте приложения (App.tsx → useEffect): `getAppVersion()`,
     если `currentVersion < minSupportedVersion` → блокирующая
     модалка с инструкцией "Обновите страницу" + кнопка `window.
@@ -11079,7 +12548,9 @@ TypeScript-типы:
     не должен качать APK, только перезагрузить страницу (нужный
     хеш закешировался в Service Worker'е, отвалится после F-update).
 [ ] При `currentVersion < latestVersion` (soft) → toast "Доступна
-    новая версия — обновите страницу" с кнопкой Reload.
+    новая версия — обновите страницу" с кнопкой Reload. На каждый
+    показ — добавляем флаг в sessionStorage, чтобы не повторять
+    в той же сессии (юзер уже видел, не надо мешать).
 
 Feature flags:
 
@@ -11133,11 +12604,14 @@ UI:
 - Mobile-style blocking update page как отдельный route — на web
   не нужна: достаточно модалки + `window.location.reload(true)`.
   APK скачивать не надо, нет offline-storage конфликтов.
-- Уведомления о годовщинах (E23 mobile / WorkManager-alarms) —
-  на web их нет. Web не может надёжно дать локальное напоминание
+- Background-уведомления о годовщинах (E23 mobile / WorkManager-alarms)
+  — на web их нет. Web не может надёжно дать локальное напоминание
   без открытой вкладки. Альтернатива — email-уведомления — это
   отдельный D-пункт, не делаем в F22. Юзеру который хочет
-  напоминания — мобильное приложение.
+  background-напоминания на устройстве — мобильное приложение.
+  ВНИМАНИЕ: in-app модальное напоминание при входе юзера в веб
+  ВСЁ ЖЕ ДЕЛАЕМ — см. F11.2 (юзер уже зашёл, ему показывают
+  модалку "сегодня годовщина" с блокировкой UI до OK).
 
 Tests (Vitest):
 
@@ -11235,8 +12709,104 @@ F26. CI/CD pipeline (web)
     7. Deploy в S3 / Vercel / Netlify (TBD по выбранному хостингу).
     8. Invalidate CloudFront / CDN cache.
 
+---------------------------------------------------------------------
+F27. Страница скачивания мобильного приложения (`/download`)
+---------------------------------------------------------------------
+
+ПЕРЕМЕЩЕНО 2026-06-12: блок изначально был F1.1 (рядом с каркасом),
+но сделан финальным этапом веба — у него зависимости от F2 (стиль),
+F3 (axios для GET /api/app/version), F22 (api/app.ts с getAppVersion).
+Раньше делать = либо переделывать, либо хардкодить заглушку. Сама
+страница не блокирует ни одну другую фичу веба — ссылку на неё с
+/login добавим в этом же блоке.
+
+Публичная страница (без логина). Используется как:
+  - landing для тех, кто хочет поставить Android-приложение;
+  - таргет ссылки `downloadUrl` из AppVersionResponse (D17.1) — на
+    mobile BlockingUpdatePage кнопка "Скачать обновление" ведёт сюда;
+  - таргет ссылки в Profile mobile "У нас есть веб-версия / у нас
+    есть Android-версия" (опционально).
+
+Путь: `/download`. Доступна неавторизованному юзеру (не за
+ProtectedRoute / не за paywall).
+
+Контент:
+
+[ ] Hero-блок:
+    - Логотип GdeOni + слоган "Каталог мест захоронений с GPS-координатами".
+    - Скриншоты приложения (3-4 экрана: главная, карточка умершего,
+      маршрут, поиск). PNG в public/, без оптимизации — ровно как
+      mobile иконки.
+[ ] Блок "Android-приложение":
+    - Большая кнопка `<a href={downloadUrl}>` "Скачать APK".
+      downloadUrl читается из GET /api/app/version (поле downloadUrl;
+      D17.1 уже отдаёт). Если эндпоинт упал — fallback на захардкоженный
+      URL из VITE_APK_FALLBACK_URL.
+    - Версия APK мелким шрифтом ("Версия X.Y.Z, обновлено DD.MM.YYYY").
+      Берётся из того же GET /api/app/version (latestVersion).
+    - Ссылка "Что нового в этой версии" → ChangeLog (раскрывающийся
+      `<details>`, или отдельный YAML/MD на бэке — на F27 хватит
+      hardcoded списком из 3-5 пунктов).
+[ ] Блок FAQ "Как установить APK":
+    - 1. Скачайте APK по кнопке выше.
+    - 2. Откройте файл на телефоне. Появится предупреждение
+      "Установка из неизвестных источников запрещена".
+    - 3. Перейдите в Настройки → Безопасность → Разрешить установку
+      из этого источника (или для конкретного браузера, если Android 10+).
+    - 4. Вернитесь к файлу, нажмите "Установить".
+    - 5. Откройте приложение и войдите.
+    - Скриншот настройки "разрешить из неизвестных источников" —
+      опционально, можно добавить позже.
+[ ] Блок "Веб-версия":
+    - Кнопка "Открыть веб-версию" → `/login`. Юзер, попавший на
+      /download, может просто пойти в веб без установки APK.
+[ ] Контакты / поддержка:
+    - mailto: ссылка на support@gdeoni.ru (точный адрес — H-вопрос).
+    - Ссылка на /legal/privacy и /legal/terms (F24).
+[ ] iOS не упоминаем — пока не делаем (см. I8).
+
+API:
+
+[ ] `api/app.ts` (расширение F22): `getAppVersion()` уже есть,
+    отдаёт downloadUrl. F27 использует тот же эндпоинт без
+    дополнительных запросов.
+
+Роутинг:
+
+[ ] `/download` ВНЕ ProtectedRoute (наряду с /login, /register,
+    /legal/*). Доступна анонимам.
+[ ] На `/login` добавить ссылку мелким шрифтом "Нет приложения?
+    Скачайте APK →" в footer формы. Симметрично — в mobile
+    welcome-screen ссылку "Открыть в браузере" → web url.
+
+SEO (минимум, без перебора):
+
+[ ] `<title>GdeOni — приложение для каталогизации мест захоронений</title>`
+[ ] `<meta name="description" content="..." />` с кратким описанием.
+[ ] Open Graph: og:title, og:description, og:image (одна из
+    иконок приложения). Это влияет на превью в мессенджерах,
+    когда юзер делится ссылкой.
+
+Что НЕ делаем в F27:
+
+- Аналитика скачиваний (Plausible / Yandex.Metrica) — отдельный
+  F-пункт, отложено.
+- iOS-кнопка App Store (см. I8).
+- Multi-version download (старые APK для совместимости) — пока
+  отдаётся одна актуальная.
+- Авто-detect мобильного браузера и редирект сразу на APK —
+  слишком агрессивно, юзер должен увидеть FAQ.
+
+Tests (Vitest):
+
+[ ] При успешном GET /api/app/version кнопка содержит downloadUrl
+    из ответа.
+[ ] При 5xx — fallback на VITE_APK_FALLBACK_URL.
+[ ] Ссылка на /login доступна без логина (не перехватывается
+    ProtectedRoute).
+
 =====================================================================
-КОНЕЦ F-PROD. ОБЩИЙ ОБЗОР WEB: F1-F20 запланировано, F22-F26
+КОНЕЦ F-PROD. ОБЩИЙ ОБЗОР WEB: F1-F20 запланировано, F22-F27
 запланировано как production-обвязка.
 =====================================================================
 
@@ -11324,8 +12894,13 @@ H5. Хостинг backend:
 
 H6. Backup / DR:
 
-[ ] PostgreSQL backups — частота, retention, проверка восстановления.
-[ ] MinIO objects — реплика на S3 или другой регион.
+РЕШЕНО в D39 (см. блок): ежедневный ночной pg_dump, retention 30 дней,
+копии на отдельном носителе, ежеквартальная проверка восстановления,
+mc mirror для MinIO. Сроки продиктованы Политикой конфиденциальности
+(раздел 6) — это не пожелание, а обязательство перед пользователем.
+
+[x] PostgreSQL backups — частота, retention, проверка восстановления.
+[x] MinIO objects — реплика на S3 или другой регион.
 
 H7. Privacy Policy / Terms (для D19):
 

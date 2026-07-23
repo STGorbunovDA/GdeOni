@@ -19,11 +19,31 @@ public interface IUserRepository
     Task<User?> GetByEmail(string email, CancellationToken cancellationToken);
 
     /// <summary>
+    /// D43. Поиск пользователя по хешу токена восстановления пароля.
+    /// Возвращает null, если такого токена нет — срок действия проверяет
+    /// уже сам агрегат в <c>ResetPasswordByToken</c>, чтобы инвариант
+    /// жил в домене, а не размазывался по запросу.
+    /// </summary>
+    Task<User?> GetByPasswordResetTokenHash(string tokenHash, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Лёгкий lookup только email'а по id. Нужен для отображения "кто
     /// заблокировал" в GetUserById — поднимать второй User entity
     /// ради одного string'а избыточно.
     /// </summary>
     Task<string?> GetEmailById(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Batch-выборка отображаемых имён авторов: возвращает
+    /// <c>FullName ?? UserName</c> для каждого id из списка. Используется
+    /// в DeceasedDetails чтобы показывать "автор: Иван Петров" под
+    /// каждым воспоминанием без N+1 запросов. Несуществующие id
+    /// (юзер удалил аккаунт) в словарь не попадают — UI отрисует
+    /// "Аноним".
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesByIds(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// D16. Поиск пользователя по <c>Subscription.LastPaymentId</c>.

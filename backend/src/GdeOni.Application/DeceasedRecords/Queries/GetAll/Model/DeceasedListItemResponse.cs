@@ -19,14 +19,36 @@ public sealed class GetAllDeceasedItemResponse
     public DateTime CreatedAtUtc { get; init; }
 
     /// <summary>
+    /// F17.1. Автор карточки — нужен админ-таблице "все карточки",
+    /// чтобы видеть, кто создал запись. Имя резолвится батчем через
+    /// IUserRepository.GetDisplayNamesByIds (та же схема что у
+    /// воспоминаний F12); если юзер удалён или не найден — null.
+    /// </summary>
+    public Guid CreatedByUserId { get; init; }
+    public string? CreatedByUserName { get; init; }
+
+    /// <summary>
     /// Id главного фото (Approved). Нужен клиенту чтобы потом, если
     /// он откроет редактор, знать какое сейчас выбрано.
     /// </summary>
     public Guid? MainMediaId { get; init; }
 
     /// <summary>
-    /// Готовый публичный URL главного фото для превью в ленте.
-    /// Null если фото нет или оно не Approved. Лекарство от N+1.
+    /// D36. Bucket + storage key главного фото. Клиент сам строит
+    /// URL через `${mediaBaseUrl}/${bucket}/${encodeURIComponent(key)}`,
+    /// где mediaBaseUrl приходит из <c>/api/app/features</c> и
+    /// различается для web/mobile/iOS. Null если фото нет или не
+    /// Approved.
+    /// </summary>
+    public string? MainPhotoBucket { get; init; }
+    public string? MainPhotoStorageKey { get; init; }
+
+    /// <summary>
+    /// DEPRECATED (D36): абсолютный URL хардкодит host из серверного
+    /// конфига и работает только для одного типа клиента (mobile или
+    /// web, не оба сразу). Используйте MainPhotoBucket+MainPhotoStorageKey.
+    /// Поле сохранено для обратной совместимости со старыми клиентами;
+    /// после выкатки новых клиентов будет удалено.
     /// </summary>
     public string? MainPhotoUrl { get; init; }
 }

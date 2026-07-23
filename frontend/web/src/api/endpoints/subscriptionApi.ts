@@ -1,0 +1,108 @@
+import { apiClient, unwrap } from '../client';
+import type { ApiEnvelope } from '../types';
+
+/**
+ * F22 / D16. Подписка пользователя. Endpoint'ы под
+ * `/api/users/me/subscription` — userId берётся из JWT на бэке.
+ * Все три эндпоинта в whitelist серверного paywall'а (BasicAuthenticated),
+ * чтобы юзер без активной подписки мог оформить.
+ */
+
+/** Строковое значение SubscriptionStatus (см. Domain/Shared/SubscriptionStatus.cs). */
+export type SubscriptionStatus =
+  | 'None'
+  | 'Trial'
+  | 'PendingPayment'
+  | 'Active'
+  | 'Cancelled'
+  | 'Expired';
+
+/** Строковое значение SubscriptionPlan (D16, план 2026-05-14: только Monthly). */
+export type SubscriptionPlan = 'Monthly';
+
+export type MySubscription = {
+  status: SubscriptionStatus;
+  plan: SubscriptionPlan | null;
+  expiresAtUtc: string | null;
+  cancelledAtUtc: string | null;
+  /**
+   * D22. true, если у юзера активна подписка ИЛИ выдан complimentary
+   * доступ. UI и <RequireSubscription> опираются именно на это поле.
+   */
+  isActiveNow: boolean;
+  isOnTrial: boolean;
+  /** Округлено вверх. 0 если истекло. */
+  daysUntilExpiry: number;
+  hasComplimentaryAccess: boolean;
+  complimentaryAccessUntilUtc: string | null;
+  complimentaryAccessNote: string | null;
+};
+
+export type CreatePaymentResponse = {
+  checkoutUrl: string;
+  externalPaymentId: string;
+};
+
+export const subscriptionApi = {
+  /**
+   * GET /api/users/me/subscription. Возвращает 404 если у юзера
+   * нет записи (можно случиться только для админов, которых
+   * никогда не переводили в Trial). UI трактует 404 как "нет
+   * подписки, показывать paywall не надо, если ты админ".
+   */
+  async getMy(): Promise<MySubscription> {
+    return unwrap(
+      apiClient.get<ApiEnvelope<MySubscription>>(
+        '/api/users/me/subscription',
+      ),
+    );
+  },
+
+  /**
+   * POST /api/users/me/subscription/create-payment. Возвращает URL
+   * платёжной страницы YooKassa — фронт должен редиректнуть на неё
+   * через `window.location.href`. После оплаты YooKassa вернёт юзера
+   * на URL из SubscriptionOptions.WebReturnUrl (для web — наш
+   * /payment/return); mobile-клиент шлёт Platform="Mobile" и получит
+   * deep-link.
+   */
+  async createPayment(plan: SubscriptionPlan): Promise<CreatePaymentResponse> {
+    return unwrap(
+      apiClient.post<ApiEnvelope<CreatePaymentResponse>>(
+        '/api/users/me/subscription/create-payment',
+        { plan, platform: 'Web' },
+      ),
+    );
+  },
+
+  /**
+   * POST /api/users/me/subscription/cancel. Оставляет ExpiresAtUtc —
+   * paid-period дорабатывает, автопродления не будет. 204 No Content.
+   */
+  async cancel(): Promise<void> {
+    await apiClient.post('/api/users/me/subscription/cancel');
+  },
+
+  /**
+   * POST /api/users/me/subscription/sync. Pull-fallback вместо webhook:
+   * бэк сходит к YooKassa за реальным статусом свежего PendingPayment
+   * и активирует подписку, если платёж succeeded. Работает и в dev
+   * (localhost не доступен снаружи), и как safety-net в проде.
+   * Идемпотентно: no-op когда синхронизировать нечего. 204.
+   */
+  async sync(): Promise<void> {
+    await apiClient.post('/api/users/me/subscription/sync');
+  },
+
+  /**
+   * POST /api/users/me/subscription/pending/cancel. Юзер решил
+   * отказаться от зависшего PendingPayment (нажал «Назад» на
+   * странице YooKassa и хочет вернуться к предыдущему состоянию).
+   * Бэк закроет checkout у YooKassa, пометит SubscriptionPayment
+   * Cancelled и откатит подписку в Trial (если доступ ещё был) или
+   * Expired. 204.
+   */
+  async cancelPending(): Promise<void> {
+    await apiClient.post('/api/users/me/subscription/pending/cancel');
+  },
+};

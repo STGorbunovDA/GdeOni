@@ -43,5 +43,18 @@ internal static class SupportTicketMapping
                     })
                     .ToList()
                 : null,
+            Attachments = includeMessages
+                ? ticket.Attachments
+                    .OrderBy(a => a.UploadedAtUtc)
+                    .Select(a => new SupportTicketAttachmentDto
+                    {
+                        Id = a.Id,
+                        OriginalFileName = a.OriginalFileName,
+                        ContentType = a.ContentType,
+                        SizeBytes = a.SizeBytes,
+                        UploadedAtUtc = a.UploadedAtUtc,
+                    })
+                    .ToList()
+                : null,
         };
 }

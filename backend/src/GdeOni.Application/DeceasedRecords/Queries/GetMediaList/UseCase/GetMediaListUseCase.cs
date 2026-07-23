@@ -102,6 +102,11 @@ public sealed class GetMediaListUseCase(
             Description = media.Description,
             IsMainPhoto = media.IsMainPhoto,
             ModerationStatus = media.ModerationStatus.ToString(),
+            // D36: bucket+storageKey всегда заполняем, чтобы клиент мог
+            // сам собрать URL для фото через PublicHostsService. Для
+            // документов клиент использует Url (presigned) как есть.
+            Bucket = media.Bucket,
+            StorageKey = media.StorageKey,
             Url = url,
             IsPresigned = isPresigned,
             CreatedAtUtc = media.CreatedAtUtc,

@@ -5,6 +5,7 @@ using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
 using GdeOni.Mobile.Services.Geolocation;
 using GdeOni.Mobile.Services.Network;
+using GdeOni.Mobile.Shared.Geo;
 using GdeOni.Mobile.Shared.Notifications;
 using GdeOni.Mobile.Shared.Utils;
 using Refit;
@@ -13,6 +14,7 @@ namespace GdeOni.Mobile.ViewModels;
 
 public partial class AtGraveViewModel(
     IDeceasedRecordsApi api,
+    IGeoApi geoApi,
     IGeolocationService geo,
     INetworkInfoService network,
     ILocalNotificationScheduler notificationScheduler) : ObservableObject
@@ -62,6 +64,83 @@ public partial class AtGraveViewModel(
     [ObservableProperty] private string _cemeteryName = "";
     [ObservableProperty] private string _plotNumber = "";
     [ObservableProperty] private string _graveNumber = "";
+
+    // ----- D41. Автоопределение адреса по координатам -----
+    /// <summary>Идёт запрос к геокодеру — показываем индикатор у полей адреса.</summary>
+    [ObservableProperty] private bool _isResolvingAddress;
+
+    /// <summary>
+    /// Что мы подставили в прошлый раз. Нужно, чтобы не затирать ручные
+    /// правки (см. AddressAutofill.Merge). «Россия» — наша подстановка по
+    /// умолчанию, а не ввод юзера, поэтому её перезаписать можно.
+    /// </summary>
+    private string _autoCountry = "Россия";
+    private string _autoCity = "";
+
+    private CancellationTokenSource? _addressCts;
+
+    // Автоопределение висит на самих координатах, а не на кнопке GPS: так
+    // оно ловит разом все три способа их задать — геолокацию, тап по карте
+    // и ручной ввод.
+    partial void OnLatitudeInputChanged(string value) => ScheduleAddressResolve();
+    partial void OnLongitudeInputChanged(string value) => ScheduleAddressResolve();
+
+    /// <summary>
+    /// Откладывает запрос к геокодеру. Debounce нужен из-за ручного ввода:
+    /// без него запрос уходил бы на каждый набранный символ.
+    /// </summary>
+    private void ScheduleAddressResolve()
+    {
+        if (!CoordinateParser.TryParseLatitude(LatitudeInput, out var lat)) return;
+        if (!CoordinateParser.TryParseLongitude(LongitudeInput, out var lon)) return;
+
+        _addressCts?.Cancel();
+        _addressCts = new CancellationTokenSource();
+        var token = _addressCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(700, token);
+                await ResolveAddressAsync(lat, lon, token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Координаты снова изменились — этот запрос уже не нужен.
+            }
+        }, token);
+    }
+
+    private async Task ResolveAddressAsync(double lat, double lon, CancellationToken token)
+    {
+        try
+        {
+            MainThread.BeginInvokeOnMainThread(() => IsResolvingAddress = true);
+
+            var envelope = await geoApi.ReverseAsync(lat, lon, token);
+            var address = envelope.Result;
+            if (address is null || token.IsCancellationRequested) return;
+
+            // Свойства, на которые смотрит UI, трогаем только с UI-потока.
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                Country = AddressAutofill.Merge(Country, _autoCountry, address.Country);
+                City = AddressAutofill.Merge(City, _autoCity, address.City);
+                _autoCountry = address.Country ?? "";
+                _autoCity = address.City ?? "";
+            });
+        }
+        catch (Exception)
+        {
+            // Адреса по точке нет (лес, море) или геокодер молчит. Это не
+            // ошибка сценария: поля просто останутся под ручной ввод.
+        }
+        finally
+        {
+            MainThread.BeginInvokeOnMainThread(() => IsResolvingAddress = false);
+        }
+    }
 
     public IReadOnlyList<RelationshipOption> RelationshipOptions { get; } = RelationshipTypes.All;
 
@@ -158,6 +237,14 @@ public partial class AtGraveViewModel(
         {
             IsBusyGeo = false;
         }
+    }
+
+    /// <summary>Точка выбрана тапом по карте — ручная точка, GPS-точности нет.</summary>
+    public void ApplyPickedLocation(double latitude, double longitude)
+    {
+        LatitudeInput = latitude.ToString("0.000000", CultureInfo.InvariantCulture);
+        LongitudeInput = longitude.ToString("0.000000", CultureInfo.InvariantCulture);
+        AccuracyInput = "";
     }
 
     [RelayCommand]

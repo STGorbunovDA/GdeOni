@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      ФИКС ПАДЕНИЯ ПРИ ВХОДЕ В //main (Shell TabBar).
+
+      Симптом:
+        java.lang.IllegalArgumentException: This component requires that you
+        specify a valid TextAppearance attribute...
+        at ThemeEnforcement.checkTextAppearance
+        at NavigationBarView.<init> / BottomNavigationView.<init>
+        at com.microsoft.maui.PlatformInterop.createNavigationBar
+        at ShellItemRenderer.onCreateView
+
+      Причина: Shell при переходе на TabBar создаёт BottomNavigationView.
+      Тот резолвит стиль Widget.MaterialComponents.BottomNavigationView, у
+      которого enforceTextAppearance=true, а itemTextAppearanceInactive/Active
+      заданы как ?attr/textAppearanceCaption. В теме MAUI этот атрибут не
+      разрешается → 0 → ThemeEnforcement кидает исключение.
+
+      Ресурсы приложения перекрывают одноимённые из библиотек. Переопределяем
+      стиль, сохраняя его настоящего родителя (Widget.Design.BottomNavigationView,
+      где itemTextAppearance* уже заданы конкретными стилями), и снимаем
+      принудительную проверку.
+
+      ВАЖНО: parent обязан остаться Widget.Design.BottomNavigationView — если
+      указать сам Widget.MaterialComponents.BottomNavigationView, получится
+      циклическое наследование.
+
+      Примечание: этот TabBar в приложении скрыт (Shell.TabBarIsVisible="False",
+      навигация — своя AppBottomBar). Он создаётся только чтобы быть невидимым,
+      но всё равно ронял процесс.
+    -->
+    <style name="Widget.MaterialComponents.BottomNavigationView" parent="Widget.Design.BottomNavigationView">
+        <item name="enforceMaterialTheme">false</item>
+        <item name="enforceTextAppearance">false</item>
+        <item name="itemTextAppearanceInactive">@style/TextAppearance.MaterialComponents.Caption</item>
+        <item name="itemTextAppearanceActive">@style/TextAppearance.MaterialComponents.Caption</item>
+    </style>
+
+</resources>

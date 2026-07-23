@@ -9,6 +9,7 @@ namespace GdeOni.API.Options;
 /// </summary>
 public sealed class WebhookSecurityOptions
 {
+    /// <summary>Имя секции в appsettings, к которой биндятся опции.</summary>
     public const string SectionName = "WebhookSecurity";
 
     /// <summary>

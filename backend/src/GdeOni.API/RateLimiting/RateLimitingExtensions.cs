@@ -5,8 +5,16 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace GdeOni.API.RateLimiting;
 
+/// <summary>
+/// Регистрация политик rate limiting для аутентификационных и
+/// webhook-эндпоинтов.
+/// </summary>
 public static class RateLimitingExtensions
 {
+    /// <summary>
+    /// Регистрирует политики sliding-window rate limiting per-IP
+    /// (auth и webhook) и кастомный rejected-handler с ApiResponse.
+    /// </summary>
     public static IServiceCollection AddCustomRateLimiting(
         this IServiceCollection services,
         IConfiguration configuration)

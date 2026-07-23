@@ -21,6 +21,13 @@ public interface ISupportTicketRepository
     Task<SupportTicket?> GetByIdWithMessages(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
+    /// D33. Облегчённый аналог GetByIdWithMessages — подгружает
+    /// только Attachments. Используется для скачивания вложения
+    /// (нет смысла тянуть messages в этот сценарий).
+    /// </summary>
+    Task<SupportTicket?> GetByIdWithAttachments(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Пагинированный список для админ-UI с фильтрами. statuses /
     /// severities — массивы для чек-боксного UI (несколько статусов
     /// одновременно). emailSearch — частичное совпадение email юзера

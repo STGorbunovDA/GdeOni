@@ -62,11 +62,14 @@ public sealed class CreatePaymentUseCase(
         // отдала ошибку — User остаётся с прежним Subscription,
         // никакого "висящего" PendingPayment. Save() ниже атомарно
         // фиксирует "у нас есть paymentId от провайдера".
+        //
+        // ReturnUrl выбираем по клиенту: mobile — deep-link, web —
+        // страница /payment/return нашего SPA (см. SubscriptionOptions).
         var paymentResult = await paymentProvider.CreateAsync(
             userId,
             options.MonthlyPriceRub,
             options.ProductDescription,
-            options.ReturnUrl,
+            options.GetReturnUrl(command.Platform),
             cancellationToken);
 
         if (paymentResult.IsFailure)

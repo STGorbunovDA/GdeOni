@@ -32,6 +32,12 @@ public sealed record DeceasedDetailsResponse(
     DeceasedMetadataResponse Metadata,
     IReadOnlyList<DeceasedMemoryResponse> Memories,
     Guid? MainMediaId = null,
+    // D36: bucket+storageKey — основной контракт. Клиент строит URL через
+    // IPublicHostsService.BuildMediaUrl(bucket, key).
+    string? MainPhotoBucket = null,
+    string? MainPhotoStorageKey = null,
+    // DEPRECATED (D36): абсолютный URL. Сохранён для обратной совместимости
+    // со старыми бэками. После выкатки нового бэка можно удалить.
     string? MainPhotoUrl = null);
 
 public sealed record DeceasedMetadataResponse(
@@ -47,7 +53,10 @@ public sealed record DeceasedMemoryResponse(
     Guid? AuthorUserId,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,
-    string ModerationStatus);
+    string ModerationStatus,
+    // F12: имя автора (FullName ?? UserName). Null если юзер удалён
+    // или старый бэк (без AuthorName) — UI показывает «Аноним».
+    string? AuthorName = null);
 
 public sealed record MyTrackingInfoResponse(
     Guid TrackingId,

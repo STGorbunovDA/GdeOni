@@ -14,19 +14,27 @@ namespace GdeOni.API.Mappers;
 /// </summary>
 public static class DeceasedRecordsResponseMapping
 {
+    /// <summary>Маппит результат use case <c>GetDeceasedById</c> в response-DTO деталей.</summary>
     public static DeceasedDetailsResponse ToDetailsResponse(this GetDeceasedByIdResult result) =>
         result.Deceased.ToDetailsResponse(
             result.CanSeeAllMemories,
             result.MainMediaId,
-            result.MainPhotoUrl);
+            result.MainPhotoBucket,
+            result.MainPhotoStorageKey,
+            result.MainPhotoUrl,
+            result.AuthorNames);
 
+    /// <summary>Маппит результат use case <c>GetMyTrackedDeceasedDetails</c> в response-DTO с tracking-блоком.</summary>
     public static MyTrackedDeceasedDetailsResponse ToDetailsResponse(this GetMyTrackedDeceasedDetailsResult result) =>
         new()
         {
             Deceased = result.Deceased.ToDetailsResponse(
                 result.CanSeeAllMemories,
                 result.MainMediaId,
-                result.MainPhotoUrl),
+                result.MainPhotoBucket,
+                result.MainPhotoStorageKey,
+                result.MainPhotoUrl,
+                result.AuthorNames),
             Tracking = new MyTrackingInfoResponse
             {
                 TrackingId = result.Tracking.Id,
@@ -39,11 +47,18 @@ public static class DeceasedRecordsResponseMapping
             }
         };
 
+    /// <summary>
+    /// Маппит доменный агрегат <see cref="Deceased"/> в response-DTO с
+    /// учётом видимости неподтверждённых воспоминаний и данных главного фото.
+    /// </summary>
     public static DeceasedDetailsResponse ToDetailsResponse(
         this Deceased deceased,
         bool canSeeAllMemories,
         Guid? mainMediaId = null,
-        string? mainPhotoUrl = null)
+        string? mainPhotoBucket = null,
+        string? mainPhotoStorageKey = null,
+        string? mainPhotoUrl = null,
+        IReadOnlyDictionary<Guid, string>? authorNames = null)
     {
         var memoriesQuery = canSeeAllMemories
             ? deceased.Memories
@@ -100,6 +115,11 @@ public static class DeceasedRecordsResponseMapping
                     Id = memory.Id,
                     Text = memory.Text,
                     AuthorUserId = memory.AuthorUserId,
+                    AuthorName = memory.AuthorUserId is { } authorId
+                        && authorNames is not null
+                        && authorNames.TryGetValue(authorId, out var name)
+                            ? name
+                            : null,
                     CreatedAtUtc = memory.CreatedAtUtc,
                     UpdatedAtUtc = memory.UpdatedAtUtc,
                     ModerationStatus = memory.ModerationStatus.ToString()
@@ -107,6 +127,8 @@ public static class DeceasedRecordsResponseMapping
                 .ToArray(),
 
             MainMediaId = mainMediaId,
+            MainPhotoBucket = mainPhotoBucket,
+            MainPhotoStorageKey = mainPhotoStorageKey,
             MainPhotoUrl = mainPhotoUrl,
         };
     }

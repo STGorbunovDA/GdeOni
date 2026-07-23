@@ -19,4 +19,16 @@ public interface IAuthApi
     Task LogoutAsync(
         [Body] LogoutRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D43. Просит отправить на email ссылку для смены пароля. Сама
+    /// смена происходит на сайте — ссылка из письма ведёт на
+    /// gdeoni.ru/reset-password. В приложении экрана ввода нового
+    /// пароля нет намеренно: иначе пришлось бы заставлять человека
+    /// переписывать токен из письма руками.
+    /// </summary>
+    [Post("/api/auth/forgot-password")]
+    Task ForgotPasswordAsync(
+        [Body] ForgotPasswordRequest request,
+        CancellationToken cancellationToken = default);
 }

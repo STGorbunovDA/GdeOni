@@ -503,6 +503,61 @@ namespace GdeOni.Infrastructure.Migrations
                     b.ToTable("support_tickets", (string)null);
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicketAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Bucket")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("bucket");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("original_file_name");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<DateTime>("UploadedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_support_ticket_attachments");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_support_ticket_attachments_storage_key");
+
+                    b.HasIndex("TicketId")
+                        .HasDatabaseName("ix_support_ticket_attachments_ticket_id");
+
+                    b.ToTable("support_ticket_attachments", (string)null);
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicketMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -607,6 +662,10 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateOnly?>("BirthDate")
+                        .HasColumnType("date")
+                        .HasColumnName("birth_date");
+
                     b.Property<DateTime?>("BlockedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("blocked_at_utc");
@@ -663,6 +722,15 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("password_hash");
+
+                    b.Property<DateTime?>("PasswordResetTokenExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("password_reset_token_expires_at_utc");
+
+                    b.Property<string>("PasswordResetTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("password_reset_token_hash");
 
                     b.Property<DateTime?>("PrivacyPolicyAcceptedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -731,6 +799,10 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasDatabaseName("ix_users_is_blocked")
                         .HasFilter("is_blocked = true");
 
+                    b.HasIndex("PasswordResetTokenHash")
+                        .HasDatabaseName("ix_users_password_reset_token_hash")
+                        .HasFilter("password_reset_token_hash IS NOT NULL");
+
                     b.HasIndex("RegisteredAtUtc")
                         .IsDescending()
                         .HasDatabaseName("ix_users_registered_at_utc");
@@ -743,6 +815,45 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasDatabaseName("ux_users_user_name");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("GdeOni.Infrastructure.Notifications.SentAnniversaryEmail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("AnniversaryDate")
+                        .HasColumnType("date")
+                        .HasColumnName("anniversary_date");
+
+                    b.Property<Guid>("DeceasedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deceased_id");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.Property<DateTime>("SentAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at_utc");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sent_anniversary_emails");
+
+                    b.HasIndex("DeceasedId")
+                        .HasDatabaseName("ix_sent_anniversary_emails_deceased_id");
+
+                    b.HasIndex("UserId", "DeceasedId", "Kind", "AnniversaryDate")
+                        .IsUnique()
+                        .HasDatabaseName("ux_sent_anniversary_emails_user_deceased_kind_date");
+
+                    b.ToTable("sent_anniversary_emails", (string)null);
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Auth.RefreshToken", b =>
@@ -1000,6 +1111,16 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasConstraintName("fk_support_tickets_users_user_id");
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicketAttachment", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.Support.SupportTicket", null)
+                        .WithMany("Attachments")
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_support_ticket_attachments_support_tickets_ticket_id");
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicketMessage", b =>
                 {
                     b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
@@ -1100,6 +1221,23 @@ namespace GdeOni.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("GdeOni.Infrastructure.Notifications.SentAnniversaryEmail", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.DeceasedRecords.Deceased", null)
+                        .WithMany()
+                        .HasForeignKey("DeceasedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_sent_anniversary_emails_deceased_records_deceased_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_sent_anniversary_emails_users_user_id");
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.DeceasedRecords.Deceased", b =>
                 {
                     b.Navigation("Edits");
@@ -1111,6 +1249,8 @@ namespace GdeOni.Infrastructure.Migrations
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicket", b =>
                 {
+                    b.Navigation("Attachments");
+
                     b.Navigation("Messages");
                 });
 

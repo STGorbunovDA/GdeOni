@@ -36,6 +36,13 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("full_name")
             .HasMaxLength(User.MaxFullNameLength);
 
+        // D19. Дата рождения — nullable для обратной совместимости с
+        // юзерами, зарегистрированными до введения возрастного гарда.
+        // Postgres date подставляется автоматически через
+        // UseSnakeCaseNamingConvention.
+        builder.Property(x => x.BirthDate)
+            .HasColumnName("birth_date");
+
         builder.Property(x => x.PasswordHash)
             .HasColumnName("password_hash")
             .HasMaxLength(User.MaxPasswordHash)
@@ -60,6 +67,22 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.SecurityStamp)
             .HasColumnName("security_stamp")
             .IsRequired();
+
+        // D43. Восстановление пароля по ссылке из письма. В колонке лежит
+        // SHA-256 hex (64 символа), а не сам токен — как и у refresh-токенов.
+        builder.Property(x => x.PasswordResetTokenHash)
+            .HasColumnName("password_reset_token_hash")
+            .HasMaxLength(128);
+
+        builder.Property(x => x.PasswordResetTokenExpiresAtUtc)
+            .HasColumnName("password_reset_token_expires_at_utc");
+
+        // Поиск юзера по хешу токена — единственный запрос на этапе
+        // подтверждения сброса. Фильтрованный индекс: активный токен есть
+        // у единиц пользователей, индексировать NULL'ы смысла нет.
+        builder.HasIndex(x => x.PasswordResetTokenHash)
+            .HasDatabaseName("ix_users_password_reset_token_hash")
+            .HasFilter("password_reset_token_hash IS NOT NULL");
 
         // D19. Legal acceptance: четыре колонки, заполняются единым
         // методом User.AcceptLegal в одной транзакции — допускаем

@@ -4,6 +4,9 @@ using GdeOni.API.Models.App;
 using GdeOni.API.Options;
 using GdeOni.API.Response;
 using GdeOni.Application.Abstractions.Features;
+using GdeOni.Application.Abstractions.Storage;
+using GdeOni.Application.Subscriptions;
+using GdeOni.Infrastructure.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -52,11 +55,30 @@ public sealed class AppController : ApiControllerBase
     [ProducesResponseType(typeof(ApiResponse<AppFeaturesResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     public IActionResult GetFeatures(
-        [FromServices] IFeatureFlagService featureFlags)
+        [FromServices] IFeatureFlagService featureFlags,
+        [FromServices] IFileStorage fileStorage,
+        [FromServices] IOptionsSnapshot<SubscriptionOptions> subscriptionOptions,
+        [FromServices] IOptionsSnapshot<YooKassaOptions> yooKassaOptions)
     {
+        // D36: mediaBaseUrl приходит из MinioOptions.PublicBaseUrl и
+        // отдаётся клиентам без bucket/key — каждый клиент сам строит
+        // финальный URL. Это снимает проблему "один URL для всех клиентов",
+        // когда mobile-эмулятор и web имеют разные хост-маппинги.
+        //
+        // F39: цена подписки — оттуда же, откуда её берёт CreatePayment.
+        // Один источник правды: клиент показывает ровно ту сумму, которую
+        // спишет платёжный провайдер.
+        // D44: можно ли РЕАЛЬНО заплатить. Не IsConfigured, а
+        // IsLivePaymentsEnabled — тестовый ключ YooKassa деньги не
+        // принимает, для юзера это то же самое, что «оплата не
+        // работает». Клиенты по флагу гасят кнопку оплаты и ведут
+        // человека в обращение (оплата переводом).
         var response = new AppFeaturesResponse(
             featureFlags.IsSubscriptionEnabled,
-            featureFlags.GracePeriodDaysAfterExpiry);
+            featureFlags.GracePeriodDaysAfterExpiry,
+            fileStorage.GetMediaBaseUrl(),
+            subscriptionOptions.Value.MonthlyPriceRub,
+            yooKassaOptions.Value.IsLivePaymentsEnabled);
 
         return response.ToOkResponse();
     }

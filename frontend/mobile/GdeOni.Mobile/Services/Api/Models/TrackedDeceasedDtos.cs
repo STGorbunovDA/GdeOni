@@ -15,6 +15,9 @@ public sealed record TrackedDeceasedListItem(
     bool HasGraveLocation,
     double? GraveLatitude,
     double? GraveLongitude,
+    // DEPRECATED (D36): абсолютный URL. Используй MainPhotoBucket+StorageKey
+    // и IPublicHostsService.BuildMediaUrl. Сохранено для совместимости со
+    // старым бэком; будет удалено после миграции.
     string? MainPhotoUrl,
     string RelationshipType,
     string Status,
@@ -22,4 +25,7 @@ public sealed record TrackedDeceasedListItem(
     bool NotifyOnBirthAnniversary,
     DateTime TrackedAtUtc,
     Guid? MainMediaId = null,
-    bool IsVerified = false);
+    bool IsVerified = false,
+    // D36: bucket+storageKey — основной контракт.
+    string? MainPhotoBucket = null,
+    string? MainPhotoStorageKey = null);

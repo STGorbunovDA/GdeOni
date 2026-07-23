@@ -4,6 +4,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace GdeOni.API.Extensions;
 
+/// <summary>
+/// Хелперы для формирования <see cref="ActionResult"/> из доменных
+/// результатов: маппинг ErrorType → HTTP-статус и обёртка успешного
+/// результата в <see cref="ApiResponse{T}"/>.
+/// </summary>
 public static class ResponseExtensions
 {
     /// <summary>
@@ -24,6 +29,7 @@ public static class ResponseExtensions
             _ => StatusCodes.Status500InternalServerError
         };
 
+    /// <summary>Оборачивает доменную ошибку в <see cref="ObjectResult"/> с HTTP-статусом по типу ошибки.</summary>
     public static ActionResult ToErrorResponse(this Error error)
     {
         return new ObjectResult(ApiResponse<object?>.Error(error))
@@ -32,6 +38,7 @@ public static class ResponseExtensions
         };
     }
 
+    /// <summary>Оборачивает успешный результат в <see cref="ApiResponse{T}"/> с заданным HTTP-статусом (по умолчанию 200).</summary>
     public static ActionResult ToOkResponse<T>(this T result, int statusCode = StatusCodes.Status200OK)
     {
         return new ObjectResult(ApiResponse<T>.Success(result))
@@ -40,6 +47,7 @@ public static class ResponseExtensions
         };
     }
 
+    /// <summary>Оборачивает результат в 201 Created с заголовком Location.</summary>
     public static ActionResult ToCreatedResponse<T>(this T result, string location)
     {
         return new CreatedResult(location, ApiResponse<T>.Success(result));

@@ -1,13 +1,24 @@
 namespace GdeOni.API.RateLimiting;
 
+/// <summary>
+/// Настройки rate limiting — биндятся из секции <c>RateLimiting</c>
+/// в appsettings.
+/// </summary>
 public sealed class RateLimitingOptions
 {
+    /// <summary>Имя секции в appsettings, к которой биндятся опции.</summary>
     public const string SectionName = "RateLimiting";
 
+    /// <summary>Лимит для аутентификационных эндпоинтов (login/register/refresh).</summary>
     public AuthRateLimitOptions Auth { get; set; } = new();
+    /// <summary>Лимит для webhook-эндпоинтов платёжных провайдеров.</summary>
     public WebhookRateLimitOptions Webhook { get; set; } = new();
 }
 
+/// <summary>
+/// Лимит для аутентификационных эндпоинтов: защита от brute-force
+/// подбора пароля и спама регистраций.
+/// </summary>
 public sealed class AuthRateLimitOptions
 {
     /// <summary>
@@ -42,9 +53,13 @@ public sealed class AuthRateLimitOptions
 /// </summary>
 public sealed class WebhookRateLimitOptions
 {
+    /// <summary>Имя политики, крепится к webhook-action'ам через [EnableRateLimiting].</summary>
     public const string PolicyName = "webhook";
 
+    /// <summary>Сколько запросов разрешено в окне на один IP.</summary>
     public int PermitLimit { get; set; } = 60;
+    /// <summary>Длина окна в минутах.</summary>
     public int WindowMinutes { get; set; } = 1;
+    /// <summary>Количество сегментов в sliding window.</summary>
     public int SegmentsPerWindow { get; set; } = 6;
 }

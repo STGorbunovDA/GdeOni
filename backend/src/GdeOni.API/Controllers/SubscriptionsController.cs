@@ -6,6 +6,8 @@ using GdeOni.Application.Subscriptions.Commands.CancelSubscription.Model;
 using GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CreatePayment.Model;
 using GdeOni.Application.Subscriptions.Commands.CreatePayment.UseCase;
+using GdeOni.Application.Subscriptions.Commands.SyncSubscription.UseCase;
+using GdeOni.Application.Subscriptions.Commands.CancelPendingPayment.UseCase;
 using GdeOni.Application.Subscriptions.Queries.GetMySubscription.Model;
 using GdeOni.Application.Subscriptions.Queries.GetMySubscription.UseCase;
 using Microsoft.AspNetCore.Authorization;
@@ -83,6 +85,50 @@ public sealed class SubscriptionsController : ApiControllerBase
     {
         var result = await cancelSubscription.Execute(
             new CancelSubscriptionCommand(), cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// Pull-fallback вместо webhook. Клиент дёргает этот эндпоинт
+    /// после возврата из YooKassa (или пока статус PendingPayment),
+    /// бэк идёт к YooKassa за реальным статусом платежа и, если
+    /// платёж succeeded, активирует подписку — та же логика, что
+    /// использует webhook-handler.
+    ///
+    /// Используется когда webhook не доходит: dev-окружение
+    /// (localhost не доступен снаружи), сетевой сбой, retry-задержки
+    /// у YooKassa. Идемпотентно: повторные вызовы после активации
+    /// подписки — no-op.
+    /// </summary>
+    [HttpPost("sync")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Sync(
+        [FromServices] ISyncSubscriptionUseCase syncSubscription,
+        CancellationToken cancellationToken)
+    {
+        var result = await syncSubscription.Execute(cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// Отменяет зависший PendingPayment (например, юзер нажал «Назад»
+    /// на странице YooKassa и хочет освободиться от Pending): бэк
+    /// закрывает checkout-URL у YooKassa, помечает
+    /// <c>SubscriptionPayment</c> Cancelled и откатывает подписку в
+    /// Trial (если ExpiresAtUtc в будущем) или Expired.
+    /// </summary>
+    [HttpPost("pending/cancel")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CancelPending(
+        [FromServices] ICancelPendingPaymentUseCase cancelPending,
+        CancellationToken cancellationToken)
+    {
+        var result = await cancelPending.Execute(cancellationToken);
         return FromUnitResult(result);
     }
 }

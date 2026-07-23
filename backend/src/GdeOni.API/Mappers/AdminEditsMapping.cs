@@ -11,6 +11,7 @@ namespace GdeOni.API.Mappers;
 /// </summary>
 public static class AdminEditsMapping
 {
+    /// <summary>Маппит DTO админ-ленты правок в запрос use case.</summary>
     public static GetAllEditsQuery ToQuery(this GetAllEditsRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -23,6 +24,7 @@ public static class AdminEditsMapping
             request.EditedToUtc);
     }
 
+    /// <summary>Маппит DTO истории правок одной карточки в запрос use case.</summary>
     public static GetDeceasedEditsQuery ToQuery(this GetDeceasedEditsRequest request, Guid deceasedId)
     {
         ArgumentNullException.ThrowIfNull(request);

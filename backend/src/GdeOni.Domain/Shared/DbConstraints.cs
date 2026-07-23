@@ -9,4 +9,7 @@ public static class DbConstraints
     public const string UxDeceasedMediaStorageKey = "ux_deceased_media_storage_key";
     public const string UxSubscriptionPaymentsExternalPaymentId = "ux_subscription_payments_external_payment_id";
     public const string UxTrackedDeceasedUserIdDeceasedId = "ux_tracked_deceased_user_id_deceased_id";
+    // D37. Дедуп-ключ разосланных писем о годовщинах: одно письмо на
+    // (пользователь, умерший, тип годовщины, дата годовщины).
+    public const string UxSentAnniversaryEmails = "ux_sent_anniversary_emails_user_deceased_kind_date";
 }

@@ -31,7 +31,9 @@ public sealed class GetSupportTicketByIdUseCase(
         if (ticket is null)
             return Errors.General.NotFound("support_ticket", query.TicketId);
 
-        var isAdmin = currentUserService.IsAdmin();
+        // D44. Чужое обращение видит только SuperAdmin: в переписке
+        // платёжные договорённости, обычному админу это не положено.
+        var isAdmin = currentUserService.IsSuperAdmin();
         if (!isAdmin && ticket.UserId != currentUserIdResult.Value)
             return Errors.Support.ViewForbidden();
 

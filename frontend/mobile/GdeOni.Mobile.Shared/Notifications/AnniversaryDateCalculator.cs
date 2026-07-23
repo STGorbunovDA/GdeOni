@@ -39,6 +39,26 @@ public static class AnniversaryDateCalculator
     }
 
     /// <summary>
+    /// Если <paramref name="today"/> — годовщина <paramref name="eventDate"/>,
+    /// возвращает число прошедших лет (≥ 1), иначе null. 29 февраля в
+    /// невисокосный год отмечаем 28-го. Используется вкладкой «События»
+    /// (зеркало backend AnniversaryOccurrence, D37).
+    /// </summary>
+    public static int? YearsSinceIfToday(DateOnly eventDate, DateOnly today)
+    {
+        var directMatch = eventDate.Month == today.Month && eventDate.Day == today.Day;
+        var febMatch = eventDate is { Month: 2, Day: 29 }
+            && today is { Month: 2, Day: 28 }
+            && !DateTime.IsLeapYear(today.Year);
+
+        if (!directMatch && !febMatch)
+            return null;
+
+        var years = today.Year - eventDate.Year;
+        return years >= 1 ? years : null;
+    }
+
+    /// <summary>
     /// Маппит (day, month) события в конкретный год. 29 февраля в
     /// невисокосный год → 28 февраля.
     /// </summary>

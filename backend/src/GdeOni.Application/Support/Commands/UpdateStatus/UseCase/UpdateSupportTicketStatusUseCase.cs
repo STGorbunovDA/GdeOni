@@ -31,7 +31,7 @@ public sealed class UpdateSupportTicketStatusUseCase(
         UpdateSupportTicketStatusCommand command,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.IsAdmin())
+        if (!currentUserService.IsSuperAdmin())
             return Errors.User.UserForbidden();
 
         var currentUserIdResult = currentUserService.GetCurrentUserId();

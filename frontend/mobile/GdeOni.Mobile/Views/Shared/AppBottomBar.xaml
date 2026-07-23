@@ -18,7 +18,7 @@
                         Opacity="0.12" />
             </Border.Shadow>
 
-            <Grid ColumnDefinitions="*,*,*"
+            <Grid ColumnDefinitions="*,*,*,*"
                   HeightRequest="60">
 
                 <!-- Отслеживаемые -->
@@ -26,8 +26,21 @@
                         Grid.Column="0"
                         Text="Отслеживаемые"
                         Clicked="OnTrackedTapped"
-                        FontSize="13"
-                        FontAttributes="Bold"
+                        FontFamily="Raleway"
+                        FontSize="11"
+                        TextColor="#9AA8B5"
+                        BackgroundColor="Transparent"
+                        BorderWidth="0"
+                        CornerRadius="24"
+                        Padding="0" />
+
+                <!-- События -->
+                <Button x:Name="TabEvents"
+                        Grid.Column="1"
+                        Text="События"
+                        Clicked="OnEventsTapped"
+                        FontFamily="Raleway"
+                        FontSize="11"
                         TextColor="#9AA8B5"
                         BackgroundColor="Transparent"
                         BorderWidth="0"
@@ -36,11 +49,11 @@
 
                 <!-- Маршрут -->
                 <Button x:Name="TabRoute"
-                        Grid.Column="1"
+                        Grid.Column="2"
                         Text="Маршрут"
                         Clicked="OnRouteTapped"
-                        FontSize="13"
-                        FontAttributes="Bold"
+                        FontFamily="Raleway"
+                        FontSize="11"
                         TextColor="#9AA8B5"
                         BackgroundColor="Transparent"
                         BorderWidth="0"
@@ -49,11 +62,11 @@
 
                 <!-- Профиль -->
                 <Button x:Name="TabProfile"
-                        Grid.Column="2"
+                        Grid.Column="3"
                         Text="Профиль"
                         Clicked="OnProfileTapped"
-                        FontSize="13"
-                        FontAttributes="Bold"
+                        FontFamily="Raleway"
+                        FontSize="11"
                         TextColor="#9AA8B5"
                         BackgroundColor="Transparent"
                         BorderWidth="0"

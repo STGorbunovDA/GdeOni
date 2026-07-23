@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:GdeOni.Mobile.ViewModels"
+             xmlns:controls="clr-namespace:GdeOni.Mobile.Controls"
              xmlns:models="clr-namespace:GdeOni.Mobile.Services.Api.Models"
              xmlns:sys="clr-namespace:System;assembly=netstandard"
              x:Class="GdeOni.Mobile.Views.Tracked.AtGravePage"
@@ -120,6 +121,10 @@
                                 Style="{StaticResource GhostButton}"
                                 Command="{Binding OpenAppSettingsCommand}"
                                 IsVisible="{Binding ShowOpenSettings}" />
+
+                        <Label Text="Или найдите место на карте и нажмите на точку — координаты подставятся автоматически."
+                               Style="{StaticResource CaptionLabel}" />
+                        <controls:MapPickerView x:Name="MapPicker" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -168,10 +173,19 @@
                         <Label Text="Где захоронение"
                                Style="{StaticResource SubTitleLabel}" />
 
+                        <!-- D41. Страна и город подставляются по координатам;
+                             ручные правки не затираем. -->
+                        <Label Text="Страна и город заполнятся сами по координатам. Если определилось неточно — исправьте, ваш вариант сохранится."
+                               Style="{StaticResource CaptionLabel}" />
+                        <ActivityIndicator IsRunning="{Binding IsResolvingAddress}"
+                                           IsVisible="{Binding IsResolvingAddress}"
+                                           Color="{StaticResource Azure}"
+                                           HorizontalOptions="Start" />
+
                         <Entry Placeholder="Страна"
                                Style="{StaticResource FormEntry}"
                                Text="{Binding Country}" />
-                        <Entry Placeholder="Город (необязательно)"
+                        <Entry Placeholder="Город"
                                Style="{StaticResource FormEntry}"
                                Text="{Binding City}" />
                         <Entry Placeholder="Кладбище (необязательно)"

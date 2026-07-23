@@ -183,7 +183,8 @@ Hot-reload: меняешь значение в JSON → `IOptionsMonitor` под
   "MonthlyDurationDays": 30,
   "TrialDurationDays": 30,
   "ProductDescription": "Подписка «Где Они» — 1 месяц",
-  "ReturnUrl": "gdeoni://payment/return",
+  "MobileReturnUrl": "gdeoni://payment/return",
+  "WebReturnUrl": "http://localhost:5173/payment/return",
   "PendingPaymentReuseMinutes": 10
 }
 ```
@@ -192,7 +193,8 @@ Hot-reload: меняешь значение в JSON → `IOptionsMonitor` под
 - **`MonthlyDurationDays`** — длительность одного платежа. 30 дней ≈ календарный месяц.
 - **`TrialDurationDays`** — пробный период при регистрации (бесплатно). 30 дней всем новым юзерам. Записывается автоматически в `RegisterUserUseCase` через `User.StartTrial`.
 - **`ProductDescription`** — описание товара в платёжном чеке. **Обязательно** для 54-ФЗ (Закон о ККТ): юзер должен видеть в чеке что именно он купил.
-- **`ReturnUrl`** — куда YooKassa вернёт юзера после оплаты. Mobile: deep-link типа `gdeoni://payment/return` (E22.7). Web: страница на сайте, которая делает pull-to-refresh подписки.
+- **`MobileReturnUrl`** — куда YooKassa вернёт мобильного юзера после оплаты. Deep-link `gdeoni://payment/return` (E22.7): MAUI перехватывает и открывает `SubscriptionPage` с активным поллингом.
+- **`WebReturnUrl`** — куда YooKassa вернёт веб-юзера после оплаты. Страница `/payment/return` React-приложения поллит `/api/users/me/subscription` до перехода в Active. В dev — `http://localhost:5173/payment/return`, в prod — публичный HTTPS-URL сайта. Client-side выбор URL зависит от поля `Platform` в теле `create-payment` (Mobile/Web); старые клиенты без поля считаются Mobile.
 - **`PendingPaymentReuseMinutes`** (D23, default 10) — окно дедупликации платежей. Если юзер тапнул «Оформить подписку» N раз подряд, `CreatePaymentUseCase` в этот промежуток вернёт существующий `CheckoutUrl` вместо создания нового платежа в YooKassa. Это закрывает кейс «оплатил не последний платёж → webhook 404». Подбирать вровень с YooKassa confirmation_url-таймаутом (обычно 10 минут). Уменьшать только если у юзеров часто истекает payment-link до оплаты; увеличивать — если webhook у YooKassa приходит с большой задержкой.
 
 ---
@@ -369,6 +371,65 @@ Background-service, который раз в `IntervalHours` чистит из �
 - **`InitialDelayMinutes`** — задержка перед первым прогоном после старта. 5 минут — чтобы при горячем рестарте не сразу нагружать БД.
 
 **Когда менять:** очень большой проект → `IntervalHours=6`, retention ниже. Compliance "хранить аудит 90 дней" → бампнуть `RevokedRetentionDays`.
+
+---
+
+## Email (D37)
+
+```json
+"Email": {
+  "Host": null,
+  "Port": 587,
+  "UseSsl": true,
+  "UserName": null,
+  "Password": null,
+  "FromEmail": null,
+  "FromName": "Где Они",
+  "TimeoutSeconds": 30
+}
+```
+
+SMTP-канал для исходящих писем (пока единственный сценарий — напоминания о годовщинах, см. `AnniversaryEmails`). Реализован на встроенном `System.Net.Mail.SmtpClient` — без внешних NuGet.
+
+- **`Host`** — SMTP-сервер провайдера. `null` (или пустой) **выключает канал**: DI подставляет no-op отправитель, письма физически не уходят, приложение спокойно стартует без почтового сервера (dev / integration-тесты). Примеры: `smtp.yandex.ru`, `smtp.mail.ru`, `smtp.gmail.com`.
+- **`Port`** — **только `587`** (STARTTLS) или `25` (без шифрования, не рекомендуется).
+
+  ⚠️ **`465` НЕ РАБОТАЕТ.** Отправитель построен на `System.Net.Mail.SmtpClient`, а он не поддерживает implicit SSL (SMTPS): при `EnableSsl=true` он шлёт STARTTLS. На 465 сервер ждёт TLS-рукопожатие сразу, клиент отправляет открытый EHLO — соединение виснет до таймаута. Все провайдеры, дающие 465, дают и 587: Яндекс, Mail.ru, Gmail. Если 465 когда-нибудь понадобится — придётся менять реализацию на MailKit.
+- **`UseSsl`** — включает STARTTLS (`EnableSsl`). Для 587 — `true`.
+- **`UserName` / `Password`** — учётка SMTP. Обычно `UserName` = `FromEmail`. **`Password` — секрет**: только в локальном `appsettings.json` или env `Email__Password`. У Яндекса/Gmail это **пароль приложения**, а не пароль от аккаунта.
+- **`FromEmail`** — адрес в поле From. **Обязателен** для включения канала (вместе с `Host`). Должен совпадать с почтовым ящиком, от имени которого разрешена отправка (иначе провайдер отобьёт).
+- **`FromName`** — отображаемое имя отправителя.
+- **`TimeoutSeconds`** — таймаут отправки одного письма.
+
+**Прод:** держать пароль в env/секрет-менеджере; проверить, что провайдер разрешает SMTP-отправку с этого ящика (у бесплатных ящиков часто лимиты). Для больших объёмов лучше транзакционный провайдер (Unisender/SendGrid/Mailgun) — у всех есть SMTP, конфиг тот же.
+
+---
+
+## AnniversaryEmails (D37)
+
+```json
+"AnniversaryEmails": {
+  "Enabled": false,
+  "SendAtHourLocal": 9,
+  "TimeZoneId": "Europe/Moscow",
+  "MaxJitterSeconds": 120,
+  "AppName": "Где Они",
+  "AppUrl": null
+}
+```
+
+Фоновый сервис: раз в сутки находит подписки с включёнными напоминаниями (`NotifyOnDeathAnniversary` / `NotifyOnBirthAnniversary` в отслеживании), у которых сегодня годовщина смерти/рождения умершего, и шлёт письмо через канал `Email`. Дедупликация — таблица `sent_anniversary_emails` (одно письмо на пользователя/умершего/тип/год).
+
+- **`Enabled`** — главный switch. `false` (дефолт) → сервис не рассылает ничего. Включать **после** настройки секции `Email`. Если `Email` не сконфигурирован, а `Enabled=true` — прогон пропускается с warning, годовщины НЕ помечаются отправленными (уйдут, когда включат SMTP).
+- **`SendAtHourLocal`** — час локального времени (0–23) для ежедневной рассылки. 9 — письмо ждёт человека к утру.
+- **`TimeZoneId`** — часовой пояс для «сегодня» и часа отправки (IANA-id, на .NET 8 работает и на Windows). Нераспознанный id → fallback на UTC с warning.
+- **`MaxJitterSeconds`** — случайный разброс старта (защита от одновременного старта нескольких реплик). `0` — без джиттера.
+- **`AppName`** — подпись в письме.
+- **`AppUrl`** — базовый URL приложения для кнопки-ссылки в письме (например, `https://gdeoni.ru`). `null` — письмо без ссылки.
+
+**Замечание (пересмотр D18):** изначально (D18) годовщины планировались только локально на мобилке (WorkManager), сервер ничего не слал. D37 добавляет серверный email-канал — он **дополняет**, а не заменяет мобильные локальные уведомления. Web-пользователи получают напоминания только по email (у них нет мобильного клиента); мобильные могут получать и локальный push, и письмо.
+
+**Миграция:** таблица `sent_anniversary_emails` добавляется миграцией `D37_AddSentAnniversaryEmails` — накатить `dotnet ef database update` перед стартом (иначе fail-fast на pending-миграции).
 
 ---
 

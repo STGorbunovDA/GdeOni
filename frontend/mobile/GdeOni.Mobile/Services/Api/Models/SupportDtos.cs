@@ -11,7 +11,7 @@ public sealed record SupportTicketDto(
     Guid? UserId,
     string? UserEmail,
     string Source,    // "Manual" / "Auto"
-    string Kind,      // "Payment" / "Bug" / "Complaint" / "Question" / "Other"
+    string Kind,      // "Payment" / "Bug" / "Complaint" / "Question" / "Other" / "Photo"
     string Severity,  // "Normal" / "Urgent"
     string Status,    // "Open" / "InProgress" / "Resolved"
     string Title,
@@ -27,7 +27,27 @@ public sealed record SupportTicketDto(
     int ReopenedCount,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,
-    IReadOnlyList<SupportTicketMessageDto>? Messages = null);
+    IReadOnlyList<SupportTicketMessageDto>? Messages = null,
+    IReadOnlyList<SupportTicketAttachmentDto>? Attachments = null);
+
+/// <summary>
+/// D33. Вложение в обращении (фото или PDF). URL для скачивания
+/// клиент получает отдельным запросом GetAttachmentAsync — здесь
+/// только метаданные.
+/// </summary>
+public sealed record SupportTicketAttachmentDto(
+    Guid Id,
+    string OriginalFileName,
+    string ContentType,
+    long SizeBytes,
+    DateTime UploadedAtUtc);
+
+public sealed record GetSupportAttachmentByIdResponse(
+    Guid AttachmentId,
+    string OriginalFileName,
+    string ContentType,
+    long SizeBytes,
+    string PresignedUrl);
 
 public sealed record SupportTicketMessageDto(
     Guid Id,
@@ -42,6 +62,10 @@ public sealed record CreateSupportTicketRequest(
     string Description);
 
 public sealed record CreateSupportTicketResponse(Guid TicketId);
+
+public sealed record CreateSupportTicketWithAttachmentsResponse(Guid TicketId, int AttachmentsCount);
+
+public sealed record CopyAttachmentToDeceasedMediaResponse(Guid MediaId);
 
 public sealed record GetMySupportTicketsResponse(
     IReadOnlyList<SupportTicketDto> Items,
@@ -63,4 +87,16 @@ public sealed record UpdateSupportTicketStatusRequest(
 
 public sealed record UpdateSupportTicketSeverityRequest(string Severity);
 
+/// <summary>
+/// D40. Принудительное закрытие обращения админом. CloseNote обязателен —
+/// уходит юзеру в переписку сообщением от админа.
+/// </summary>
+public sealed record ForceCloseSupportTicketRequest(string CloseNote);
+
 public sealed record ReopenSupportTicketRequest(string? UserReply);
+
+/// <summary>
+/// D44. Сообщение в переписку обращения. Один DTO для юзера и админа —
+/// различие только в эндпоинте и правах.
+/// </summary>
+public sealed record AddSupportTicketMessageRequest(string Text);

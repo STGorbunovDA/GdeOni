@@ -81,10 +81,40 @@
                             IsEnabled="{Binding IsNotBusy}"
                             HorizontalOptions="Fill" />
 
+                    <!-- D44. Онлайн-оплата не подключена: платим
+                         переводом, договариваемся в обращении. -->
+                    <Label Text="Онлайн-оплата пока не подключена. Напишите нам — подскажем, как оплатить, и откроем доступ."
+                           Style="{StaticResource CaptionLabel}"
+                           IsVisible="{Binding ShowContactSupportButton}"
+                           LineBreakMode="WordWrap" />
+
+                    <Button Text="Написать в поддержку"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding ContactSupportCommand}"
+                            IsVisible="{Binding ShowContactSupportButton}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            HorizontalOptions="Fill" />
+
+                    <!-- D44. Вход в свои обращения — вернуться в переписку
+                         после «создал обращение и ушёл». -->
+                    <Button Text="Мои обращения"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding MyTicketsCommand}"
+                            IsVisible="{Binding ShowContactSupportButton}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            HorizontalOptions="Fill" />
+
                     <Button Text="Отменить подписку"
                             Style="{StaticResource GhostButton}"
                             Command="{Binding CancelSubscriptionCommand}"
                             IsVisible="{Binding ShowCancelButton}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            HorizontalOptions="Fill" />
+
+                    <Button Text="Отменить оплату"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding CancelPendingCommand}"
+                            IsVisible="{Binding ShowCancelPendingButton}"
                             IsEnabled="{Binding IsNotBusy}"
                             HorizontalOptions="Fill" />
 

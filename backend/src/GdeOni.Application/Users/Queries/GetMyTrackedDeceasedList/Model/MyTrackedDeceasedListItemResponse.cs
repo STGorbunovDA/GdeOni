@@ -13,6 +13,19 @@ public sealed class MyTrackedDeceasedListItemResponse
 
     /// <summary>F17.*. Id главного фото — нужен для редактирования.</summary>
     public Guid? MainMediaId { get; init; }
+
+    /// <summary>
+    /// D36. Bucket и storage key главного фото. Клиент сам строит URL
+    /// через <c>${mediaBaseUrl}/${bucket}/${encodeURIComponent(key)}</c>.
+    /// Null если фото нет или не Approved.
+    /// </summary>
+    public string? MainPhotoBucket { get; init; }
+    public string? MainPhotoStorageKey { get; init; }
+
+    /// <summary>
+    /// DEPRECATED (D36): абсолютный URL хардкодит host из серверного конфига.
+    /// Используйте bucket+storageKey. Сохранено для обратной совместимости.
+    /// </summary>
     public string? MainPhotoUrl { get; init; }
     public string RelationshipType { get; init; } = null!;
     public string Status { get; init; } = null!;

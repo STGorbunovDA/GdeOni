@@ -3,8 +3,13 @@ using GdeOni.Application.DeceasedRecords.Queries.GetAll.Model;
 
 namespace GdeOni.API.Mappers;
 
+/// <summary>
+/// Request → Query маппинг для листинга карточек умерших с
+/// пагинацией и фильтрами.
+/// </summary>
 public static class DeceasedRecordsGetAllMapping
 {
+    /// <summary>Маппит DTO листинга карточек в запрос use case.</summary>
     public static GetAllDeceasedQuery ToQuery(this GetAllDeceasedRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);

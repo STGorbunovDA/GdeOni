@@ -21,8 +21,11 @@ public sealed record MySubscriptionResponse(
 
 /// <summary>
 /// E22. Body для <c>POST /api/users/me/subscription/create-payment</c>.
+/// <see cref="Platform"/> = "Mobile" — бэк вернёт нас через
+/// deep-link <c>gdeoni://payment/return</c> (см. D16
+/// SubscriptionOptions.MobileReturnUrl).
 /// </summary>
-public sealed record CreatePaymentRequest(string Plan);
+public sealed record CreatePaymentRequest(string Plan, string Platform = "Mobile");
 
 /// <summary>
 /// E22. Ответ create-payment — URL для открытия в браузере / WebView.

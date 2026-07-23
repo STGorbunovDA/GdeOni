@@ -3,11 +3,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
+using GdeOni.Mobile.Services.Media;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
 
-public partial class TrackedListViewModel(ITrackedDeceasedApi api) : ObservableObject
+public partial class TrackedListViewModel(
+    ITrackedDeceasedApi api,
+    IPublicHostsService publicHosts) : ObservableObject
 {
     [ObservableProperty]
     private string _title = "Отслеживаемые";
@@ -65,7 +68,12 @@ public partial class TrackedListViewModel(ITrackedDeceasedApi api) : ObservableO
             {
                 if (item.Status == TrackStatuses.Archived)
                     continue;
-                Items.Add(item);
+                // D36: подменяем MainPhotoUrl на собранный из bucket+key
+                // через PublicHostsService. Старый deprecated MainPhotoUrl
+                // от бэка (если есть) перезаписывается; XAML биндится на
+                // ту же property, ничего не знает о подмене.
+                var resolved = await item.ResolveMainPhotoAsync(publicHosts);
+                Items.Add(resolved);
             }
 
             OnPropertyChanged(nameof(ShowEmptyState));

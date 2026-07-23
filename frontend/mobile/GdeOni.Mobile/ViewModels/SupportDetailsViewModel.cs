@@ -82,6 +82,14 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
     private int _chatMessagesCount;
     public bool HasChatMessages => ChatMessagesCount > 0;
 
+    /// <summary>D33. Вложения, которые юзер приложил при создании тикета.</summary>
+    public ObservableCollection<AttachmentDisplayItem> Attachments { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAttachments))]
+    private int _attachmentsCount;
+    public bool HasAttachments => AttachmentsCount > 0;
+
     public bool HasReopenedHistory => ReopenedCount > 0;
     public string ReopenedHistoryText => ReopenedCount switch
     {
@@ -98,6 +106,18 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
 
     /// <summary>Юзер уже закрепил — показываем плашку "Вы подтвердили решение".</summary>
     public bool ShowAcceptedNote => AcceptedByUser;
+
+    /// <summary>
+    /// D44. Можно ли писать в переписку. Только Open / InProgress:
+    /// на Resolved есть отдельные кнопки (закрепить / продолжить спор),
+    /// на Closed переписка окончена.
+    /// </summary>
+    [ObservableProperty]
+    private bool _canWriteMessage;
+
+    /// <summary>D44. Текст нового сообщения.</summary>
+    [ObservableProperty]
+    private string _newMessageText = "";
 
     partial void OnTicketIdChanged(string value)
     {
@@ -223,8 +243,101 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
         }
     }
 
+    /// <summary>
+    /// D44. Обычное сообщение в переписку — отдельно от «Продолжить
+    /// спор»: тот доступен только на Resolved и увеличивает счётчик
+    /// переоткрытий, а реплика нужна как раз пока обращение в работе.
+    /// </summary>
+    [RelayCommand]
+    private async Task SendMessageAsync()
+    {
+        if (IsSaving) return;
+        if (!Guid.TryParse(TicketId, out var id)) return;
+
+        var text = NewMessageText?.Trim();
+        if (string.IsNullOrWhiteSpace(text)) return;
+
+        try
+        {
+            IsSaving = true;
+            ErrorMessage = null;
+
+            var resp = await supportApi.AddMessageAsync(
+                id, new AddSupportTicketMessageRequest(text));
+            if (!resp.IsSuccessStatusCode)
+            {
+                ErrorMessage = $"HTTP {(int)resp.StatusCode}: {resp.ReasonPhrase}";
+                return;
+            }
+
+            NewMessageText = "";
+            await LoadAsync();
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
     [RelayCommand]
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
+
+    /// <summary>
+    /// D33+D35. Открыть вложение:
+    /// — фото → fullscreen-просмотр (photo-viewer);
+    /// — PDF → inline-просмотр внутри приложения (pdf-preview);
+    /// — прочее → системный Launcher (fallback).
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenAttachmentAsync(AttachmentDisplayItem? item)
+    {
+        if (item is null) return;
+        if (!Guid.TryParse(TicketId, out var tid)) return;
+        try
+        {
+            var envelope = await supportApi.GetAttachmentAsync(tid, item.Id);
+            if (envelope.Result is null)
+            {
+                ErrorMessage = envelope.ErrorMessage ?? "Не удалось получить файл.";
+                return;
+            }
+            await OpenByContentTypeAsync(item, envelope.Result.PresignedUrl);
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+    }
+
+    private static async Task OpenByContentTypeAsync(AttachmentDisplayItem item, string presignedUrl)
+    {
+        // Фото — fullscreen-просмотр внутри приложения.
+        if ((item.ContentType ?? "").StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            var encodedUrl = Uri.EscapeDataString(presignedUrl);
+            await Shell.Current.GoToAsync($"photo-viewer?url={encodedUrl}");
+            return;
+        }
+
+        // PDF и прочее — системный Launcher. Android WebView не умеет
+        // рендерить PDF inline (это не desktop Chrome), а проксировать
+        // через Google Docs Viewer нельзя из-за приватности (в тикетах
+        // могут быть паспортные данные / свидетельства). Юзер выходит
+        // в системный PDF-вьюер, но это безопасно.
+        await Launcher.OpenAsync(new Uri(presignedUrl));
+    }
 
     private void ApplyDto(SupportTicketDto t)
     {
@@ -245,6 +358,9 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
             .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
 
         IsResolved = t.Status == "Resolved";
+        // D44. Зеркало доменного правила SupportTicket.AddUserMessage:
+        // писать можно, пока обращение в работе.
+        CanWriteMessage = t.Status is "Open" or "InProgress";
         AcceptedByUser = t.AcceptedByUser;
         AcceptedAt = t.AcceptedByUserAtUtc?.ToLocalTime()
             .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
@@ -262,5 +378,14 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
                 ChatMessages.Add(ChatMessage.ForViewer(msg, viewerIsAdmin: false));
         }
         ChatMessagesCount = ChatMessages.Count;
+
+        // D33. Перестраиваем список вложений.
+        Attachments.Clear();
+        if (t.Attachments is not null)
+        {
+            foreach (var att in t.Attachments)
+                Attachments.Add(AttachmentDisplayItem.From(att));
+        }
+        AttachmentsCount = Attachments.Count;
     }
 }

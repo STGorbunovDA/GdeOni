@@ -10,6 +10,7 @@ namespace GdeOni.API.Mappers;
 /// </summary>
 public static class RoutingResponseMapping
 {
+    /// <summary>Маппит результат use case <c>GetRouteToGrave</c> в response-DTO маршрута.</summary>
     public static RouteResponse ToRouteResponse(this GetRouteToGraveResult result) =>
         new()
         {

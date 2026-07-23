@@ -25,7 +25,7 @@ public sealed class GetAllSupportTicketsUseCase(
         GetAllSupportTicketsQuery query,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.IsAdmin())
+        if (!currentUserService.IsSuperAdmin())
             return Errors.User.UserForbidden();
 
         var (rows, total) = await ticketRepository.GetPagedForAdmin(

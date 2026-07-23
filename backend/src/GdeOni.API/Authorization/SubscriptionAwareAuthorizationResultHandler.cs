@@ -20,6 +20,11 @@ public sealed class SubscriptionAwareAuthorizationResultHandler : IAuthorization
 {
     private readonly AuthorizationMiddlewareResultHandler _default = new();
 
+    /// <summary>
+    /// Перехватывает результат авторизации: для падения именно на
+    /// <see cref="ActiveSubscriptionRequirement"/> отдаёт 403 с
+    /// <c>subscription.required</c>, иначе делегирует дефолтному handler'у.
+    /// </summary>
     public async Task HandleAsync(
         RequestDelegate next,
         HttpContext context,

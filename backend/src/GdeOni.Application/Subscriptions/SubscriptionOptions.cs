@@ -1,3 +1,5 @@
+using GdeOni.Domain.Shared;
+
 namespace GdeOni.Application.Subscriptions;
 
 /// <summary>
@@ -9,9 +11,15 @@ public sealed class SubscriptionOptions
     public const string SectionName = "Subscription";
 
     /// <summary>
-    /// Цена месячной подписки в рублях. Решение 2026-05-14: 49 ₽.
+    /// Цена месячной подписки в рублях. Решение 2026-05-14: 49 ₽;
+    /// пересмотр 2026-07-12: 99 ₽.
+    ///
+    /// F39: цена отдаётся клиентам через <c>GET /api/app/features</c> —
+    /// раньше web и mobile писали «49 ₽/мес» текстом в пяти местах, и
+    /// смена цены в конфиге означала бы, что на кнопке одна сумма, а
+    /// спишется другая.
     /// </summary>
-    public decimal MonthlyPriceRub { get; set; } = 49m;
+    public decimal MonthlyPriceRub { get; set; } = 99m;
 
     /// <summary>
     /// Длительность подписки за один платёж. По умолчанию 30 дней
@@ -31,12 +39,31 @@ public sealed class SubscriptionOptions
     public string ProductDescription { get; set; } = "Подписка \"Где Они\" — 1 месяц";
 
     /// <summary>
-    /// URL, на который провайдер вернёт пользователя после оплаты.
-    /// На mobile — deep-link, на web — наша страница /payment/return.
-    /// Конкретное значение из appsettings — например,
-    /// "https://gdeoni.ru/payment/return".
+    /// D16. URL, на который YooKassa возвращает мобильного клиента
+    /// после оплаты. Deep-link — MAUI-приложение перехватывает и
+    /// открывает <c>SubscriptionPage</c> с активным поллингом
+    /// (см. <c>SubscriptionViewModel.StartPollingIfPendingAsync</c>).
     /// </summary>
-    public string ReturnUrl { get; set; } = "https://gdeoni.ru/payment/return";
+    public string MobileReturnUrl { get; set; } = "gdeoni://payment/return";
+
+    /// <summary>
+    /// D16. URL, на который YooKassa возвращает веб-клиента после
+    /// оплаты. Страница <c>PaymentReturnPage</c> в React-приложении
+    /// поллит <c>/api/users/me/subscription</c> до перехода в Active.
+    /// В dev — <c>http://localhost:5173/payment/return</c>; в prod —
+    /// публичный HTTPS-URL сайта.
+    /// </summary>
+    public string WebReturnUrl { get; set; } = "https://gdeoni.ru/payment/return";
+
+    /// <summary>
+    /// Возвращает URL возврата для указанного клиента.
+    /// </summary>
+    public string GetReturnUrl(ClientPlatform platform) => platform switch
+    {
+        ClientPlatform.Web => WebReturnUrl,
+        ClientPlatform.Mobile => MobileReturnUrl,
+        _ => MobileReturnUrl,
+    };
 
     /// <summary>
     /// Helper: <see cref="TrialDurationDays"/> как TimeSpan.

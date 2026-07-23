@@ -155,6 +155,13 @@
                                                    Opacity="0.7"
                                                    HorizontalOptions="Center"
                                                    VerticalOptions="Center" />
+                                            <!-- D36: MainPhotoUrl собран VM-кодом
+                                                 через PublicHostsService из bucket+key.
+                                                 Image поверх плейсхолдера: если фото
+                                                 нет — Image остаётся прозрачным и
+                                                 видна иконка 🕊. -->
+                                            <Image Source="{Binding MainPhotoUrl}"
+                                                   Aspect="AspectFill" />
                                         </Grid>
                                     </Border>
 

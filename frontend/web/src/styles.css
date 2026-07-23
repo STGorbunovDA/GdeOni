@@ -1,0 +1,119 @@
+/* Глобальная база + токены темы (стиль шаблона Medilab).
+
+   F37. Светлая и тёмная схемы живут ЗДЕСЬ, в CSS-переменных, а не в JS.
+   Причина: палитра (design/theme.ts → cloudColors) используется в 147
+   местах как inline-стиль. Будь токены хексами, тёмная тема означала бы
+   правку каждого из 37 файлов. Вместо этого cloudColors отдаёт
+   var(--cloud-*), а тема подменяет ЗНАЧЕНИЯ переменных — браузер
+   перекрашивает всё сам.
+
+   Атрибут data-mantine-color-scheme на <html> ставит Mantine, а до
+   первой отрисовки — inline-скрипт в index.html (иначе тёмная тема
+   мигает белым на загрузке). */
+
+:root {
+  /* Нативные контролы (календарь в <input type="date">, скроллбары)
+     переключаются на тёмные только через это свойство. */
+  color-scheme: light;
+
+  --cloud-sky: #e8f2fb;
+  --cloud-surface: #ffffff;
+  --cloud-bg: #f1f7fc;
+  --cloud-azure: #1977cc;
+  --cloud-azure-deep: #145a9e;
+  --cloud-ink: #2c4964;
+  --cloud-text: #444444;
+  --cloud-border: #e2ecf5;
+  --cloud-caption: #7a8794;
+  --cloud-error: #c0392b;
+
+  --cloud-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+  --cloud-link-hover: #4691da;
+
+  /* Утопленный фон: блоки «Детали (auto)», <pre>, read-only панели. */
+  --cloud-sunken: #f4f6f8;
+  /* Подсветка «требует внимания» — срочный тикет в списке. */
+  --cloud-danger-surface: #ffebeb;
+  /* Пузыри переписки: моё сообщение / входящее / рамка. */
+  --cloud-bubble-mine: #ffffff;
+  --cloud-bubble-other: #fff7dc;
+  --cloud-bubble-border: #e0eaf2;
+  /* Тёплая «предупреждающая» заливка: отклонённое медиа/воспоминание. */
+  --cloud-warn-surface: #fffbeb;
+}
+
+[data-mantine-color-scheme='dark'] {
+  color-scheme: dark;
+
+  /* Фон не чёрный, а глубокий сине-серый: на чистом #000 пропадают
+     мягкие тени, на которых держится вся вёрстка карточек. */
+  --cloud-sky: #1b2b3a;
+  --cloud-surface: #16202b;
+  --cloud-bg: #0f1720;
+
+  /* Акцент на тёмном фоне светлее, чем на светлом: #1977cc на почти
+     чёрном даёт контраст ~3:1 — мелкий текст и иконки нечитаемы.
+     azure-deep («усиленный акцент») в тёмной теме СВЕТЛЕЕ базового:
+     семантика та же, направление обратное. */
+  --cloud-azure: #4da3e8;
+  --cloud-azure-deep: #8ac6f5;
+
+  --cloud-ink: #e6edf3;
+  --cloud-text: #c2ccd6;
+  --cloud-border: #24333f;
+  --cloud-caption: #8a99a8;
+  --cloud-error: #e5736a;
+
+  /* Тень на тёмном фоне почти не видна — компенсируем плотностью. */
+  --cloud-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
+  --cloud-link-hover: #b6dcfa;
+
+  /* Утопленный фон чуть темнее поверхности карточки. */
+  --cloud-sunken: #0e1620;
+  /* «Требует внимания» — приглушённо-бордовый, не ядовито-розовый. */
+  --cloud-danger-surface: #3a2327;
+  /* Пузыри: исходящее чуть светлее фона, входящее — тёплый тёмный. */
+  --cloud-bubble-mine: #1e2a37;
+  --cloud-bubble-other: #2e2a1c;
+  --cloud-bubble-border: #2a3947;
+  --cloud-warn-surface: #322c18;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue',
+    Arial, sans-serif;
+  background-color: var(--cloud-bg);
+  color: var(--cloud-text);
+}
+
+/* Poppins без кириллицы → русские заголовки берёт Montserrat
+   (см. комментарий в design/theme.ts). */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Poppins', 'Montserrat', 'Roboto', system-ui, sans-serif;
+  color: var(--cloud-ink);
+}
+
+a {
+  color: var(--cloud-azure);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+a:hover {
+  color: var(--cloud-link-hover);
+  text-decoration: none;
+}

@@ -54,6 +54,7 @@ public sealed class AuthService(
         string? userName,
         string? fullName,
         string password,
+        DateOnly birthDate,
         bool privacyPolicyAccepted,
         bool termsAccepted,
         CancellationToken ct = default)
@@ -62,13 +63,16 @@ public sealed class AuthService(
         {
             // E24: чекбоксы 152-ФЗ показываются в RegisterPage; сюда
             // приходят реальные значения. Бэк-валидатор отвергнет
-            // регистрацию если хоть один false (D19).
+            // регистрацию если хоть один false (D19). D19-age:
+            // BirthDate обязательный, проверка возраста 14+ — на бэке
+            // через User.Register + TimeProvider.
             var registerEnv = await usersApi.RegisterAsync(
                 new RegisterUserRequest(
                     email,
                     userName,
                     fullName,
                     password,
+                    birthDate,
                     privacyPolicyAccepted,
                     termsAccepted), ct);
             if (registerEnv.Result is null)

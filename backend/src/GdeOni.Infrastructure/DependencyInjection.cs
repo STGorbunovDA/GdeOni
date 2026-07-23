@@ -1,4 +1,6 @@
-﻿using GdeOni.Application.Abstractions.Features;
+﻿using GdeOni.Application.Abstractions.Email;
+using GdeOni.Application.Abstractions.Features;
+using GdeOni.Application.Abstractions.Geo;
 using GdeOni.Application.Abstractions.Payments;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Routing;
@@ -7,7 +9,10 @@ using GdeOni.Application.Common.Security;
 using GdeOni.Application.Legal;
 using GdeOni.Application.Subscriptions;
 using GdeOni.Infrastructure.Data;
+using GdeOni.Infrastructure.Email;
 using GdeOni.Infrastructure.Features;
+using GdeOni.Infrastructure.Geo;
+using GdeOni.Infrastructure.Notifications;
 using GdeOni.Infrastructure.Payments;
 using GdeOni.Infrastructure.Persistence;
 using GdeOni.Infrastructure.Persistence.Cleanup;
@@ -64,11 +69,29 @@ public static class DependencyInjection
         services.AddScoped<ISubscriptionPaymentRepository, SubscriptionPaymentRepository>();
         // D25. Обращения в службу поддержки (manual + auto-инциденты).
         services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
+
+        // F38. Read-model админской справки: только COUNT/SUM, без сущностей.
+        services.AddScoped<IAdminStatsRepository, AdminStatsRepository>();
+
+        // D41. Обратное геокодирование (координаты → город) через Nominatim.
+        // Ходим с сервера, а не с клиента: иначе IP юзера ушёл бы во внешний
+        // сервис в ЕС, что противоречит нашей же политике (5.3).
+        services.Configure<GeocodingOptions>(
+            configuration.GetSection(GeocodingOptions.SectionName));
+        services.AddHttpClient<IReverseGeocoder, NominatimReverseGeocoder>((sp, http) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<GeocodingOptions>>().Value;
+            NominatimReverseGeocoder.ConfigureClient(http, opts);
+        });
         // PasswordHasher без состояния: BCrypt.Net не использует поля
         // экземпляра. Singleton экономит аллокацию на каждый запрос
         // (см. D11.7.2).
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
-        services.AddSingleton<IRefreshTokenFactory, RefreshTokenFactory>();
+        services.AddSingleton<RefreshTokenFactory>();
+        services.AddSingleton<IRefreshTokenFactory>(sp => sp.GetRequiredService<RefreshTokenFactory>());
+        // D43. Тот же экземпляр под вторым именем — ссылке восстановления
+        // пароля нужна ровно та же криптография (32 байта + SHA-256).
+        services.AddSingleton<ISecureTokenFactory>(sp => sp.GetRequiredService<RefreshTokenFactory>());
 
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
 
@@ -153,6 +176,10 @@ public static class DependencyInjection
 
         services.AddSingleton<IFileStorage, MinioFileStorage>();
 
+        // D33. Резолвер bucket'а для вложений в обращения. Отдельный
+        // singleton без состояния — читает из MinioOptions.
+        services.AddSingleton<ISupportAttachmentsBucketResolver, SupportAttachmentsBucketResolver>();
+
         // D8.2: deep-link провайдеры карт. Singleton — без состояния,
         // только форматируют URL без сетевых вызовов.
         services.AddSingleton<IRouteLinkProvider, YandexRouteLinkProvider>();
@@ -164,6 +191,27 @@ public static class DependencyInjection
         services.Configure<RefreshTokensCleanupOptions>(
             configuration.GetSection(RefreshTokensCleanupOptions.SectionName));
         services.AddHostedService<RefreshTokensCleanupService>();
+
+        // D37. Email-канал + фоновая рассылка о годовщинах. Sender без
+        // состояния → Singleton. Если SMTP не сконфигурирован (нет Host/
+        // FromEmail) — подставляем no-op, чтобы приложение поднялось без
+        // почтового сервера (dev / integration-тесты). Зеркалит выбор
+        // FakePaymentProvider vs YooKassaPaymentProvider.
+        services.Configure<EmailOptions>(
+            configuration.GetSection(EmailOptions.SectionName));
+        services.AddSingleton<SmtpEmailSender>();
+        services.AddSingleton<NoOpEmailSender>();
+        services.AddSingleton<IEmailSender>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<EmailOptions>>().Value;
+            return opts.IsConfigured
+                ? sp.GetRequiredService<SmtpEmailSender>()
+                : sp.GetRequiredService<NoOpEmailSender>();
+        });
+
+        services.Configure<AnniversaryEmailOptions>(
+            configuration.GetSection(AnniversaryEmailOptions.SectionName));
+        services.AddHostedService<AnniversaryEmailService>();
 
         return services;
     }

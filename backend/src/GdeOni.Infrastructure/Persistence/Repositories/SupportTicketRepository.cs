@@ -14,13 +14,22 @@ public sealed class SupportTicketRepository(AppDbContext dbContext) : ISupportTi
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
+    public Task<SupportTicket?> GetByIdWithAttachments(Guid id, CancellationToken cancellationToken)
+    {
+        return dbContext.SupportTickets
+            .Include(x => x.Attachments)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
     public Task<SupportTicket?> GetByIdWithMessages(Guid id, CancellationToken cancellationToken)
     {
         // Include всей коллекции — в карточке тикета это всегда
         // полная история, постранично грузить смысла нет (десятки
-        // сообщений максимум).
+        // сообщений максимум). D33: вместе с Messages подгружаем
+        // и Attachments (до 5 на тикет, cartesian explosion не страшен).
         return dbContext.SupportTickets
             .Include(x => x.Messages)
+            .Include(x => x.Attachments)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 

@@ -34,6 +34,15 @@
                         <Label Text="После оплаты вы автоматически вернётесь в приложение и сможете продолжить."
                                FontSize="13"
                                TextColor="#5D7282"
+                               IsVisible="{Binding PaymentsAvailable}"
+                               LineBreakMode="WordWrap" />
+
+                        <!-- D44. Онлайн-оплата не подключена: платим
+                             переводом, договариваемся в обращении. -->
+                        <Label Text="Напишите нам — подскажем, как оплатить, и откроем доступ."
+                               FontSize="13"
+                               TextColor="#5D7282"
+                               IsVisible="{Binding PaymentsUnavailable}"
                                LineBreakMode="WordWrap" />
                     </VerticalStackLayout>
                 </Border>
@@ -45,6 +54,21 @@
                 <Button Text="Оформить подписку"
                         Style="{StaticResource PrimaryButton}"
                         Command="{Binding SubscribeCommand}"
+                        IsVisible="{Binding PaymentsAvailable}"
+                        HorizontalOptions="Fill" />
+
+                <Button Text="Написать в поддержку"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding ContactSupportCommand}"
+                        IsVisible="{Binding PaymentsUnavailable}"
+                        HorizontalOptions="Fill" />
+
+                <!-- D44. Вход в свои обращения — на случай «создал и нажал
+                     Назад»: без него человек не вернётся в переписку. -->
+                <Button Text="Мои обращения"
+                        Style="{StaticResource GhostButton}"
+                        Command="{Binding MyTicketsCommand}"
+                        IsVisible="{Binding PaymentsUnavailable}"
                         HorizontalOptions="Fill" />
 
                 <Button Text="Выйти из аккаунта"

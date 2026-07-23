@@ -15,6 +15,7 @@ namespace GdeOni.API.Hosting;
 /// </summary>
 public sealed class HostingOptions
 {
+    /// <summary>Имя секции в appsettings, к которой биндятся опции.</summary>
     public const string SectionName = "Hosting";
 
     /// <summary>

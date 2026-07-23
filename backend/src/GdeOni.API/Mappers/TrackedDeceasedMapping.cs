@@ -11,20 +11,28 @@ using GdeOni.Domain.Shared;
 
 namespace GdeOni.API.Mappers;
 
+/// <summary>
+/// Request → Command/Query маппинг для контроллеров отслеживания
+/// умерших и построения маршрутов до могил.
+/// </summary>
 public static class TrackedDeceasedMapping
 {
+    /// <summary>Маппит DTO пагинации в запрос списка отслеживаемых умерших.</summary>
     public static GetMyTrackedDeceasedListQuery ToQuery(this GetMyTrackedDeceasedRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         return new GetMyTrackedDeceasedListQuery(request.Page, request.PageSize);
     }
 
+    /// <summary>Возвращает запрос детальной информации об отслеживаемой карточке.</summary>
     public static GetMyTrackedDeceasedDetailsQuery ToDetailsQuery(Guid deceasedId)
         => new(deceasedId);
 
+    /// <summary>Возвращает запрос проверки факта отслеживания карточки текущим пользователем.</summary>
     public static IsTrackedByMeQuery ToIsTrackedByMeQuery(Guid deceasedId)
         => new(deceasedId);
 
+    /// <summary>Маппит DTO добавления в отслеживание в команду use case.</summary>
     public static TrackDeceasedCommand ToCommand(this AddMeTrackingRequest request, Guid deceasedId)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -36,6 +44,7 @@ public static class TrackedDeceasedMapping
             request.NotifyOnBirthAnniversary);
     }
 
+    /// <summary>Маппит DTO правки настроек отслеживания в команду use case.</summary>
     public static UpdateTrackingCommand ToCommand(this UpdateTrackingRequest request, Guid deceasedId)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -48,9 +57,11 @@ public static class TrackedDeceasedMapping
             request.TrackStatus);
     }
 
+    /// <summary>Возвращает команду удаления карточки из персонального отслеживания.</summary>
     public static RemoveTrackingCommand ToRemoveCommand(Guid deceasedId)
         => new(deceasedId);
 
+    /// <summary>Возвращает запрос построения маршрута до могилы.</summary>
     public static GetRouteToGraveQuery ToRouteQuery(
         Guid deceasedId,
         double fromLat,

@@ -1,10 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
+using GdeOni.Mobile.Shared.EditsHistory;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
@@ -137,7 +137,7 @@ public sealed class EditEntry
         string editor;
         if (dto.Kind == "Reassignment")
         {
-            var deletedEmail = ExtractPreviousAuthorEmail(dto.ChangesJson);
+            var deletedEmail = EditsHistoryParser.ExtractPreviousAuthorEmail(dto.ChangesJson);
             editor = deletedEmail is not null
                 ? $"Удалённый пользователь ({deletedEmail})"
                 : "Удалённый пользователь";
@@ -149,7 +149,9 @@ public sealed class EditEntry
                 : dto.EditedByEmail ?? "Удалённый пользователь";
         }
 
-        var changes = ParseChanges(dto.ChangesJson);
+        var changes = EditsHistoryParser.ParseChanges(dto.ChangesJson)
+            .Select(r => new ChangeRow(r.FieldLabel, r.OldValue, r.NewValue))
+            .ToList();
 
         return new EditEntry
         {
@@ -160,60 +162,6 @@ public sealed class EditEntry
         };
     }
 
-    private static string? ExtractPreviousAuthorEmail(string json)
-    {
-        try
-        {
-            var dict = JsonSerializer.Deserialize<Dictionary<string, ChangePairDto>>(json);
-            return dict?.TryGetValue("PreviousAuthor", out var pair) == true ? pair.Old : null;
-        }
-        catch { return null; }
-    }
-
-    private static IReadOnlyList<ChangeRow> ParseChanges(string json)
-    {
-        try
-        {
-            var dict = JsonSerializer.Deserialize<Dictionary<string, ChangePairDto>>(json);
-            if (dict is null) return Array.Empty<ChangeRow>();
-            return dict.Select(kv => new ChangeRow(
-                FieldDisplay(kv.Key),
-                kv.Value.Old ?? "—",
-                kv.Value.New ?? "—")).ToList();
-        }
-        catch
-        {
-            return new[] { new ChangeRow("(diff)", "", json) };
-        }
-    }
-
-    private static string FieldDisplay(string field) => field switch
-    {
-        "FirstName" => "Имя",
-        "LastName" => "Фамилия",
-        "MiddleName" => "Отчество",
-        "BirthDate" => "Дата рождения",
-        "DeathDate" => "Дата смерти",
-        "ShortDescription" => "Краткое описание",
-        "Biography" => "Биография",
-        "Epitaph" => "Эпитафия",
-        "Religion" => "Религия",
-        "Source" => "Источник",
-        "IsMilitaryService" => "Военная служба",
-        "AdditionalInfo" => "Доп. информация",
-        "Latitude" => "Широта",
-        "Longitude" => "Долгота",
-        "AccuracyMeters" => "Точность, м",
-        "Country" => "Страна",
-        "City" => "Город",
-        "CemeteryName" => "Кладбище",
-        "PlotNumber" => "Участок",
-        "GraveNumber" => "Номер могилы",
-        "PreviousAuthor" => "Удалённый автор (email)",
-        _ => field,
-    };
-
-    private sealed record ChangePairDto(string? Old, string? New);
 }
 
 public sealed record ChangeRow(string Field, string Old, string New);

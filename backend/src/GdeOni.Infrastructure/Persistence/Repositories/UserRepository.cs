@@ -84,6 +84,14 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
     }
 
+    public Task<User?> GetByPasswordResetTokenHash(
+        string tokenHash,
+        CancellationToken cancellationToken)
+    {
+        return dbContext.Users
+            .FirstOrDefaultAsync(x => x.PasswordResetTokenHash == tokenHash, cancellationToken);
+    }
+
     public Task<string?> GetEmailById(Guid userId, CancellationToken cancellationToken)
     {
         return dbContext.Users
@@ -91,6 +99,26 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .Where(x => x.Id == userId)
             .Select(x => x.Email)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesByIds(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken)
+    {
+        if (userIds.Count == 0)
+            return new Dictionary<Guid, string>();
+
+        // FullName приоритетнее: это "то, что юзер указал о себе".
+        // Если он пустой — fallback на UserName (он обязателен и уникален).
+        var rows = await dbContext.Users
+            .AsNoTracking()
+            .Where(x => userIds.Contains(x.Id))
+            .Select(x => new { x.Id, x.FullName, x.UserName })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(
+            r => r.Id,
+            r => string.IsNullOrWhiteSpace(r.FullName) ? r.UserName : r.FullName);
     }
 
     public Task<User?> GetBySubscriptionPaymentId(

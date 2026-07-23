@@ -1,0 +1,88 @@
+# F26. Web CI — typecheck + lint + test + build на каждый push и PR.
+#
+# Vitest 2 работает поверх esbuild (не rolldown) — на ubuntu-runner'е
+# всё поднимается из коробки, без нативных биндингов. Тесты гоняются
+# с jsdom 25 (см. frontend/web/vite.config.ts).
+#
+# Release-workflow отдельно (web-release.yml) и триггерится по тегам
+# web-vX.Y.Z. Хостинг пока не определён (S3 / Vercel / Netlify — TBD),
+# поэтому deploy-job заготовлен, но по умолчанию отключён (не будет
+# запускаться, пока не решим).
+
+name: web-ci
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'frontend/web/**'
+      - '.github/workflows/web-ci.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'frontend/web/**'
+      - '.github/workflows/web-ci.yml'
+
+# Cancel-in-progress: устаревшие прогоны для одной ветки/PR
+# отменяются автоматически, освобождая минуты на free-tier.
+concurrency:
+  group: web-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: typecheck + lint + test + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend/web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # Кеш npm автоматически привязывается к frontend/web/package-lock.json
+          # — без cache-dependency-path setup-node ищет lockfile в корне.
+          cache: 'npm'
+          cache-dependency-path: frontend/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # tsc --noEmit — быстрая проверка типов без Vite-бандлинга.
+      # Отделено от build, чтобы падение типов было отчётливым в UI CI.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # F19 — Vitest 2 + jsdom 25. Тесты гоняются в один поток из-за
+      # Zustand/persist глобального стейта; повторного запуска обычно
+      # не требуется.
+      - name: Test
+        run: npm test
+
+      # Полная production-сборка через Vite: убеждаемся, что все чанки
+      # собираются, что нет unresolved-импортов, и что размер бандла
+      # в пределах warning'а (500kB).
+      - name: Build (production)
+        run: npm run build
+        env:
+          # VITE_API_BASE_URL при сборке не нужен для CI (заменяется
+          # env.js либо nginx runtime-config'ом на проде), но заглушка
+          # не помешает — иначе runtime-код может пойти по window.origin.
+          VITE_API_BASE_URL: /api
+
+      - name: Upload build artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: frontend/web/dist
+          retention-days: 7

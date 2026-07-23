@@ -4,7 +4,9 @@ using GdeOni.Application.Common.Security;
 
 namespace GdeOni.Infrastructure.Security;
 
-public sealed class RefreshTokenFactory : IRefreshTokenFactory
+// D43. Реализует и ISecureTokenFactory: та же пара Generate/Hash нужна
+// ссылке восстановления пароля. Поведение для refresh-токенов не менялось.
+public sealed class RefreshTokenFactory : IRefreshTokenFactory, ISecureTokenFactory
 {
     private const int TokenSizeInBytes = 32;
 

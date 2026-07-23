@@ -19,6 +19,7 @@ public interface IAuthService
         string? userName,
         string? fullName,
         string password,
+        DateOnly birthDate,
         bool privacyPolicyAccepted,
         bool termsAccepted,
         CancellationToken ct = default);

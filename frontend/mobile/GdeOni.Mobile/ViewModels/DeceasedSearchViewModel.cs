@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
+using GdeOni.Mobile.Services.Media;
 using GdeOni.Mobile.Shared.Search;
 using Refit;
 
@@ -22,7 +23,8 @@ namespace GdeOni.Mobile.ViewModels;
 ///    обычный AtGravePage flow.
 /// </summary>
 public partial class DeceasedSearchViewModel(
-    IDeceasedRecordsApi deceasedApi) : ObservableObject
+    IDeceasedRecordsApi deceasedApi,
+    IPublicHostsService publicHosts) : ObservableObject
 {
     private const int PageSize = 20;
 
@@ -199,8 +201,14 @@ public partial class DeceasedSearchViewModel(
                 return;
             }
 
+            // D36: resolve MainPhotoUrl из bucket+key через PublicHostsService.
+            // Подменяет deprecated MainPhotoUrl от старого бэка/конфига на
+            // корректный URL под текущего клиента.
             foreach (var item in envelope.Result.Items)
-                Results.Add(item);
+            {
+                var resolved = await item.ResolveMainPhotoAsync(publicHosts);
+                Results.Add(resolved);
+            }
 
             TotalCount = envelope.Result.TotalCount;
             CurrentPage = nextPage;

@@ -2,6 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using GdeOni.Api.IntegrationTests.Infrastructure;
+using GdeOni.Application.Legal;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace GdeOni.Api.IntegrationTests.Legal;
 
@@ -28,8 +31,17 @@ public sealed class LegalIntegrationTests
 
     public LegalIntegrationTests(GdeOniWebAppFactory factory) => _factory = factory;
 
+    /// <summary>
+    /// D19.9. Версии больше не хардкодим: они поднимаются при каждой
+    /// редакции документа, и тест не должен падать из-за этого. Берём
+    /// ожидаемое значение из тех же LegalOptions, что использует API
+    /// (а startup-check гарантирует, что оно совпадает с текстом .md).
+    /// </summary>
+    private LegalOptions Legal =>
+        _factory.Services.GetRequiredService<IOptions<LegalOptions>>().Value;
+
     [Fact]
-    public async Task GetPrivacyPolicy_Anonymous_Returns200WithDefaults()
+    public async Task GetPrivacyPolicy_Anonymous_Returns200WithVersionAndBody()
     {
         var client = _factory.CreateClient();
 
@@ -40,12 +52,18 @@ public sealed class LegalIntegrationTests
         using var doc = JsonDocument.Parse(body);
         var result = doc.RootElement.GetProperty("result");
         result.GetProperty("documentKey").GetString().Should().Be("privacy_policy");
-        result.GetProperty("version").GetInt32().Should().Be(1);
+        result.GetProperty("version").GetInt32().Should().Be(Legal.CurrentPrivacyPolicyVersion);
         result.GetProperty("url").GetString().Should().NotBeNullOrWhiteSpace();
+
+        // D19.9: текст едет с бэка — клиент не хранит свою копию.
+        var markdown = result.GetProperty("bodyMarkdown").GetString();
+        markdown.Should().NotBeNullOrWhiteSpace();
+        markdown.Should().Contain("Политика конфиденциальности");
+        markdown.Should().Contain($"Редакция {Legal.CurrentPrivacyPolicyVersion}");
     }
 
     [Fact]
-    public async Task GetTermsOfUse_Anonymous_Returns200WithDefaults()
+    public async Task GetTermsOfUse_Anonymous_Returns200WithVersionAndBody()
     {
         var client = _factory.CreateClient();
 
@@ -56,7 +74,11 @@ public sealed class LegalIntegrationTests
         using var doc = JsonDocument.Parse(body);
         var result = doc.RootElement.GetProperty("result");
         result.GetProperty("documentKey").GetString().Should().Be("terms_of_use");
-        result.GetProperty("version").GetInt32().Should().Be(1);
+        result.GetProperty("version").GetInt32().Should().Be(Legal.CurrentTermsVersion);
+
+        var markdown = result.GetProperty("bodyMarkdown").GetString();
+        markdown.Should().NotBeNullOrWhiteSpace();
+        markdown.Should().Contain("Пользовательское соглашение");
     }
 
     [Fact]
@@ -93,9 +115,11 @@ public sealed class LegalIntegrationTests
         var body = await response.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(body);
         var result = doc.RootElement.GetProperty("result");
-        // Дефолтные LegalOptions = v1; Register фиксирует те же v1.
-        result.GetProperty("privacyPolicyVersion").GetInt32().Should().Be(1);
-        result.GetProperty("termsVersion").GetInt32().Should().Be(1);
+        // Register фиксирует те версии, что сейчас в LegalOptions.
+        result.GetProperty("privacyPolicyVersion").GetInt32()
+            .Should().Be(Legal.CurrentPrivacyPolicyVersion);
+        result.GetProperty("termsVersion").GetInt32()
+            .Should().Be(Legal.CurrentTermsVersion);
         result.GetProperty("hasOutdatedLegalAcceptance").GetBoolean().Should().BeFalse();
     }
 
@@ -106,7 +130,11 @@ public sealed class LegalIntegrationTests
 
         var response = await user.Client.PostAsJsonAsync(
             "/api/users/me/accept-legal",
-            new { privacyPolicyVersion = 1, termsVersion = 1 });
+            new
+            {
+                privacyPolicyVersion = Legal.CurrentPrivacyPolicyVersion,
+                termsVersion = Legal.CurrentTermsVersion,
+            });
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
@@ -118,7 +146,7 @@ public sealed class LegalIntegrationTests
 
         var response = await user.Client.PostAsJsonAsync(
             "/api/users/me/accept-legal",
-            new { privacyPolicyVersion = 0, termsVersion = 1 });
+            new { privacyPolicyVersion = 0, termsVersion = Legal.CurrentTermsVersion });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -130,7 +158,11 @@ public sealed class LegalIntegrationTests
 
         var response = await client.PostAsJsonAsync(
             "/api/users/me/accept-legal",
-            new { privacyPolicyVersion = 1, termsVersion = 1 });
+            new
+            {
+                privacyPolicyVersion = Legal.CurrentPrivacyPolicyVersion,
+                termsVersion = Legal.CurrentTermsVersion,
+            });
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }

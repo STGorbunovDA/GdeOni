@@ -17,6 +17,7 @@ namespace GdeOni.API.HealthChecks;
 /// </summary>
 public sealed class MinioHealthCheck(IMinioClient minioClient) : IHealthCheck
 {
+    /// <summary>Пингует MinIO через ListBuckets и возвращает Healthy/Unhealthy для /health.</summary>
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
