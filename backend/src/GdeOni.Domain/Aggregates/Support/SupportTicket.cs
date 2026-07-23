@@ -414,6 +414,97 @@ public sealed class SupportTicket : Entity<Guid>
     }
 
     /// <summary>
+    /// D44. Свободное сообщение от ПОЛЬЗОВАТЕЛЯ в переписку.
+    ///
+    /// <para>До D44 юзер мог написать в тикет ровно одним способом —
+    /// переоткрыв его (Reopen), а для этого тикет должен был находиться
+    /// в статусе Resolved. То есть «просто ответить» было нельзя, и
+    /// диалога не получалось. Теперь есть обычное сообщение.</para>
+    ///
+    /// <para>Разрешено только в Open / InProgress:</para>
+    /// <list type="bullet">
+    ///   <item>Resolved — у юзера есть явный выбор «принять» или
+    ///   «переоткрыть», и подменять его сообщением нельзя: иначе
+    ///   ReopenedCount перестанет отражать реальность.</item>
+    ///   <item>Closed — терминальный статус ДЛЯ ЮЗЕРА (D40).</item>
+    /// </list>
+    /// </summary>
+    public UnitResult<Error> AddUserMessage(
+        Guid authorUserId,
+        string text,
+        DateTime nowUtc)
+    {
+        // Писать можно только в СВОЁ обращение — та же проверка, что в
+        // Reopen. Держим её в домене, а не только в use case: обращения
+        // содержат переписку об оплате и персональные данные, и чужой
+        // тикет не должен быть доступен даже при ошибке в слое выше.
+        if (UserId is null || UserId.Value != authorUserId)
+            return Errors.Support.ModifyForbidden();
+
+        if (Status is not (SupportTicketStatus.Open or SupportTicketStatus.InProgress))
+            return Errors.Support.MessageNotAllowedInStatus();
+
+        var messageResult = AppendMessage(
+            SupportTicketMessage.CreateFromUser(Id, authorUserId, text, nowUtc));
+        if (messageResult.IsFailure)
+            return messageResult.Error;
+
+        // Те же поля, что обновляет Reopen: админский список показывает
+        // по ним «последняя реплика юзера», и сообщение обязано туда
+        // попадать — иначе свежий ответ не поднимет тикет в работе.
+        LastUserReply = messageResult.Value.Text;
+        LastUserReplyAtUtc = nowUtc;
+        UpdatedAtUtc = nowUtc;
+
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// D44. Свободное сообщение от АДМИНА в переписку.
+    ///
+    /// <para>Раньше админ мог написать, только пометив обращение
+    /// решённым (ChangeStatus → Resolved) или закрыв принудительно —
+    /// то есть чтобы задать уточняющий вопрос, приходилось врать
+    /// статусом. Теперь ответ и смена статуса развязаны.</para>
+    ///
+    /// <para>Статус не ограничиваем: админ имеет право дописать в
+    /// обращение на любой стадии, в том числе после закрытия
+    /// (например, вернуться с реквизитами). Сообщение статус НЕ меняет —
+    /// это отдельное осознанное действие.</para>
+    /// </summary>
+    public UnitResult<Error> AddAdminMessage(
+        Guid adminId,
+        string text,
+        DateTime nowUtc)
+    {
+        if (adminId == Guid.Empty)
+            return Errors.Support.ModifyForbidden();
+
+        var messageResult = AppendMessage(
+            SupportTicketMessage.CreateFromAdmin(Id, adminId, text, nowUtc));
+        if (messageResult.IsFailure)
+            return messageResult.Error;
+
+        UpdatedAtUtc = nowUtc;
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// Общий хвост обоих Add*Message: разворачивает Result фабрики и
+    /// кладёт сообщение в коллекцию. Валидацию текста (пустота, длина)
+    /// делает сама фабрика — здесь её не дублируем.
+    /// </summary>
+    private Result<SupportTicketMessage, Error> AppendMessage(
+        Result<SupportTicketMessage, Error> created)
+    {
+        if (created.IsFailure)
+            return created.Error;
+
+        _messages.Add(created.Value);
+        return created.Value;
+    }
+
+    /// <summary>
     /// D33. Добавить вложение к тикету. Вызывается use case'ом после
     /// успешной загрузки файла в MinIO. Проверяет:
     /// — лимит количества (5);

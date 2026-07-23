@@ -52,7 +52,10 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <Border Style="{StaticResource CloudCard}">
+                <!-- D44. Только владелец сервиса: в переписке платёжные
+                     реквизиты и договорённости о переводах. -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding IsSuperAdmin}">
                     <VerticalStackLayout Spacing="12">
                         <Label Text="Обращения" Style="{StaticResource SubTitleLabel}" />
                         <Label Text="Обращения пользователей и автоматические инциденты." Style="{StaticResource CaptionLabel}" />

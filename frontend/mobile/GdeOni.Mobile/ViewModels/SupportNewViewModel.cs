@@ -27,6 +27,7 @@ namespace GdeOni.Mobile.ViewModels;
 [QueryProperty(nameof(DeceasedId), "deceasedId")]
 [QueryProperty(nameof(DeceasedFullName), "deceasedFullName")]
 [QueryProperty(nameof(DeceasedLifePeriod), "deceasedLifePeriod")]
+[QueryProperty(nameof(PresetKind), "kind")]
 public partial class SupportNewViewModel(ISupportApi supportApi) : ObservableObject
 {
     // D34. Маркер, по которому админ потом находит deceasedId
@@ -41,6 +42,41 @@ public partial class SupportNewViewModel(ISupportApi supportApi) : ObservableObj
     partial void OnDeceasedIdChanged(string? value) => TryApplyDeceasedTemplate();
     partial void OnDeceasedFullNameChanged(string? value) => TryApplyDeceasedTemplate();
     partial void OnDeceasedLifePeriodChanged(string? value) => TryApplyDeceasedTemplate();
+
+    /// <summary>
+    /// D44. Тема, заданная извне через <c>?kind=</c>. Приходит с paywall
+    /// со значением Payment: человеку, которого отрезало от приложения,
+    /// не надо ещё и выбирать тему и формулировать текст.
+    /// </summary>
+    [ObservableProperty] private string? _presetKind;
+
+    partial void OnPresetKindChanged(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+
+        var option = KindOptions.FirstOrDefault(
+            k => string.Equals(k.Value, value, StringComparison.OrdinalIgnoreCase));
+        if (option is null) return;
+
+        SelectedKind = option;
+
+        // Заголовок и текст доподставляем только для сценария оплаты и
+        // только если юзер ещё ничего не ввёл.
+        if (!string.Equals(option.Value, "Payment", StringComparison.Ordinal)) return;
+        if (_templateApplied) return;
+
+        if (string.IsNullOrWhiteSpace(Title))
+            Title = "Оплата подписки";
+
+        if (string.IsNullOrWhiteSpace(Description))
+        {
+            Description =
+                "Здравствуйте! Пробный период закончился, хочу продлить доступ.\n" +
+                "Подскажите, пожалуйста, как оплатить.\n";
+        }
+
+        _templateApplied = true;
+    }
 
     private bool _templateApplied;
 

@@ -39,6 +39,10 @@ public sealed class CurrentUserService(IHttpContextAccessor httpContextAccessor)
     public bool IsAdmin() =>
         IsInRole(UserRole.SuperAdmin.ToString(), UserRole.Admin.ToString());
 
+    /// <summary>D44. Только владелец сервиса, без обычных админов.</summary>
+    public bool IsSuperAdmin() =>
+        IsInRole(UserRole.SuperAdmin.ToString());
+
     /// <summary>
     /// Возвращает идентификатор текущего пользователя как
     /// <see cref="Result{T, E}"/>; при отсутствии аутентификации —

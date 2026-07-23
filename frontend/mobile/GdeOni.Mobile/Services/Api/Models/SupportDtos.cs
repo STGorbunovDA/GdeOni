@@ -94,3 +94,9 @@ public sealed record UpdateSupportTicketSeverityRequest(string Severity);
 public sealed record ForceCloseSupportTicketRequest(string CloseNote);
 
 public sealed record ReopenSupportTicketRequest(string? UserReply);
+
+/// <summary>
+/// D44. Сообщение в переписку обращения. Один DTO для юзера и админа —
+/// различие только в эндпоинте и правах.
+/// </summary>
+public sealed record AddSupportTicketMessageRequest(string Text);

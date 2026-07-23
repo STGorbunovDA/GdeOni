@@ -2,33 +2,38 @@ using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
-using GdeOni.Application.Support.Commands.UpdateStatus.Model;
+using GdeOni.Application.Support.Commands.AddAdminMessage.Model;
 using GdeOni.Domain.Shared;
 
-namespace GdeOni.Application.Support.Commands.UpdateStatus.UseCase;
+namespace GdeOni.Application.Support.Commands.AddAdminMessage.UseCase;
 
 /// <summary>
-/// D25. Админская смена статуса тикета. Authorize-role проверяется на
-/// контроллере, дополнительно <see cref="ICurrentUserService.IsAdmin"/>
-/// в use case'е — defense in depth (если по ошибке мапнут роль не
-/// через [Authorize], use case не пустит).
+/// D44. Админ отвечает в обращении, не меняя статус.
+///
+/// Раньше его сообщение можно было создать только побочным эффектом
+/// резолюции или принудительного закрытия — то есть «спросить
+/// уточнение» означало соврать статусом «Решено». Теперь ответ и
+/// смена статуса — разные действия.
+///
+/// Роль проверяется и здесь, а не только атрибутом на контроллере —
+/// defense in depth, как в остальных админских use case'ах.
 /// </summary>
-public sealed class UpdateSupportTicketStatusUseCase(
+public sealed class AddAdminMessageUseCase(
     ISupportTicketRepository ticketRepository,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor,
     TimeProvider timeProvider)
-    : IUpdateSupportTicketStatusUseCase
+    : IAddAdminMessageUseCase
 {
     public Task<UnitResult<Error>> Execute(
-        UpdateSupportTicketStatusCommand command,
+        AddAdminMessageCommand command,
         CancellationToken cancellationToken)
     {
         return validatedUseCaseExecutor.Execute(command, Handle, cancellationToken);
     }
 
     private async Task<UnitResult<Error>> Handle(
-        UpdateSupportTicketStatusCommand command,
+        AddAdminMessageCommand command,
         CancellationToken cancellationToken)
     {
         if (!currentUserService.IsSuperAdmin())
@@ -42,14 +47,13 @@ public sealed class UpdateSupportTicketStatusUseCase(
         if (ticket is null)
             return Errors.General.NotFound("support_ticket", command.TicketId);
 
-        var changeResult = ticket.ChangeStatus(
-            command.Status,
+        var result = ticket.AddAdminMessage(
             currentUserIdResult.Value,
-            command.ResolutionNote,
+            command.Text,
             timeProvider.GetUtcNow().UtcDateTime);
 
-        if (changeResult.IsFailure)
-            return changeResult.Error;
+        if (result.IsFailure)
+            return result.Error;
 
         await ticketRepository.Save(cancellationToken);
         return UnitResult.Success<Error>();

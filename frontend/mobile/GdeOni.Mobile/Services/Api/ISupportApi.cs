@@ -80,6 +80,18 @@ public interface ISupportApi
         [Body] ReopenSupportTicketRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// D44. POST /api/support-tickets/{id}/messages — написать в своё
+    /// обращение, не меняя статус. Работает, пока обращение «Открыто»
+    /// или «В работе»; на «Решено» есть отдельные действия (принять /
+    /// переоткрыть), на «Закрыто» бэк отдаст 409.
+    /// </summary>
+    [Post("/api/support-tickets/{id}/messages")]
+    Task<HttpResponseMessage> AddMessageAsync(
+        Guid id,
+        [Body] AddSupportTicketMessageRequest request,
+        CancellationToken cancellationToken = default);
+
     // ───────── Админские ─────────
 
     /// <summary>
@@ -136,6 +148,18 @@ public interface ISupportApi
     Task<HttpResponseMessage> ForceCloseAsync(
         Guid id,
         [Body] ForceCloseSupportTicketRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D44. POST /api/admin/support-tickets/{id}/messages — ответить
+    /// в обращении, НЕ меняя статус. Раньше сообщение админа появлялось
+    /// только побочным эффектом резолюции или закрытия. Статус здесь
+    /// не ограничен — дописать можно на любой стадии.
+    /// </summary>
+    [Post("/api/admin/support-tickets/{id}/messages")]
+    Task<HttpResponseMessage> AddAdminMessageAsync(
+        Guid id,
+        [Body] AddSupportTicketMessageRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>

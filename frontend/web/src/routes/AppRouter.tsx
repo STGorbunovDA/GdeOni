@@ -42,6 +42,7 @@ import { DownloadPage } from '../pages/DownloadPage';
 import { LegalPage } from '../pages/legal/LegalPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { AdminRoute } from './AdminRoute';
+import { SuperAdminRoute } from './SuperAdminRoute';
 import { RequireSubscription } from './RequireSubscription';
 import { AppLayout } from '../components/layout/AppLayout';
 import { AdminLayout } from '../components/layout/AdminLayout';
@@ -144,8 +145,18 @@ export function AppRouter() {
               <Route path="/admin/users/:id/tracked" element={<AdminUserTrackedPage />} />
               <Route path="/admin/payments" element={<AdminPaymentsPage />} />
               <Route path="/admin/edits" element={<AdminEditsPage />} />
-              <Route path="/admin/support-tickets" element={<AdminSupportPage />} />
-              <Route path="/admin/support-tickets/:id" element={<AdminSupportTicketDetailsPage />} />
+              {/* D44. Обращения — только для SuperAdmin: в переписке
+                  платёжные реквизиты и договорённости о переводах. */}
+              <Route element={<SuperAdminRoute />}>
+                <Route
+                  path="/admin/support-tickets"
+                  element={<AdminSupportPage />}
+                />
+                <Route
+                  path="/admin/support-tickets/:id"
+                  element={<AdminSupportTicketDetailsPage />}
+                />
+              </Route>
               <Route path="/admin/find-deceased" element={<AdminFindDeceasedPage />} />
               {/* F38. Справка по системе: счётчики людей, карточек, денег. */}
               <Route path="/admin/info" element={<AdminInfoPage />} />

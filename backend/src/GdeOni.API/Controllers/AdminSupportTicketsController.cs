@@ -1,6 +1,8 @@
 using GdeOni.API.Mappers;
 using GdeOni.API.Models.Support;
 using GdeOni.API.Response;
+using GdeOni.Application.Support.Commands.AddAdminMessage.Model;
+using GdeOni.Application.Support.Commands.AddAdminMessage.UseCase;
 using GdeOni.Application.Support.Commands.CopyAttachmentToDeceasedMedia.Model;
 using GdeOni.Application.Support.Commands.CopyAttachmentToDeceasedMedia.UseCase;
 using GdeOni.Application.Support.Commands.ForceClose.UseCase;
@@ -25,7 +27,11 @@ namespace GdeOni.API.Controllers;
 [ApiController]
 [Tags("Admin")]
 [Route("api/admin/support-tickets")]
-[Authorize(Roles = "SuperAdmin,Admin")]
+// D44. ТОЛЬКО SuperAdmin, обычные админы сюда не допускаются.
+// Переписка в обращениях идёт про оплату: там платёжные реквизиты,
+// договорённости о переводах и решение о выдаче бесплатного доступа —
+// это зона владельца сервиса, а не любого администратора.
+[Authorize(Roles = "SuperAdmin")]
 public sealed class AdminSupportTicketsController : ApiControllerBase
 {
     /// <summary>
@@ -128,6 +134,35 @@ public sealed class AdminSupportTicketsController : ApiControllerBase
         CancellationToken cancellationToken)
     {
         var result = await useCase.Execute(request.ToCommand(id), cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D44. Ответить в обращении, не меняя его статус.
+    /// </summary>
+    /// <remarks>
+    /// До D44 сообщение админа можно было создать только побочным
+    /// эффектом резолюции или принудительного закрытия — то есть чтобы
+    /// задать уточняющий вопрос, приходилось помечать обращение
+    /// решённым. Теперь ответ и смена статуса развязаны.
+    ///
+    /// Статус не ограничен: дописать можно на любой стадии, включая
+    /// закрытое обращение.
+    /// </remarks>
+    [HttpPost("{id:guid}/messages")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AddMessage(
+        Guid id,
+        [FromBody] AddSupportTicketMessageRequest request,
+        [FromServices] IAddAdminMessageUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new AddAdminMessageCommand(id, request.Text), cancellationToken);
         return FromUnitResult(result);
     }
 

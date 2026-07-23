@@ -35,7 +35,7 @@ public sealed class ForceCloseSupportTicketUseCase(
         ForceCloseSupportTicketCommand command,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.IsAdmin())
+        if (!currentUserService.IsSuperAdmin())
             return Errors.User.UserForbidden();
 
         var currentUserIdResult = currentUserService.GetCurrentUserId();

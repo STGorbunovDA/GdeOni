@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using GdeOni.API.Authorization;
 using GdeOni.API.Mappers;
 using GdeOni.API.Models.Support;
 using GdeOni.API.Response;
@@ -9,6 +10,8 @@ using GdeOni.Application.Support.Commands.Create.Model;
 using GdeOni.Application.Support.Commands.Create.UseCase;
 using GdeOni.Application.Support.Commands.CreateWithAttachments.Model;
 using GdeOni.Application.Support.Commands.CreateWithAttachments.UseCase;
+using GdeOni.Application.Support.Commands.AddUserMessage.Model;
+using GdeOni.Application.Support.Commands.AddUserMessage.UseCase;
 using GdeOni.Application.Support.Commands.Reopen.Model;
 using GdeOni.Application.Support.Commands.Reopen.UseCase;
 using GdeOni.Application.Support.Queries.GetAttachmentById.Model;
@@ -25,14 +28,23 @@ using Microsoft.AspNetCore.Mvc;
 namespace GdeOni.API.Controllers;
 
 /// <summary>
-/// D25. Юзерский API для обращений в службу поддержки. Авторизация —
-/// любой authenticated юзер (admin тоже может слать обращения от
-/// своего имени). GET /mine — лента обращений с ответом админа.
+/// D25. Юзерский API для обращений в службу поддержки. GET /mine —
+/// лента обращений с ответом админа.
+///
+/// <para>D44. Политика — <c>BasicAuthenticated</c>, БЕЗ проверки
+/// подписки (раньше был голый <c>[Authorize]</c>, то есть DefaultPolicy
+/// = RequireActiveSubscription). Обращения обязаны работать именно
+/// тогда, когда доступ закрыт: у юзера кончился триал, его увёл paywall,
+/// и написать в поддержку — единственный оставшийся выход. Со старой
+/// политикой получался замкнутый круг: POST обращения → 403
+/// <c>subscription.required</c> → клиент редиректит на paywall → юзер
+/// снова жмёт «написать» → 403. Плюс это ломало сценарий оплаты
+/// переводом (D44), где обращение и есть способ оплатить.</para>
 /// </summary>
 [ApiController]
 [Tags("Support")]
 [Route("api/support-tickets")]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
 public sealed class SupportController : ApiControllerBase
 {
     /// <summary>
@@ -211,6 +223,32 @@ public sealed class SupportController : ApiControllerBase
     {
         var result = await useCase.Execute(
             new ReopenSupportTicketCommand(id, request.UserReply), cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D44. Написать сообщение в своё обращение.
+    /// </summary>
+    /// <remarks>
+    /// Работает, пока обращение в статусе «Открыто» или «В работе».
+    /// На «Решено» у юзера есть отдельные действия — принять резолюцию
+    /// или переоткрыть; на «Закрыто» переписка окончена (409).
+    /// </remarks>
+    [HttpPost("{id:guid}/messages")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AddMessage(
+        Guid id,
+        [FromBody] AddSupportTicketMessageRequest request,
+        [FromServices] IAddUserMessageUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new AddUserMessageCommand(id, request.Text), cancellationToken);
         return FromUnitResult(result);
     }
 }

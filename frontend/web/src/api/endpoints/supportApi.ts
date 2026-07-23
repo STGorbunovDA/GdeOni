@@ -233,6 +233,18 @@ export const supportApi = {
     await apiClient.post(`/api/support-tickets/${id}/reopen`, { userReply });
   },
 
+  /**
+   * D44. POST /api/support-tickets/{id}/messages — написать в своё
+   * обращение, не меняя статус.
+   *
+   * Работает, пока обращение «Открыто» или «В работе». На «Решено» у
+   * юзера отдельные действия (принять / переоткрыть), на «Закрыто»
+   * переписка окончена — бэк отдаст 409.
+   */
+  async addMessage(id: string, text: string): Promise<void> {
+    await apiClient.post(`/api/support-tickets/${id}/messages`, { text });
+  },
+
   // ─────────── Admin side ───────────
 
   /**
@@ -308,6 +320,19 @@ export const supportApi = {
     await apiClient.post(`/api/admin/support-tickets/${id}/force-close`, {
       closeNote,
     });
+  },
+
+  /**
+   * D44. POST /api/admin/support-tickets/{id}/messages — ответить
+   * в обращении, НЕ меняя его статус.
+   *
+   * Раньше сообщение админа появлялось только побочным эффектом
+   * резолюции или принудительного закрытия: чтобы задать уточняющий
+   * вопрос, приходилось помечать обращение решённым. Статус здесь
+   * не ограничен — дописать можно на любой стадии.
+   */
+  async adminAddMessage(id: string, text: string): Promise<void> {
+    await apiClient.post(`/api/admin/support-tickets/${id}/messages`, { text });
   },
 
   /**

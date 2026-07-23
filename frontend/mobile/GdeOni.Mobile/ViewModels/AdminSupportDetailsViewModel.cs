@@ -150,6 +150,9 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
     };
 
     // ───────── Picker'ы для смены ─────────
+    /// <summary>D44. Текст ответа пользователю (без смены статуса).</summary>
+    [ObservableProperty] private string _newMessageText = "";
+
     [ObservableProperty] private string _selectedStatusOption = "Открыто";
     [ObservableProperty] private string _selectedSeverityOption = "Обычно";
 
@@ -637,6 +640,50 @@ public partial class AdminSupportDetailsViewModel(ISupportApi supportApi) : Obse
         // через Google Docs Viewer нельзя из-за приватности (в тикетах
         // могут быть паспортные данные / свидетельства).
         await Launcher.OpenAsync(new Uri(presignedUrl));
+    }
+
+    /// <summary>
+    /// D44. Ответ в переписку БЕЗ смены статуса. Раньше, чтобы написать
+    /// пользователю, приходилось помечать обращение решённым — статус
+    /// врал. Теперь ответ и смена статуса развязаны.
+    /// </summary>
+    [RelayCommand]
+    private async Task SendMessageAsync()
+    {
+        if (IsSaving) return;
+        if (!Guid.TryParse(TicketId, out var id)) return;
+
+        var text = NewMessageText?.Trim();
+        if (string.IsNullOrWhiteSpace(text)) return;
+
+        try
+        {
+            IsSaving = true;
+            ErrorMessage = null;
+
+            var resp = await supportApi.AddAdminMessageAsync(
+                id, new AddSupportTicketMessageRequest(text));
+            if (!resp.IsSuccessStatusCode)
+            {
+                ErrorMessage = $"HTTP {(int)resp.StatusCode}: {resp.ReasonPhrase}";
+                return;
+            }
+
+            NewMessageText = "";
+            await LoadAsync();
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
     }
 
     private static string? MapStatusLabel(string label) => label switch

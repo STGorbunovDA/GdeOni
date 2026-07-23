@@ -32,6 +32,27 @@ vi.mock('../../api/endpoints/subscriptionApi', () => ({
   },
 }));
 
+/**
+ * D44. Кнопки оплаты показываются только когда подключён настоящий
+ * платёжный провайдер (`paymentsAvailable`). По умолчанию в тестах
+ * считаем, что подключён — иначе проверялся бы не сценарий оплаты,
+ * а заглушка. Отдельный тест ниже проверяет обратный случай.
+ */
+const mockPaymentsAvailable = vi.fn(() => true);
+vi.mock('../../hooks/useAppFeatures', () => ({
+  useAppFeatures: () => ({
+    data: {
+      subscriptionEnabled: true,
+      gracePeriodDaysAfterExpiry: 0,
+      mediaBaseUrl: 'http://localhost:9000',
+      monthlyPriceRub: 99,
+      paymentsAvailable: mockPaymentsAvailable(),
+    },
+    isLoading: false,
+    isError: false,
+  }),
+}));
+
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>(
@@ -79,6 +100,9 @@ function trialData(overrides?: Partial<MySubscription>): MySubscription {
 describe('SubscriptionPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks сбрасывает и реализацию — возвращаем дефолт
+    // «оплата подключена» (см. комментарий у мока выше).
+    mockPaymentsAvailable.mockReturnValue(true);
     useAuthStore.setState({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
@@ -236,5 +260,31 @@ describe('SubscriptionPage', () => {
     await waitFor(() => {
       expect(vi.mocked(subscriptionApi.cancel)).toHaveBeenCalled();
     });
+  });
+
+  /**
+   * D44. Пока настоящий платёжный провайдер не подключён, на бэке
+   * работает заглушка с checkout-URL на example.invalid — кнопка
+   * оплаты уводила бы человека в никуда. Вместо неё ведём в поддержку:
+   * оплата переводом, доступ админ открывает вручную.
+   */
+  it('replaces pay button with support link when payments are unavailable', async () => {
+    mockPaymentsAvailable.mockReturnValue(false);
+    vi.mocked(subscriptionApi.getMy).mockResolvedValue(trialData());
+
+    const user = userEvent.setup();
+    renderPage(<SubscriptionPage />);
+
+    const supportButton = await screen.findByRole('button', {
+      name: /написать в поддержку/i,
+    });
+    expect(
+      screen.queryByRole('button', { name: /оплатить сейчас/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(supportButton);
+
+    // Тема обращения преднастроена — человеку не надо её выбирать.
+    expect(mockNavigate).toHaveBeenCalledWith('/support/new?kind=Payment');
   });
 });

@@ -103,6 +103,16 @@ public static partial class Errors
                 "support_ticket.message.text.too_long",
                 $"Message text must not exceed {max} characters.");
 
+        /// <summary>
+        /// D44. Юзер пытается написать в обращение, которое уже решено
+        /// или закрыто. На Resolved у него есть явные «принять» /
+        /// «переоткрыть», на Closed переписка окончена.
+        /// </summary>
+        public static Error MessageNotAllowedInStatus() =>
+            Error.Conflict(
+                "support_ticket.message.status.invalid",
+                "Cannot post a message to a resolved or closed ticket.");
+
         // D33. Вложения в тикет.
 
         public static Error AttachmentsLimitExceeded(int max) =>

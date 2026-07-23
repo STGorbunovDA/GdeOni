@@ -12,7 +12,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
-import { CheckCircle2, ChevronLeft, RefreshCcw } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, RefreshCcw, Send } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -51,6 +51,7 @@ export function SupportTicketPage() {
   const { id } = useParams<{ id: string }>();
   const [reopenModal, setReopenModal] = useState(false);
   const [reopenText, setReopenText] = useState('');
+  const [messageText, setMessageText] = useState('');
 
   const query = useQuery({
     queryKey: ['support-ticket', id],
@@ -68,6 +69,18 @@ export function SupportTicketPage() {
         title: 'Решение закреплено',
         message: 'Спасибо! Спор считаем закрытым.',
       });
+    },
+  });
+
+  // D44. Свободный ответ в переписке. Отдельно от reopen: тот доступен
+  // только на Resolved и увеличивает ReopenedCount, а обычная реплика
+  // нужна как раз пока обращение в работе.
+  const messageMutation = useMutation({
+    mutationFn: () => supportApi.addMessage(id!, messageText.trim()),
+    onSuccess: () => {
+      setMessageText('');
+      queryClient.invalidateQueries({ queryKey: ['support-ticket', id] });
+      queryClient.invalidateQueries({ queryKey: ['support-mine'] });
     },
   });
 
@@ -119,6 +132,8 @@ export function SupportTicketPage() {
   const t = query.data;
   const messages = t.messages ?? [];
   const canAcceptOrReopen = t.status === 'Resolved' && !t.acceptedByUser;
+  // D44. Зеркало доменного правила SupportTicket.AddUserMessage.
+  const canWriteMessage = t.status === 'Open' || t.status === 'InProgress';
 
   return (
     <Stack gap="lg">
@@ -177,6 +192,45 @@ export function SupportTicketPage() {
         <Stack gap="md">
           <SubTitleLabel>Переписка</SubTitleLabel>
           <MessagesChat messages={messages} viewerIsAdmin={false} />
+
+          {/* D44. Поле ответа. Показываем, пока обращение в работе:
+              на Resolved у юзера отдельные кнопки (закрепить / продолжить
+              спор), на Closed переписка окончена. */}
+          {canWriteMessage ? (
+            <Stack gap="xs">
+              <Textarea
+                label="Ваше сообщение"
+                placeholder="Напишите ответ…"
+                autosize
+                minRows={2}
+                maxRows={8}
+                value={messageText}
+                onChange={(e) => setMessageText(e.currentTarget.value)}
+                disabled={messageMutation.isPending}
+              />
+              <Group justify="flex-end">
+                <PrimaryButton
+                  leftSection={<Send size={16} />}
+                  onClick={() => messageMutation.mutate()}
+                  loading={messageMutation.isPending}
+                  disabled={!messageText.trim()}
+                >
+                  Отправить
+                </PrimaryButton>
+              </Group>
+              {messageMutation.isError && (
+                <Alert color="red" variant="light">
+                  {formatError(messageMutation.error)}
+                </Alert>
+              )}
+            </Stack>
+          ) : (
+            <CaptionLabel>
+              {t.status === 'Closed'
+                ? 'Обращение закрыто — написать больше нельзя.'
+                : 'Обращение решено. Закрепите решение или продолжите спор.'}
+            </CaptionLabel>
+          )}
         </Stack>
       </CloudCard>
 

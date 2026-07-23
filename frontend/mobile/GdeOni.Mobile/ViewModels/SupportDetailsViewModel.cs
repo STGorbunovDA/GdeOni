@@ -107,6 +107,18 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
     /// <summary>Юзер уже закрепил — показываем плашку "Вы подтвердили решение".</summary>
     public bool ShowAcceptedNote => AcceptedByUser;
 
+    /// <summary>
+    /// D44. Можно ли писать в переписку. Только Open / InProgress:
+    /// на Resolved есть отдельные кнопки (закрепить / продолжить спор),
+    /// на Closed переписка окончена.
+    /// </summary>
+    [ObservableProperty]
+    private bool _canWriteMessage;
+
+    /// <summary>D44. Текст нового сообщения.</summary>
+    [ObservableProperty]
+    private string _newMessageText = "";
+
     partial void OnTicketIdChanged(string value)
     {
         if (!Guid.TryParse(value, out _)) return;
@@ -231,6 +243,50 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
         }
     }
 
+    /// <summary>
+    /// D44. Обычное сообщение в переписку — отдельно от «Продолжить
+    /// спор»: тот доступен только на Resolved и увеличивает счётчик
+    /// переоткрытий, а реплика нужна как раз пока обращение в работе.
+    /// </summary>
+    [RelayCommand]
+    private async Task SendMessageAsync()
+    {
+        if (IsSaving) return;
+        if (!Guid.TryParse(TicketId, out var id)) return;
+
+        var text = NewMessageText?.Trim();
+        if (string.IsNullOrWhiteSpace(text)) return;
+
+        try
+        {
+            IsSaving = true;
+            ErrorMessage = null;
+
+            var resp = await supportApi.AddMessageAsync(
+                id, new AddSupportTicketMessageRequest(text));
+            if (!resp.IsSuccessStatusCode)
+            {
+                ErrorMessage = $"HTTP {(int)resp.StatusCode}: {resp.ReasonPhrase}";
+                return;
+            }
+
+            NewMessageText = "";
+            await LoadAsync();
+        }
+        catch (ApiException apiEx)
+        {
+            ErrorMessage = $"HTTP {(int)apiEx.StatusCode}: {apiEx.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
     [RelayCommand]
     private async Task BackAsync() => await Shell.Current.GoToAsync("..");
 
@@ -302,6 +358,9 @@ public partial class SupportDetailsViewModel(ISupportApi supportApi) : Observabl
             .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
 
         IsResolved = t.Status == "Resolved";
+        // D44. Зеркало доменного правила SupportTicket.AddUserMessage:
+        // писать можно, пока обращение в работе.
+        CanWriteMessage = t.Status is "Open" or "InProgress";
         AcceptedByUser = t.AcceptedByUser;
         AcceptedAt = t.AcceptedByUserAtUtc?.ToLocalTime()
             .ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);

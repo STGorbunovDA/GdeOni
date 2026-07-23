@@ -3,7 +3,7 @@ import { Alert, Badge, Group, Loader, Modal, Stack } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, CreditCard, ExternalLink, Gift, RefreshCw, XCircle } from 'lucide-react';
+import { CalendarClock, CreditCard, ExternalLink, Gift, MessageCircle, RefreshCw, XCircle } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -17,6 +17,7 @@ import { cloudColors } from '../../design/theme';
 import { subscriptionApi } from '../../api/endpoints/subscriptionApi';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useSubscriptionPrice } from '../../hooks/useSubscriptionPrice';
+import { useAppFeatures } from '../../hooks/useAppFeatures';
 import { formatError } from '../../auth/errorMessages';
 import { formatDateTime } from '../../utils/formatDate';
 import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
@@ -36,6 +37,11 @@ export function SubscriptionPage() {
   const { data, isLoading, isError } = useSubscription();
   // F39. Цена — с бэка, не текстом в разметке (см. useSubscriptionPrice).
   const { priceLabel } = useSubscriptionPrice();
+  // D44. Онлайн-оплата подключена? Если нет — кнопки оплаты гасим и
+  // ведём в поддержку: на бэке работает заглушка, её checkout-URL
+  // ведёт на example.invalid, то есть кнопка уводила в никуда.
+  const features = useAppFeatures();
+  const paymentsAvailable = features.data?.paymentsAvailable ?? false;
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -139,13 +145,19 @@ export function SubscriptionPage() {
             без пробного периода — оформите Monthly, чтобы получить доступ.
           </BodyLabel>
           <Group mt="md">
-            <PrimaryButton
-              leftSection={<CreditCard size={16} />}
-              onClick={handleCheckout}
-              loading={busy}
-            >
-              {priceLabel ? `Оформить Monthly — ${priceLabel}` : 'Оформить Monthly'}
-            </PrimaryButton>
+            {paymentsAvailable ? (
+              <PrimaryButton
+                leftSection={<CreditCard size={16} />}
+                onClick={handleCheckout}
+                loading={busy}
+              >
+                {priceLabel
+                  ? `Оформить Monthly — ${priceLabel}`
+                  : 'Оформить Monthly'}
+              </PrimaryButton>
+            ) : (
+              <PaymentsUnavailableAction />
+            )}
           </Group>
         </CloudCard>
       )}
@@ -190,19 +202,23 @@ export function SubscriptionPage() {
               <SubTitleLabel>Действия</SubTitleLabel>
               <Group>
                 {needsPayment(data.status) ? (
-                  <PrimaryButton
-                    leftSection={<CreditCard size={16} />}
-                    onClick={handleCheckout}
-                    loading={busy}
-                  >
-                    {data.status === 'Trial'
-                      ? withPrice('Оплатить сейчас', priceLabel)
-                      : data.status === 'Cancelled'
-                        ? withPrice('Возобновить', priceLabel)
-                        : data.status === 'PendingPayment'
-                          ? 'Продолжить оплату'
-                          : withPrice('Оформить Monthly', priceLabel)}
-                  </PrimaryButton>
+                  paymentsAvailable ? (
+                    <PrimaryButton
+                      leftSection={<CreditCard size={16} />}
+                      onClick={handleCheckout}
+                      loading={busy}
+                    >
+                      {data.status === 'Trial'
+                        ? withPrice('Оплатить сейчас', priceLabel)
+                        : data.status === 'Cancelled'
+                          ? withPrice('Возобновить', priceLabel)
+                          : data.status === 'PendingPayment'
+                            ? 'Продолжить оплату'
+                            : withPrice('Оформить Monthly', priceLabel)}
+                    </PrimaryButton>
+                  ) : (
+                    <PaymentsUnavailableAction />
+                  )
                 ) : null}
 
                 {data.status === 'Active' && (
@@ -387,4 +403,30 @@ function pluralDays(n: number): string {
  */
 function withPrice(label: string, priceLabel: string): string {
   return priceLabel ? `${label} — ${priceLabel}` : label;
+}
+
+/**
+ * D44. Замена кнопки оплаты, когда онлайн-платежи не подключены.
+ * Ведёт в поддержку с преднастроенной темой «Оплата»: дальше человек
+ * договаривается в переписке, админ выдаёт доступ вручную.
+ */
+function PaymentsUnavailableAction() {
+  const navigate = useNavigate();
+
+  return (
+    <Stack gap="xs">
+      <CaptionLabel>
+        Онлайн-оплата пока не подключена. Напишите нам — подскажем, как
+        оплатить, и откроем доступ.
+      </CaptionLabel>
+      <Group>
+        <PrimaryButton
+          leftSection={<MessageCircle size={16} />}
+          onClick={() => navigate('/support/new?kind=Payment')}
+        >
+          Написать в поддержку
+        </PrimaryButton>
+      </Group>
+    </Stack>
+  );
 }

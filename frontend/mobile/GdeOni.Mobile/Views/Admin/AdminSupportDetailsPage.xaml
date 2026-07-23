@@ -233,6 +233,26 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
+                <!-- D44. Ответ пользователю БЕЗ смены статуса. Раньше,
+                     чтобы написать, приходилось помечать обращение
+                     решённым. Доступен на любой стадии, включая
+                     закрытое обращение. -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Ответ пользователю"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Editor Placeholder="Напишите сообщение…"
+                                Text="{Binding NewMessageText}"
+                                AutoSize="TextChanges"
+                                HeightRequest="90"
+                                BackgroundColor="{StaticResource Cloud}" />
+                        <Button Text="Отправить"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding SendMessageCommand}"
+                                IsEnabled="{Binding IsSaving, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <!-- Смена статуса (скрыта на Resolved и Closed — бэк не пустит) -->
                 <Border Style="{StaticResource CloudCard}"
                         IsVisible="{Binding CanEditStatus}">

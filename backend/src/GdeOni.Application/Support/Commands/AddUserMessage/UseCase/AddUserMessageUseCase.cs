@@ -2,38 +2,37 @@ using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
-using GdeOni.Application.Support.Commands.UpdateStatus.Model;
+using GdeOni.Application.Support.Commands.AddUserMessage.Model;
 using GdeOni.Domain.Shared;
 
-namespace GdeOni.Application.Support.Commands.UpdateStatus.UseCase;
+namespace GdeOni.Application.Support.Commands.AddUserMessage.UseCase;
 
 /// <summary>
-/// D25. Админская смена статуса тикета. Authorize-role проверяется на
-/// контроллере, дополнительно <see cref="ICurrentUserService.IsAdmin"/>
-/// в use case'е — defense in depth (если по ошибке мапнут роль не
-/// через [Authorize], use case не пустит).
+/// D44. Пользователь пишет сообщение в переписку своего обращения.
+///
+/// До D44 ответить можно было только переоткрыв тикет (Reopen), а он
+/// требует статус Resolved — то есть пока обращение в работе, юзер был
+/// нем. Теперь диалог идёт нормально; принадлежность тикета и
+/// допустимость статуса проверяет домен.
 /// </summary>
-public sealed class UpdateSupportTicketStatusUseCase(
+public sealed class AddUserMessageUseCase(
     ISupportTicketRepository ticketRepository,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor,
     TimeProvider timeProvider)
-    : IUpdateSupportTicketStatusUseCase
+    : IAddUserMessageUseCase
 {
     public Task<UnitResult<Error>> Execute(
-        UpdateSupportTicketStatusCommand command,
+        AddUserMessageCommand command,
         CancellationToken cancellationToken)
     {
         return validatedUseCaseExecutor.Execute(command, Handle, cancellationToken);
     }
 
     private async Task<UnitResult<Error>> Handle(
-        UpdateSupportTicketStatusCommand command,
+        AddUserMessageCommand command,
         CancellationToken cancellationToken)
     {
-        if (!currentUserService.IsSuperAdmin())
-            return Errors.User.UserForbidden();
-
         var currentUserIdResult = currentUserService.GetCurrentUserId();
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
@@ -42,14 +41,13 @@ public sealed class UpdateSupportTicketStatusUseCase(
         if (ticket is null)
             return Errors.General.NotFound("support_ticket", command.TicketId);
 
-        var changeResult = ticket.ChangeStatus(
-            command.Status,
+        var result = ticket.AddUserMessage(
             currentUserIdResult.Value,
-            command.ResolutionNote,
+            command.Text,
             timeProvider.GetUtcNow().UtcDateTime);
 
-        if (changeResult.IsFailure)
-            return changeResult.Error;
+        if (result.IsFailure)
+            return result.Error;
 
         await ticketRepository.Save(cancellationToken);
         return UnitResult.Success<Error>();

@@ -65,6 +65,8 @@ using GdeOni.Application.Support.Commands.AcceptResolution.UseCase;
 using GdeOni.Application.Support.Commands.CopyAttachmentToDeceasedMedia.UseCase;
 using GdeOni.Application.Support.Commands.Create.UseCase;
 using GdeOni.Application.Support.Commands.CreateWithAttachments.UseCase;
+using GdeOni.Application.Support.Commands.AddAdminMessage.UseCase;
+using GdeOni.Application.Support.Commands.AddUserMessage.UseCase;
 using GdeOni.Application.Support.Commands.Reopen.UseCase;
 using GdeOni.Application.Support.Queries.GetAttachmentById.UseCase;
 using GdeOni.Application.Support.Commands.UpdateSeverity.UseCase;
@@ -231,6 +233,9 @@ public static class DependencyInjection
         services.AddScoped<IUpdateSupportTicketSeverityUseCase, UpdateSupportTicketSeverityUseCase>();
         services.AddScoped<IAcceptSupportTicketResolutionUseCase, AcceptSupportTicketResolutionUseCase>();
         services.AddScoped<IReopenSupportTicketUseCase, ReopenSupportTicketUseCase>();
+        // D44. Свободная переписка в обращении (без смены статуса).
+        services.AddScoped<IAddUserMessageUseCase, AddUserMessageUseCase>();
+        services.AddScoped<IAddAdminMessageUseCase, AddAdminMessageUseCase>();
 
         // D33. Тикет с вложениями (multipart) + скачивание вложений.
         services.AddScoped<

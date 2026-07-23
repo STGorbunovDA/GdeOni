@@ -172,6 +172,27 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
+                <!-- D44. Ответ в переписку. Показываем, пока обращение
+                     в работе: на «Решено» ниже есть отдельные кнопки
+                     (закрепить / продолжить спор), на «Закрыто»
+                     переписка окончена. -->
+                <Border Style="{StaticResource CloudCard}"
+                        IsVisible="{Binding CanWriteMessage}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Ваше сообщение"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Editor Placeholder="Напишите ответ…"
+                                Text="{Binding NewMessageText}"
+                                AutoSize="TextChanges"
+                                HeightRequest="90"
+                                BackgroundColor="{StaticResource Cloud}" />
+                        <Button Text="Отправить"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding SendMessageCommand}"
+                                IsEnabled="{Binding IsSaving, Converter={StaticResource InvertedBool}}" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <!-- Плашка "юзер закрепил" -->
                 <Border Style="{StaticResource CloudCard}"
                         BackgroundColor="#E8F5E9"

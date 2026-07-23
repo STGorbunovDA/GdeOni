@@ -35,20 +35,42 @@ public partial class SubscriptionRequiredViewModel(
     private bool _isBusy;
 
     /// <summary>
-    /// Тянет цену с бэка и дописывает её в сообщение. Ошибку глушим:
-    /// paywall должен открыться и без цены — лучше без суммы, чем пустой
-    /// экран или неверный тариф.
+    /// D44. Подключена ли онлайн-оплата. Пока false, кнопка «Оформить
+    /// подписку» скрыта, а основным действием становится обращение
+    /// в поддержку: оплата переводом, доступ админ выдаёт вручную.
+    ///
+    /// Стартовое значение false намеренно: показать рабочую кнопку и
+    /// тут же её убрать хуже, чем наоборот.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PaymentsUnavailable))]
+    private bool _paymentsAvailable;
+
+    public bool PaymentsUnavailable => !PaymentsAvailable;
+
+    /// <summary>
+    /// Тянет цену и доступность оплаты с бэка. Ошибку глушим: paywall
+    /// должен открыться и без них — лучше без суммы, чем пустой экран
+    /// или неверный тариф.
     /// </summary>
     public async Task LoadPriceAsync(CancellationToken cancellationToken = default)
     {
         try
         {
             var envelope = await appApi.GetFeaturesAsync(cancellationToken);
-            if (envelope.Result?.MonthlyPriceRub is not decimal price) return;
+            if (envelope.Result is null) return;
 
-            Message =
-                $"Чтобы пользоваться приложением, оформите подписку — {price:0.##} ₽/мес. " +
-                "Доступ ко всем функциям без ограничений.";
+            // Старый бэк поля не отдаёт → null → оплата считается
+            // недоступной (см. комментарий к DTO).
+            PaymentsAvailable = envelope.Result.PaymentsAvailable ?? false;
+
+            if (envelope.Result.MonthlyPriceRub is not decimal price) return;
+
+            Message = PaymentsAvailable
+                ? $"Чтобы пользоваться приложением, оформите подписку — {price:0.##} ₽/мес. " +
+                  "Доступ ко всем функциям без ограничений."
+                : $"Пробный период закончился. Для продолжения нужна подписка — {price:0.##} ₽/мес. " +
+                  "Онлайн-оплата пока не подключена: напишите нам, подскажем как оплатить и откроем доступ.";
         }
         catch
         {
@@ -60,6 +82,17 @@ public partial class SubscriptionRequiredViewModel(
     private async Task SubscribeAsync()
     {
         await Shell.Current.GoToAsync("subscription");
+    }
+
+    /// <summary>
+    /// D44. Уводит в форму обращения с преднастроенной темой «Оплата» —
+    /// человеку, которого только что отрезало от приложения, не надо
+    /// ещё и выбирать тему и формулировать текст.
+    /// </summary>
+    [RelayCommand]
+    private static async Task ContactSupportAsync()
+    {
+        await Shell.Current.GoToAsync("support-new?kind=Payment");
     }
 
     [RelayCommand]

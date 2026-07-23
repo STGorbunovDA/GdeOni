@@ -6,6 +6,7 @@ using GdeOni.API.Response;
 using GdeOni.Application.Abstractions.Features;
 using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Subscriptions;
+using GdeOni.Infrastructure.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -56,7 +57,8 @@ public sealed class AppController : ApiControllerBase
     public IActionResult GetFeatures(
         [FromServices] IFeatureFlagService featureFlags,
         [FromServices] IFileStorage fileStorage,
-        [FromServices] IOptionsSnapshot<SubscriptionOptions> subscriptionOptions)
+        [FromServices] IOptionsSnapshot<SubscriptionOptions> subscriptionOptions,
+        [FromServices] IOptionsSnapshot<YooKassaOptions> yooKassaOptions)
     {
         // D36: mediaBaseUrl приходит из MinioOptions.PublicBaseUrl и
         // отдаётся клиентам без bucket/key — каждый клиент сам строит
@@ -66,11 +68,16 @@ public sealed class AppController : ApiControllerBase
         // F39: цена подписки — оттуда же, откуда её берёт CreatePayment.
         // Один источник правды: клиент показывает ровно ту сумму, которую
         // спишет платёжный провайдер.
+        // D44: настоящий провайдер настроен? Если нет, в DI работает
+        // FakePaymentProvider с checkout-URL на example.invalid — платить
+        // физически нечем. Клиенты по флагу гасят кнопку оплаты и ведут
+        // юзера в обращение (оплата переводом).
         var response = new AppFeaturesResponse(
             featureFlags.IsSubscriptionEnabled,
             featureFlags.GracePeriodDaysAfterExpiry,
             fileStorage.GetMediaBaseUrl(),
-            subscriptionOptions.Value.MonthlyPriceRub);
+            subscriptionOptions.Value.MonthlyPriceRub,
+            yooKassaOptions.Value.IsConfigured);
 
         return response.ToOkResponse();
     }

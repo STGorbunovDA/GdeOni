@@ -15,8 +15,17 @@ namespace GdeOni.API.Models.App;
 /// из <c>SubscriptionOptions</c> — при смене тарифа на кнопке осталась бы
 /// одна сумма, а с карты ушла бы другая.
 /// </remarks>
+/// <remarks>
+/// D44 (2026-07-23): добавлен <c>PaymentsAvailable</c> — настроен ли
+/// НАСТОЯЩИЙ платёжный провайдер. Без него в DI подставляется
+/// <c>FakePaymentProvider</c>, чей checkout-URL ведёт на
+/// <c>example.invalid</c>: кнопка «Оформить подписку» уводила юзера
+/// на мёртвую страницу. Клиенты по этому флагу гасят кнопку оплаты
+/// и предлагают написать обращение (оплата переводом).
+/// </remarks>
 public sealed record AppFeaturesResponse(
     bool SubscriptionEnabled,
     int GracePeriodDaysAfterExpiry,
     string MediaBaseUrl,
-    decimal MonthlyPriceRub);
+    decimal MonthlyPriceRub,
+    bool PaymentsAvailable);

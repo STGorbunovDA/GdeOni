@@ -28,8 +28,16 @@ public sealed record AppVersionResponse(
 /// Nullable + дефолт: старый бэк поля не отдаёт — тогда просто не показываем
 /// сумму, а не показываем неверную.
 /// </remarks>
+/// <remarks>
+/// D44: <see cref="PaymentsAvailable"/> — подключён ли настоящий
+/// платёжный провайдер. Nullable по той же причине, что и цена: старый
+/// бэк поля не отдаёт. При null считаем, что оплата НЕДОСТУПНА —
+/// показать кнопку оплаты, которая ведёт на заглушку, хуже, чем сразу
+/// предложить написать в поддержку.
+/// </remarks>
 public sealed record AppFeaturesResponse(
     bool SubscriptionEnabled,
     int GracePeriodDaysAfterExpiry,
     string? MediaBaseUrl = null,
-    decimal? MonthlyPriceRub = null);
+    decimal? MonthlyPriceRub = null,
+    bool? PaymentsAvailable = null);

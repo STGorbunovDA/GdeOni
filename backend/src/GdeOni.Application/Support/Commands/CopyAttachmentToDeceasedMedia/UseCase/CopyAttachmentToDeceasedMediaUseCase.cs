@@ -48,7 +48,7 @@ public sealed class CopyAttachmentToDeceasedMediaUseCase(
         if (currentUserIdResult.IsFailure)
             return currentUserIdResult.Error;
 
-        if (!currentUserService.IsAdmin())
+        if (!currentUserService.IsSuperAdmin())
             return Errors.DeceasedMedia.UploadForbidden();
 
         var ticket = await ticketRepository.GetByIdWithAttachments(command.TicketId, cancellationToken);

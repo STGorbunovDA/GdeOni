@@ -20,7 +20,7 @@ import {
   Skull,
 } from 'lucide-react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../auth/authStore';
+import { useAuthStore, useIsSuperAdmin } from '../../auth/authStore';
 import { authApi } from '../../api/endpoints/authApi';
 import { cloudColors } from '../../design/theme';
 import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
@@ -56,6 +56,8 @@ export function AdminLayout() {
   const isMobile = useMediaQuery(MOBILE_BREAKPOINT);
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
+  // D44. Раздел обращений — только для владельца сервиса.
+  const isSuperAdmin = useIsSuperAdmin();
   const navigate = useNavigate();
 
   async function handleLogout() {
@@ -144,12 +146,16 @@ export function AdminLayout() {
               label="История правок"
               onNavigate={close}
             />
-            <NavItem
-              to="/admin/support-tickets"
-              icon={LifeBuoy}
-              label="Проблемы"
-              onNavigate={close}
-            />
+            {/* D44. Обращения видит только владелец сервиса: в переписке
+                платёжные реквизиты и договорённости о переводах. */}
+            {isSuperAdmin && (
+              <NavItem
+                to="/admin/support-tickets"
+                icon={LifeBuoy}
+                label="Проблемы"
+                onNavigate={close}
+              />
+            )}
             <NavItem
               to="/admin/find-deceased"
               icon={SearchIcon}

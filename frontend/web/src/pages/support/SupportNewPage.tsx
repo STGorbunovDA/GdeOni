@@ -68,6 +68,21 @@ export function SupportNewPage() {
   // юзер уже мог что-то дописать).
   useEffect(() => {
     if (templateAppliedRef.current) return;
+
+    // D44. Приход с paywall: ?kind=Payment. Тема и текст заполняются
+    // сами — человеку, которого только что отрезало от приложения,
+    // не надо ещё и формулировать обращение.
+    if (searchParams.get('kind') === 'Payment') {
+      setKind('Payment');
+      setTitle('Оплата подписки');
+      setDescription(
+        'Здравствуйте! Пробный период закончился, хочу продлить доступ.\n' +
+          'Подскажите, пожалуйста, как оплатить.\n',
+      );
+      templateAppliedRef.current = true;
+      return;
+    }
+
     const deceasedId = searchParams.get('deceasedId');
     const deceasedFullName = searchParams.get('deceasedFullName');
     const deceasedLifePeriod = searchParams.get('deceasedLifePeriod');

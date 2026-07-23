@@ -33,7 +33,9 @@ public sealed class GetSupportAttachmentByIdUseCase(
         if (ticket is null)
             return Errors.Support.AttachmentNotFound();
 
-        var isAdmin = currentUserService.IsAdmin();
+        // D44. Чужое обращение видит только SuperAdmin: в переписке
+        // платёжные договорённости, обычному админу это не положено.
+        var isAdmin = currentUserService.IsSuperAdmin();
         var isOwner = ticket.UserId is { } owner && owner == currentUserIdResult.Value;
         if (!isAdmin && !isOwner)
             return Errors.Support.AttachmentNotFound();

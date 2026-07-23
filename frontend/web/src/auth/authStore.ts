@@ -71,3 +71,12 @@ export const useIsAuthenticated = () =>
 
 export const useIsAdmin = () =>
   useAuthStore((s) => s.user?.role === 'Admin' || s.user?.role === 'SuperAdmin');
+
+/**
+ * D44. Только владелец сервиса, без обычных админов. Нужен для раздела
+ * обращений: в переписке идут платёжные реквизиты и договорённости о
+ * переводах, поэтому доступ туда уже не «любой администратор».
+ * Зеркало ICurrentUserService.IsSuperAdmin на бэке.
+ */
+export const useIsSuperAdmin = () =>
+  useAuthStore((s) => s.user?.role === 'SuperAdmin');

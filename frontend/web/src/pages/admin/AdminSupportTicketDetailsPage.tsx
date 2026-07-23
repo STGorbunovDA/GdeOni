@@ -13,12 +13,13 @@ import {
 } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, ExternalLink, RefreshCcw } from 'lucide-react';
+import { ChevronLeft, ExternalLink, RefreshCcw, Send } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
   CloudCard,
   GhostButton,
+  PrimaryButton,
   SubTitleLabel,
   TitleLabel,
 } from '../../components/ui';
@@ -66,6 +67,7 @@ export function AdminSupportTicketDetailsPage() {
   // D40. Принудительное закрытие: причина обязательна.
   const [forceCloseModal, setForceCloseModal] = useState(false);
   const [closeNote, setCloseNote] = useState('');
+  const [messageText, setMessageText] = useState('');
 
   const query = useQuery({
     queryKey: ['admin-support-ticket', id],
@@ -102,6 +104,17 @@ export function AdminSupportTicketDetailsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-support-ticket', id] });
       queryClient.invalidateQueries({ queryKey: ['admin-support-tickets'] });
       setForceCloseModal(false);
+    },
+  });
+
+  // D44. Ответ без смены статуса. Раньше, чтобы написать юзеру, админу
+  // приходилось помечать обращение решённым — статус врал.
+  const messageMutation = useMutation({
+    mutationFn: () => supportApi.adminAddMessage(id!, messageText.trim()),
+    onSuccess: () => {
+      setMessageText('');
+      queryClient.invalidateQueries({ queryKey: ['admin-support-ticket', id] });
+      queryClient.invalidateQueries({ queryKey: ['admin-support-tickets'] });
     },
   });
 
@@ -275,6 +288,36 @@ export function AdminSupportTicketDetailsPage() {
         <Stack gap="md">
           <SubTitleLabel>Переписка</SubTitleLabel>
           <MessagesChat messages={messages} viewerIsAdmin />
+
+          {/* D44. Ответ без смены статуса — доступен на любой стадии,
+              включая закрытое обращение (можно вернуться с реквизитами). */}
+          <Stack gap="xs">
+            <Textarea
+              label="Ответ пользователю"
+              placeholder="Напишите сообщение…"
+              autosize
+              minRows={2}
+              maxRows={8}
+              value={messageText}
+              onChange={(e) => setMessageText(e.currentTarget.value)}
+              disabled={messageMutation.isPending}
+            />
+            <Group justify="flex-end">
+              <PrimaryButton
+                leftSection={<Send size={16} />}
+                onClick={() => messageMutation.mutate()}
+                loading={messageMutation.isPending}
+                disabled={!messageText.trim()}
+              >
+                Отправить
+              </PrimaryButton>
+            </Group>
+            {messageMutation.isError && (
+              <Alert color="red" variant="light">
+                {formatError(messageMutation.error)}
+              </Alert>
+            )}
+          </Stack>
         </Stack>
       </CloudCard>
 

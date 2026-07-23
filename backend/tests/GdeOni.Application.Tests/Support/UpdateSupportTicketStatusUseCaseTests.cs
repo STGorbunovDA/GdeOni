@@ -13,10 +13,10 @@ namespace GdeOni.Application.Tests.Support;
 public sealed class UpdateSupportTicketStatusUseCaseTests
 {
     [Fact]
-    public async Task Execute_NotAdmin_ReturnsForbidden()
+    public async Task Execute_NotSuperAdmin_ReturnsForbidden()
     {
         var (_, currentUser, _, useCase) = BuildHarness();
-        currentUser.Setup(x => x.IsAdmin()).Returns(false);
+        currentUser.Setup(x => x.IsSuperAdmin()).Returns(false);
 
         var result = await useCase.Execute(
             new UpdateSupportTicketStatusCommand(
@@ -31,7 +31,7 @@ public sealed class UpdateSupportTicketStatusUseCaseTests
     public async Task Execute_TicketNotFound_ReturnsNotFound()
     {
         var (repo, currentUser, _, useCase) = BuildHarness();
-        currentUser.Setup(x => x.IsAdmin()).Returns(true);
+        currentUser.Setup(x => x.IsSuperAdmin()).Returns(true);
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
         repo.Setup(x => x.GetById(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -50,7 +50,7 @@ public sealed class UpdateSupportTicketStatusUseCaseTests
     public async Task Execute_ResolveWithoutNote_ReturnsValidationError()
     {
         var (repo, currentUser, _, useCase) = BuildHarness();
-        currentUser.Setup(x => x.IsAdmin()).Returns(true);
+        currentUser.Setup(x => x.IsSuperAdmin()).Returns(true);
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(Guid.NewGuid()));
         var ticket = SupportTicket.CreateManual(
@@ -72,7 +72,7 @@ public sealed class UpdateSupportTicketStatusUseCaseTests
     {
         var (repo, currentUser, _, useCase) = BuildHarness();
         var adminId = Guid.NewGuid();
-        currentUser.Setup(x => x.IsAdmin()).Returns(true);
+        currentUser.Setup(x => x.IsSuperAdmin()).Returns(true);
         currentUser.Setup(x => x.GetCurrentUserId())
             .Returns(Result.Success<Guid, Error>(adminId));
         var ticket = SupportTicket.CreateManual(

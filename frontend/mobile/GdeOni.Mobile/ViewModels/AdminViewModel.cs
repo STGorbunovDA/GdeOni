@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GdeOni.Mobile.Services.Auth;
 
 namespace GdeOni.Mobile.ViewModels;
 
@@ -7,8 +8,38 @@ namespace GdeOni.Mobile.ViewModels;
 /// F17.9 mobile. Корневой экран админ-вкладки — простое меню разделов.
 /// Реальные данные грузятся внутри секций (AllEdits/AdminUsers/AdminPayments).
 /// </summary>
-public partial class AdminViewModel : ObservableObject
+public partial class AdminViewModel(IAuthService authService) : ObservableObject
 {
+    /// <summary>
+    /// D44. Раздел обращений доступен только владельцу сервиса: в
+    /// переписке платёжные реквизиты и договорённости о переводах.
+    /// Стартовое значение false — пункт меню лучше показать с
+    /// задержкой, чем мигнуть и исчезнуть.
+    ///
+    /// Это только UI: бэк закрыт [Authorize(Roles = "SuperAdmin")]
+    /// плюс IsSuperAdmin() в use case'ах.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSuperAdmin;
+
+    /// <summary>
+    /// Подтягивает роль. Ошибку глушим: не смогли определить — раздел
+    /// просто не показываем, бэк всё равно не пустит.
+    /// </summary>
+    public async Task LoadRoleAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var me = await authService.GetCurrentUserAsync(cancellationToken);
+            IsSuperAdmin = string.Equals(
+                me?.Role, "SuperAdmin", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            IsSuperAdmin = false;
+        }
+    }
+
     [RelayCommand]
     private async Task OpenAllEditsAsync()
         => await Shell.Current.GoToAsync("all-edits");
