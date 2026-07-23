@@ -11,8 +11,8 @@ using Refit;
 namespace GdeOni.Mobile.ViewModels;
 
 /// <summary>
-/// Вкладка «События». Сверху — годовщины сегодня среди отслеживаемых
-/// (день рождения / годовщина смерти), тап ведёт на карточку умершего.
+/// Вкладка «События». Сверху — памятные даты сегодня среди отслеживаемых
+/// (день памяти / година), тап ведёт на карточку умершего.
 /// Ниже — праздники сегодня и ближайшие (30 дней), сгруппированные по
 /// категориям (backend GET /api/events/holidays). Зеркало web EventsPage.
 /// </summary>
@@ -132,7 +132,7 @@ public partial class EventsViewModel(
                 TodayAnniversaries.Add(new AnniversaryItemViewModel(
                     resolved.DeceasedId,
                     resolved.FullName,
-                    $"День рождения · {by} {YearsWord(by)}",
+                    $"День памяти · исполнилось бы {by} {YearsWord(by)}",
                     resolved.MainPhotoUrl));
             }
         }

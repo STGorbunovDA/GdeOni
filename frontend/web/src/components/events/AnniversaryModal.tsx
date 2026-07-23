@@ -12,10 +12,10 @@ import { BodyLabel, CaptionLabel, SubTitleLabel } from '../ui';
 import { cloudColors } from '../../design/theme';
 
 /**
- * D38. Модалка «сегодня годовщина» — всплывает поверх всего один раз в
- * день после входа, если у кого-то из отслеживаемых сегодня день
- * рождения или годовщина смерти. Две кнопки: «Закрыть» и «Перейти в
- * события».
+ * D38. Модалка «сегодня памятная дата» — всплывает поверх всего один раз
+ * в день после входа, если у кого-то из отслеживаемых сегодня день памяти
+ * (годовщина рождения) или година (годовщина смерти). Две кнопки:
+ * «Закрыть» и «Перейти в события».
  *
  * Живёт на уровне AppLayout (как OutdatedLegalModal), поэтому работает
  * на всех приватных страницах.
@@ -147,8 +147,7 @@ export function AnniversaryModal() {
     navigate('/events');
   }
 
-  const hasBirthday = events.some((e) => e.kind === 'birth');
-  const title = hasBirthday ? 'Сегодня день рождения' : 'Сегодня годовщина';
+  const title = 'Сегодня памятная дата';
 
   return (
     <Modal
@@ -160,9 +159,8 @@ export function AnniversaryModal() {
     >
       <Stack gap="md">
         <BodyLabel>
-          {hasBirthday
-            ? 'У кого-то из ваших близких сегодня день рождения. Хороший повод вспомнить о нём.'
-            : 'Сегодня годовщина у кого-то из ваших близких. Хороший повод вспомнить о нём.'}
+          Сегодня памятная дата у кого-то из ваших близких. Хороший повод
+          вспомнить о нём.
         </BodyLabel>
 
         <Stack gap="xs">
@@ -177,13 +175,13 @@ export function AnniversaryModal() {
               }}
             >
               <SubTitleLabel>
-                {e.kind === 'birth' ? '🎂 ' : '🕯 '}
+                {e.kind === 'birth' ? '🌷 ' : '🕯 '}
                 {e.fullName}
               </SubTitleLabel>
               <CaptionLabel>
                 {e.kind === 'birth'
-                  ? `День рождения · исполнилось бы ${e.years} ${yearsWord(e.years)}`
-                  : `Годовщина смерти · ${e.years} ${yearsWord(e.years)}`}
+                  ? `День памяти · исполнилось бы ${e.years} ${yearsWord(e.years)}`
+                  : `Година · ${e.years} ${yearsWord(e.years)}`}
               </CaptionLabel>
             </Stack>
           ))}

@@ -8,7 +8,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { Cake, ChevronRight, Cross, UserRound } from 'lucide-react';
+import { ChevronRight, Cross, Flower2, UserRound } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -27,8 +27,8 @@ import { anniversaryYearsToday, yearsWord } from '../../utils/anniversary';
 import { useNavigate } from 'react-router-dom';
 
 /**
- * Вкладка «События». Сверху — годовщины сегодня среди отслеживаемых
- * (день рождения / годовщина смерти), тап ведёт на карточку умершего.
+ * Вкладка «События». Сверху — памятные даты сегодня среди отслеживаемых
+ * (день памяти / година), тап ведёт на карточку умершего.
  * Ниже — праздники: сегодняшние и ближайшие, сгруппированные по
  * категориям (поминальные, православные, мусульманские, государственные).
  *
@@ -264,7 +264,7 @@ function AnniversaryRow({
 }) {
   const isBirth = anniversary.kind === 'birth';
   const label = isBirth
-    ? `День рождения · ${anniversary.years} ${yearsWord(anniversary.years)}`
+    ? `День памяти · исполнилось бы ${anniversary.years} ${yearsWord(anniversary.years)}`
     : `Година · ${anniversary.years} ${yearsWord(anniversary.years)}`;
 
   return (
@@ -279,7 +279,7 @@ function AnniversaryRow({
             <SubTitleLabel>{anniversary.fullName}</SubTitleLabel>
             <Group gap={6} align="center">
               {isBirth ? (
-                <Cake size={15} color={cloudColors.azureDeep} />
+                <Flower2 size={15} color={cloudColors.azureDeep} />
               ) : (
                 <Cross size={15} color={cloudColors.azureDeep} />
               )}
