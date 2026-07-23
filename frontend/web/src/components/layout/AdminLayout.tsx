@@ -39,7 +39,7 @@ import { NavItem } from './NavItem';
  *  - Пользователи (F17.7)     — /admin/users
  *  - Платежи (F17.8)          — /admin/payments
  *  - История правок (F17.9)   — /admin/edits
- *  - Проблемы (F17.14)        — /admin/support-tickets
+ *  - Обращения (F17.14)       — /admin/support-tickets
  *  - Найти умершего (F17.15)  — /admin/find-deceased
  *
  * Внизу — email текущего админа, «К приложению» (выйти из admin-mode
@@ -152,7 +152,7 @@ export function AdminLayout() {
               <NavItem
                 to="/admin/support-tickets"
                 icon={LifeBuoy}
-                label="Проблемы"
+                label="Обращения"
                 onNavigate={close}
               />
             )}
