@@ -319,10 +319,14 @@ function TicketRow({
       onClick={onOpen}
       style={{
         cursor: 'pointer',
-        // Urgent-подсветку снимаем на Resolved — нет смысла привлекать
-        // внимание к уже закрытому вопросу.
+        // Urgent-подсветка — только для обращений В РАБОТЕ. Перечисляем
+        // активные статусы, а не исключаем завершённые: при добавлении
+        // Closed (D40) условие «!== Resolved» про него забыли, и закрытые
+        // срочные продолжали гореть красным. С белым списком новый
+        // терминальный статус такой ошибки уже не даст.
         background:
-          item.severity === 'Urgent' && item.status !== 'Resolved'
+          item.severity === 'Urgent' &&
+          (item.status === 'Open' || item.status === 'InProgress')
             ? cloudColors.dangerSurface
             : undefined,
       }}
