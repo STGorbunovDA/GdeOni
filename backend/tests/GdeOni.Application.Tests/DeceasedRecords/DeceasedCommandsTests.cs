@@ -236,7 +236,7 @@ public sealed class DeceasedCommandsTests
     }
 
     /// <summary>
-    /// Delete admin happy: Delete + Save + DeleteAsync для каждого media-файла.
+    /// Delete admin happy: каскадный DeleteById + DeleteAsync для каждого media-файла.
     /// </summary>
     [Fact]
     public async Task Delete_Admin_DeletesAndCleansUpFiles()
@@ -268,8 +268,7 @@ public sealed class DeceasedCommandsTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        deceasedRepo.Verify(x => x.Delete(deceased), Times.Once);
-        deceasedRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Once);
+        deceasedRepo.Verify(x => x.DeleteById(deceased.Id, It.IsAny<CancellationToken>()), Times.Once);
         fileStorage.Verify(
             x => x.DeleteAsync("deceased-photos", "key1", It.IsAny<CancellationToken>()),
             Times.Once);

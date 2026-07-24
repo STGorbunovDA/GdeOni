@@ -530,9 +530,17 @@ public sealed class DeceasedRepository(AppDbContext dbContext, TimeProvider time
         return (items, totalCount);
     }
 
-    public void Delete(Deceased deceased)
+    public Task DeleteById(Guid id, CancellationToken cancellationToken)
     {
-        dbContext.DeceasedRecords.Remove(deceased);
+        // Прямой каскадный DELETE в БД вместо Remove+SaveChanges: обходит
+        // цикл MainMediaId ↔ deceased_id в EF-графе (иначе circular
+        // dependency при удалении карточки с главным фото). Все FK на
+        // deceased_records — ON DELETE CASCADE, дети (media/memories/edits/
+        // tracking/anniversary-emails) уходят автоматически. См.
+        // IDeceasedRepository.DeleteById.
+        return dbContext.DeceasedRecords
+            .Where(x => x.Id == id)
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     public async Task Save(CancellationToken cancellationToken)

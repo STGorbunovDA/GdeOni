@@ -2,6 +2,7 @@ using GdeOni.Application.DeceasedRecords.Queries.GetAll.Model;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Shared;
 using GdeOni.Infrastructure.Persistence.Repositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace GdeOni.Infrastructure.Tests.Persistence;
 
@@ -273,5 +274,61 @@ public sealed class DeceasedRepositoryTests
         var act = () => repo.Save(CancellationToken.None);
         var ex = await act.Should().ThrowAsync<UniqueConstraintException>();
         ex.Which.ConstraintName.Should().Be(DbConstraints.DeceasedSearchKey);
+    }
+
+    /// <summary>
+    /// Регрессия на баг «не могу удалить умершего» (500). У карточки задано
+    /// ГЛАВНОЕ фото: связи Deceased.MainMediaId → DeceasedMedia (SET NULL) и
+    /// DeceasedMedia.deceased_id → Deceased (CASCADE) образуют цикл, из-за
+    /// которого старый путь (Remove + SaveChanges с загруженной коллекцией
+    /// Media) падал в EF с "circular dependency". DeleteById делает прямой
+    /// каскадный DELETE в БД — проходит без исключения, и все дети
+    /// (media, memory) уходят по ON DELETE CASCADE.
+    /// </summary>
+    [Fact]
+    public async Task DeleteById_WithMainPhoto_CascadesWithoutCircularDependency()
+    {
+        Guid deceasedId;
+        await using (var seedContext = _fixture.CreateDbContext())
+        {
+            var user = TestData.SeedUser(seedContext);
+            var d = TestData.SeedDeceased(seedContext, user.Id, "Имя1", $"ФамилияDel{Guid.NewGuid():N}");
+
+            var media = d.AddMedia(user.Id, MediaKind.DeceasedPhoto,
+                "p.jpg", "deceased-photos", $"del/{Guid.NewGuid()}", "image/jpeg", 1000).Value;
+            d.ApproveMedia(media.Id);
+            d.AddMemory("Помним", user.Id); // ← дочерняя запись под каскад
+
+            // Сохраняем карточку + media + memory БЕЗ главного фото. В проде
+            // main-photo ставится отдельным сохранением, когда media уже в БД
+            // — иначе тот же цикл вылезает уже на INSERT.
+            await seedContext.SaveChangesAsync();
+
+            // Отдельным сохранением проставляем главное фото → UPDATE
+            // main_media_id (media уже существует, цикла на этом шаге нет).
+            // В итоге карточка в БД с непустым MainMediaId — как в проде.
+            d.SetMainPhoto(media.Id);
+            await seedContext.SaveChangesAsync();
+
+            deceasedId = d.Id;
+
+            // Предпосылка бага: главное фото действительно проставлено.
+            d.MainMediaId.Should().NotBeNull();
+        }
+
+        await using var dbContext = _fixture.CreateDbContext();
+        var repo = new DeceasedRepository(dbContext, TimeProvider.System);
+
+        var act = () => repo.DeleteById(deceasedId, CancellationToken.None);
+        await act.Should().NotThrowAsync();
+
+        await using var verifyContext = _fixture.CreateDbContext();
+        (await verifyContext.DeceasedRecords.AnyAsync(x => x.Id == deceasedId))
+            .Should().BeFalse("карточка удалена");
+        (await verifyContext.Set<DeceasedMedia>().AnyAsync(x => x.DeceasedId == deceasedId))
+            .Should().BeFalse("media ушли по каскаду");
+        (await verifyContext.Set<DeceasedMemoryEntry>()
+            .AnyAsync(x => EF.Property<Guid>(x, "deceased_id") == deceasedId))
+            .Should().BeFalse("memory ушли по каскаду");
     }
 }

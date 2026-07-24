@@ -43,8 +43,10 @@ public sealed class DeleteDeceasedUseCase(
             .Select(m => (m.Bucket, m.StorageKey))
             .ToArray();
 
-        deceasedRepository.Delete(deceased);
-        await deceasedRepository.Save(cancellationToken);
+        // Каскадный DELETE на стороне БД (не Remove+Save): обходит цикл
+        // MainMediaId ↔ deceased_id в EF, из-за которого удаление карточки
+        // с главным фото падало с circular dependency. См. DeleteById.
+        await deceasedRepository.DeleteById(command.Id, cancellationToken);
 
         // Best-effort: БД уже зафиксирована, файлы в MinIO теперь сироты.
         // Если удаление здесь упадёт — фоновый MinioOrphanCleanupService

@@ -106,7 +106,19 @@ public interface IDeceasedRepository
         IReadOnlyList<Guid> mediaIds,
         CancellationToken cancellationToken);
 
-    void Delete(Deceased deceased);
+    /// <summary>
+    /// Физически удаляет карточку и все связанные записи (media, memories,
+    /// edits, tracking, anniversary-emails) одним каскадным DELETE на
+    /// стороне БД. Прямой ExecuteDelete, а не Remove+Save намеренно: связь
+    /// Deceased.MainMediaId → DeceasedMedia (SET NULL) и обратная
+    /// DeceasedMedia.deceased_id → Deceased (CASCADE) образуют цикл, из-за
+    /// которого EF при SaveChanges (с загруженной коллекцией Media) не может
+    /// упорядочить удаления и бросает "circular dependency" → 500 при
+    /// удалении карточки с главным фото. Все FK на deceased_records —
+    /// ON DELETE CASCADE, поэтому БД сама подчистит детей. Собственная
+    /// граница UoW (минуя Save), по аналогии с RefreshToken.RevokeAllForUser.
+    /// </summary>
+    Task DeleteById(Guid id, CancellationToken cancellationToken);
     Task Save(CancellationToken cancellationToken);
 }
 
