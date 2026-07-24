@@ -184,7 +184,7 @@ export function ProfilePage() {
               fw={700}
               size="md"
             >
-              Скачать APK
+              Скачать приложение для Android
             </Button>
             <Button
               variant="subtle"

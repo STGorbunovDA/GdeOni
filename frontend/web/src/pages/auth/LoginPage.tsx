@@ -135,7 +135,7 @@ export function LoginPage() {
             <CaptionLabel>
               Нет приложения?{' '}
               <Anchor component={Link} to="/download" c={cloudColors.azureDeep}>
-                Скачайте APK →
+                Скачать приложение для Android →
               </Anchor>
             </CaptionLabel>
           </Stack>
