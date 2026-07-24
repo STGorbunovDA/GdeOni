@@ -30,6 +30,7 @@ import {
 import { DateInput } from '@mantine/dates';
 import { formatError } from '../../auth/errorMessages';
 import { toDateInputValue } from '../../utils/formatDate';
+import { InAppBrowserNotice } from '../../components/InAppBrowserNotice';
 
 /**
  * F4. Регистрация: email + password + confirm + (опционально) имя.
@@ -101,6 +102,8 @@ export function RegisterPage() {
         </Stack>
         <CaptionLabel>Создайте аккаунт, чтобы начать.</CaptionLabel>
       </Stack>
+
+      <InAppBrowserNotice />
 
       <CloudCard>
         <form onSubmit={handleSubmit(onSubmit)}>

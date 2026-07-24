@@ -24,6 +24,7 @@ import { cloudColors } from '../../design/theme';
 import { authApi } from '../../api/endpoints/authApi';
 import { type LoginFormValues, loginSchema } from '../../auth/schemas';
 import { formatError } from '../../auth/errorMessages';
+import { InAppBrowserNotice } from '../../components/InAppBrowserNotice';
 
 /**
  * F4. Форма логина: email + password, валидация Zod, сабмит через
@@ -83,6 +84,8 @@ export function LoginPage() {
           Войдите, чтобы продолжить.
         </CaptionLabel>
       </Stack>
+
+      <InAppBrowserNotice />
 
       <CloudCard>
         <form onSubmit={handleSubmit(onSubmit)}>
