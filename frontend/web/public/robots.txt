@@ -1,0 +1,26 @@
+# robots.txt для gdeoni.ru
+# Разрешаем обход всего, кроме личных/служебных разделов SPA.
+# Приватные роуты отдают тот же index.html, поэтому их обход — пустая
+# трата краулингового бюджета и риск дублей в выдаче.
+
+User-agent: *
+Disallow: /admin
+Disallow: /profile
+Disallow: /change-password
+Disallow: /tracked
+Disallow: /search
+Disallow: /nearby
+Disallow: /at-grave
+Disallow: /preview
+Disallow: /route
+Disallow: /events
+Disallow: /subscription
+Disallow: /subscription-required
+Disallow: /support
+Disallow: /payment
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /style-demo
+Disallow: /geo-demo
+
+Sitemap: https://gdeoni.ru/sitemap.xml
