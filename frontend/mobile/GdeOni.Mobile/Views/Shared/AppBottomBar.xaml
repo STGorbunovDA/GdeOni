@@ -4,7 +4,7 @@
              x:Class="GdeOni.Mobile.Views.Shared.AppBottomBar">
 
     <Grid>
-        <Border BackgroundColor="{StaticResource Cloud}"
+        <Border BackgroundColor="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}"
                 StrokeThickness="0"
                 Margin="16,0,16,16"
                 Padding="8">

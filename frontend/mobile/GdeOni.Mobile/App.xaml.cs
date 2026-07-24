@@ -1,3 +1,5 @@
+using GdeOni.Mobile.Services.Theming;
+
 namespace GdeOni.Mobile;
 
 public partial class App : Application
@@ -8,6 +10,11 @@ public partial class App : Application
     {
         InitializeComponent();
         _services = services;
+
+        // E27. Применяем сохранённую тему до создания окна, чтобы первый
+        // кадр рисовался сразу в нужной схеме (зеркало web-скрипта в
+        // index.html, который ставит color-scheme до первой отрисовки).
+        _services.GetRequiredService<IThemeService>().Initialize();
     }
 
     protected override Window CreateWindow(IActivationState? activationState)

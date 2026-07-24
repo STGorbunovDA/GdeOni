@@ -11,7 +11,7 @@
              Title="Обновление">
 
     <Grid>
-        <Ellipse Fill="White"
+        <Ellipse Fill="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource CloudDark}}"
                  Opacity="0.5"
                  WidthRequest="240"
                  HeightRequest="130"

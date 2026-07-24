@@ -13,7 +13,7 @@
              Title="Добавить умершего">
 
     <Grid>
-        <Ellipse Fill="White"
+        <Ellipse Fill="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource CloudDark}}"
                  Opacity="0.45"
                  WidthRequest="220"
                  HeightRequest="120"
@@ -157,13 +157,13 @@
                         <Editor Placeholder="Краткое описание (необязательно)"
                                 Text="{Binding ShortDescription}"
                                 AutoSize="TextChanges"
-                                BackgroundColor="{StaticResource Cloud}" />
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}" />
 
                         <Editor Placeholder="Биография (необязательно)"
                                 Text="{Binding Biography}"
                                 AutoSize="TextChanges"
                                 HeightRequest="120"
-                                BackgroundColor="{StaticResource Cloud}" />
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -210,12 +210,12 @@
                                 ItemDisplayBinding="{Binding Display}"
                                 SelectedItem="{Binding SelectedRelationship}"
                                 Title="Выберите"
-                                BackgroundColor="{StaticResource Cloud}" />
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}" />
 
                         <Editor Placeholder="Личные заметки (необязательно)"
                                 Text="{Binding PersonalNotes}"
                                 AutoSize="TextChanges"
-                                BackgroundColor="{StaticResource Cloud}" />
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}" />
 
                         <Grid ColumnDefinitions="*,Auto" RowSpacing="6">
                             <Label Grid.Column="0"

@@ -66,7 +66,7 @@
                                             <RoundRectangle CornerRadius="22" />
                                         </Border.StrokeShape>
                                         <Grid>
-                                            <BoxView Color="{StaticResource Sky}" />
+                                            <BoxView Color="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}" />
                                             <Label Text="🕊"
                                                    FontSize="20"
                                                    Opacity="0.6"
@@ -136,7 +136,7 @@
                                     <Label Text="{Binding CategoryLabel}"
                                            Style="{StaticResource SubTitleLabel}"
                                            FontSize="15"
-                                           TextColor="{StaticResource AzureDeep}" />
+                                           TextColor="{AppThemeBinding Light={StaticResource AzureDeep}, Dark={StaticResource AzureDeepDark}}" />
 
                                     <VerticalStackLayout Spacing="6"
                                                          BindableLayout.ItemsSource="{Binding Items}">

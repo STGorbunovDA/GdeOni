@@ -142,7 +142,7 @@
                                                  IsVisible binding к строке MainPhotoUrl
                                                  (как bool) ненадёжен — MAUI на разных
                                                  платформах даёт разные результаты. -->
-                                            <BoxView Color="{StaticResource Sky}" />
+                                            <BoxView Color="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}" />
                                             <Label Text="🕊"
                                                    FontSize="22"
                                                    Opacity="0.6"
@@ -164,7 +164,7 @@
                                                    Text="✓"
                                                    FontSize="14"
                                                    FontAttributes="Bold"
-                                                   TextColor="{StaticResource AzureDeep}"
+                                                   TextColor="{AppThemeBinding Light={StaticResource AzureDeep}, Dark={StaticResource AzureDeepDark}}"
                                                    IsVisible="{Binding IsVerified}" />
                                         </Grid>
                                         <Label Style="{StaticResource CaptionLabel}">

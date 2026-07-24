@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <ResourceDictionary 
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
@@ -23,6 +23,23 @@
     <Color x:Key="TextBody">#444444</Color>
     <Color x:Key="CaptionGray">#7A8794</Color>
     <Color x:Key="CloudBorder">#E2ECF5</Color>
+
+    <!-- E27. Тёмные варианты семантических токенов (зеркало web
+         styles.css [data-mantine-color-scheme='dark'] / theme.ts dark[]).
+         Токены СЕМАНТИЧЕСКИЕ: Cloud — «поверхность карточки», в тёмной теме
+         она тёмно-синяя, а не белая; InkBlue — «цвет заголовка», в тёмной
+         теме светлый. Применяются через AppThemeBinding в Styles.xaml и на
+         страницах, переключаются вместе с Application.UserAppTheme.
+         Azure (акцент) намеренно без тёмного варианта — #1977CC читается на
+         обоих фонах, отдельный оттенок только плодил бы правки. -->
+    <Color x:Key="CloudDark">#16202B</Color>
+    <Color x:Key="SkyDark">#223243</Color>
+    <Color x:Key="MistDark">#0F1720</Color>
+    <Color x:Key="AzureDeepDark">#6FAAE5</Color>
+    <Color x:Key="InkBlueDark">#E6EDF3</Color>
+    <Color x:Key="TextBodyDark">#C2CCD6</Color>
+    <Color x:Key="CaptionGrayDark">#8A99A8</Color>
+    <Color x:Key="CloudBorderDark">#3A4A5A</Color>
 
     <SolidColorBrush x:Key="CloudBrush" Color="{StaticResource Cloud}"/>
     <SolidColorBrush x:Key="SkyBrush" Color="{StaticResource Sky}"/>

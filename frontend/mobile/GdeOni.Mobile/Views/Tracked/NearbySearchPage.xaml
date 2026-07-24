@@ -11,7 +11,7 @@
              Title="Найти рядом">
 
     <Grid>
-        <Ellipse Fill="White"
+        <Ellipse Fill="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource CloudDark}}"
                  Opacity="0.45"
                  WidthRequest="220"
                  HeightRequest="120"
@@ -47,7 +47,7 @@
                                 Maximum="500"
                                 Value="{Binding RadiusMeters, Mode=TwoWay}"
                                 MinimumTrackColor="{StaticResource Azure}"
-                                ThumbColor="{StaticResource AzureDeep}" />
+                                ThumbColor="{AppThemeBinding Light={StaticResource AzureDeep}, Dark={StaticResource AzureDeepDark}}" />
                     </VerticalStackLayout>
                 </Border>
 

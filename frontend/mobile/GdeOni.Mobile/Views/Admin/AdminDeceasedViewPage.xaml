@@ -41,7 +41,7 @@
                             <RoundRectangle CornerRadius="70" />
                         </Border.StrokeShape>
                         <Grid>
-                            <BoxView Color="{StaticResource Sky}" />
+                            <BoxView Color="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}" />
                             <Label IsVisible="{Binding HasNoMainPhoto}"
                                    Text="🕊"
                                    FontSize="56"
@@ -63,7 +63,7 @@
                                Style="{StaticResource CaptionLabel}"
                                HorizontalTextAlignment="Center" />
                         <Border IsVisible="{Binding IsVerified}"
-                                BackgroundColor="{StaticResource Mist}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource MistDark}}"
                                 StrokeThickness="0"
                                 Padding="10,3"
                                 HorizontalOptions="Center">
@@ -72,7 +72,7 @@
                             </Border.StrokeShape>
                             <Label Text="✓ проверено"
                                    FontSize="12"
-                                   TextColor="{StaticResource AzureDeep}" />
+                                   TextColor="{AppThemeBinding Light={StaticResource AzureDeep}, Dark={StaticResource AzureDeepDark}}" />
                         </Border>
                         <Label Text="{Binding CreatedAtDisplay, StringFormat='Создано: {0}'}"
                                Style="{StaticResource CaptionLabel}" />

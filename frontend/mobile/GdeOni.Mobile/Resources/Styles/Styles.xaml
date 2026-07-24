@@ -406,14 +406,14 @@
     </Style>
 
     <Style TargetType="Shell" ApplyToDerivedTypes="True">
-        <Setter Property="Shell.BackgroundColor" Value="{StaticResource Cloud}" />
-        <Setter Property="Shell.ForegroundColor" Value="{StaticResource InkBlue}" />
-        <Setter Property="Shell.TitleColor" Value="{StaticResource InkBlue}" />
-        <Setter Property="Shell.DisabledColor" Value="{StaticResource CloudBorder}" />
+        <Setter Property="Shell.BackgroundColor" Value="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}" />
+        <Setter Property="Shell.ForegroundColor" Value="{AppThemeBinding Light={StaticResource InkBlue}, Dark={StaticResource InkBlueDark}}" />
+        <Setter Property="Shell.TitleColor" Value="{AppThemeBinding Light={StaticResource InkBlue}, Dark={StaticResource InkBlueDark}}" />
+        <Setter Property="Shell.DisabledColor" Value="{AppThemeBinding Light={StaticResource CloudBorder}, Dark={StaticResource CloudBorderDark}}" />
         <Setter Property="Shell.UnselectedColor" Value="#9AA8B5" />
         <Setter Property="Shell.NavBarHasShadow" Value="False" />
         <Setter Property="Shell.NavBarIsVisible" Value="False" />
-        <Setter Property="Shell.TabBarBackgroundColor" Value="{StaticResource Cloud}" />
+        <Setter Property="Shell.TabBarBackgroundColor" Value="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}" />
         <Setter Property="Shell.TabBarForegroundColor" Value="{StaticResource Azure}" />
         <Setter Property="Shell.TabBarTitleColor" Value="{StaticResource Azure}" />
         <Setter Property="Shell.TabBarUnselectedColor" Value="#9AA8B5" />
@@ -448,7 +448,7 @@
          .light-background в шаблоне Medilab (градиент убран — на вебе фон
          тоже плоский, держим паритет). -->
     <Style x:Key="CloudPage" TargetType="ContentPage" ApplyToDerivedTypes="True">
-        <Setter Property="Background" Value="{StaticResource MistBrush}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource MistDark}}" />
         <Setter Property="Padding" Value="0" />
     </Style>
 
@@ -456,7 +456,7 @@
     <Style x:Key="TitleLabel" TargetType="Label">
         <Setter Property="FontFamily" Value="MontserratBold" />
         <Setter Property="FontSize" Value="32" />
-        <Setter Property="TextColor" Value="{StaticResource InkBlue}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource InkBlue}, Dark={StaticResource InkBlueDark}}" />
         <Setter Property="LineBreakMode" Value="TailTruncation" />
     </Style>
 
@@ -464,14 +464,14 @@
     <Style x:Key="SubTitleLabel" TargetType="Label">
         <Setter Property="FontFamily" Value="Montserrat" />
         <Setter Property="FontSize" Value="20" />
-        <Setter Property="TextColor" Value="{StaticResource InkBlue}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource InkBlue}, Dark={StaticResource InkBlueDark}}" />
     </Style>
 
     <!-- Основной текст (Roboto, #444444). -->
     <Style x:Key="BodyLabel" TargetType="Label">
         <Setter Property="FontFamily" Value="Roboto" />
         <Setter Property="FontSize" Value="15" />
-        <Setter Property="TextColor" Value="{StaticResource TextBody}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextBody}, Dark={StaticResource TextBodyDark}}" />
         <Setter Property="LineHeight" Value="1.4" />
     </Style>
 
@@ -479,13 +479,13 @@
     <Style x:Key="CaptionLabel" TargetType="Label">
         <Setter Property="FontFamily" Value="Roboto" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="TextColor" Value="{StaticResource CaptionGray}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CaptionGray}, Dark={StaticResource CaptionGrayDark}}" />
     </Style>
 
     <!-- Карточка в стиле Medilab: скругление 10, нейтральная тень 10%,
          без рамки (глубину даёт только тень). -->
     <Style x:Key="CloudCard" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{StaticResource Cloud}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}" />
         <Setter Property="StrokeShape">
             <RoundRectangle CornerRadius="10" />
         </Setter>
@@ -521,7 +521,7 @@
                     </VisualState>
                     <VisualState x:Name="Disabled">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource CloudBorder}" />
+                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource CloudBorder}, Dark={StaticResource CloudBorderDark}}" />
                             <Setter Property="TextColor" Value="#9AA8B5" />
                         </VisualState.Setters>
                     </VisualState>
@@ -547,7 +547,7 @@
                     <VisualState x:Name="Normal" />
                     <VisualState x:Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource Sky}" />
+                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -557,9 +557,9 @@
 
     <!-- Поле формы: белая подложка, текст #444444. -->
     <Style x:Key="FormEntry" TargetType="Entry">
-        <Setter Property="BackgroundColor" Value="{StaticResource Cloud}" />
-        <Setter Property="TextColor" Value="{StaticResource TextBody}" />
-        <Setter Property="PlaceholderColor" Value="{StaticResource CaptionGray}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextBody}, Dark={StaticResource TextBodyDark}}" />
+        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource CaptionGray}, Dark={StaticResource CaptionGrayDark}}" />
         <Setter Property="FontFamily" Value="Roboto" />
         <Setter Property="FontSize" Value="16" />
         <Setter Property="HeightRequest" Value="48" />

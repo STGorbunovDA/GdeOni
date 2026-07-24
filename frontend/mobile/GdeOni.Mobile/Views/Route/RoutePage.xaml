@@ -69,7 +69,7 @@
                                         <RoundRectangle CornerRadius="22" />
                                     </Border.StrokeShape>
                                     <Grid>
-                                        <BoxView Color="{StaticResource Sky}" />
+                                        <BoxView Color="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}" />
                                         <Label Text="🕊"
                                                FontSize="20"
                                                Opacity="0.6"

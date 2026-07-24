@@ -10,7 +10,7 @@
              Title="Подписка">
 
     <Grid>
-        <Ellipse Fill="White"
+        <Ellipse Fill="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource CloudDark}}"
                  Opacity="0.45"
                  WidthRequest="240"
                  HeightRequest="130"
@@ -40,7 +40,7 @@
 
                     <Border Style="{StaticResource CloudCard}"
                             IsVisible="{Binding IsPollingPayment}"
-                            BackgroundColor="#E6F4FB">
+                            BackgroundColor="{AppThemeBinding Light=#E6F4FB, Dark=#17313F}">
                         <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
                             <ActivityIndicator IsRunning="True"
                                                Color="{StaticResource Azure}"

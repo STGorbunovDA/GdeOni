@@ -15,7 +15,7 @@
     </ContentPage.Resources>
 
     <Grid>
-        <Ellipse Fill="White"
+        <Ellipse Fill="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource CloudDark}}"
                  Opacity="0.45"
                  WidthRequest="220"
                  HeightRequest="120"
@@ -70,12 +70,12 @@
                         <Editor Placeholder="Краткое описание (необязательно)"
                                 Text="{Binding ShortDescription}"
                                 AutoSize="TextChanges"
-                                BackgroundColor="{StaticResource Cloud}" />
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}" />
 
                         <Editor Placeholder="Биография (необязательно)"
                                 Text="{Binding Biography}"
                                 AutoSize="TextChanges"
-                                BackgroundColor="{StaticResource Cloud}" />
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}" />
 
                         <Button Text="Сохранить основное"
                                 Style="{StaticResource PrimaryButton}"
@@ -106,7 +106,7 @@
                         <Editor Placeholder="Дополнительная информация"
                                 Text="{Binding AdditionalInfo}"
                                 AutoSize="TextChanges"
-                                BackgroundColor="{StaticResource Cloud}" />
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}" />
 
                         <Button Text="Сохранить дополнительно"
                                 Style="{StaticResource PrimaryButton}"

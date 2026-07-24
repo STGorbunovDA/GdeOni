@@ -3,13 +3,16 @@ using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
 using GdeOni.Mobile.Services.Auth;
+using GdeOni.Mobile.Services.Theming;
+using GdeOni.Mobile.Shared.Theming;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
 
 public partial class ProfileViewModel(
     IAuthService authService,
-    ISubscriptionsApi subscriptionsApi) : ObservableObject
+    ISubscriptionsApi subscriptionsApi,
+    IThemeService themeService) : ObservableObject
 {
     [ObservableProperty]
     private string _title = "Профиль";
@@ -135,6 +138,49 @@ public partial class ProfileViewModel(
     /// </summary>
     public string AppVersion { get; } =
         $"Версия {AppInfo.Current.VersionString} (build {AppInfo.Current.BuildString})";
+
+    // ───────── E27. Тема оформления ─────────
+
+    /// <summary>
+    /// Варианты для Picker'а. Порядок фиксирован — индекс маппится в
+    /// <see cref="ThemeMode"/> в <see cref="IndexToThemeMode"/>.
+    /// </summary>
+    public IReadOnlyList<string> ThemeOptions { get; } =
+    [
+        "Как в системе",
+        "Светлая",
+        "Тёмная",
+    ];
+
+    /// <summary>
+    /// Двусторонняя привязка к Picker.SelectedIndex. Инициализируется
+    /// текущим режимом из сервиса (тема уже применена на старте в App ctor),
+    /// поэтому field-initializer НЕ триггерит OnSelectedThemeIndexChanged —
+    /// повторного Apply при открытии профиля не происходит.
+    /// </summary>
+    [ObservableProperty]
+    private int _selectedThemeIndex = ThemeModeToIndex(themeService.Current);
+
+    partial void OnSelectedThemeIndexChanged(int value)
+    {
+        // Смена пользователем в Picker'е → применяем и сохраняем. Все
+        // AppThemeBinding в XAML переключаются вживую.
+        themeService.Apply(IndexToThemeMode(value));
+    }
+
+    private static int ThemeModeToIndex(ThemeMode mode) => mode switch
+    {
+        ThemeMode.Light => 1,
+        ThemeMode.Dark => 2,
+        _ => 0,
+    };
+
+    private static ThemeMode IndexToThemeMode(int index) => index switch
+    {
+        1 => ThemeMode.Light,
+        2 => ThemeMode.Dark,
+        _ => ThemeMode.System,
+    };
 
     [RelayCommand]
     public async Task LoadAsync()

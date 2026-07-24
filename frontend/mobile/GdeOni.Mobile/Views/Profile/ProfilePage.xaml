@@ -104,6 +104,20 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- E27. Тема оформления: как в системе / светлая / тёмная.
+                     Выбор применяется вживую и сохраняется в Preferences. -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Оформление"
+                               Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Тема приложения — светлая или тёмная."
+                               Style="{StaticResource CaptionLabel}" />
+                        <Picker Title="Тема"
+                                ItemsSource="{Binding ThemeOptions}"
+                                SelectedIndex="{Binding SelectedThemeIndex, Mode=TwoWay}" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <Button Text="Сменить пароль"
                         Style="{StaticResource GhostButton}"
                         Command="{Binding ChangePasswordCommand}"

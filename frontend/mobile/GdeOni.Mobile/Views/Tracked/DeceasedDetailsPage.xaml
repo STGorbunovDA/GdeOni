@@ -17,7 +17,7 @@
     </ContentPage.Resources>
 
     <Grid>
-        <Ellipse Fill="White"
+        <Ellipse Fill="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource CloudDark}}"
                  Opacity="0.5"
                  WidthRequest="240"
                  HeightRequest="130"
@@ -100,7 +100,7 @@
                                 <RoundRectangle CornerRadius="48" />
                             </Border.StrokeShape>
                             <Grid>
-                                <BoxView Color="{StaticResource Sky}"
+                                <BoxView Color="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}"
                                          IsVisible="{Binding HasNoMainPhoto}" />
                                 <Label Text="🕊"
                                        FontSize="44"
@@ -121,7 +121,7 @@
                         <Label Text="{Binding LifePeriod}"
                                Style="{StaticResource BodyLabel}"
                                HorizontalTextAlignment="Center"
-                               TextColor="{StaticResource AzureDeep}" />
+                               TextColor="{AppThemeBinding Light={StaticResource AzureDeep}, Dark={StaticResource AzureDeepDark}}" />
 
                         <Label IsVisible="{Binding IsVerified}"
                                Text="✓ Карточка верифицирована"
@@ -225,7 +225,7 @@
                                 </Grid>
 
                                 <Border IsVisible="{Binding HasPersonalNotes}"
-                                        BackgroundColor="{StaticResource Sky}"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}"
                                         StrokeThickness="0"
                                         Padding="12"
                                         Margin="0,8,0,0">
@@ -332,7 +332,7 @@
                                                 </SwipeItems>
                                             </SwipeView.RightItems>
 
-                                            <Border BackgroundColor="{StaticResource Sky}"
+                                            <Border BackgroundColor="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}"
                                                     StrokeThickness="0"
                                                     Padding="12">
                                                 <Border.StrokeShape>
@@ -340,7 +340,7 @@
                                                 </Border.StrokeShape>
                                                 <VerticalStackLayout Spacing="6">
                                                     <Label Text="{Binding AuthorDisplay}"
-                                                           TextColor="{StaticResource AzureDeep}"
+                                                           TextColor="{AppThemeBinding Light={StaticResource AzureDeep}, Dark={StaticResource AzureDeepDark}}"
                                                            FontSize="12"
                                                            FontAttributes="Bold" />
                                                     <Label Text="{Binding Text}"
@@ -350,7 +350,7 @@
                                                     <Label IsVisible="{Binding CanEdit}"
                                                            Text="Свайп влево — редактировать / удалить"
                                                            FontSize="10"
-                                                           TextColor="{StaticResource AzureDeep}"
+                                                           TextColor="{AppThemeBinding Light={StaticResource AzureDeep}, Dark={StaticResource AzureDeepDark}}"
                                                            Opacity="0.6" />
                                                 </VerticalStackLayout>
                                             </Border>
@@ -476,7 +476,7 @@
                                 </CollectionView.ItemsLayout>
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate x:DataType="models:MediaListItem">
-                                        <Border BackgroundColor="{StaticResource Sky}"
+                                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}"
                                                 StrokeThickness="0"
                                                 Padding="12">
                                             <Border.StrokeShape>

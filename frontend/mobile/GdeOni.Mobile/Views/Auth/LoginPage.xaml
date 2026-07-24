@@ -16,7 +16,7 @@
                     <Label Text="Где Они"
                            FontSize="44"
                            FontAttributes="Bold"
-                           TextColor="{StaticResource InkBlue}"
+                           TextColor="{AppThemeBinding Light={StaticResource InkBlue}, Dark={StaticResource InkBlueDark}}"
                            HorizontalOptions="Center" />
                     <Label Text="помним. находим. бережём."
                            Style="{StaticResource CaptionLabel}"

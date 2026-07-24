@@ -12,7 +12,7 @@
              Title="Поиск">
 
     <Grid>
-        <Ellipse Fill="White"
+        <Ellipse Fill="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource CloudDark}}"
                  Opacity="0.45"
                  WidthRequest="220"
                  HeightRequest="120"
@@ -149,7 +149,7 @@
                                             <RoundRectangle CornerRadius="24" />
                                         </Border.StrokeShape>
                                         <Grid>
-                                            <BoxView Color="{StaticResource Sky}" />
+                                            <BoxView Color="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}" />
                                             <Label Text="🕊"
                                                    FontSize="22"
                                                    Opacity="0.7"
@@ -187,7 +187,7 @@
                                     <Label Grid.Column="2" Grid.RowSpan="2"
                                            Text="›"
                                            FontSize="28"
-                                           TextColor="{StaticResource AzureDeep}"
+                                           TextColor="{AppThemeBinding Light={StaticResource AzureDeep}, Dark={StaticResource AzureDeepDark}}"
                                            Opacity="0.6"
                                            VerticalOptions="Center"
                                            Margin="8,0,0,0" />

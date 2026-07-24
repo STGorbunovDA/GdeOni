@@ -9,6 +9,7 @@ using GdeOni.Mobile.Services.Observability;
 using GdeOni.Mobile.Services.Routing;
 using GdeOni.Mobile.Services.Storage;
 using GdeOni.Mobile.Services.Subscriptions;
+using GdeOni.Mobile.Services.Theming;
 using GdeOni.Mobile.Services.Versioning;
 using GdeOni.Mobile.Shared.Notifications;
 using GdeOni.Mobile.ViewModels;
@@ -97,6 +98,9 @@ public static class MauiProgram
 
     private static void RegisterStorage(IServiceCollection services)
     {
+        // E27. Тема оформления (светлая/тёмная/как в системе). Singleton —
+        // единый источник текущего режима, Initialize зовём в App ctor.
+        services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<ITokenStore, SecureTokenStore>();
         services.AddSingleton<IAuthService, AuthService>();
         services.AddSingleton<IGeolocationService, GeolocationService>();

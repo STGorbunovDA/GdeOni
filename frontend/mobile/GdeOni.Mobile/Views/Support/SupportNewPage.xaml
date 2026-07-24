@@ -71,7 +71,7 @@
                                     <Border WidthRequest="100"
                                             HeightRequest="120"
                                             StrokeThickness="1"
-                                            Stroke="{StaticResource Sky}"
+                                            Stroke="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}"
                                             Padding="0">
                                         <Border.StrokeShape>
                                             <RoundRectangle CornerRadius="10" />

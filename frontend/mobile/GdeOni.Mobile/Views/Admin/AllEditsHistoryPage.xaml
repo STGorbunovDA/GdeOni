@@ -113,7 +113,7 @@
                                     <Label Text="{Binding Editor}"
                                            Style="{StaticResource CaptionLabel}" />
 
-                                    <BoxView Color="{StaticResource Sky}" HeightRequest="1" Margin="0,4" />
+                                    <BoxView Color="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}" HeightRequest="1" Margin="0,4" />
 
                                     <CollectionView ItemsSource="{Binding Changes}" SelectionMode="None">
                                         <CollectionView.ItemTemplate>

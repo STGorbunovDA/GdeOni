@@ -12,7 +12,7 @@
              Title="Архив">
 
     <Grid>
-        <Ellipse Fill="White"
+        <Ellipse Fill="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource CloudDark}}"
                  Opacity="0.5"
                  WidthRequest="240"
                  HeightRequest="130"
@@ -92,7 +92,7 @@
                                             <RoundRectangle CornerRadius="28" />
                                         </Border.StrokeShape>
                                         <Grid>
-                                            <BoxView Color="{StaticResource Mist}" />
+                                            <BoxView Color="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource MistDark}}" />
                                             <Label Text="🕊"
                                                    FontSize="24"
                                                    Opacity="0.6"
@@ -114,7 +114,7 @@
                                         <Label Text="✓"
                                                FontSize="14"
                                                FontAttributes="Bold"
-                                               TextColor="{StaticResource AzureDeep}"
+                                               TextColor="{AppThemeBinding Light={StaticResource AzureDeep}, Dark={StaticResource AzureDeepDark}}"
                                                VerticalOptions="Center"
                                                IsVisible="{Binding IsVerified}" />
                                     </HorizontalStackLayout>
@@ -134,13 +134,13 @@
                                     <Label Grid.Row="2" Grid.Column="1"
                                            Text="Свайп влево — удалить навсегда"
                                            FontSize="10"
-                                           TextColor="{StaticResource AzureDeep}"
+                                           TextColor="{AppThemeBinding Light={StaticResource AzureDeep}, Dark={StaticResource AzureDeepDark}}"
                                            Opacity="0.6" />
 
                                     <Label Grid.Column="2" Grid.RowSpan="3"
                                            Text="›"
                                            FontSize="28"
-                                           TextColor="{StaticResource AzureDeep}"
+                                           TextColor="{AppThemeBinding Light={StaticResource AzureDeep}, Dark={StaticResource AzureDeepDark}}"
                                            Opacity="0.6"
                                            VerticalOptions="Center"
                                            Margin="8,0,0,0" />

@@ -90,7 +90,7 @@
                         <Editor Placeholder="Причина (необязательно)"
                                 Text="{Binding ComplimentaryNote}"
                                 AutoSize="TextChanges"
-                                BackgroundColor="{StaticResource Cloud}" />
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}" />
                         <Button Text="Сделать бессрочным"
                                 Style="{StaticResource PrimaryButton}"
                                 Command="{Binding GrantComplimentaryCommand}"
@@ -144,7 +144,7 @@
                                 Text="{Binding BlockReason}"
                                 IsVisible="{Binding CanBlockTarget}"
                                 AutoSize="TextChanges"
-                                BackgroundColor="{StaticResource Cloud}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Cloud}, Dark={StaticResource CloudDark}}"
                                 MaxLength="500" />
                         <Button Text="Заблокировать пользователя навсегда"
                                 Style="{StaticResource GhostButton}"
@@ -163,7 +163,7 @@
 
                         <!-- Разделитель + удаление навсегда (только SuperAdmin) -->
                         <BoxView HeightRequest="1"
-                                 BackgroundColor="#E0E0E0"
+                                 BackgroundColor="{AppThemeBinding Light=#E0E0E0, Dark={StaticResource CloudBorderDark}}"
                                  Margin="0,8,0,8"
                                  IsVisible="{Binding CanDeleteTarget}" />
 
