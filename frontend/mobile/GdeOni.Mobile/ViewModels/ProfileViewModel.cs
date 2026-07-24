@@ -3,13 +3,15 @@ using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
 using GdeOni.Mobile.Services.Auth;
+using GdeOni.Mobile.Services.Theming;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
 
 public partial class ProfileViewModel(
     IAuthService authService,
-    ISubscriptionsApi subscriptionsApi) : ObservableObject
+    ISubscriptionsApi subscriptionsApi,
+    IThemeService themeService) : ObservableObject
 {
     [ObservableProperty]
     private string _title = "Профиль";
@@ -135,6 +137,18 @@ public partial class ProfileViewModel(
     /// </summary>
     public string AppVersion { get; } =
         $"Версия {AppInfo.Current.VersionString} (build {AppInfo.Current.BuildString})";
+
+    // E27. Быстрый переключатель темы — та же иконка солнце/луна, что и на
+    // экране входа. Показываем целевое действие: тёмная → солнце, светлая → луна.
+    [ObservableProperty]
+    private string _themeIcon = themeService.IsDarkTheme ? "☀️" : "🌙";
+
+    [RelayCommand]
+    private void ToggleTheme()
+    {
+        themeService.ToggleLightDark();
+        ThemeIcon = themeService.IsDarkTheme ? "☀️" : "🌙";
+    }
 
     [RelayCommand]
     public async Task LoadAsync()
