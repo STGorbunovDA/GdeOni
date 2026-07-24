@@ -28,6 +28,8 @@ import {
   tryParseLatitude,
   tryParseLongitude,
 } from '../../utils/coordinateParser';
+import { parseDateInputValue, toDateInputValue } from '../../utils/formatDate';
+import { DateInput } from '@mantine/dates';
 
 function nullIfEmpty(s: string): string | null {
   const t = s.trim();
@@ -55,8 +57,8 @@ export function EditDeceasedPage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [middleName, setMiddleName] = useState('');
-  const [birthDate, setBirthDate] = useState('');
-  const [deathDate, setDeathDate] = useState('');
+  const [birthDate, setBirthDate] = useState<Date | null>(null);
+  const [deathDate, setDeathDate] = useState<Date | null>(null);
   const [shortDescription, setShortDescription] = useState('');
   const [biography, setBiography] = useState('');
 
@@ -86,8 +88,8 @@ export function EditDeceasedPage() {
     setFirstName(d.firstName);
     setLastName(d.lastName);
     setMiddleName(d.middleName ?? '');
-    setBirthDate(d.birthDate ?? '');
-    setDeathDate(d.deathDate);
+    setBirthDate(d.birthDate ? parseDateInputValue(d.birthDate) : null);
+    setDeathDate(parseDateInputValue(d.deathDate));
     setShortDescription(d.shortDescription ?? '');
     setBiography(d.biography ?? '');
     setEpitaph(d.metadata?.epitaph ?? '');
@@ -134,8 +136,8 @@ export function EditDeceasedPage() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         middleName: nullIfEmpty(middleName),
-        birthDate: birthDate || null,
-        deathDate,
+        birthDate: birthDate ? toDateInputValue(birthDate) : null,
+        deathDate: deathDate ? toDateInputValue(deathDate) : '',
         shortDescription: nullIfEmpty(shortDescription),
         biography: nullIfEmpty(biography),
       }),
@@ -176,8 +178,21 @@ export function EditDeceasedPage() {
     onSuccess: invalidateCard,
   });
 
+  // Пофейловая подсветка дат: дата рождения не позже смерти, дата смерти
+  // обязательна (на форме правки она изначально заполнена — красным
+  // становится, только если админ её очистит).
+  const birthAfterDeath =
+    birthDate !== null && deathDate !== null && birthDate > deathDate;
+  const birthDateError = birthAfterDeath
+    ? 'Дата рождения не может быть позже даты смерти'
+    : undefined;
+  const deathDateError = deathDate === null ? 'Укажите дату смерти' : undefined;
+
   const mainValid =
-    firstName.trim() !== '' && lastName.trim() !== '' && deathDate !== '';
+    firstName.trim() !== '' &&
+    lastName.trim() !== '' &&
+    deathDate !== null &&
+    !birthAfterDeath;
   const coordsValid = bothCoordsEmpty || (locLat !== null && locLon !== null);
   const accValid = accInput.trim() === '' || locAcc !== null;
   const locValid = coordsValid && accValid;
@@ -244,18 +259,28 @@ export function EditDeceasedPage() {
             />
           </Group>
           <Group grow align="flex-start" wrap="wrap">
-            <TextInput
-              type="date"
+            <DateInput
               label="Дата рождения"
+              placeholder="дд.мм.гггг"
+              valueFormat="DD.MM.YYYY"
+              minDate={new Date(1800, 0, 1)}
+              maxDate={new Date()}
+              clearable
               value={birthDate}
-              onChange={(e) => setBirthDate(e.currentTarget.value)}
+              onChange={setBirthDate}
+              error={birthDateError}
             />
-            <TextInput
-              type="date"
+            <DateInput
               label="Дата смерти"
               required
+              placeholder="дд.мм.гггг"
+              valueFormat="DD.MM.YYYY"
+              minDate={new Date(1800, 0, 1)}
+              maxDate={new Date()}
+              clearable
               value={deathDate}
-              onChange={(e) => setDeathDate(e.currentTarget.value)}
+              onChange={setDeathDate}
+              error={deathDateError}
             />
           </Group>
           <Textarea

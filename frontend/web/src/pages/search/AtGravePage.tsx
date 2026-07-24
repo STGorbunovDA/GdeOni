@@ -35,6 +35,8 @@ import {
   tryParseLatitude,
   tryParseLongitude,
 } from '../../utils/coordinateParser';
+import { toDateInputValue } from '../../utils/formatDate';
+import { DateInput } from '@mantine/dates';
 
 import '@mantine/dates/styles.css';
 
@@ -91,11 +93,12 @@ export function AtGravePage() {
   const [middleName, setMiddleName] = useState(
     searchParams.get('middleName') ?? '',
   );
-  // Даты храним как строки «yyyy-MM-dd» — это ровно то, что отдаёт и
-  // принимает нативный <input type="date">. Никакого round-trip через
-  // Date: он на ре-рендере (например, от геолокации) ронял значение инпута.
-  const [birthDate, setBirthDate] = useState('');
-  const [deathDate, setDeathDate] = useState('');
+  // Даты — Date | null (Mantine DateInput: ввод руками ДД.ММ.ГГГГ + календарь).
+  // На submit конвертируем в «yyyy-MM-dd» через toDateInputValue. min/maxDate
+  // не дают ввести будущее или абсурдный год — в отличие от нативного
+  // <input type="date">, где можно было напечатать 2133 или 0001 в год.
+  const [birthDate, setBirthDate] = useState<Date | null>(null);
+  const [deathDate, setDeathDate] = useState<Date | null>(null);
   const [shortDescription, setShortDescription] = useState('');
   const [biography, setBiography] = useState('');
 
@@ -182,6 +185,9 @@ export function AtGravePage() {
 
   // ----- Submit -----
   const [validationError, setValidationError] = useState<string | null>(null);
+  // Ошибки «обязательное поле пустое» показываем только после попытки
+  // отправки — не подсвечиваем пустую форму сразу при открытии.
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const submitMutation = useMutation({
     mutationFn: deceasedApi.addAtGrave,
@@ -192,17 +198,23 @@ export function AtGravePage() {
   const accInvalid = accInput.trim() !== '' && acc === null;
   const accuracyLow = typeof acc === 'number' && acc > 50;
 
-  const canSubmit =
-    lat !== null &&
-    lon !== null &&
-    !accInvalid &&
-    firstName.trim() !== '' &&
-    lastName.trim() !== '' &&
-    deathDate !== '' &&
-    geo.status !== 'requesting' &&
-    !submitMutation.isPending;
+  // Пофейловая валидация ФИО и дат — подсветка КОНКРЕТНЫХ полей (Mantine
+  // error = красная рамка + текст под полем). Будущее/абсурдный год не
+  // проходят на уровне DateInput (min/maxDate), остаётся birth > death.
+  const birthAfterDeath =
+    birthDate !== null && deathDate !== null && birthDate > deathDate;
+  const lastNameError =
+    submitAttempted && lastName.trim() === '' ? 'Укажите фамилию' : undefined;
+  const firstNameError =
+    submitAttempted && firstName.trim() === '' ? 'Укажите имя' : undefined;
+  const deathDateError =
+    submitAttempted && deathDate === null ? 'Укажите дату смерти' : undefined;
+  const birthDateError = birthAfterDeath
+    ? 'Дата рождения не может быть позже даты смерти'
+    : undefined;
 
   function handleSubmit() {
+    setSubmitAttempted(true);
     setValidationError(null);
     if (lat === null) {
       setValidationError('Широта должна быть числом в диапазоне [-90, 90].');
@@ -216,16 +228,23 @@ export function AtGravePage() {
       setValidationError('Точность должна быть неотрицательным числом (метры).');
       return;
     }
-    if (!deathDate) {
-      setValidationError('Укажите дату смерти.');
+    // ФИО и дата смерти обязательны, дата рождения не позже смерти —
+    // конкретные поля уже подсвечены через *Error выше.
+    if (
+      lastName.trim() === '' ||
+      firstName.trim() === '' ||
+      deathDate === null ||
+      birthAfterDeath
+    ) {
+      setValidationError('Исправьте отмеченные красным поля.');
       return;
     }
     submitMutation.mutate({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       middleName: nullIfEmpty(middleName),
-      birthDate: birthDate || null,
-      deathDate: deathDate,
+      birthDate: birthDate ? toDateInputValue(birthDate) : null,
+      deathDate: toDateInputValue(deathDate),
       shortDescription: nullIfEmpty(shortDescription),
       biography: nullIfEmpty(biography),
       graveLocation: {
@@ -359,12 +378,14 @@ export function AtGravePage() {
               required
               value={lastName}
               onChange={(e) => setLastName(e.currentTarget.value)}
+              error={lastNameError}
             />
             <TextInput
               label="Имя"
               required
               value={firstName}
               onChange={(e) => setFirstName(e.currentTarget.value)}
+              error={firstNameError}
             />
             <TextInput
               label="Отчество"
@@ -373,18 +394,28 @@ export function AtGravePage() {
             />
           </SimpleGrid>
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="md">
-            <TextInput
-              type="date"
+            <DateInput
               label="Дата рождения"
+              placeholder="дд.мм.гггг"
+              valueFormat="DD.MM.YYYY"
+              minDate={new Date(1800, 0, 1)}
+              maxDate={new Date()}
+              clearable
               value={birthDate}
-              onChange={(e) => setBirthDate(e.currentTarget.value)}
+              onChange={setBirthDate}
+              error={birthDateError}
             />
-            <TextInput
-              type="date"
+            <DateInput
               label="Дата смерти"
               required
+              placeholder="дд.мм.гггг"
+              valueFormat="DD.MM.YYYY"
+              minDate={new Date(1800, 0, 1)}
+              maxDate={new Date()}
+              clearable
               value={deathDate}
-              onChange={(e) => setDeathDate(e.currentTarget.value)}
+              onChange={setDeathDate}
+              error={deathDateError}
             />
           </SimpleGrid>
           <Textarea
@@ -503,7 +534,6 @@ export function AtGravePage() {
 
       <PrimaryButton
         onClick={handleSubmit}
-        disabled={!canSubmit}
         loading={submitMutation.isPending}
         fullWidth
       >
