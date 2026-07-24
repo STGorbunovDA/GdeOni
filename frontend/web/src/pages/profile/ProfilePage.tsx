@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { Alert, Badge, Button, Group, Loader, Modal, Stack } from '@mantine/core';
+import { Alert, Badge, Button, Group, Loader, Stack } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   CreditCard,
   Download,
@@ -25,7 +24,7 @@ import { useAuthStore, useIsAdmin } from '../../auth/authStore';
 import { formatError } from '../../auth/errorMessages';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
-import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
+import { APK_DOWNLOAD_URL, CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { formatDateTime } from '../../utils/formatDate';
 import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
 
@@ -43,7 +42,6 @@ export function ProfilePage() {
   const isAdmin = useIsAdmin();
   const subscription = useSubscription();
   const features = useAppFeatures();
-  const [appInDevOpen, setAppInDevOpen] = useState(false);
 
   const query = useQuery({
     queryKey: ['me'],
@@ -164,10 +162,9 @@ export function ProfilePage() {
         </Stack>
       </CloudCard>
 
-      {/* F27 / F18.1. Мобильное приложение пока в разработке — вместо
-          скачивания APK показываем диалог «в разработке». Когда APK будет
-          готов, вернуть прямую кнопку Скачать APK (apkUrl из useAppVersion)
-          и ссылку на /download с инструкцией. См. план F18.1. */}
+      {/* F27. Скачивание Android-приложения. Кнопка ведёт прямо на файл
+          APK (APK_DOWNLOAD_URL → /apk/latest.apk), nginx отдаёт его как
+          attachment. За подробной инструкцией по установке — на /download. */}
       <CloudCard>
         <Stack gap="md">
           <Group gap={8}>
@@ -175,42 +172,31 @@ export function ProfilePage() {
             <BodyLabel>Мобильное приложение</BodyLabel>
           </Group>
           <CaptionLabel>
-            Мобильное приложение в разработке — скоро будет доступно для
-            скачивания.
+            Приложение для Android. Все функции те же, что в браузере, плюс
+            напоминания приходят прямо на телефон.
           </CaptionLabel>
           <Group>
             <Button
+              component="a"
+              href={APK_DOWNLOAD_URL}
               leftSection={<Download size={16} />}
-              onClick={() => setAppInDevOpen(true)}
               radius={24}
               fw={700}
               size="md"
             >
               Скачать APK
             </Button>
+            <Button
+              variant="subtle"
+              radius={24}
+              component={Link}
+              to="/download"
+            >
+              Как установить
+            </Button>
           </Group>
         </Stack>
       </CloudCard>
-
-      <Modal
-        opened={appInDevOpen}
-        onClose={() => setAppInDevOpen(false)}
-        title="Мобильное приложение"
-        centered
-        radius="lg"
-      >
-        <Stack gap="md">
-          <BodyLabel>
-            Приложение пока в разработке — скоро будет доступно для скачивания.
-            А пока пользуйтесь веб-версией.
-          </BodyLabel>
-          <Group justify="flex-end">
-            <PrimaryButton onClick={() => setAppInDevOpen(false)}>
-              Понятно
-            </PrimaryButton>
-          </Group>
-        </Stack>
-      </Modal>
 
       {/* F22. Версия — для поддержки: юзер сможет назвать, на какой
           сборке словил баг. Зеркало mobile ProfileViewModel (E22.1). */}

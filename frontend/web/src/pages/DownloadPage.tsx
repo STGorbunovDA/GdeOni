@@ -1,6 +1,14 @@
-import { Anchor, Button, Container, Group, Stack } from '@mantine/core';
+import {
+  Anchor,
+  Button,
+  Container,
+  Divider,
+  Group,
+  List,
+  Stack,
+} from '@mantine/core';
 import { Link } from 'react-router-dom';
-import { Cloud, Globe, Smartphone } from 'lucide-react';
+import { Cloud, Download, Globe, Smartphone } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -9,15 +17,14 @@ import {
   TitleLabel,
 } from '../components/ui';
 import { cloudColors } from '../design/theme';
+import { APK_DOWNLOAD_URL } from '../hooks/useAppVersion';
 
 /**
  * F27. Публичная страница `/download`.
  *  - Landing для новых юзеров, куда ведёт mobile BlockingUpdatePage
- *    и упоминания «у нас есть мобильное приложение» из веба.
- *  - Мобильное приложение пока в разработке: вместо кнопки «Скачать APK»
- *    показываем заглушку. Когда APK будет готов — вернуть кнопку скачивания
- *    (downloadUrl из GET /api/app/version + VITE_APK_FALLBACK_URL,
- *    хук useAppVersion) и блок-аккордеон «Как установить APK».
+ *    и ссылки «скачать приложение» из веба (логин, профиль).
+ *  - Кнопка «Скачать APK» ведёт прямо на файл (APK_DOWNLOAD_URL →
+ *    /apk/latest.apk), nginx отдаёт его как attachment.
  *  - Anonymous-роут (вне ProtectedRoute) — юзер не обязан быть залогинен.
  */
 export function DownloadPage() {
@@ -33,7 +40,7 @@ export function DownloadPage() {
           </BodyLabel>
         </Stack>
 
-        {/* Android APK — заглушка: приложение пока в разработке */}
+        {/* Android APK — скачивание + инструкция по установке */}
         <CloudCard>
           <Stack gap="md">
             <Group gap={8}>
@@ -41,14 +48,51 @@ export function DownloadPage() {
               <SubTitleLabel>Android-приложение</SubTitleLabel>
             </Group>
             <BodyLabel>
-              Мобильное приложение пока в разработке — скоро будет доступно
-              для скачивания. А пока пользуйтесь веб-версией ниже.
+              Приложение для телефонов на Android. Все функции те же, что
+              в браузере, плюс напоминания о памятных датах приходят прямо
+              на телефон.
             </BodyLabel>
             <Group>
-              <Button disabled radius={24} fw={700} size="lg">
-                Скоро
+              <Button
+                component="a"
+                href={APK_DOWNLOAD_URL}
+                leftSection={<Download size={18} />}
+                radius={24}
+                fw={700}
+                size="lg"
+              >
+                Скачать APK
               </Button>
             </Group>
+
+            <Divider />
+
+            <SubTitleLabel>Как установить</SubTitleLabel>
+            <List type="ordered" spacing="xs">
+              <List.Item>
+                <BodyLabel>Нажмите «Скачать APK» — файл сохранится в телефон.</BodyLabel>
+              </List.Item>
+              <List.Item>
+                <BodyLabel>
+                  Откройте скачанный файл. Android предупредит про «установку
+                  из неизвестных источников» — это нормально для приложений
+                  не из Google Play.
+                </BodyLabel>
+              </List.Item>
+              <List.Item>
+                <BodyLabel>
+                  Разрешите установку для браузера (телефон сам предложит
+                  открыть настройки) и подтвердите.
+                </BodyLabel>
+              </List.Item>
+              <List.Item>
+                <BodyLabel>Готово — иконка «ГдеОни» появится на экране.</BodyLabel>
+              </List.Item>
+            </List>
+            <CaptionLabel>
+              Приложение не в Google Play, потому что распространяется
+              напрямую. Файл безопасен — это официальная сборка «ГдеОни».
+            </CaptionLabel>
           </Stack>
         </CloudCard>
 
