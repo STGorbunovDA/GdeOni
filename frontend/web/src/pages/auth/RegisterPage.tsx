@@ -27,8 +27,9 @@ import {
   type RegisterFormValues,
   registerSchema,
 } from '../../auth/schemas';
+import { DateInput } from '@mantine/dates';
 import { formatError } from '../../auth/errorMessages';
-import { parseDateInputValue, toDateInputValue } from '../../utils/formatDate';
+import { toDateInputValue } from '../../utils/formatDate';
 
 /**
  * F4. Регистрация: email + password + confirm + (опционально) имя.
@@ -140,19 +141,21 @@ export function RegisterPage() {
               control={control}
               name="birthDate"
               render={({ field }) => (
-                <TextInput
-                  type="date"
+                <DateInput
                   label="Дата рождения"
-                  // min/max — браузерный guard: календарь не даст выбрать
-                  // будущее и заведомо нереальный год. Зод проверяет то же
-                  // самое на сабмите (ввод с клавиатуры min/max не режет).
-                  min="1900-01-01"
-                  max={toDateInputValue(new Date())}
-                  value={field.value ? toDateInputValue(field.value) : ''}
-                  onChange={(e) => {
-                    const v = e.currentTarget.value;
-                    field.onChange(v ? parseDateInputValue(v) : undefined);
-                  }}
+                  // DateInput = ввод РУКАМИ в формате ДД.ММ.ГГГГ + календарь
+                  // по клику. Мягче нативного <input type="date">, где ручной
+                  // ввод шёл по сегментам. Парсинг — dayjs по valueFormat, так
+                  // что баг round-trip «1987 → 1901» тут не воспроизводится.
+                  placeholder="дд.мм.гггг"
+                  valueFormat="DD.MM.YYYY"
+                  // minDate/maxDate — guard календаря: не выбрать будущее и
+                  // заведомо нереальный год. Zod проверяет то же на сабмите.
+                  minDate={new Date(1900, 0, 1)}
+                  maxDate={new Date()}
+                  clearable
+                  value={field.value ?? null}
+                  onChange={(d) => field.onChange(d ?? undefined)}
                   error={errors.birthDate?.message}
                 />
               )}

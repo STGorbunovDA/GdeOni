@@ -3,8 +3,12 @@ import { createRoot } from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { MantineProvider, localStorageColorSchemeManager } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
+import { DatesProvider } from '@mantine/dates';
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
+import '@mantine/dates/styles.css';
+// Русская локаль для календаря DateInput (месяцы/дни недели по-русски).
+import 'dayjs/locale/ru';
 // Локальные шрифты (self-hosted, без обращений к Google Fonts).
 // Импортируем ДО styles.css, чтобы @font-face объявились раньше использования.
 import './assets/fonts/fonts.css';
@@ -34,16 +38,20 @@ createRoot(document.getElementById('root')!).render(
         defaultColorScheme="auto"
         colorSchemeManager={colorSchemeManager}
       >
-        {/* F17.11. Notifications provider — используется для snack-bar'ов
-            после длительных/деструктивных операций (пока только удаление
-            юзера); маунтим глобально на самом верху. */}
-        <Notifications position="top-right" />
-        {/* F22 / D17. Проверка версии клиента — если бэк сказал
-            "обновись" → блокирующая модалка. */}
-        <VersionGate />
-        <SessionBootstrap>
-          <AppRouter />
-        </SessionBootstrap>
+        {/* Русская локаль + неделя с понедельника для всех Mantine-дат
+            (DateInput на регистрации: ввод руками ДД.ММ.ГГГГ + календарь). */}
+        <DatesProvider settings={{ locale: 'ru', firstDayOfWeek: 1, weekendDays: [0, 6] }}>
+          {/* F17.11. Notifications provider — используется для snack-bar'ов
+              после длительных/деструктивных операций (пока только удаление
+              юзера); маунтим глобально на самом верху. */}
+          <Notifications position="top-right" />
+          {/* F22 / D17. Проверка версии клиента — если бэк сказал
+              "обновись" → блокирующая модалка. */}
+          <VersionGate />
+          <SessionBootstrap>
+            <AppRouter />
+          </SessionBootstrap>
+        </DatesProvider>
       </MantineProvider>
     </QueryClientProvider>
   </StrictMode>,
