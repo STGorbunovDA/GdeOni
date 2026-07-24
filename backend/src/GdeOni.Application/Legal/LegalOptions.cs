@@ -23,12 +23,12 @@ public sealed class LegalOptions
     /// backend/docs/legal/privacy-policy.md — иначе API не стартует
     /// (LegalDocumentsStartupCheck). Меняешь текст — правь оба места.
     /// </summary>
-    public int CurrentPrivacyPolicyVersion { get; set; } = 2;
+    public int CurrentPrivacyPolicyVersion { get; set; } = 3;
 
     /// <summary>
     /// Текущая версия Terms of Use.
     /// </summary>
-    public int CurrentTermsVersion { get; set; } = 1;
+    public int CurrentTermsVersion { get; set; } = 2;
 
     /// <summary>
     /// Публичный URL текста Privacy Policy. Mobile / web ходят сюда
