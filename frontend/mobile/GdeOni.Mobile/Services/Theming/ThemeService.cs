@@ -16,6 +16,16 @@ public sealed class ThemeService : IThemeService
 {
     public ThemeMode Current { get; private set; } = ThemeMode.System;
 
+    // Application.RequestedTheme отдаёт фактическую тему: явный UserAppTheme,
+    // а при Unspecified («как в системе») — тему ОС. Обновляется синхронно
+    // при смене UserAppTheme, поэтому сразу после ToggleLightDark корректна.
+    public bool IsDarkTheme => Application.Current?.RequestedTheme == AppTheme.Dark;
+
+    public void ToggleLightDark()
+    {
+        Apply(IsDarkTheme ? ThemeMode.Light : ThemeMode.Dark);
+    }
+
     public void Initialize()
     {
         var stored = Preferences.Default.Get(ThemeModeParser.StorageKey, string.Empty);

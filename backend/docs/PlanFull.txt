@@ -8781,8 +8781,11 @@ Shared (ThemeModeParser, ключ/значения = web: gdeoni-color-scheme,
 auto/light/dark) — покрыто тестами. ThemeService (MAUI): Preferences +
 Application.UserAppTheme. Initialize() зовётся в App ctor до создания
 окна (зеркало web-скрипта в index.html, ставящего схему до первой
-отрисовки). Переключатель — Picker в ProfilePage («Как в системе /
-Светлая / Тёмная»).
+отрисовки). Переключатель — быстрая иконка солнце/луна на экране входа
+(LoginPage, правый верхний угол), зеркало web-кнопки ThemeToggle:
+IThemeService.ToggleLightDark() переключает светлая↔тёмная от текущей
+фактической темы (Application.RequestedTheme). Picker из профиля убран —
+одного быстрого тумблера достаточно, как на вебе.
 
 Техдолг (не блокеры): пара захардкоженных hex-подписей (#5D7282,
 caption) и самодостаточные статус-плашки (янтарь/зелень предупреждений)

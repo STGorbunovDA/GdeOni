@@ -68,6 +68,19 @@
 
             </VerticalStackLayout>
         </ScrollView>
+
+        <!-- E27. Быстрый переключатель темы (солнце/луна), как на вебе.
+             Плавает в правом верхнем углу поверх шапки. -->
+        <Label Text="{Binding ThemeIcon}"
+               FontSize="24"
+               Padding="10"
+               HorizontalOptions="End"
+               VerticalOptions="Start"
+               Margin="0,40,12,0">
+            <Label.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding ToggleThemeCommand}" />
+            </Label.GestureRecognizers>
+        </Label>
     </Grid>
 
 </ContentPage>

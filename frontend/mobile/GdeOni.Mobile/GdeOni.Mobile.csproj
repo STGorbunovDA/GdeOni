@@ -20,8 +20,8 @@
 		ApplicationVersion — целочисленный build-counter, инкрементить
 		при каждом релизе APK (Android требует монотонного роста).
 		-->
-		<ApplicationDisplayVersion>1.1.0</ApplicationDisplayVersion>
-		<ApplicationVersion>2</ApplicationVersion>
+		<ApplicationDisplayVersion>1.1.1</ApplicationDisplayVersion>
+		<ApplicationVersion>3</ApplicationVersion>
 
 		<SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
 

@@ -3,14 +3,29 @@ using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Auth;
 using GdeOni.Mobile.Services.Notifications;
 using GdeOni.Mobile.Services.Subscriptions;
+using GdeOni.Mobile.Services.Theming;
 
 namespace GdeOni.Mobile.ViewModels;
 
 public partial class LoginViewModel(
     IAuthService authService,
     IPaywallChecker paywallChecker,
-    AnniversariesSyncService anniversariesSync) : ObservableObject
+    AnniversariesSyncService anniversariesSync,
+    IThemeService themeService) : ObservableObject
 {
+    // E27. Быстрый переключатель темы на экране входа (зеркало web-кнопки
+    // солнце/луна рядом с «ГдеОни»). Показываем иконку ЦЕЛЕВОГО действия:
+    // при тёмной теме — солнце (нажми → светлая), при светлой — луну.
+    [ObservableProperty]
+    private string _themeIcon = themeService.IsDarkTheme ? "☀️" : "🌙";
+
+    [RelayCommand]
+    private void ToggleTheme()
+    {
+        themeService.ToggleLightDark();
+        ThemeIcon = themeService.IsDarkTheme ? "☀️" : "🌙";
+    }
+
     [ObservableProperty]
     private string _email = "";
 
