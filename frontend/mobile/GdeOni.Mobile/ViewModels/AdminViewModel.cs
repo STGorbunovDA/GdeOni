@@ -23,6 +23,13 @@ public partial class AdminViewModel(IAuthService authService) : ObservableObject
     private bool _isSuperAdmin;
 
     /// <summary>
+    /// Версия установленного приложения (ApplicationDisplayVersion из csproj).
+    /// Показываем в админке, чтобы быстро свериться, что реально стоит на
+    /// телефоне — без захода в системные настройки Android.
+    /// </summary>
+    public string AppVersionDisplay => $"Версия приложения {AppInfo.Current.VersionString}";
+
+    /// <summary>
     /// Подтягивает роль. Ошибку глушим: не смогли определить — раздел
     /// просто не показываем, бэк всё равно не пустит.
     /// </summary>

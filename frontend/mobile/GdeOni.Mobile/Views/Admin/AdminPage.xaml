@@ -90,6 +90,13 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- Версия установленного приложения — для сверки, что реально
+                     стоит на телефоне (отладка обновлений). Только на мобилке. -->
+                <Label Text="{Binding AppVersionDisplay}"
+                       Style="{StaticResource CaptionLabel}"
+                       HorizontalOptions="Center"
+                       Margin="0,4,0,8" />
+
             </VerticalStackLayout>
         </ScrollView>
     </Grid>
