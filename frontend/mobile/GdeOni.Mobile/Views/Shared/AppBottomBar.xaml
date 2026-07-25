@@ -21,10 +21,10 @@
             <Grid ColumnDefinitions="*,*,*,*"
                   HeightRequest="60">
 
-                <!-- Отслеживаемые -->
+                <!-- Поиск (список отслеживаемых карточек) -->
                 <Button x:Name="TabTracked"
                         Grid.Column="0"
-                        Text="Отслеживаемые"
+                        Text="Поиск"
                         Clicked="OnTrackedTapped"
                         FontFamily="Raleway"
                         FontSize="11"

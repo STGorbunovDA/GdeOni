@@ -15,7 +15,7 @@ public partial class TrackedListViewModel(
     IAppUpdateState appUpdateState) : ObservableObject
 {
     [ObservableProperty]
-    private string _title = "Отслеживаемые";
+    private string _title = "Поиск";
 
     // E22. Мягкий баннер «доступна новая версия». Состояние кладёт AppShell
     // после проверки версии; читаем его из singleton IAppUpdateState.

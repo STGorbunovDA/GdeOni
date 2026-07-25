@@ -131,7 +131,7 @@ export function AppLayout() {
 
         <AppShell.Section grow component={ScrollArea}>
           <Stack gap={4}>
-            <NavItem to="/tracked" icon={Users} label="Отслеживаемые" onNavigate={close} />
+            <NavItem to="/tracked" icon={Users} label="Поиск" onNavigate={close} />
             <NavItem to="/events" icon={CalendarHeart} label="События" onNavigate={close} />
             <NavItem to="/route" icon={Map} label="Маршрут" onNavigate={close} />
             <NavItem

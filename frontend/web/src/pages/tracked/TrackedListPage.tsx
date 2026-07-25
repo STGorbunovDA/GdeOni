@@ -75,7 +75,7 @@ export function TrackedListPage() {
     <Stack gap="lg">
       <Group justify="space-between" align="flex-start" wrap="wrap">
         <Stack gap="xs">
-          <TitleLabel>Отслеживаемые</TitleLabel>
+          <TitleLabel>Поиск</TitleLabel>
           <CaptionLabel>
             Здесь карточки умерших, за которыми вы следите.
           </CaptionLabel>
