@@ -17,20 +17,34 @@ public partial class TrackedListViewModel(
     [ObservableProperty]
     private string _title = "Поиск";
 
-    // E22. Мягкий баннер «доступна новая версия». Состояние кладёт AppShell
-    // после проверки версии; читаем его из singleton IAppUpdateState.
-    public bool ShowUpdateBanner => appUpdateState.IsSoftUpdateAvailable;
+    // E22. Мягкое обновление «доступна новая версия» показываем модальным
+    // диалогом поверх экрана при заходе на главную (см. MaybePromptUpdateAsync).
+    // Факт кладёт AppShell после проверки версии в singleton IAppUpdateState.
 
     /// <summary>
-    /// Перечитать состояние баннера. Зовёт страница в OnAppearing — на случай,
-    /// если VM пережила навигацию и состояние выставилось после её создания.
+    /// Если доступно мягкое обновление — один раз за запуск показывает поверх
+    /// экрана диалог «Доступна новая версия» с выбором «Обновить»/«Позже».
+    /// «Обновить» открывает страницу скачивания APK во внешнем браузере.
+    /// Зовётся из OnAppearing главной страницы.
     /// </summary>
-    public void RefreshUpdateBanner() => OnPropertyChanged(nameof(ShowUpdateBanner));
-
-    /// <summary>«Обновить» → открыть страницу скачивания APK во внешнем браузере.</summary>
-    [RelayCommand]
-    private async Task UpdateAppAsync()
+    public async Task MaybePromptUpdateAsync()
     {
+        if (!appUpdateState.IsSoftUpdateAvailable)
+            return;
+
+        // Показываем один раз за запуск приложения — чтобы не всплывало при
+        // каждом возврате на вкладку.
+        appUpdateState.MarkPrompted();
+
+        var update = await Shell.Current.DisplayAlert(
+            "Доступна новая версия",
+            "Вышла новая версия приложения. Обновить сейчас?",
+            "Обновить",
+            "Позже");
+
+        if (!update)
+            return;
+
         var url = appUpdateState.DownloadUrl;
         if (string.IsNullOrWhiteSpace(url))
             return;
@@ -40,17 +54,9 @@ public partial class TrackedListViewModel(
         }
         catch
         {
-            // Невалидный URL — показывать ошибку негде, юзер увидит, что
+            // Невалидный URL — показывать ошибку негде; юзер увидит, что
             // браузер не открылся, и попробует снова.
         }
-    }
-
-    /// <summary>«Позже» → скрыть баннер до перезапуска приложения.</summary>
-    [RelayCommand]
-    private void DismissUpdate()
-    {
-        appUpdateState.Dismiss();
-        OnPropertyChanged(nameof(ShowUpdateBanner));
     }
 
     public ObservableCollection<TrackedDeceasedListItem> Items { get; } = new();

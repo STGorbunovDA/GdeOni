@@ -29,38 +29,6 @@
                         <Label Text="Здесь карточки умерших, за которыми вы следите."
                                Style="{StaticResource BodyLabel}" />
 
-                        <!-- E22. Мягкий баннер «доступна новая версия». Виден
-                             только когда сервер отдал latest > установленной
-                             (и юзер не нажал «Позже»). Не блокирует, скроллится
-                             вместе с шапкой. -->
-                        <Border IsVisible="{Binding ShowUpdateBanner}"
-                                Style="{StaticResource CloudCard}"
-                                BackgroundColor="{AppThemeBinding Light={StaticResource Sky}, Dark={StaticResource SkyDark}}">
-                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="10">
-                                <VerticalStackLayout Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Spacing="2">
-                                    <Label Text="Доступна новая версия"
-                                           Style="{StaticResource SubTitleLabel}"
-                                           FontSize="16" />
-                                    <Label Text="Обновите приложение, чтобы получить последние улучшения."
-                                           Style="{StaticResource CaptionLabel}" />
-                                </VerticalStackLayout>
-                                <Button Grid.Row="1" Grid.Column="0"
-                                        Text="Обновить"
-                                        Style="{StaticResource PrimaryButton}"
-                                        Command="{Binding UpdateAppCommand}"
-                                        Padding="20,10"
-                                        FontSize="14"
-                                        HorizontalOptions="Start" />
-                                <Button Grid.Row="1" Grid.Column="1"
-                                        Text="Позже"
-                                        Style="{StaticResource GhostButton}"
-                                        Command="{Binding DismissUpdateCommand}"
-                                        Padding="20,10"
-                                        FontSize="14"
-                                        HorizontalOptions="End" />
-                            </Grid>
-                        </Border>
-
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <Button Grid.Column="0"
                                     Text="Добавить умершего"

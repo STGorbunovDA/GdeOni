@@ -1,9 +1,9 @@
 namespace GdeOni.Mobile.Services.Versioning;
 
 /// <summary>
-/// E22. Мост между проверкой версии (AppShell, один раз на старте) и мягким
-/// баннером «доступна новая версия» на главной (TrackedListPage). Singleton:
-/// проверка живёт в AppShell, а баннер рисует другой экран, созданный позже,
+/// E22. Мост между проверкой версии (AppShell, один раз на старте) и диалогом
+/// обновления «доступна новая версия» на главной (TrackedListPage). Singleton:
+/// проверка живёт в AppShell, а диалог показывает другой экран, созданный позже,
 /// — состояние нужно где-то удержать между ними.
 ///
 /// Force-update сюда НЕ попадает: он блокирует вход отдельной страницей ещё
@@ -11,7 +11,9 @@ namespace GdeOni.Mobile.Services.Versioning;
 /// </summary>
 public interface IAppUpdateState
 {
-    /// <summary>Есть новая версия и баннер ещё не закрыт пользователем.</summary>
+    /// <summary>
+    /// Есть новая версия и диалог обновления ещё не показывали в этой сессии.
+    /// </summary>
     bool IsSoftUpdateAvailable { get; }
 
     /// <summary>Ссылка на страницу скачивания (DownloadUrl с бэка).</summary>
@@ -21,20 +23,21 @@ public interface IAppUpdateState
     void SetSoftUpdate(string? downloadUrl);
 
     /// <summary>
-    /// Пользователь нажал «Позже» — прячем баннер до перезапуска приложения.
-    /// Держим в памяти (singleton живёт сессию), намеренно не персистим: на
-    /// новом старте снова напомним, пока не обновится.
+    /// Пометить, что диалог обновления уже показали — чтобы он всплывал один
+    /// раз за запуск, а не при каждом заходе на главную. Держим в памяти
+    /// (singleton живёт сессию), намеренно не персистим: на новом старте снова
+    /// напомним, пока пользователь не обновится.
     /// </summary>
-    void Dismiss();
+    void MarkPrompted();
 }
 
 /// <inheritdoc />
 public sealed class AppUpdateState : IAppUpdateState
 {
     private bool _available;
-    private bool _dismissed;
+    private bool _prompted;
 
-    public bool IsSoftUpdateAvailable => _available && !_dismissed;
+    public bool IsSoftUpdateAvailable => _available && !_prompted;
 
     public string? DownloadUrl { get; private set; }
 
@@ -44,5 +47,5 @@ public sealed class AppUpdateState : IAppUpdateState
         DownloadUrl = downloadUrl;
     }
 
-    public void Dismiss() => _dismissed = true;
+    public void MarkPrompted() => _prompted = true;
 }

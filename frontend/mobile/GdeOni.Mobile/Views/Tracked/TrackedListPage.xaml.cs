@@ -16,11 +16,11 @@ public partial class TrackedListPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        // E22. Перечитать состояние мягкого баннера обновления (могло
-        // выставиться в AppShell после создания этой VM).
-        _viewModel.RefreshUpdateBanner();
         // Подгружаем список при возврате на вкладку — после создания
         // карточки в at-grave новый item должен появиться сразу.
         await _viewModel.LoadCommand.ExecuteAsync(null);
+        // E22. Если вышла новая версия — показать диалог обновления поверх
+        // экрана (один раз за запуск).
+        await _viewModel.MaybePromptUpdateAsync();
     }
 }
