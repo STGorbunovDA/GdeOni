@@ -4,16 +4,54 @@ using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
 using GdeOni.Mobile.Services.Api.Models;
 using GdeOni.Mobile.Services.Media;
+using GdeOni.Mobile.Services.Versioning;
 using Refit;
 
 namespace GdeOni.Mobile.ViewModels;
 
 public partial class TrackedListViewModel(
     ITrackedDeceasedApi api,
-    IPublicHostsService publicHosts) : ObservableObject
+    IPublicHostsService publicHosts,
+    IAppUpdateState appUpdateState) : ObservableObject
 {
     [ObservableProperty]
     private string _title = "Отслеживаемые";
+
+    // E22. Мягкий баннер «доступна новая версия». Состояние кладёт AppShell
+    // после проверки версии; читаем его из singleton IAppUpdateState.
+    public bool ShowUpdateBanner => appUpdateState.IsSoftUpdateAvailable;
+
+    /// <summary>
+    /// Перечитать состояние баннера. Зовёт страница в OnAppearing — на случай,
+    /// если VM пережила навигацию и состояние выставилось после её создания.
+    /// </summary>
+    public void RefreshUpdateBanner() => OnPropertyChanged(nameof(ShowUpdateBanner));
+
+    /// <summary>«Обновить» → открыть страницу скачивания APK во внешнем браузере.</summary>
+    [RelayCommand]
+    private async Task UpdateAppAsync()
+    {
+        var url = appUpdateState.DownloadUrl;
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+        try
+        {
+            await Launcher.Default.OpenAsync(new Uri(url));
+        }
+        catch
+        {
+            // Невалидный URL — показывать ошибку негде, юзер увидит, что
+            // браузер не открылся, и попробует снова.
+        }
+    }
+
+    /// <summary>«Позже» → скрыть баннер до перезапуска приложения.</summary>
+    [RelayCommand]
+    private void DismissUpdate()
+    {
+        appUpdateState.Dismiss();
+        OnPropertyChanged(nameof(ShowUpdateBanner));
+    }
 
     public ObservableCollection<TrackedDeceasedListItem> Items { get; } = new();
 

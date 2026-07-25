@@ -114,6 +114,9 @@ public static class MauiProgram
         // расширении (кеш на сессию) состояние переживало переходы между
         // страницами.
         services.AddSingleton<IAppVersionCheckService, AppVersionCheckService>();
+        // E22. Состояние мягкого баннера обновления — мост AppShell (проверка
+        // версии) → TrackedListPage (баннер). Singleton: живёт всю сессию.
+        services.AddSingleton<IAppUpdateState, AppUpdateState>();
         // E25. Sentry scope service — управление SentryUser после
         // Login/Logout. Stateless, безопасен как Singleton.
         services.AddSingleton<ISentryScopeService, SentryScopeService>();

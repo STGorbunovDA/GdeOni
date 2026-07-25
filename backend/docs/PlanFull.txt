@@ -8505,7 +8505,14 @@ E22.4 BlockingUpdate:
 [x] AppShell.OnAppearing: проверка версии ДО HasSessionAsync. При
     ForceUpdate → GoToAsync('//blocking-update') с params (downloadUrl /
     message) через IQueryAttributable.
-[ ] Soft banner на главной — отложено отдельным коммитом.
+[x] Soft banner на главной (реализовано 2026-07-25). SoftUpdateAvailable
+    (current ≥ min, но < latest) не блокирует — AppShell кладёт факт в
+    singleton IAppUpdateState (мост между проверкой версии и главной),
+    TrackedListPage показывает в шапке дизмиссибл-баннер «Доступна новая
+    версия» с кнопками «Обновить» (Launcher → DownloadUrl) и «Позже»
+    (Dismiss до перезапуска, намеренно не персистим). Порог теста: клиент
+    с баннером + LatestVersion выше установленной, MinSupportedVersion
+    ниже — чтобы был soft, а не force.
 
 E22.5 SubscriptionPage + блок «Подписка» в ProfilePage:
 [x] SubscriptionViewModel: StatusTitle / StatusDescription /

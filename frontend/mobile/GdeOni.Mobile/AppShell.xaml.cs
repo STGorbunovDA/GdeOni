@@ -15,19 +15,22 @@ public partial class AppShell : Shell
     private readonly IAppVersionCheckService _versionCheck;
     private readonly IPaywallChecker _paywallChecker;
     private readonly AnniversariesSyncService _anniversariesSync;
+    private readonly IAppUpdateState _appUpdateState;
     private bool _initialNavigationDone;
 
     public AppShell(
         IAuthService authService,
         IAppVersionCheckService versionCheck,
         IPaywallChecker paywallChecker,
-        AnniversariesSyncService anniversariesSync)
+        AnniversariesSyncService anniversariesSync,
+        IAppUpdateState appUpdateState)
     {
         InitializeComponent();
         _authService = authService;
         _versionCheck = versionCheck;
         _paywallChecker = paywallChecker;
         _anniversariesSync = anniversariesSync;
+        _appUpdateState = appUpdateState;
 
         // Auth flow.
         Routing.RegisterRoute("register", typeof(RegisterPage));
@@ -104,8 +107,12 @@ public partial class AppShell : Shell
             return;
         }
 
-        // SoftUpdate пока не показываем — soft banner на главной приедет
-        // отдельным коммитом (см. план E22).
+        // E22. SoftUpdate — не блокируем, а запоминаем: TrackedListPage
+        // покажет мягкий баннер «доступна новая версия». Force-update выше
+        // уже увёл бы на blocking-экран, сюда попадаем только если клиент
+        // ещё поддерживается (current ≥ min, но < latest).
+        if (versionResult.Outcome == VersionCheckOutcome.SoftUpdateAvailable)
+            _appUpdateState.SetSoftUpdate(versionResult.DownloadUrl);
 
         // Если в SecureStorage нет access-токена — остаёмся на login.
         if (!await _authService.HasSessionAsync())
