@@ -144,4 +144,13 @@ public interface IAdminApi
         [Query(Format = "O")] DateTime? createdFromUtc = null,
         [Query(Format = "O")] DateTime? createdToUtc = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// F38. GET /api/admin/stats — справка-снимок по системе (люди, карточки,
+    /// контент, обращения, деньги). Только Admin/SuperAdmin, только чтение,
+    /// без параметров.
+    /// </summary>
+    [Get("/api/admin/stats")]
+    Task<ApiEnvelope<AdminStatsResponse>> GetStatsAsync(
+        CancellationToken cancellationToken = default);
 }

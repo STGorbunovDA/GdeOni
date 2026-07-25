@@ -110,3 +110,52 @@ public sealed record AdminPaymentItem(
     DateTime? UpdatedAtUtc,
     DateTime? PeriodStartUtc,
     DateTime? PeriodEndUtc);
+
+/// <summary>
+/// F38 mobile. Ответ GET /api/admin/stats — справка-снимок по системе.
+/// Зеркало backend AdminStatsResponse (люди, карточки, контент, обращения,
+/// деньги). Только чтение, никаких действий.
+/// </summary>
+public sealed record AdminStatsResponse(
+    AdminUsersStats Users,
+    AdminDeceasedStats Deceased,
+    AdminContentStats Content,
+    AdminSupportStats Support,
+    AdminPaymentsStats Payments,
+    DateTime GeneratedAtUtc);
+
+public sealed record AdminUsersStats(
+    int Total,
+    int NewLast7Days,
+    int NewLast30Days,
+    int ActiveLast30Days,
+    int Admins,
+    int Blocked,
+    int WithActiveSubscription,
+    int OnTrial,
+    int WithComplimentaryAccess);
+
+public sealed record AdminDeceasedStats(
+    int Total,
+    int NewLast30Days,
+    int Verified,
+    int WithCoordinates,
+    int WithMainPhoto,
+    int TrackedRecords);
+
+public sealed record AdminContentStats(
+    int Photos,
+    int GravePhotos,
+    int Documents,
+    int Memories,
+    int Edits);
+
+public sealed record AdminSupportStats(
+    int Total,
+    int Open,
+    int Resolved);
+
+public sealed record AdminPaymentsStats(
+    int SucceededCount,
+    decimal TotalRub,
+    decimal Last30DaysRub);

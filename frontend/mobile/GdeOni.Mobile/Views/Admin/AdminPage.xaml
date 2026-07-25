@@ -78,6 +78,18 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- F38. Справка-сводка по системе: люди, карточки, контент,
+                     обращения, деньги. Зеркало веб-раздела «Информация». -->
+                <Border Style="{StaticResource CloudCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Информация" Style="{StaticResource SubTitleLabel}" />
+                        <Label Text="Сводка по системе: люди, карточки, контент, обращения, платежи." Style="{StaticResource CaptionLabel}" />
+                        <Button Text="Открыть"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding OpenAdminInfoCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

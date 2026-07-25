@@ -67,6 +67,14 @@ public partial class AdminViewModel(IAuthService authService) : ObservableObject
         => await Shell.Current.GoToAsync("admin-find-deceased");
 
     /// <summary>
+    /// F38. Справка-сводка по системе: числа по людям, карточкам, контенту,
+    /// обращениям и деньгам. Только чтение — зеркало веб-раздела «Информация».
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenAdminInfoAsync()
+        => await Shell.Current.GoToAsync("admin-info");
+
+    /// <summary>
     /// Возврат на профиль (откуда обычно попадают). ".." делает pop,
     /// если переход был через push; если AdminPage оказалась корневой
     /// в стеке — открываем профиль абсолютным путём как fallback.
