@@ -55,6 +55,9 @@ const UPCOMING_DAYS = 30;
 /** Зелёный «включено» для точки праздника (в палитре нет green-токена). */
 const REMINDER_ON_GREEN = '#2F9E44';
 
+/** Жёлтая точка — памятная дата близкого (годовщина смерти/рождения). */
+const DECEASED_DOT_YELLOW = '#FAB005';
+
 type CategoryMeta = { label: string; color: string; order: number };
 
 const CATEGORY_META: Record<string, CategoryMeta> = {
@@ -334,7 +337,7 @@ export function EventsPage() {
         <SubTitleLabel>Календарь</SubTitleLabel>
         <CaptionLabel>
           Стрелками листайте месяцы. Точка под числом: синяя — праздник без
-          напоминания, зелёная — напоминание включено, красная — памятная дата
+          напоминания, зелёная — напоминание включено, жёлтая — памятная дата
           близкого. Нажмите на дату, чтобы настроить напоминание.
         </CaptionLabel>
         <CloudCard>
@@ -420,7 +423,7 @@ export function EventsPage() {
                             <Dot color={holidayColor} />
                           )}
                           {deceasedRows.length > 0 && (
-                            <Dot color={cloudColors.errorRed} />
+                            <Dot color={DECEASED_DOT_YELLOW} />
                           )}
                         </div>
                       </div>
