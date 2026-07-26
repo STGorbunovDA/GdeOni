@@ -38,19 +38,3 @@ export function useAppVersion(): {
  */
 declare const __APP_VERSION__: string;
 export const CURRENT_APP_VERSION: string = __APP_VERSION__;
-
-/**
- * F27. Прямая ссылка на файл APK для кнопок «Скачать APK».
- *
- * Берём из `VITE_APK_FALLBACK_URL` (в .env.production —
- * `https://gdeoni.ru/apk/latest.apk`). Это именно ФАЙЛ, а не страница:
- * `AppVersion.downloadUrl` с бэка ведёт на лендинг `/download` и для
- * прямого скачивания не годится (кнопка на самой `/download` ушла бы
- * в рекурсию). nginx на `/apk/` уже отдаёт файл с
- * `Content-Disposition: attachment`, поэтому браузер сразу скачивает.
- *
- * Fallback `/apk/latest.apk` — same-origin путь на случай, если
- * переменную не задали при сборке.
- */
-export const APK_DOWNLOAD_URL: string =
-  import.meta.env.VITE_APK_FALLBACK_URL ?? '/apk/latest.apk';

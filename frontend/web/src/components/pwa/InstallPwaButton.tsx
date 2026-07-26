@@ -1,16 +1,7 @@
 import { useEffect, useState } from 'react';
-import {
-  Anchor,
-  Button,
-  Divider,
-  Group,
-  Modal,
-  Stack,
-  Text,
-} from '@mantine/core';
+import { Anchor, Button, Modal, Stack, Text } from '@mantine/core';
 import { Link } from 'react-router-dom';
-import { Download, Smartphone } from 'lucide-react';
-import { APK_DOWNLOAD_URL } from '../../hooks/useAppVersion';
+import { Smartphone } from 'lucide-react';
 import { cloudColors } from '../../design/theme';
 import {
   clearInstallPrompt,
@@ -23,8 +14,8 @@ import {
  *  - Android/Chrome, где браузер уже прислал beforeinstallprompt: клик
  *    вызывает нативную установку.
  *  - Иначе (iPhone, или prompt ещё не пришёл): открываем окно с
- *    инструкцией под платформы + запасная ссылка на APK.
- * Заменяет прежнюю кнопку «Скачать на Android»: PWA работает и на айфоне.
+ *    инструкцией под платформы + ссылка на подробную страницу /download.
+ * PWA работает и на Android, и на iPhone (магазины не нужны).
  */
 type Props = {
   label?: string;
@@ -107,22 +98,9 @@ export function InstallPwaButton({
             </Text>
           </Stack>
 
-          <Divider label="или" labelPosition="center" />
-
-          <Group justify="space-between" wrap="wrap" gap="sm">
-            <Button
-              component="a"
-              href={APK_DOWNLOAD_URL}
-              leftSection={<Download size={16} />}
-              variant="light"
-              radius={24}
-            >
-              Скачать APK (Android)
-            </Button>
-            <Anchor component={Link} to="/download" c={cloudColors.azureDeep}>
-              Подробная инструкция
-            </Anchor>
-          </Group>
+          <Anchor component={Link} to="/download" c={cloudColors.azureDeep}>
+            Подробная инструкция
+          </Anchor>
         </Stack>
       </Modal>
     </>

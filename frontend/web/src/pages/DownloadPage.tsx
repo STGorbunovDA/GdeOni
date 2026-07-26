@@ -8,7 +8,7 @@ import {
   Stack,
 } from '@mantine/core';
 import { Link } from 'react-router-dom';
-import { Cloud, Download, Globe, Smartphone } from 'lucide-react';
+import { Cloud, Globe, Smartphone } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -17,15 +17,12 @@ import {
   TitleLabel,
 } from '../components/ui';
 import { cloudColors } from '../design/theme';
-import { APK_DOWNLOAD_URL } from '../hooks/useAppVersion';
+import { InstallPwaButton } from '../components/pwa/InstallPwaButton';
 
 /**
- * F27. Публичная страница `/download`.
- *  - Landing для новых юзеров, куда ведёт mobile BlockingUpdatePage
- *    и ссылки «скачать приложение» из веба (логин, профиль).
- *  - Кнопка «Скачать APK» ведёт прямо на файл (APK_DOWNLOAD_URL →
- *    /apk/latest.apk), nginx отдаёт его как attachment.
- *  - Anonymous-роут (вне ProtectedRoute) — юзер не обязан быть залогинен.
+ * F27 / PWA. Публичная страница `/download` — как поставить «ГдеОни» на телефон.
+ * Единственный способ — установить сайт как приложение (PWA): работает и на
+ * Android, и на iPhone, App Store/Google Play не нужны. Anonymous-роут.
  */
 export function DownloadPage() {
   return (
@@ -40,59 +37,62 @@ export function DownloadPage() {
           </BodyLabel>
         </Stack>
 
-        {/* Android APK — скачивание + инструкция по установке */}
+        {/* Основной способ — установить сайт как приложение (PWA). */}
         <CloudCard>
           <Stack gap="md">
             <Group gap={8}>
               <Smartphone size={24} color={cloudColors.azureDeep} />
-              <SubTitleLabel>Android-приложение</SubTitleLabel>
+              <SubTitleLabel>Установить на телефон</SubTitleLabel>
             </Group>
             <BodyLabel>
-              Приложение для телефонов на Android. Все функции те же, что
-              в браузере, плюс напоминания о памятных датах приходят прямо
-              на телефон.
+              Это сам сайт, добавленный на главный экран: открывается на весь
+              экран, как обычное приложение, и обновляется само вместе с сайтом.
+              Работает и на Android, и на iPhone — ничего скачивать из магазинов
+              не нужно.
             </BodyLabel>
             <Group>
-              <Button
-                component="a"
-                href={APK_DOWNLOAD_URL}
-                leftSection={<Download size={18} />}
-                radius={24}
-                fw={700}
-                size="lg"
-              >
-                Скачать APK
-              </Button>
+              <InstallPwaButton label="Установить на смартфон" size="lg" />
             </Group>
 
             <Divider />
 
-            <SubTitleLabel>Как установить</SubTitleLabel>
+            <SubTitleLabel>Android</SubTitleLabel>
             <List type="ordered" spacing="xs">
               <List.Item>
-                <BodyLabel>Нажмите «Скачать APK» — файл сохранится в телефон.</BodyLabel>
+                <BodyLabel>Откройте gdeoni.ru в Chrome.</BodyLabel>
               </List.Item>
               <List.Item>
                 <BodyLabel>
-                  Откройте скачанный файл. Android предупредит про «установку
-                  из неизвестных источников» — это нормально для приложений
-                  не из Google Play.
+                  Нажмите всплывающую плашку «Установить приложение» внизу —
+                  или меню ⋮ (три точки справа вверху) → «Установить приложение».
                 </BodyLabel>
               </List.Item>
               <List.Item>
                 <BodyLabel>
-                  Разрешите установку для браузера (телефон сам предложит
-                  открыть настройки) и подтвердите.
+                  Подтвердите — иконка «ГдеОни» появится на экране.
                 </BodyLabel>
-              </List.Item>
-              <List.Item>
-                <BodyLabel>Готово — иконка «ГдеОни» появится на экране.</BodyLabel>
               </List.Item>
             </List>
-            <CaptionLabel>
-              Приложение не в Google Play, потому что распространяется
-              напрямую. Файл безопасен — это официальная сборка «ГдеОни».
-            </CaptionLabel>
+
+            <SubTitleLabel>iPhone</SubTitleLabel>
+            <List type="ordered" spacing="xs">
+              <List.Item>
+                <BodyLabel>
+                  Откройте gdeoni.ru в <b>Safari</b> (именно Safari, в Chrome на
+                  iPhone этого пункта нет).
+                </BodyLabel>
+              </List.Item>
+              <List.Item>
+                <BodyLabel>
+                  Нажмите «Поделиться» — квадрат со стрелкой вверх внизу экрана.
+                </BodyLabel>
+              </List.Item>
+              <List.Item>
+                <BodyLabel>
+                  Пролистайте вниз → «На экран „Домой"» → «Добавить».
+                </BodyLabel>
+              </List.Item>
+            </List>
           </Stack>
         </CloudCard>
 
@@ -101,11 +101,11 @@ export function DownloadPage() {
           <Stack gap="md">
             <Group gap={8}>
               <Globe size={24} color={cloudColors.azureDeep} />
-              <SubTitleLabel>Веб-версия</SubTitleLabel>
+              <SubTitleLabel>Просто открыть в браузере</SubTitleLabel>
             </Group>
             <BodyLabel>
-              Не хотите ставить APK — заходите в браузере. Все функции, кроме
-              фоновых напоминаний о годовщинах, работают одинаково.
+              Ничего устанавливать не обязательно — заходите на сайт с телефона
+              или компьютера. Все функции те же.
             </BodyLabel>
             <Group>
               <Button
@@ -116,7 +116,7 @@ export function DownloadPage() {
                 fw={700}
                 size="md"
               >
-                Открыть веб-версию
+                Открыть в браузере
               </Button>
             </Group>
           </Stack>
