@@ -58,8 +58,68 @@
         }
       })();
     </script>
+
+    <!-- Загрузочный сплэш: белый фон, синий контур облака и белый шарик,
+         бегущий по контуру (SVG animateMotion). Стили заинлайнены, чтобы
+         экран отрисовался мгновенно — до загрузки основного бандла. Снимает
+         его src/components/AppSplash.tsx, когда приложение готово. -->
+    <style>
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 26px;
+        background: #ffffff;
+        transition: opacity 0.4s ease;
+      }
+      #app-splash svg {
+        width: 148px;
+        height: 148px;
+        overflow: visible;
+      }
+      #app-splash .cl-path {
+        fill: none;
+        stroke: #1977cc;
+        stroke-width: 1.4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      #app-splash .cl-dot {
+        fill: #ffffff;
+        stroke: #1977cc;
+        stroke-width: 0.5;
+        filter: drop-shadow(0 0 1.4px rgba(25, 119, 204, 0.75));
+      }
+      #app-splash .cl-label {
+        font-family: "Montserrat", "Roboto", system-ui, -apple-system,
+          "Segoe UI", sans-serif;
+        font-weight: 800;
+        font-size: 22px;
+        letter-spacing: 0.6px;
+        color: #1977cc;
+      }
+    </style>
   </head>
   <body>
+    <div id="app-splash" role="status" aria-label="Загрузка">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path
+          id="cl-cloud"
+          class="cl-path"
+          d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"
+        />
+        <circle class="cl-dot" r="1.2">
+          <animateMotion dur="2.4s" repeatCount="indefinite">
+            <mpath href="#cl-cloud" />
+          </animateMotion>
+        </circle>
+      </svg>
+      <div class="cl-label">Где Они</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
