@@ -16,7 +16,6 @@ import { AppRouter } from './routes/AppRouter';
 import { queryClient } from './api/queryClient';
 import { theme } from './design/theme';
 import { SessionBootstrap } from './auth/SessionBootstrap';
-import { AppSplash } from './components/AppSplash';
 import { VersionGate } from './components/version/VersionGate';
 // PWA: перехват beforeinstallprompt должен встать ДО первого рендера,
 // иначе браузерное событие можно пропустить (импорт ради side-effect).
@@ -53,8 +52,6 @@ createRoot(document.getElementById('root')!).render(
               "обновись" → блокирующая модалка. */}
           <VersionGate />
           <SessionBootstrap>
-            {/* Снимает стартовый сплэш из index.html, когда сессия готова. */}
-            <AppSplash />
             <AppRouter />
           </SessionBootstrap>
         </DatesProvider>
