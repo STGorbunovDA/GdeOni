@@ -1,14 +1,6 @@
-import {
-  Anchor,
-  Button,
-  Container,
-  Divider,
-  Group,
-  List,
-  Stack,
-} from '@mantine/core';
+import { Anchor, Container, Divider, Group, List, Stack } from '@mantine/core';
 import { Link } from 'react-router-dom';
-import { Cloud, Globe, Smartphone } from 'lucide-react';
+import { Cloud, Smartphone } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -45,10 +37,8 @@ export function DownloadPage() {
               <SubTitleLabel>Установить на телефон</SubTitleLabel>
             </Group>
             <BodyLabel>
-              Это сам сайт, добавленный на главный экран: открывается на весь
-              экран, как обычное приложение, и обновляется само вместе с сайтом.
-              Работает и на Android, и на iPhone — ничего скачивать из магазинов
-              не нужно.
+              Открывается как приложение — на весь экран. Работает на Android и
+              iPhone, из магазинов ставить ничего не нужно.
             </BodyLabel>
             <Group>
               <InstallPwaButton label="Установить на смартфон" size="lg" />
@@ -59,12 +49,13 @@ export function DownloadPage() {
             <SubTitleLabel>Android</SubTitleLabel>
             <List type="ordered" spacing="xs">
               <List.Item>
-                <BodyLabel>Откройте gdeoni.ru в Chrome.</BodyLabel>
+                <BodyLabel>Откройте gdeoni.ru в браузере телефона.</BodyLabel>
               </List.Item>
               <List.Item>
                 <BodyLabel>
-                  Нажмите всплывающую плашку «Установить приложение» внизу —
-                  или меню ⋮ (три точки справа вверху) → «Установить приложение».
+                  Нажмите всплывающую плашку «Установить приложение» — или
+                  откройте меню браузера (значок ⋮ или ≡) и выберите «Установить
+                  приложение» / «Добавить на главный экран».
                 </BodyLabel>
               </List.Item>
               <List.Item>
@@ -93,32 +84,6 @@ export function DownloadPage() {
                 </BodyLabel>
               </List.Item>
             </List>
-          </Stack>
-        </CloudCard>
-
-        {/* Web-версия */}
-        <CloudCard>
-          <Stack gap="md">
-            <Group gap={8}>
-              <Globe size={24} color={cloudColors.azureDeep} />
-              <SubTitleLabel>Просто открыть в браузере</SubTitleLabel>
-            </Group>
-            <BodyLabel>
-              Ничего устанавливать не обязательно — заходите на сайт с телефона
-              или компьютера. Все функции те же.
-            </BodyLabel>
-            <Group>
-              <Button
-                component={Link}
-                to="/login"
-                variant="default"
-                radius={24}
-                fw={700}
-                size="md"
-              >
-                Открыть в браузере
-              </Button>
-            </Group>
           </Stack>
         </CloudCard>
 
