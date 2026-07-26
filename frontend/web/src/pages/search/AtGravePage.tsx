@@ -114,7 +114,8 @@ export function AtGravePage() {
     RelationshipTypes.Friend,
   );
   const [personalNotes, setPersonalNotes] = useState('');
-  const [notifyDeath, setNotifyDeath] = useState(false);
+  // F42. По умолчанию напоминание о годовщине смерти включено («в день»).
+  const [notifyDeath, setNotifyDeath] = useState(true);
   const [notifyBirth, setNotifyBirth] = useState(false);
 
   // E23: birth-toggle бессмыслен без birthDate — при сбросе даты гасим.

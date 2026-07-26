@@ -72,6 +72,10 @@ export type MyTrackingInfo = {
   personalNotes: string | null;
   notifyOnDeathAnniversary: boolean;
   notifyOnBirthAnniversary: boolean;
+  /** F42. Набор «за сколько дней» напоминать о годовщине смерти (0/1/3/7). */
+  deathAnniversaryLeadDays: number[];
+  /** F42. Набор «за сколько дней» напоминать о годовщине рождения. */
+  birthAnniversaryLeadDays: number[];
   status: TrackStatus;
   trackedAtUtc: string;
 };
@@ -88,6 +92,13 @@ export type UpdateTrackingRequest = {
   personalNotes: string | null;
   notifyOnDeathAnniversary: boolean;
   notifyOnBirthAnniversary: boolean;
+  /**
+   * F42. Наборы «за сколько дней» напоминать о годовщинах (0/1/3/7). Если
+   * заданы — бэк берёт их (иначе выводит из notifyOn*-флагов). Пустой массив
+   * = напоминание выключено.
+   */
+  deathAnniversaryLeadDays?: number[];
+  birthAnniversaryLeadDays?: number[];
   trackStatus: TrackStatus;
 };
 
@@ -115,6 +126,10 @@ export type TrackedDeceasedListItem = {
   status: TrackStatus;
   notifyOnDeathAnniversary: boolean;
   notifyOnBirthAnniversary: boolean;
+  /** F42. Набор «за сколько дней» напоминать о годовщине смерти (0/1/3/7). */
+  deathAnniversaryLeadDays: number[];
+  /** F42. Набор «за сколько дней» напоминать о годовщине рождения. */
+  birthAnniversaryLeadDays: number[];
   trackedAtUtc: string;
   isVerified: boolean;
 };

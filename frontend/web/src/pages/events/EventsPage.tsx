@@ -10,7 +10,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { Calendar } from '@mantine/dates';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ChevronRight, Cross, Flower2, UserRound } from 'lucide-react';
 import {
   BodyLabel,
@@ -37,17 +37,23 @@ import {
 } from '../../utils/holidayReminders';
 import { anniversaryYearsToday, yearsWord } from '../../utils/anniversary';
 import { useNavigate } from 'react-router-dom';
-import { HolidayReminderModal } from '../../components/events/HolidayReminderModal';
+import {
+  HolidayReminderModal,
+  type DeceasedAnniversaryRow,
+} from '../../components/events/HolidayReminderModal';
 
 /**
  * F42. Вкладка «События»: годовщины близких сегодня, праздники сегодня (если
- * есть), большой календарь праздников на месяц (подсветка дат, тултип по
- * наведению, клик → окно напоминаний) и список ближайших праздников под ним.
- * Напоминания хранятся за юзером на сервере; попап «сегодня/скоро праздник»
- * показывается глобально при заходе (HolidayReminderPopup в AppLayout).
+ * есть), большой календарь (листается по месяцам стрелками; праздники —
+ * синяя/зелёная точка по состоянию напоминания, памятные даты умерших —
+ * красная точка; клик по дате → окно напоминаний) и список ближайших
+ * праздников под ним. Напоминания хранятся за юзером на сервере.
  */
 
 const UPCOMING_DAYS = 30;
+
+/** Зелёный «включено» для точки праздника (в палитре нет green-токена). */
+const REMINDER_ON_GREEN = '#2F9E44';
 
 type CategoryMeta = { label: string; color: string; order: number };
 
@@ -70,12 +76,29 @@ function isoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** «MM-DD» из ISO yyyy-MM-dd — ключ годовщины (повторяется каждый год). */
+function monthDay(iso: string): string {
+  return iso.slice(5, 10);
+}
+
+function monthDayOf(d: Date): string {
+  return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`;
+}
+
 type TodayAnniversary = {
   deceasedId: string;
   fullName: string;
   photoUrl: string | null;
   kind: 'birth' | 'death';
   years: number;
+};
+
+/** Годовщины умершего для одного дня календаря (по MM-DD). */
+type DayDeceased = {
+  deaths: DeceasedAnniversaryRow[];
+  births: DeceasedAnniversaryRow[];
 };
 
 export function EventsPage() {
@@ -85,13 +108,37 @@ export function EventsPage() {
   const today = useMemo(() => new Date(), []);
   const todayIso = isoDate(today);
 
-  // Один широкий запрос праздников: текущий месяц + ~год вперёд. Покрывает
-  // и календарь (подсветка), и «сегодня», и «ближайшие».
+  // Месяц, показанный в календаре (управляемый — чтобы стрелки листали и
+  // подтягивали праздники нужного месяца).
+  const [displayDate, setDisplayDate] = useState<Date>(() => new Date());
+
+  // Широкий запрос праздников: текущий месяц + ~год вперёд. Покрывает
+  // «сегодня» и «ближайшие».
   const rangeFromIso = useMemo(
     () => isoDate(new Date(today.getFullYear(), today.getMonth(), 1)),
     [today],
   );
   const rangeToIso = useMemo(() => shiftIso(rangeFromIso, 364), [rangeFromIso]);
+
+  // Праздники видимого месяца (± неделя на «хвосты» соседних месяцев в сетке).
+  const monthFromIso = useMemo(
+    () =>
+      shiftIso(
+        isoDate(new Date(displayDate.getFullYear(), displayDate.getMonth(), 1)),
+        -6,
+      ),
+    [displayDate],
+  );
+  const monthToIso = useMemo(
+    () =>
+      shiftIso(
+        isoDate(
+          new Date(displayDate.getFullYear(), displayDate.getMonth() + 1, 0),
+        ),
+        6,
+      ),
+    [displayDate],
+  );
 
   const trackedQuery = useQuery({
     queryKey: ['events-tracked'],
@@ -101,6 +148,12 @@ export function EventsPage() {
   const holidaysQuery = useQuery({
     queryKey: ['events-holidays', rangeFromIso, rangeToIso],
     queryFn: () => eventsApi.getHolidays(rangeFromIso, rangeToIso),
+  });
+
+  const calendarHolidaysQuery = useQuery({
+    queryKey: ['events-calendar-holidays', monthFromIso, monthToIso],
+    queryFn: () => eventsApi.getHolidays(monthFromIso, monthToIso),
+    placeholderData: keepPreviousData,
   });
 
   const remindersQuery = useQuery({
@@ -113,7 +166,7 @@ export function EventsPage() {
     [remindersQuery.data],
   );
 
-  // Map «дата (ISO) → праздники дня» для календаря и окна напоминаний.
+  // Map «дата (ISO) → праздники дня» широкого запроса (для «сегодня»).
   const holidaysByDate = useMemo(() => {
     const map = new Map<string, Holiday[]>();
     for (const h of holidaysQuery.data ?? []) {
@@ -123,6 +176,44 @@ export function EventsPage() {
     }
     return map;
   }, [holidaysQuery.data]);
+
+  // Map «дата (ISO) → праздники» видимого месяца (для календаря и окна).
+  const calendarHolidaysByDate = useMemo(() => {
+    const map = new Map<string, Holiday[]>();
+    for (const h of calendarHolidaysQuery.data ?? []) {
+      const list = map.get(h.date) ?? [];
+      list.push(h);
+      map.set(h.date, list);
+    }
+    return map;
+  }, [calendarHolidaysQuery.data]);
+
+  // Map «MM-DD → годовщины умерших» — повторяется каждый год, поэтому ключ
+  // без года: одна карта покрывает любой показанный месяц.
+  const deceasedByMonthDay = useMemo(() => {
+    const map = new Map<string, DayDeceased>();
+    for (const item of trackedQuery.data?.items ?? []) {
+      if (item.status === 'Archived') continue;
+      const push = (iso: string, kind: 'birth' | 'death') => {
+        const md = monthDay(iso);
+        const bucket = map.get(md) ?? { deaths: [], births: [] };
+        const row: DeceasedAnniversaryRow = {
+          deceasedId: item.deceasedId,
+          fullName: item.fullName,
+          kind,
+          leadDays:
+            kind === 'death'
+              ? item.deathAnniversaryLeadDays
+              : item.birthAnniversaryLeadDays,
+        };
+        (kind === 'death' ? bucket.deaths : bucket.births).push(row);
+        map.set(md, bucket);
+      };
+      if (item.deathDate) push(item.deathDate, 'death');
+      if (item.birthDate) push(item.birthDate, 'birth');
+    }
+    return map;
+  }, [trackedQuery.data]);
 
   const anniversaries = useMemo<TodayAnniversary[]>(() => {
     const items = trackedQuery.data?.items ?? [];
@@ -172,14 +263,20 @@ export function EventsPage() {
   // Окно редактирования напоминаний по клику на дату календаря.
   const [selectedDateIso, setSelectedDateIso] = useState<string | null>(null);
   const modalHolidays = selectedDateIso
-    ? holidaysByDate.get(selectedDateIso) ?? []
+    ? calendarHolidaysByDate.get(selectedDateIso) ?? []
     : [];
+  const modalDeceased = useMemo<DeceasedAnniversaryRow[]>(() => {
+    if (!selectedDateIso) return [];
+    const bucket = deceasedByMonthDay.get(monthDay(selectedDateIso));
+    if (!bucket) return [];
+    return [...bucket.deaths, ...bucket.births];
+  }, [selectedDateIso, deceasedByMonthDay]);
   const modalEffective = useMemo(() => {
     const map = new Map<string, number[]>();
     for (const h of modalHolidays) map.set(h.name, effectiveLeadDays(h, overrides));
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDateIso, overrides, holidaysByDate]);
+  }, [selectedDateIso, overrides, calendarHolidaysByDate]);
 
   return (
     <Stack gap="lg">
@@ -232,15 +329,16 @@ export function EventsPage() {
         </Stack>
       )}
 
-      {/* Большой календарь праздников */}
+      {/* Большой календарь */}
       <Stack gap="sm">
-        <SubTitleLabel>Календарь праздников</SubTitleLabel>
+        <SubTitleLabel>Календарь</SubTitleLabel>
         <CaptionLabel>
-          Точка под числом — есть праздник. Наведите, чтобы увидеть какой;
-          нажмите на дату, чтобы настроить напоминание.
+          Стрелками листайте месяцы. Точка под числом: синяя — праздник без
+          напоминания, зелёная — напоминание включено, красная — памятная дата
+          близкого. Нажмите на дату, чтобы настроить напоминание.
         </CaptionLabel>
         <CloudCard>
-          {holidaysQuery.isLoading ? (
+          {calendarHolidaysQuery.isLoading && !calendarHolidaysQuery.data ? (
             <Group justify="center" py="md">
               <Loader color="azure" size="sm" />
             </Group>
@@ -248,20 +346,35 @@ export function EventsPage() {
             <Group justify="center">
               <Calendar
                 size="xl"
-                defaultDate={today}
+                date={displayDate}
+                onDateChange={setDisplayDate}
                 highlightToday
                 getDayProps={(date) => {
                   const iso = isoDate(date);
-                  if (!holidaysByDate.has(iso)) return {};
+                  const hasHoliday = calendarHolidaysByDate.has(iso);
+                  const hasDeceased = deceasedByMonthDay.has(monthDayOf(date));
+                  if (!hasHoliday && !hasDeceased) return {};
                   return { onClick: () => setSelectedDateIso(iso) };
                 }}
                 renderDay={(date) => {
                   const iso = isoDate(date);
-                  const dayHolidays = holidaysByDate.get(iso);
                   const dayNum = date.getDate();
-                  if (!dayHolidays || dayHolidays.length === 0) {
+                  const dayHolidays = calendarHolidaysByDate.get(iso) ?? [];
+                  const dayDeceased = deceasedByMonthDay.get(monthDayOf(date));
+                  const deceasedRows = dayDeceased
+                    ? [...dayDeceased.deaths, ...dayDeceased.births]
+                    : [];
+                  if (dayHolidays.length === 0 && deceasedRows.length === 0) {
                     return <span>{dayNum}</span>;
                   }
+
+                  const holidayOn = dayHolidays.some(
+                    (h) => effectiveLeadDays(h, overrides).length > 0,
+                  );
+                  const holidayColor = holidayOn
+                    ? REMINDER_ON_GREEN
+                    : cloudColors.azure;
+
                   return (
                     <Tooltip
                       withArrow
@@ -272,6 +385,12 @@ export function EventsPage() {
                           {dayHolidays.map((h) => (
                             <Text key={h.name} size="xs">
                               {h.name}
+                            </Text>
+                          ))}
+                          {deceasedRows.map((r) => (
+                            <Text key={`${r.deceasedId}-${r.kind}`} size="xs">
+                              {r.kind === 'death' ? 'Година: ' : 'День памяти: '}
+                              {r.fullName}
                             </Text>
                           ))}
                         </Stack>
@@ -289,16 +408,21 @@ export function EventsPage() {
                         }}
                       >
                         <span>{dayNum}</span>
-                        <span
+                        <div
                           style={{
                             position: 'absolute',
                             bottom: 3,
-                            width: 5,
-                            height: 5,
-                            borderRadius: '50%',
-                            background: cloudColors.azure,
+                            display: 'flex',
+                            gap: 3,
                           }}
-                        />
+                        >
+                          {dayHolidays.length > 0 && (
+                            <Dot color={holidayColor} />
+                          )}
+                          {deceasedRows.length > 0 && (
+                            <Dot color={cloudColors.errorRed} />
+                          )}
+                        </div>
                       </div>
                     </Tooltip>
                   );
@@ -336,8 +460,22 @@ export function EventsPage() {
         dateIso={selectedDateIso}
         holidays={modalHolidays}
         effectiveByName={modalEffective}
+        deceased={modalDeceased}
       />
     </Stack>
+  );
+}
+
+function Dot({ color }: { color: string }) {
+  return (
+    <span
+      style={{
+        width: 5,
+        height: 5,
+        borderRadius: '50%',
+        background: color,
+      }}
+    />
   );
 }
 

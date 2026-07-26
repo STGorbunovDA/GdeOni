@@ -61,7 +61,28 @@ type TodayEvent = {
   fullName: string;
   kind: 'birth' | 'death';
   years: number;
+  /** F42. За сколько дней до годовщины (0 = сегодня, 1, 3, 7). */
+  daysUntil: number;
 };
+
+/** Дата + N дней (локально, без таймзонного сдвига). */
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+/** Русский префикс «когда» для напоминания за N дней. */
+function whenLabel(daysUntil: number): string {
+  switch (daysUntil) {
+    case 0:
+      return 'Сегодня';
+    case 1:
+      return 'Завтра';
+    case 7:
+      return 'Через неделю';
+    default:
+      return `Через ${daysUntil} дня`;
+  }
+}
 
 export function AnniversaryModal() {
   const navigate = useNavigate();
@@ -106,33 +127,46 @@ export function AnniversaryModal() {
     const items = trackedQuery.data?.items ?? [];
     const result: TodayEvent[] = [];
 
+    // Для годовщины и набора «за сколько дней» ищем упреждение, для которого
+    // сегодня + N = день годовщины. Совпадёт максимум одно (даты различны).
+    const findDue = (eventIso: string, leadDays: number[]) => {
+      for (const lead of leadDays) {
+        const years = anniversaryYearsToday(eventIso, addDays(today, lead));
+        if (years !== null) return { years, daysUntil: lead };
+      }
+      return null;
+    };
+
     for (const item of items) {
       if (item.status === 'Archived') continue;
 
-      const deathYears = anniversaryYearsToday(item.deathDate, today);
-      if (deathYears !== null) {
+      const death = findDue(item.deathDate, item.deathAnniversaryLeadDays ?? []);
+      if (death) {
         result.push({
           deceasedId: item.deceasedId,
           fullName: item.fullName,
           kind: 'death',
-          years: deathYears,
+          years: death.years,
+          daysUntil: death.daysUntil,
         });
       }
 
       if (item.birthDate) {
-        const birthYears = anniversaryYearsToday(item.birthDate, today);
-        if (birthYears !== null) {
+        const birth = findDue(item.birthDate, item.birthAnniversaryLeadDays ?? []);
+        if (birth) {
           result.push({
             deceasedId: item.deceasedId,
             fullName: item.fullName,
             kind: 'birth',
-            years: birthYears,
+            years: birth.years,
+            daysUntil: birth.daysUntil,
           });
         }
       }
     }
 
-    return result;
+    // Сначала сегодняшние, затем ближайшие по возрастанию упреждения.
+    return result.sort((a, b) => a.daysUntil - b.daysUntil);
   }, [trackedQuery.data, today]);
 
   const opened = enabled && events.length > 0;
@@ -147,7 +181,8 @@ export function AnniversaryModal() {
     navigate('/events');
   }
 
-  const title = 'Сегодня памятная дата';
+  const hasToday = events.some((e) => e.daysUntil === 0);
+  const title = hasToday ? 'Сегодня памятная дата' : 'Скоро памятная дата';
 
   return (
     <Modal
@@ -159,8 +194,9 @@ export function AnniversaryModal() {
     >
       <Stack gap="md">
         <BodyLabel>
-          Сегодня памятная дата у кого-то из ваших близких. Хороший повод
-          вспомнить о нём.
+          {hasToday
+            ? 'Сегодня памятная дата у кого-то из ваших близких. Хороший повод вспомнить о нём.'
+            : 'Приближается памятная дата у кого-то из ваших близких.'}
         </BodyLabel>
 
         <Stack gap="xs">
@@ -179,6 +215,7 @@ export function AnniversaryModal() {
                 {e.fullName}
               </SubTitleLabel>
               <CaptionLabel>
+                {`${whenLabel(e.daysUntil)} · `}
                 {e.kind === 'birth'
                   ? `День памяти · исполнилось бы ${e.years} ${yearsWord(e.years)}`
                   : `Година · ${e.years} ${yearsWord(e.years)}`}

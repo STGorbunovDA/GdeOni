@@ -62,7 +62,8 @@ export function PreviewPage() {
       trackedDeceasedApi.track(id!, {
         relationshipType: RelationshipTypes.Friend,
         personalNotes: null,
-        notifyOnDeathAnniversary: false,
+        // F42. Напоминание о годовщине смерти включено по умолчанию («в день»).
+        notifyOnDeathAnniversary: true,
         notifyOnBirthAnniversary: false,
       }),
     onSuccess: () => navigate(`/tracked/${id}`),
