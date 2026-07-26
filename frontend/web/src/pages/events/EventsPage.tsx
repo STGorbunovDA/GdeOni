@@ -249,6 +249,7 @@ export function EventsPage() {
               <Calendar
                 size="xl"
                 defaultDate={today}
+                highlightToday
                 getDayProps={(date) => {
                   const iso = isoDate(date);
                   if (!holidaysByDate.has(iso)) return {};
