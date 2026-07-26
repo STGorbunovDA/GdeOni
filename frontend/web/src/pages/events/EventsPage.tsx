@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  Alert,
   Badge,
   Group,
   Loader,
@@ -26,7 +25,6 @@ import {
   holidayRemindersApi,
   type Holiday,
 } from '../../api/endpoints/eventsApi';
-import { formatError } from '../../auth/errorMessages';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
 import { buildMediaUrl } from '../../utils/mediaUrl';
 import { formatDateOnly } from '../../utils/formatDate';
@@ -290,33 +288,19 @@ export function EventsPage() {
         </CaptionLabel>
       </Stack>
 
-      {/* Годовщины сегодня */}
-      <Stack gap="sm">
-        <SubTitleLabel>Сегодня</SubTitleLabel>
-
-        {trackedQuery.isLoading && (
-          <Group justify="center" py="md">
-            <Loader color="azure" size="sm" />
-          </Group>
-        )}
-        {trackedQuery.isError && (
-          <Alert color="red" variant="light">
-            {formatError(trackedQuery.error)}
-          </Alert>
-        )}
-        {!trackedQuery.isLoading && !trackedQuery.isError && anniversaries.length === 0 && (
-          <CloudCard>
-            <BodyLabel>Сегодня памятных дат среди отслеживаемых нет.</BodyLabel>
-          </CloudCard>
-        )}
-        {anniversaries.map((a) => (
-          <AnniversaryRow
-            key={`${a.deceasedId}-${a.kind}`}
-            anniversary={a}
-            onClick={() => navigate(`/tracked/${a.deceasedId}`)}
-          />
-        ))}
-      </Stack>
+      {/* Годовщины сегодня — секция видна только когда они есть */}
+      {anniversaries.length > 0 && (
+        <Stack gap="sm">
+          <SubTitleLabel>Сегодня</SubTitleLabel>
+          {anniversaries.map((a) => (
+            <AnniversaryRow
+              key={`${a.deceasedId}-${a.kind}`}
+              anniversary={a}
+              onClick={() => navigate(`/tracked/${a.deceasedId}`)}
+            />
+          ))}
+        </Stack>
+      )}
 
       {/* Праздники сегодня — только если они есть */}
       {todayHolidays.length > 0 && (

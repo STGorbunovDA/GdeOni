@@ -31,15 +31,10 @@
                            FontSize="13" />
                 </VerticalStackLayout>
 
-                <!-- Годовщины сегодня -->
+                <!-- Годовщины сегодня — секция видна только когда они есть -->
                 <Label Text="Сегодня"
-                       Style="{StaticResource SubTitleLabel}" />
-
-                <Border IsVisible="{Binding HasNoAnniversaries}"
-                        Style="{StaticResource CloudCard}">
-                    <Label Text="Сегодня памятных дат среди отслеживаемых нет."
-                           Style="{StaticResource BodyLabel}" />
-                </Border>
+                       Style="{StaticResource SubTitleLabel}"
+                       IsVisible="{Binding HasAnniversaries}" />
 
                 <VerticalStackLayout Spacing="12"
                                      BindableLayout.ItemsSource="{Binding TodayAnniversaries}">
