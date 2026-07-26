@@ -13,8 +13,10 @@ import {
   Cloud,
   LogOut,
   Map,
+  Search,
   Shield,
   User,
+  UserPlus,
   Users,
 } from 'lucide-react';
 import { Outlet, useNavigate } from 'react-router-dom';
@@ -132,7 +134,17 @@ export function AppLayout() {
 
         <AppShell.Section grow component={ScrollArea}>
           <Stack gap={4}>
-            <NavItem to="/tracked" icon={Users} label="Поиск" onNavigate={close} />
+            {/* «Поиск» — поиск карточек в базе (страница /search). «Добавить
+                умершего» — создание новой карточки. Список отслеживаемых —
+                отдельным пунктом «Отслеживаемые». */}
+            <NavItem to="/search" icon={Search} label="Поиск" onNavigate={close} />
+            <NavItem
+              to="/at-grave"
+              icon={UserPlus}
+              label="Добавить умершего"
+              onNavigate={close}
+            />
+            <NavItem to="/tracked" icon={Users} label="Отслеживаемые" onNavigate={close} />
             <NavItem to="/events" icon={CalendarHeart} label="События" onNavigate={close} />
             <NavItem to="/route" icon={Map} label="Маршрут" onNavigate={close} />
             <NavItem

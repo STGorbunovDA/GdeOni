@@ -9,13 +9,12 @@ import {
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Archive, ChevronRight, Navigation, Plus, UserRound } from 'lucide-react';
+import { ChevronRight, Navigation, UserRound } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
   CloudCard,
   GhostButton,
-  PrimaryButton,
   SubTitleLabel,
   TitleLabel,
 } from '../../components/ui';
@@ -39,8 +38,9 @@ import { useAppFeatures } from '../../hooks/useAppFeatures';
  *    refetchOnWindowFocus заменяет mobile pull-to-refresh.
  *  - Archived фильтруется на клиенте (как mobile) — для них F10.
  *  - Карточки кликабельны целиком → /tracked/:deceasedId (F11).
- *  - Шапка: "Добавить умершего" → /search (F6, анти-дубликат),
- *    "Архив" → /tracked/archive (F10).
+ *  - "Добавить умершего" (→ /search) и "Архив" (→ /tracked/archive)
+ *    переехали в боковое меню (AppLayout); в шапке остаётся только
+ *    "Найти рядом" (F36/E21).
  */
 
 const PAGE_SIZE = 20;
@@ -75,32 +75,19 @@ export function TrackedListPage() {
     <Stack gap="lg">
       <Group justify="space-between" align="flex-start" wrap="wrap">
         <Stack gap="xs">
-          <TitleLabel>Поиск</TitleLabel>
+          <TitleLabel>Отслеживаемые</TitleLabel>
           <CaptionLabel>
             Здесь карточки умерших, за которыми вы следите.
           </CaptionLabel>
         </Stack>
-        <Group gap="sm">
-          <PrimaryButton
-            onClick={() => navigate('/search')}
-            leftSection={<Plus size={16} />}
-          >
-            Добавить умершего
-          </PrimaryButton>
-          {/* F36 / E21. Тот же вход, что на mobile TrackedListPage. */}
-          <GhostButton
-            onClick={() => navigate('/nearby')}
-            leftSection={<Navigation size={16} />}
-          >
-            Найти рядом
-          </GhostButton>
-          <GhostButton
-            onClick={() => navigate('/tracked/archive')}
-            leftSection={<Archive size={16} />}
-          >
-            Архив
-          </GhostButton>
-        </Group>
+        {/* «Добавить умершего» и «Архив» переехали в боковое меню.
+            В шапке остаётся только F36/E21 — тот же вход, что на mobile. */}
+        <GhostButton
+          onClick={() => navigate('/nearby')}
+          leftSection={<Navigation size={16} />}
+        >
+          Найти рядом
+        </GhostButton>
       </Group>
 
       {query.isLoading && (
@@ -129,8 +116,8 @@ export function TrackedListPage() {
           <Stack gap="xs">
             <SubTitleLabel>Пока никого не отслеживаете</SubTitleLabel>
             <BodyLabel>
-              Нажмите «Добавить умершего» вверху, чтобы найти карточку в
-              базе или создать новую у могилы.
+              Найдите карточку через «Поиск» в меню слева или создайте новую
+              через «Добавить умершего».
             </BodyLabel>
           </Stack>
         </CloudCard>
