@@ -69,8 +69,7 @@ export function DownloadPage() {
             <List type="ordered" spacing="xs">
               <List.Item>
                 <BodyLabel>
-                  Откройте gdeoni.ru в <b>Safari</b> (именно Safari, в Chrome на
-                  iPhone этого пункта нет).
+                  Откройте gdeoni.ru в <b>Safari</b>.
                 </BodyLabel>
               </List.Item>
               <List.Item>
