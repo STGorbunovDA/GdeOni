@@ -26,6 +26,7 @@ import { CaptionLabel } from '../ui/Labels';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { OutdatedLegalModal } from '../legal/OutdatedLegalModal';
 import { AnniversaryModal } from '../events/AnniversaryModal';
+import { HolidayReminderPopup } from '../events/HolidayReminderPopup';
 import { NavItem } from './NavItem';
 
 /**
@@ -174,6 +175,10 @@ export function AppLayout() {
           один показ в сутки после входа. Сама проверяет paywall-гейт и не
           показывается поверх блокирующей legal-модалки. */}
       <AnniversaryModal />
+
+      {/* F42. Попап «сегодня/скоро праздник» — один показ в сутки по
+          крупным праздникам и включённым напоминаниям. */}
+      <HolidayReminderPopup />
     </AppShell>
   );
 }

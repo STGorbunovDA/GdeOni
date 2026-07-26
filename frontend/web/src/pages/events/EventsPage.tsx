@@ -1,12 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Badge,
   Group,
   Loader,
   Stack,
+  Text,
+  Tooltip,
   UnstyledButton,
 } from '@mantine/core';
+import { Calendar } from '@mantine/dates';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Cross, Flower2, UserRound } from 'lucide-react';
 import {
@@ -18,23 +21,30 @@ import {
 } from '../../components/ui';
 import { cloudColors } from '../../design/theme';
 import { trackedDeceasedApi } from '../../api/endpoints/trackedDeceasedApi';
-import { eventsApi, type Holiday } from '../../api/endpoints/eventsApi';
+import {
+  eventsApi,
+  holidayRemindersApi,
+  type Holiday,
+} from '../../api/endpoints/eventsApi';
 import { formatError } from '../../auth/errorMessages';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
 import { buildMediaUrl } from '../../utils/mediaUrl';
 import { formatDateOnly } from '../../utils/formatDate';
+import {
+  buildOverridesMap,
+  effectiveLeadDays,
+  shiftIso,
+} from '../../utils/holidayReminders';
 import { anniversaryYearsToday, yearsWord } from '../../utils/anniversary';
 import { useNavigate } from 'react-router-dom';
+import { HolidayReminderModal } from '../../components/events/HolidayReminderModal';
 
 /**
- * Вкладка «События». Сверху — памятные даты сегодня среди отслеживаемых
- * (день памяти / година), тап ведёт на карточку умершего.
- * Ниже — праздники: сегодняшние и ближайшие, сгруппированные по
- * категориям (поминальные, православные, мусульманские, государственные).
- *
- * Годовщины считаются на клиенте из tracked-списка (даты уже приходят).
- * Праздники — с backend GET /api/events/holidays (подвижные даты
- * считает сервер).
+ * F42. Вкладка «События»: годовщины близких сегодня, праздники сегодня (если
+ * есть), большой календарь праздников на месяц (подсветка дат, тултип по
+ * наведению, клик → окно напоминаний) и список ближайших праздников под ним.
+ * Напоминания хранятся за юзером на сервере; попап «сегодня/скоро праздник»
+ * показывается глобально при заходе (HolidayReminderPopup в AppLayout).
  */
 
 const UPCOMING_DAYS = 30;
@@ -46,8 +56,6 @@ const CATEGORY_META: Record<string, CategoryMeta> = {
   Orthodox: { label: 'Православные', color: 'indigo', order: 1 },
   Muslim: { label: 'Мусульманские', color: 'teal', order: 2 },
   State: { label: 'Государственные', color: 'red', order: 3 },
-  // D38.1. Пост — не праздник, поэтому отдельная группа и последняя
-  // в порядке вывода.
   Fast: { label: 'Посты', color: 'gray', order: 4 },
 };
 
@@ -76,11 +84,14 @@ export function EventsPage() {
 
   const today = useMemo(() => new Date(), []);
   const todayIso = isoDate(today);
-  const toIso = useMemo(() => {
-    const d = new Date(today);
-    d.setDate(d.getDate() + UPCOMING_DAYS);
-    return isoDate(d);
-  }, [today]);
+
+  // Один широкий запрос праздников: текущий месяц + ~год вперёд. Покрывает
+  // и календарь (подсветка), и «сегодня», и «ближайшие».
+  const rangeFromIso = useMemo(
+    () => isoDate(new Date(today.getFullYear(), today.getMonth(), 1)),
+    [today],
+  );
+  const rangeToIso = useMemo(() => shiftIso(rangeFromIso, 364), [rangeFromIso]);
 
   const trackedQuery = useQuery({
     queryKey: ['events-tracked'],
@@ -88,58 +99,65 @@ export function EventsPage() {
   });
 
   const holidaysQuery = useQuery({
-    queryKey: ['events-holidays', todayIso, toIso],
-    queryFn: () => eventsApi.getHolidays(todayIso, toIso),
+    queryKey: ['events-holidays', rangeFromIso, rangeToIso],
+    queryFn: () => eventsApi.getHolidays(rangeFromIso, rangeToIso),
   });
+
+  const remindersQuery = useQuery({
+    queryKey: ['events-holiday-reminders'],
+    queryFn: () => holidayRemindersApi.getMine(),
+  });
+
+  const overrides = useMemo(
+    () => buildOverridesMap(remindersQuery.data ?? []),
+    [remindersQuery.data],
+  );
+
+  // Map «дата (ISO) → праздники дня» для календаря и окна напоминаний.
+  const holidaysByDate = useMemo(() => {
+    const map = new Map<string, Holiday[]>();
+    for (const h of holidaysQuery.data ?? []) {
+      const list = map.get(h.date) ?? [];
+      list.push(h);
+      map.set(h.date, list);
+    }
+    return map;
+  }, [holidaysQuery.data]);
 
   const anniversaries = useMemo<TodayAnniversary[]>(() => {
     const items = trackedQuery.data?.items ?? [];
     const result: TodayAnniversary[] = [];
-
     for (const item of items) {
       if (item.status === 'Archived') continue;
-
       const photoUrl = buildMediaUrl(
         features.data?.mediaBaseUrl,
         item.mainPhotoBucket,
         item.mainPhotoStorageKey,
       );
-
       const deathYears = anniversaryYearsToday(item.deathDate, today);
       if (deathYears !== null) {
-        result.push({
-          deceasedId: item.deceasedId,
-          fullName: item.fullName,
-          photoUrl,
-          kind: 'death',
-          years: deathYears,
-        });
+        result.push({ deceasedId: item.deceasedId, fullName: item.fullName, photoUrl, kind: 'death', years: deathYears });
       }
-
       if (item.birthDate) {
         const birthYears = anniversaryYearsToday(item.birthDate, today);
         if (birthYears !== null) {
-          result.push({
-            deceasedId: item.deceasedId,
-            fullName: item.fullName,
-            photoUrl,
-            kind: 'birth',
-            years: birthYears,
-          });
+          result.push({ deceasedId: item.deceasedId, fullName: item.fullName, photoUrl, kind: 'birth', years: birthYears });
         }
       }
     }
-
     return result;
   }, [trackedQuery.data, features.data, today]);
 
   const todayHolidays = useMemo(
-    () => (holidaysQuery.data ?? []).filter((h) => h.date === todayIso),
-    [holidaysQuery.data, todayIso],
+    () => holidaysByDate.get(todayIso) ?? [],
+    [holidaysByDate, todayIso],
   );
 
   const upcomingByCategory = useMemo(() => {
-    const upcoming = (holidaysQuery.data ?? []).filter((h) => h.date > todayIso);
+    const toIso = shiftIso(todayIso, UPCOMING_DAYS);
+    const upcoming = (holidaysQuery.data ?? []).filter(
+      (h) => h.date > todayIso && h.date <= toIso,
+    );
     const groups = new Map<string, Holiday[]>();
     for (const h of upcoming) {
       const list = groups.get(h.category) ?? [];
@@ -151,12 +169,24 @@ export function EventsPage() {
     );
   }, [holidaysQuery.data, todayIso]);
 
+  // Окно редактирования напоминаний по клику на дату календаря.
+  const [selectedDateIso, setSelectedDateIso] = useState<string | null>(null);
+  const modalHolidays = selectedDateIso
+    ? holidaysByDate.get(selectedDateIso) ?? []
+    : [];
+  const modalEffective = useMemo(() => {
+    const map = new Map<string, number[]>();
+    for (const h of modalHolidays) map.set(h.name, effectiveLeadDays(h, overrides));
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDateIso, overrides, holidaysByDate]);
+
   return (
     <Stack gap="lg">
       <Stack gap="xs">
         <TitleLabel>События</TitleLabel>
         <CaptionLabel>
-          Памятные даты ваших близких и ближайшие праздники.
+          Памятные даты ваших близких, праздники и напоминания.
         </CaptionLabel>
       </Stack>
 
@@ -169,23 +199,16 @@ export function EventsPage() {
             <Loader color="azure" size="sm" />
           </Group>
         )}
-
         {trackedQuery.isError && (
           <Alert color="red" variant="light">
             {formatError(trackedQuery.error)}
           </Alert>
         )}
-
-        {!trackedQuery.isLoading &&
-          !trackedQuery.isError &&
-          anniversaries.length === 0 && (
-            <CloudCard>
-              <BodyLabel>
-                Сегодня памятных дат среди отслеживаемых нет.
-              </BodyLabel>
-            </CloudCard>
-          )}
-
+        {!trackedQuery.isLoading && !trackedQuery.isError && anniversaries.length === 0 && (
+          <CloudCard>
+            <BodyLabel>Сегодня памятных дат среди отслеживаемых нет.</BodyLabel>
+          </CloudCard>
+        )}
         {anniversaries.map((a) => (
           <AnniversaryRow
             key={`${a.deceasedId}-${a.kind}`}
@@ -195,31 +218,10 @@ export function EventsPage() {
         ))}
       </Stack>
 
-      {/* Праздники сегодня */}
-      <Stack gap="sm">
-        <SubTitleLabel>Праздники сегодня</SubTitleLabel>
-
-        {holidaysQuery.isLoading && (
-          <Group justify="center" py="md">
-            <Loader color="azure" size="sm" />
-          </Group>
-        )}
-
-        {holidaysQuery.isError && (
-          <Alert color="red" variant="light">
-            {formatError(holidaysQuery.error)}
-          </Alert>
-        )}
-
-        {!holidaysQuery.isLoading &&
-          !holidaysQuery.isError &&
-          todayHolidays.length === 0 && (
-            <CloudCard>
-              <BodyLabel>Сегодня праздников нет.</BodyLabel>
-            </CloudCard>
-          )}
-
-        {todayHolidays.length > 0 && (
+      {/* Праздники сегодня — только если они есть */}
+      {todayHolidays.length > 0 && (
+        <Stack gap="sm">
+          <SubTitleLabel>Праздники сегодня</SubTitleLabel>
           <CloudCard>
             <Stack gap="sm">
               {todayHolidays.map((h, i) => (
@@ -227,14 +229,89 @@ export function EventsPage() {
               ))}
             </Stack>
           </CloudCard>
-        )}
+        </Stack>
+      )}
+
+      {/* Большой календарь праздников */}
+      <Stack gap="sm">
+        <SubTitleLabel>Календарь праздников</SubTitleLabel>
+        <CaptionLabel>
+          Точка под числом — есть праздник. Наведите, чтобы увидеть какой;
+          нажмите на дату, чтобы настроить напоминание.
+        </CaptionLabel>
+        <CloudCard>
+          {holidaysQuery.isLoading ? (
+            <Group justify="center" py="md">
+              <Loader color="azure" size="sm" />
+            </Group>
+          ) : (
+            <Group justify="center">
+              <Calendar
+                size="xl"
+                defaultDate={today}
+                getDayProps={(date) => {
+                  const iso = isoDate(date);
+                  if (!holidaysByDate.has(iso)) return {};
+                  return { onClick: () => setSelectedDateIso(iso) };
+                }}
+                renderDay={(date) => {
+                  const iso = isoDate(date);
+                  const dayHolidays = holidaysByDate.get(iso);
+                  const dayNum = date.getDate();
+                  if (!dayHolidays || dayHolidays.length === 0) {
+                    return <span>{dayNum}</span>;
+                  }
+                  return (
+                    <Tooltip
+                      withArrow
+                      multiline
+                      maw={280}
+                      label={
+                        <Stack gap={2}>
+                          {dayHolidays.map((h) => (
+                            <Text key={h.name} size="xs">
+                              {h.name}
+                            </Text>
+                          ))}
+                        </Stack>
+                      }
+                    >
+                      <div
+                        style={{
+                          position: 'relative',
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 700,
+                        }}
+                      >
+                        <span>{dayNum}</span>
+                        <span
+                          style={{
+                            position: 'absolute',
+                            bottom: 3,
+                            width: 5,
+                            height: 5,
+                            borderRadius: '50%',
+                            background: cloudColors.azure,
+                          }}
+                        />
+                      </div>
+                    </Tooltip>
+                  );
+                }}
+              />
+            </Group>
+          )}
+        </CloudCard>
       </Stack>
 
-      {/* Ближайшие праздники по категориям */}
+      {/* Ближайшие праздники по категориям — под календарём */}
       {upcomingByCategory.length > 0 && (
         <Stack gap="sm">
           <SubTitleLabel>Ближайшие праздники</SubTitleLabel>
-
           {upcomingByCategory.map(([category, list]) => (
             <CloudCard key={category}>
               <Stack gap="sm">
@@ -251,6 +328,14 @@ export function EventsPage() {
           ))}
         </Stack>
       )}
+
+      <HolidayReminderModal
+        opened={selectedDateIso !== null}
+        onClose={() => setSelectedDateIso(null)}
+        dateIso={selectedDateIso}
+        holidays={modalHolidays}
+        effectiveByName={modalEffective}
+      />
     </Stack>
   );
 }
@@ -304,9 +389,7 @@ function HolidayRow({
     <Group gap="sm" align="baseline" wrap="nowrap">
       {showDate && (
         <CaptionLabel>
-          <span style={{ whiteSpace: 'nowrap' }}>
-            {formatDateOnly(holiday.date)}
-          </span>
+          <span style={{ whiteSpace: 'nowrap' }}>{formatDateOnly(holiday.date)}</span>
         </CaptionLabel>
       )}
       <BodyLabel>{holiday.name}</BodyLabel>
