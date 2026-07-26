@@ -86,7 +86,13 @@ export function AppLayout() {
           }}
         >
           <Group h="100%" px="md" gap="md" wrap="nowrap">
-            <Burger opened={opened} onClick={toggle} size="sm" />
+            <Burger
+              opened={opened}
+              onClick={toggle}
+              size="sm"
+              color={cloudColors.inkBlue}
+              aria-label="Меню"
+            />
             <Group gap={8} wrap="nowrap">
               <Cloud size={22} color={cloudColors.azureDeep} />
               <Text fw={700} c={cloudColors.inkBlue}>
