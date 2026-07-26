@@ -74,3 +74,55 @@ export function parseDateInputValue(value: string): Date | null {
   date.setFullYear(y);
   return date;
 }
+
+/**
+ * Маска ввода даты: оставляет только цифры (максимум 8) и расставляет точки
+ * САМА — ДД.ММ.ГГГГ. Пользователю не нужно ставить точки вручную. Чистая
+ * обработка строки, поэтому работает одинаково в любом браузере
+ * (iOS Safari / Android Chrome / десктоп), в отличие от <input type="date">.
+ *
+ * «01011990» → «01.01.1990»; «0101» → «01.01»; «01» → «01».
+ */
+export function maskDateInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`;
+}
+
+/**
+ * «ДД.ММ.ГГГГ» → локальная Date. Строгий разбор: строка должна быть полной
+ * (ровно ДД.ММ.ГГГГ), день/месяц в допустимых диапазонах, и собранная дата
+ * обязана совпасть с введённой — иначе null. Так отсекаются «31.02», «32.01»,
+ * «01.13». Год ставится через setFullYear (как в parseDateInputValue), иначе
+ * конструктор Date мапит год 0–99 в 1900+год.
+ */
+export function parseRuDate(text: string): Date | null {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(text.trim());
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  const date = new Date(year, month - 1, day);
+  date.setFullYear(year);
+  // Реальность даты: «31.02» сконструируется в 03.03 — отбрасываем.
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+/** Date → «ДД.ММ.ГГГГ». null/undefined → пустая строка. */
+export function formatRuDate(d: Date | null | undefined): string {
+  if (!d) return '';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = String(d.getFullYear()).padStart(4, '0');
+  return `${day}.${month}.${year}`;
+}

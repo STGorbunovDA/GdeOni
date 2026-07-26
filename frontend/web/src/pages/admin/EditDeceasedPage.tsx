@@ -29,7 +29,7 @@ import {
   tryParseLongitude,
 } from '../../utils/coordinateParser';
 import { parseDateInputValue, toDateInputValue } from '../../utils/formatDate';
-import { DateInput } from '@mantine/dates';
+import { DateMaskInput } from '../../components/DateMaskInput';
 
 function nullIfEmpty(s: string): string | null {
   const t = s.trim();
@@ -259,25 +259,21 @@ export function EditDeceasedPage() {
             />
           </Group>
           <Group grow align="flex-start" wrap="wrap">
-            <DateInput
+            <DateMaskInput
               label="Дата рождения"
               placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
               minDate={new Date(1800, 0, 1)}
               maxDate={new Date()}
-              clearable
               value={birthDate}
               onChange={setBirthDate}
               error={birthDateError}
             />
-            <DateInput
+            <DateMaskInput
               label="Дата смерти"
               required
               placeholder="дд.мм.гггг"
-              valueFormat="DD.MM.YYYY"
               minDate={new Date(1800, 0, 1)}
               maxDate={new Date()}
-              clearable
               value={deathDate}
               onChange={setDeathDate}
               error={deathDateError}

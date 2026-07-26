@@ -12,7 +12,7 @@ import { useAuthStore } from '../../auth/authStore';
  *  - age-gate (D19 — юзер младше 14 лет не проходит);
  *  - happy path — register → login → setSession → /tracked.
  *
- * Дата рождения — нативный <input type="date"> (значение «yyyy-MM-dd»).
+ * Дата рождения — поле с маской (DateMaskInput, значение «ДД.ММ.ГГГГ»).
  * Ставим через fireEvent.change и ждём, что зод получит Date для сабмита.
  */
 
@@ -237,17 +237,17 @@ describe('RegisterPage', () => {
   });
 });
 
-/** Формат нативного <input type="date"> — «yyyy-MM-dd». */
+/** Формат поля даты с маской — «ДД.ММ.ГГГГ» (DateMaskInput). */
 function formatForInput(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  return `${year}-${month}-${day}`;
+  const year = String(d.getFullYear()).padStart(4, '0');
+  return `${day}.${month}.${year}`;
 }
 
 /**
- * Проставляет дату рождения в нативный date-input через fireEvent —
- * type="date" не принимает посимвольный user.type в jsdom.
+ * Проставляет дату рождения в поле-маску через fireEvent.change: компонент
+ * сам расставит точки и распарсит «ДД.ММ.ГГГГ» → Date для сабмита.
  */
 function setBirthDate(d: Date) {
   fireEvent.change(screen.getByLabelText(/дата рождения/i), {

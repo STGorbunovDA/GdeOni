@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   formatDateOnly,
   formatDateTime,
+  formatRuDate,
+  maskDateInput,
   parseDateInputValue,
+  parseRuDate,
   toDateInputValue,
 } from './formatDate';
 
@@ -74,6 +77,70 @@ describe('formatDate utils', () => {
       expect(parseDateInputValue('не-дата')).toBeNull();
       expect(toDateInputValue(null)).toBe('');
       expect(toDateInputValue(undefined)).toBe('');
+    });
+  });
+
+  describe('maskDateInput (авто-точки ДД.ММ.ГГГГ)', () => {
+    it('расставляет точки по мере ввода цифр', () => {
+      expect(maskDateInput('0')).toBe('0');
+      expect(maskDateInput('01')).toBe('01');
+      expect(maskDateInput('010')).toBe('01.0');
+      expect(maskDateInput('0101')).toBe('01.01');
+      expect(maskDateInput('01011')).toBe('01.01.1');
+      expect(maskDateInput('01011990')).toBe('01.01.1990');
+    });
+
+    it('игнорирует нецифры и лишние символы (можно вставлять готовую дату)', () => {
+      expect(maskDateInput('01.01.1990')).toBe('01.01.1990');
+      expect(maskDateInput('01/01/1990')).toBe('01.01.1990');
+      expect(maskDateInput('abc01def01')).toBe('01.01');
+    });
+
+    it('обрезает лишние цифры после 8', () => {
+      expect(maskDateInput('010119901234')).toBe('01.01.1990');
+    });
+
+    it('пустая строка → пустая', () => {
+      expect(maskDateInput('')).toBe('');
+    });
+  });
+
+  describe('parseRuDate (строгий разбор ДД.ММ.ГГГГ)', () => {
+    it('парсит полную валидную дату без таймзонного сдвига', () => {
+      const d = parseRuDate('08.03.1987')!;
+      expect(d).not.toBeNull();
+      expect(d.getFullYear()).toBe(1987);
+      expect(d.getMonth()).toBe(2); // март
+      expect(d.getDate()).toBe(8);
+    });
+
+    it('не мапит годы 0-99 в 1900+год', () => {
+      expect(parseRuDate('11.11.0001')!.getFullYear()).toBe(1);
+    });
+
+    it('отбрасывает несуществующие и неполные даты', () => {
+      expect(parseRuDate('31.02.2020')).toBeNull(); // 31 февраля
+      expect(parseRuDate('01.13.1990')).toBeNull(); // 13-й месяц
+      expect(parseRuDate('00.01.1990')).toBeNull(); // день 0
+      expect(parseRuDate('01.01')).toBeNull(); // недобор
+      expect(parseRuDate('1.1.1990')).toBeNull(); // без ведущих нулей
+      expect(parseRuDate('')).toBeNull();
+    });
+  });
+
+  describe('formatRuDate (Date → ДД.ММ.ГГГГ)', () => {
+    it('форматирует с ведущими нулями', () => {
+      expect(formatRuDate(new Date(1990, 0, 5))).toBe('05.01.1990');
+    });
+
+    it('round-trip через parseRuDate без потерь', () => {
+      const d = parseRuDate('08.03.1987');
+      expect(formatRuDate(d)).toBe('08.03.1987');
+    });
+
+    it('null/undefined → пустая строка', () => {
+      expect(formatRuDate(null)).toBe('');
+      expect(formatRuDate(undefined)).toBe('');
     });
   });
 });
