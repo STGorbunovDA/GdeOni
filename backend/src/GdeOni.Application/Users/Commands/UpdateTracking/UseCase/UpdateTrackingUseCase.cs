@@ -44,8 +44,8 @@ public sealed class UpdateTrackingUseCase(
             command.DeceasedId,
             command.RelationshipType,
             command.PersonalNotes,
-            command.NotifyOnDeathAnniversary,
-            command.NotifyOnBirthAnniversary);
+            command.DeathAnniversaryLeadDays,
+            command.BirthAnniversaryLeadDays);
 
         if (updateResult.IsFailure)
             return updateResult.Error;

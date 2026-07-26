@@ -23,6 +23,10 @@ public static class AnniversaryEmailContent
     /// <param name="yearsSince">Сколько лет исполняется (≥ 1).</param>
     /// <param name="appName">Название сервиса (для подписи).</param>
     /// <param name="appUrl">Ссылка на сайт (опционально, для кнопки/футера).</param>
+    /// <param name="daysUntil">
+    /// F42. За сколько дней до годовщины письмо (0 = в день, 1, 3, 7). Меняет
+    /// формулировку «сегодня/завтра/через N дней».
+    /// </param>
     public static EmailMessage Build(
         string recipientEmail,
         string? recipientName,
@@ -30,7 +34,8 @@ public static class AnniversaryEmailContent
         string deceasedFullName,
         int yearsSince,
         string appName,
-        string? appUrl)
+        string? appUrl,
+        int daysUntil = 0)
     {
         var yearsWord = RussianPlural.Years(yearsSince);
         var greeting = string.IsNullOrWhiteSpace(recipientName)
@@ -40,14 +45,24 @@ public static class AnniversaryEmailContent
         var (subject, lead) = kind switch
         {
             AnniversaryKind.Death => (
-                $"День памяти: {deceasedFullName}",
-                $"Сегодня {yearsSince} {yearsWord} со дня смерти {deceasedFullName}."),
+                daysUntil == 0
+                    ? $"День памяти: {deceasedFullName}"
+                    : $"Скоро день памяти: {deceasedFullName}",
+                daysUntil == 0
+                    ? $"Сегодня {yearsSince} {yearsWord} со дня смерти {deceasedFullName}."
+                    : $"{WhenPrefix(daysUntil)} годовщина смерти {deceasedFullName} ({yearsSince} {yearsWord})."),
             AnniversaryKind.Birth => (
-                $"День рождения: {deceasedFullName}",
-                $"Сегодня день рождения {deceasedFullName} — исполнилось бы {yearsSince} {yearsWord}."),
+                daysUntil == 0
+                    ? $"День рождения: {deceasedFullName}"
+                    : $"Скоро день рождения: {deceasedFullName}",
+                daysUntil == 0
+                    ? $"Сегодня день рождения {deceasedFullName} — исполнилось бы {yearsSince} {yearsWord}."
+                    : $"{WhenPrefix(daysUntil)} день рождения {deceasedFullName} — исполнилось бы {yearsSince} {yearsWord}."),
             _ => (
                 $"Годовщина: {deceasedFullName}",
-                $"Сегодня годовщина, связанная с {deceasedFullName}."),
+                daysUntil == 0
+                    ? $"Сегодня годовщина, связанная с {deceasedFullName}."
+                    : $"{WhenPrefix(daysUntil)} годовщина, связанная с {deceasedFullName}."),
         };
 
         const string reminder =
@@ -120,6 +135,17 @@ public static class AnniversaryEmailContent
         sb.Append("</div>");
         return sb.ToString();
     }
+
+    /// <summary>
+    /// F42. Префикс «когда» для писем за N дней до годовщины (0 обрабатывается
+    /// отдельной формулировкой «Сегодня …», сюда не попадает).
+    /// </summary>
+    private static string WhenPrefix(int daysUntil) => daysUntil switch
+    {
+        1 => "Завтра",
+        7 => "Через неделю",
+        _ => $"Через {daysUntil} дня",
+    };
 
     private static string Enc(string value) => WebUtility.HtmlEncode(value);
 }

@@ -45,7 +45,7 @@ public sealed class TrackingUseCaseTests
                 Guid.NewGuid(),
                 RelationshipType.Friend,
                 "notes",
-                true, false,
+                new[] { 0 }, Array.Empty<int>(),
                 TrackStatus.Active),
             CancellationToken.None);
 
@@ -82,8 +82,8 @@ public sealed class TrackingUseCaseTests
                 deceasedId,
                 RelationshipType.Sibling,
                 "Brother",
-                NotifyOnDeathAnniversary: true,
-                NotifyOnBirthAnniversary: true,
+                DeathAnniversaryLeadDays: new[] { 0, 7 },
+                BirthAnniversaryLeadDays: new[] { 0 },
                 TrackStatus: TrackStatus.Muted),
             CancellationToken.None);
 
@@ -93,6 +93,8 @@ public sealed class TrackingUseCaseTests
         tracking.PersonalNotes.Should().Be("Brother");
         tracking.NotifyOnDeathAnniversary.Should().BeTrue();
         tracking.NotifyOnBirthAnniversary.Should().BeTrue();
+        tracking.DeathAnniversaryLeadDays.Should().BeEquivalentTo(new[] { 0, 7 });
+        tracking.BirthAnniversaryLeadDays.Should().BeEquivalentTo(new[] { 0 });
         tracking.Status.Should().Be(TrackStatus.Muted);
         userRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Once);
     }

@@ -52,6 +52,58 @@ public sealed class AnniversaryEmailContentTests
     }
 
     [Fact]
+    public void Build_DeathInAWeek_HasUpcomingSubjectAndWhenPrefix()
+    {
+        var message = AnniversaryEmailContent.Build(
+            recipientEmail: "user@example.com",
+            recipientName: "Иван",
+            kind: AnniversaryKind.Death,
+            deceasedFullName: "Петров Пётр",
+            yearsSince: 5,
+            appName: "Где Они",
+            appUrl: null,
+            daysUntil: 7);
+
+        message.Subject.Should().Contain("Скоро день памяти");
+        message.TextBody.Should().Contain("Через неделю");
+        message.TextBody.Should().NotContain("Сегодня");
+    }
+
+    [Fact]
+    public void Build_BirthInThreeDays_HasWhenPrefix()
+    {
+        var message = AnniversaryEmailContent.Build(
+            recipientEmail: "user@example.com",
+            recipientName: null,
+            kind: AnniversaryKind.Birth,
+            deceasedFullName: "Сидоров Сидор",
+            yearsSince: 40,
+            appName: "Где Они",
+            appUrl: null,
+            daysUntil: 3);
+
+        message.Subject.Should().Contain("Скоро день рождения");
+        message.TextBody.Should().Contain("Через 3 дня");
+        message.TextBody.Should().Contain("исполнилось бы");
+    }
+
+    [Fact]
+    public void Build_DayBefore_SaysTomorrow()
+    {
+        var message = AnniversaryEmailContent.Build(
+            recipientEmail: "user@example.com",
+            recipientName: null,
+            kind: AnniversaryKind.Death,
+            deceasedFullName: "Петров Пётр",
+            yearsSince: 2,
+            appName: "Где Они",
+            appUrl: null,
+            daysUntil: 1);
+
+        message.TextBody.Should().Contain("Завтра");
+    }
+
+    [Fact]
     public void Build_EncodesHtmlInName()
     {
         var message = AnniversaryEmailContent.Build(

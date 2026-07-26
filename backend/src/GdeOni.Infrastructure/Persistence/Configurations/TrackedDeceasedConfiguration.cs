@@ -34,13 +34,24 @@ public sealed class TrackedDeceasedConfiguration : IEntityTypeConfiguration<Trac
             .HasColumnName("personal_notes")
             .HasMaxLength(TrackedDeceased.MaxPersonalNotesLength);
 
-        builder.Property(x => x.NotifyOnDeathAnniversary)
-            .HasColumnName("notify_on_death_anniversary")
+        // F42. Наборы «за сколько дней» напоминать о годовщинах — CSV-строки
+        // (например «0,7»). Пустая строка = напоминание выключено.
+        builder.Property(x => x.DeathAnniversaryLeadDaysCsv)
+            .HasColumnName("death_anniversary_lead_days")
+            .HasMaxLength(64)
             .IsRequired();
 
-        builder.Property(x => x.NotifyOnBirthAnniversary)
-            .HasColumnName("notify_on_birth_anniversary")
+        builder.Property(x => x.BirthAnniversaryLeadDaysCsv)
+            .HasColumnName("birth_anniversary_lead_days")
+            .HasMaxLength(64)
             .IsRequired();
+
+        // Вычисляемые свойства (набор дней списком + булевы флаги обратной
+        // совместимости) не мапятся в колонки — считаются из CSV в памяти.
+        builder.Ignore(x => x.DeathAnniversaryLeadDays);
+        builder.Ignore(x => x.BirthAnniversaryLeadDays);
+        builder.Ignore(x => x.NotifyOnDeathAnniversary);
+        builder.Ignore(x => x.NotifyOnBirthAnniversary);
 
         builder.Property(x => x.Status)
             .HasColumnName("status")

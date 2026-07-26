@@ -42,6 +42,8 @@ public static class DeceasedRecordsResponseMapping
                 PersonalNotes = result.Tracking.PersonalNotes,
                 NotifyOnDeathAnniversary = result.Tracking.NotifyOnDeathAnniversary,
                 NotifyOnBirthAnniversary = result.Tracking.NotifyOnBirthAnniversary,
+                DeathAnniversaryLeadDays = result.Tracking.DeathAnniversaryLeadDays,
+                BirthAnniversaryLeadDays = result.Tracking.BirthAnniversaryLeadDays,
                 Status = result.Tracking.Status.ToString(),
                 TrackedAtUtc = result.Tracking.TrackedAtUtc
             }

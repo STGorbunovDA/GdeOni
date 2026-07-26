@@ -143,7 +143,8 @@ internal sealed class AnniversaryEmailService(
                 notification.DeceasedFullName,
                 notification.YearsSince,
                 _options.AppName,
-                _options.AppUrl);
+                _options.AppUrl,
+                notification.DaysUntil);
 
             try
             {
@@ -194,9 +195,11 @@ internal sealed class AnniversaryEmailService(
     }
 
     /// <summary>
-    /// Тянет из БД активные подписки с включёнными напоминаниями, у
-    /// которых дата рождения/смерти совпадает с сегодняшним днём (или с
-    /// 29 февраля, отмечаемым 28-го в невисокосный год).
+    /// F42. Тянет из БД активные подписки с включёнными напоминаниями, у
+    /// которых дата рождения/смерти совпадает с одним из «целевых» дней —
+    /// сегодня + все возможные упреждения (за день/за 3 дня/за неделю), с
+    /// поправкой на 29 февраля. Точный набор упреждений сверяется уже в
+    /// памяти (<see cref="BuildDueNotifications"/>) — SQL лишь грубо фильтрует.
     /// </summary>
     private static async Task<List<Candidate>> LoadCandidatesAsync(
         AppDbContext dbContext,
@@ -215,10 +218,10 @@ internal sealed class AnniversaryEmailService(
                 where t.Status == TrackStatus.Active
                     && !u.IsBlocked
                     && (
-                        (t.NotifyOnDeathAnniversary
+                        (t.DeathAnniversaryLeadDaysCsv != ""
                             && d.LifePeriod.DeathDate.Month == month
                             && d.LifePeriod.DeathDate.Day == day)
-                        || (t.NotifyOnBirthAnniversary
+                        || (t.BirthAnniversaryLeadDaysCsv != ""
                             && d.LifePeriod.BirthDate.HasValue
                             && d.LifePeriod.BirthDate.Value.Month == month
                             && d.LifePeriod.BirthDate.Value.Day == day)
@@ -233,8 +236,8 @@ internal sealed class AnniversaryEmailService(
                     d.Name.MiddleName,
                     d.LifePeriod.BirthDate,
                     d.LifePeriod.DeathDate,
-                    t.NotifyOnDeathAnniversary,
-                    t.NotifyOnBirthAnniversary))
+                    t.DeathAnniversaryLeadDaysCsv,
+                    t.BirthAnniversaryLeadDaysCsv))
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
@@ -246,10 +249,12 @@ internal sealed class AnniversaryEmailService(
     }
 
     /// <summary>
-    /// Раскрывает кандидатов в конкретные уведомления: по каждому решает,
-    /// стреляет ли сегодня годовщина смерти и/или рождения (через
-    /// <see cref="AnniversaryOccurrence"/> — она же считает число лет и
-    /// обрабатывает 29 февраля).
+    /// F42. Раскрывает кандидатов в конкретные уведомления: по каждому и по
+    /// каждому упреждению (в день / за день / за 3 / за неделю) решает,
+    /// стреляет ли сегодня напоминание о годовщине смерти и/или рождения
+    /// (через <see cref="AnniversaryOccurrence"/> — она же считает число лет
+    /// и обрабатывает 29 февраля). Для одной годовщины совпасть может только
+    /// одно упреждение (даты упреждений различны), поэтому берём первое.
     /// </summary>
     private static List<DueNotification> BuildDueNotifications(
         IEnumerable<Candidate> candidates,
@@ -263,21 +268,21 @@ internal sealed class AnniversaryEmailService(
             if (string.IsNullOrWhiteSpace(c.Email))
                 continue;
 
-            if (c.NotifyOnDeath
-                && AnniversaryOccurrence.TryGet(c.DeathDate, todayLocal, out var deathYears))
+            if (TryFindDueLead(ParseLeadDays(c.DeathLeadDaysCsv), c.DeathDate, todayLocal,
+                    out var deathDaysUntil, out var deathYears))
             {
                 due.Add(new DueNotification(
                     c.UserId, c.Email, c.UserName, c.DeceasedId,
-                    fullName, AnniversaryKind.Death, deathYears));
+                    fullName, AnniversaryKind.Death, deathYears, deathDaysUntil));
             }
 
-            if (c.NotifyOnBirth
-                && c.BirthDate.HasValue
-                && AnniversaryOccurrence.TryGet(c.BirthDate.Value, todayLocal, out var birthYears))
+            if (c.BirthDate.HasValue
+                && TryFindDueLead(ParseLeadDays(c.BirthLeadDaysCsv), c.BirthDate.Value, todayLocal,
+                    out var birthDaysUntil, out var birthYears))
             {
                 due.Add(new DueNotification(
                     c.UserId, c.Email, c.UserName, c.DeceasedId,
-                    fullName, AnniversaryKind.Birth, birthYears));
+                    fullName, AnniversaryKind.Birth, birthYears, birthDaysUntil));
             }
         }
 
@@ -285,18 +290,64 @@ internal sealed class AnniversaryEmailService(
     }
 
     /// <summary>
-    /// (month, day)-пары для SQL-префильтра: сегодняшняя дата плюс — если
-    /// сегодня 28 февраля невисокосного года — 29 февраля (его годовщину
-    /// в такой год отмечаем 28-го).
+    /// Ищет упреждение из набора, для которого сегодня + упреждение = день
+    /// годовщины <paramref name="eventDate"/>. Возвращает первое совпавшее.
+    /// </summary>
+    private static bool TryFindDueLead(
+        IReadOnlyList<int> leadDays,
+        DateOnly eventDate,
+        DateOnly todayLocal,
+        out int daysUntil,
+        out int yearsSince)
+    {
+        foreach (var lead in leadDays)
+        {
+            if (AnniversaryOccurrence.TryGet(eventDate, todayLocal.AddDays(lead), out var years))
+            {
+                daysUntil = lead;
+                yearsSince = years;
+                return true;
+            }
+        }
+
+        daysUntil = 0;
+        yearsSince = 0;
+        return false;
+    }
+
+    private static IReadOnlyList<int> ParseLeadDays(string csv)
+    {
+        if (string.IsNullOrWhiteSpace(csv))
+            return Array.Empty<int>();
+
+        return csv
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(p => int.TryParse(p, out var v) ? v : -1)
+            .Where(TrackedDeceased.AllowedLeadDays.Contains)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// (month, day)-пары для SQL-префильтра: сегодня и все дни, до которых
+    /// может стрелять упреждение (сегодня + 1/3/7), с поправкой на 29 февраля
+    /// (его годовщину в невисокосный год отмечаем 28-го).
     /// </summary>
     private static List<(int Month, int Day)> BuildTargetDayKeys(DateOnly todayLocal)
     {
-        var targets = new List<(int, int)> { (todayLocal.Month, todayLocal.Day) };
+        var targets = new HashSet<(int, int)>();
 
-        if (todayLocal is { Month: 2, Day: 28 } && !DateTime.IsLeapYear(todayLocal.Year))
-            targets.Add((2, 29));
+        foreach (var lead in TrackedDeceased.AllowedLeadDays)
+        {
+            var target = todayLocal.AddDays(lead);
+            targets.Add((target.Month, target.Day));
 
-        return targets;
+            if (target is { Month: 2, Day: 28 } && !DateTime.IsLeapYear(target.Year))
+                targets.Add((2, 29));
+        }
+
+        return targets.ToList();
     }
 
     private static string BuildFullName(string firstName, string lastName, string? middleName)
@@ -355,8 +406,8 @@ internal sealed class AnniversaryEmailService(
         string? MiddleName,
         DateOnly? BirthDate,
         DateOnly DeathDate,
-        bool NotifyOnDeath,
-        bool NotifyOnBirth);
+        string DeathLeadDaysCsv,
+        string BirthLeadDaysCsv);
 
     private sealed record DueNotification(
         Guid UserId,
@@ -365,5 +416,6 @@ internal sealed class AnniversaryEmailService(
         Guid DeceasedId,
         string DeceasedFullName,
         AnniversaryKind Kind,
-        int YearsSince);
+        int YearsSince,
+        int DaysUntil);
 }

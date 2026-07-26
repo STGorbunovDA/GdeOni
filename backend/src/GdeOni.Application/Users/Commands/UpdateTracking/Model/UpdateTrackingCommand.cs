@@ -6,6 +6,6 @@ public record UpdateTrackingCommand(
     Guid DeceasedId,
     RelationshipType RelationshipType,
     string? PersonalNotes,
-    bool NotifyOnDeathAnniversary,
-    bool NotifyOnBirthAnniversary,
+    IReadOnlyList<int> DeathAnniversaryLeadDays,
+    IReadOnlyList<int> BirthAnniversaryLeadDays,
     TrackStatus TrackStatus);

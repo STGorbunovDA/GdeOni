@@ -31,6 +31,16 @@ public sealed class MyTrackedDeceasedListItemResponse
     public string Status { get; init; } = null!;
     public bool NotifyOnDeathAnniversary { get; init; }
     public bool NotifyOnBirthAnniversary { get; init; }
+
+    /// <summary>
+    /// F42. Набор «за сколько дней» напоминать о годовщине смерти (0/1/3/7).
+    /// Пустой = выключено. NotifyOnDeathAnniversary = набор не пуст.
+    /// </summary>
+    public IReadOnlyList<int> DeathAnniversaryLeadDays { get; init; } = Array.Empty<int>();
+
+    /// <summary>F42. Набор «за сколько дней» напоминать о годовщине рождения.</summary>
+    public IReadOnlyList<int> BirthAnniversaryLeadDays { get; init; } = Array.Empty<int>();
+
     public DateTime TrackedAtUtc { get; init; }
 
     /// <summary>

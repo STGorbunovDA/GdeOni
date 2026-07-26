@@ -642,17 +642,21 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("BirthAnniversaryLeadDaysCsv")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("birth_anniversary_lead_days");
+
+                    b.Property<string>("DeathAnniversaryLeadDaysCsv")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("death_anniversary_lead_days");
+
                     b.Property<Guid>("DeceasedId")
                         .HasColumnType("uuid")
                         .HasColumnName("deceased_id");
-
-                    b.Property<bool>("NotifyOnBirthAnniversary")
-                        .HasColumnType("boolean")
-                        .HasColumnName("notify_on_birth_anniversary");
-
-                    b.Property<bool>("NotifyOnDeathAnniversary")
-                        .HasColumnType("boolean")
-                        .HasColumnName("notify_on_death_anniversary");
 
                     b.Property<string>("PersonalNotes")
                         .HasMaxLength(2000)

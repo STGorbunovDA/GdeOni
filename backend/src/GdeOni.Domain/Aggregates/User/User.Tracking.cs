@@ -80,8 +80,8 @@ public sealed partial class User
         Guid deceasedId,
         RelationshipType relationshipType,
         string? personalNotes,
-        bool notifyOnDeathAnniversary,
-        bool notifyOnBirthAnniversary)
+        IReadOnlyList<int> deathAnniversaryLeadDays,
+        IReadOnlyList<int> birthAnniversaryLeadDays)
     {
         var tracked = _trackedDeceasedItems.FirstOrDefault(x => x.DeceasedId == deceasedId);
         if (tracked is null)
@@ -91,9 +91,9 @@ public sealed partial class User
         if (relationResult.IsFailure)
             return relationResult.Error;
 
-        var notificationsResult = tracked.ChangeNotifications(
-            notifyOnDeathAnniversary,
-            notifyOnBirthAnniversary);
+        var notificationsResult = tracked.SetAnniversaryReminders(
+            deathAnniversaryLeadDays,
+            birthAnniversaryLeadDays);
 
         if (notificationsResult.IsFailure)
             return notificationsResult;

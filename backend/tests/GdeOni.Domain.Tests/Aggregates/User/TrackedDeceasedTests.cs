@@ -193,6 +193,96 @@ public sealed class TrackedDeceasedTests
         tracking.HasNotificationsEnabled().Should().BeFalse();
     }
 
+    /// <summary>
+    /// F42. Create с булевым флагом notifyDeath=true маппит его в набор
+    /// «в день» (0). Флаг обратной совместимости считается из набора.
+    /// </summary>
+    [Fact]
+    public void Create_NotifyDeathTrue_MapsToLeadDayZero()
+    {
+        var tracking = TrackedDeceased.Create(
+            SampleDeceasedId,
+            RelationshipType.Friend,
+            notifyOnDeathAnniversary: true).Value;
+
+        tracking.DeathAnniversaryLeadDays.Should().Equal(0);
+        tracking.BirthAnniversaryLeadDays.Should().BeEmpty();
+        tracking.NotifyOnDeathAnniversary.Should().BeTrue();
+        tracking.NotifyOnBirthAnniversary.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// F42. SetAnniversaryReminders задаёт наборы дней; вычисляемые булевы
+    /// флаги отражают непустоту набора.
+    /// </summary>
+    [Fact]
+    public void SetAnniversaryReminders_SetsLeadDaysAndComputedFlags()
+    {
+        var tracking = CreateActiveTracking();
+
+        var result = tracking.SetAnniversaryReminders(
+            deathLeadDays: new[] { 0, 7 },
+            birthLeadDays: Array.Empty<int>());
+
+        result.IsSuccess.Should().BeTrue();
+        tracking.DeathAnniversaryLeadDays.Should().Equal(0, 7);
+        tracking.BirthAnniversaryLeadDays.Should().BeEmpty();
+        tracking.NotifyOnDeathAnniversary.Should().BeTrue();
+        tracking.NotifyOnBirthAnniversary.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// F42. Набор нормализуется: недопустимые значения отбрасываются, дубли
+    /// убираются, порядок сортируется по возрастанию.
+    /// </summary>
+    [Fact]
+    public void SetAnniversaryReminders_NormalizesInput()
+    {
+        var tracking = CreateActiveTracking();
+
+        tracking.SetAnniversaryReminders(
+            deathLeadDays: new[] { 7, 0, 7, 5, 3 }, // 5 недопустимо, 7 дубль
+            birthLeadDays: Array.Empty<int>());
+
+        tracking.DeathAnniversaryLeadDays.Should().Equal(0, 3, 7);
+    }
+
+    /// <summary>
+    /// F42. Совместимость: ChangeNotifications(true) НЕ затирает уже
+    /// выбранные на вебе дни (за неделю), а сохраняет их.
+    /// </summary>
+    [Fact]
+    public void ChangeNotifications_TruePreservesExistingLeadDays()
+    {
+        var tracking = CreateActiveTracking();
+        tracking.SetAnniversaryReminders(new[] { 0, 7 }, Array.Empty<int>());
+
+        tracking.ChangeNotifications(
+            notifyOnDeathAnniversary: true,
+            notifyOnBirthAnniversary: false);
+
+        tracking.DeathAnniversaryLeadDays.Should().Equal(0, 7);
+    }
+
+    /// <summary>
+    /// F42. Совместимость: ChangeNotifications(true) при пустом наборе
+    /// ставит «в день» (0); false — очищает.
+    /// </summary>
+    [Fact]
+    public void ChangeNotifications_TrueFromEmptyDefaultsToLeadDayZero()
+    {
+        var tracking = CreateActiveTracking();
+
+        tracking.ChangeNotifications(true, true);
+        tracking.DeathAnniversaryLeadDays.Should().Equal(0);
+        tracking.BirthAnniversaryLeadDays.Should().Equal(0);
+
+        tracking.ChangeNotifications(false, false);
+        tracking.DeathAnniversaryLeadDays.Should().BeEmpty();
+        tracking.BirthAnniversaryLeadDays.Should().BeEmpty();
+        tracking.HasNotificationsEnabled().Should().BeFalse();
+    }
+
     private static TrackedDeceased CreateActiveTracking() =>
         TrackedDeceased.Create(SampleDeceasedId, RelationshipType.Friend).Value;
 }

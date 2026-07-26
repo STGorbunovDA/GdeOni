@@ -52,9 +52,22 @@ public static class TrackedDeceasedMapping
             deceasedId,
             request.RelationshipType,
             request.PersonalNotes,
-            request.NotifyOnDeathAnniversary,
-            request.NotifyOnBirthAnniversary,
+            ResolveLeadDays(request.DeathAnniversaryLeadDays, request.NotifyOnDeathAnniversary),
+            ResolveLeadDays(request.BirthAnniversaryLeadDays, request.NotifyOnBirthAnniversary),
             request.TrackStatus);
+    }
+
+    /// <summary>
+    /// F42. Набор дней напоминания: если новый клиент прислал список — берём
+    /// его; иначе (старый клиент) выводим из булева флага: true → «в день» (0),
+    /// false → выключено.
+    /// </summary>
+    private static IReadOnlyList<int> ResolveLeadDays(IReadOnlyList<int>? leadDays, bool legacyFlag)
+    {
+        if (leadDays is not null)
+            return leadDays;
+
+        return legacyFlag ? new[] { 0 } : Array.Empty<int>();
     }
 
     /// <summary>Возвращает команду удаления карточки из персонального отслеживания.</summary>
