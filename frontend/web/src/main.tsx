@@ -17,6 +17,9 @@ import { queryClient } from './api/queryClient';
 import { theme } from './design/theme';
 import { SessionBootstrap } from './auth/SessionBootstrap';
 import { VersionGate } from './components/version/VersionGate';
+// PWA: перехват beforeinstallprompt должен встать ДО первого рендера,
+// иначе браузерное событие можно пропустить (импорт ради side-effect).
+import './pwa/installPrompt';
 import './styles.css';
 
 /**
@@ -56,3 +59,12 @@ createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </StrictMode>,
 );
+
+// PWA: регистрируем service worker только в проде (в dev он мешал бы HMR
+// Vite). Нужен, чтобы браузер считал сайт устанавливаемым; ошибки
+// регистрации некритичны — сайт работает и без установки.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}

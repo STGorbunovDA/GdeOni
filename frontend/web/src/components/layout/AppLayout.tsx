@@ -29,6 +29,7 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 import { OutdatedLegalModal } from '../legal/OutdatedLegalModal';
 import { AnniversaryModal } from '../events/AnniversaryModal';
 import { HolidayReminderPopup } from '../events/HolidayReminderPopup';
+import { InstallPwaBanner } from '../pwa/InstallPwaBanner';
 import { NavItem } from './NavItem';
 
 /**
@@ -191,6 +192,9 @@ export function AppLayout() {
       {/* F42. Попап «сегодня/скоро праздник» — один показ в сутки по
           крупным праздникам и включённым напоминаниям. */}
       <HolidayReminderPopup />
+
+      {/* PWA: подсказка «установить приложение на главный экран». */}
+      <InstallPwaBanner />
     </AppShell>
   );
 }
