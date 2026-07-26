@@ -810,10 +810,6 @@ namespace GdeOni.Infrastructure.Migrations
                     b.HasIndex("Role")
                         .HasDatabaseName("ix_users_role");
 
-                    b.HasIndex("UserNameNormalized")
-                        .IsUnique()
-                        .HasDatabaseName("ux_users_user_name");
-
                     b.ToTable("users", (string)null);
                 });
 

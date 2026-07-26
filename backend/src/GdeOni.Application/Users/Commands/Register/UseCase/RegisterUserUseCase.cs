@@ -38,14 +38,10 @@ public sealed class RegisterUserUseCase(
         if (emailExists)
             return Errors.User.EmailAlreadyExists();
 
-        // Единый источник истины для normalized-формы — Domain.User
-        // (D11.8.3): иначе при изменении правил нормализации Application
-        // и Domain могут разойтись.
-        var effectiveUserName = User.ComputeNormalizedUserName(command.UserName, command.Email);
-
-        var userNameExists = await userRepository.ExistsByUserName(effectiveUserName, cancellationToken);
-        if (userNameExists)
-            return Errors.User.UserNameAlreadyExists();
+        // Имя пользователя (UserName) намеренно НЕ уникально: по бизнес-логике
+        // тёзки допустимы — это отображаемое имя, а не логин (вход по email).
+        // Проверка уникальности и уникальный индекс убраны (миграция
+        // RemoveUserNameUniqueIndex, 2026-07-26).
 
         var passwordHash = passwordHasher.Hash(command.Password);
 

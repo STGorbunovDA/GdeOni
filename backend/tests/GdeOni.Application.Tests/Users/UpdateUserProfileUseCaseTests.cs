@@ -122,31 +122,9 @@ public sealed class UpdateUserProfileUseCaseTests
         result.Error.Code.Should().Be("user.forbidden");
     }
 
-    /// <summary>
-    /// userName уже занят другим юзером (нормализованный != нынешнего) →
-    /// UserNameAlreadyExists.
-    /// </summary>
-    [Fact]
-    public async Task Execute_UserNameAlreadyTakenByAnother_ReturnsConflict()
-    {
-        var user = User.Register("alice@example.com", "hash", userName: "alice").Value;
-
-        var (userRepo, currentUser, invalidator, useCase) = BuildHarness();
-        currentUser.Setup(x => x.GetCurrentUserId())
-            .Returns(Result.Success<Guid, Error>(user.Id));
-        currentUser.Setup(x => x.IsAdmin()).Returns(false);
-        userRepo.Setup(x => x.GetById(user.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-        userRepo.Setup(x => x.ExistsByUserName("bob", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        var result = await useCase.Execute(
-            new UpdateUserProfileCommand(user.Id, "bob", null),
-            CancellationToken.None);
-
-        result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be("user.user_name.already.exists");
-    }
+    // Тест «userName занят другим» удалён: имя пользователя больше НЕ
+    // уникально (тёзки допустимы, вход по email) — проверка снята из
+    // UpdateUserProfileUseCase вместе с индексом (2026-07-26).
 
     private static (
         Mock<IUserRepository> UserRepo,

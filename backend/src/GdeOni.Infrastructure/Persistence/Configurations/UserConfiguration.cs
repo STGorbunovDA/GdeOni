@@ -218,9 +218,9 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsUnique()
             .HasDatabaseName(DbConstraints.UxUsersEmail);
 
-        builder.HasIndex(x => x.UserNameNormalized)
-            .IsUnique()
-            .HasDatabaseName(DbConstraints.UxUsersName);
+        // UserName НЕ уникален (тёзки допустимы, вход по email) — уникальный
+        // индекс ux_users_user_name снят миграцией RemoveUserNameUniqueIndex
+        // (2026-07-26). Колонка user_name_normalized оставлена как есть.
 
         // GetAllUsersUseCase фильтрует WHERE role = ... и сортирует
         // ORDER BY registered_at_utc DESC; без индексов sequential scan

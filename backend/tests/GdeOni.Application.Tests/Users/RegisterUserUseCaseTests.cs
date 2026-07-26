@@ -38,26 +38,9 @@ public sealed class RegisterUserUseCaseTests
         userRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [Fact]
-    public async Task Execute_DuplicateUserName_ReturnsUserNameAlreadyExists()
-    {
-        var (userRepo, _, useCase) = BuildHarness();
-        userRepo
-            .Setup(x => x.ExistsByEmail(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-        userRepo
-            .Setup(x => x.ExistsByUserName("alice", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        var result = await useCase.Execute(
-            new RegisterUserCommand(
-                "alice@example.com", "alice", null, "Password123!",
-                AdultBirthDate, true, true),
-            CancellationToken.None);
-
-        result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be("user.user_name.already.exists");
-    }
+    // Тест на дубль UserName удалён: имя пользователя больше НЕ уникально
+    // (тёзки допустимы, вход по email) — проверка уникальности снята
+    // из RegisterUserUseCase вместе с индексом (2026-07-26).
 
     [Fact]
     public async Task Execute_HappyPath_AddsUserAndSaves()

@@ -52,12 +52,9 @@ public sealed class UpdateUserProfileUseCase(
                 return Errors.User.CurrentPasswordInvalid();
         }
 
-        // Сравнение в нормализованной форме: "JohnDoe" → "johndoe" — это
-        // тот же логин, конфликта быть не должно.
-        var normalizedNewUserName = command.UserName.Trim().ToLowerInvariant();
-        var userNameExists = await userRepository.ExistsByUserName(command.UserName, cancellationToken);
-        if (userNameExists && user.UserNameNormalized != normalizedNewUserName)
-            return Errors.User.UserNameAlreadyExists();
+        // Имя пользователя (UserName) не уникально — тёзки допустимы (это
+        // отображаемое имя, вход по email). Проверка уникальности убрана
+        // вместе с уникальным индексом (миграция RemoveUserNameUniqueIndex).
 
         // Снимаем SecurityStamp до вызова мутации — если домен сделает
         // no-op (D11.8.2), stamp не изменится и invalidate можно
