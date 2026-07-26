@@ -68,20 +68,20 @@ public static class HolidayCalculator
 
     private static void AddFixedOrthodox(List<Holiday> list, int year)
     {
-        void Add(int month, int day, string name) =>
-            list.Add(new Holiday(new DateOnly(year, month, day), name, HolidayCategory.Orthodox));
+        void Add(int month, int day, string name, bool isMajor = false) =>
+            list.Add(new Holiday(new DateOnly(year, month, day), name, HolidayCategory.Orthodox, isMajor));
 
         // Двунадесятые непереходящие (девять; ещё три — переходящие,
-        // см. AddMovableOrthodox).
-        Add(1, 7, "Рождество Христово");
-        Add(1, 19, "Крещение Господне (Богоявление)");
-        Add(2, 15, "Сретение Господне");
-        Add(4, 7, "Благовещение Пресвятой Богородицы");
-        Add(8, 19, "Преображение Господне (Яблочный Спас)");
-        Add(8, 28, "Успение Пресвятой Богородицы");
-        Add(9, 21, "Рождество Пресвятой Богородицы");
-        Add(9, 27, "Воздвижение Креста Господня");
-        Add(12, 4, "Введение во храм Пресвятой Богородицы");
+        // см. AddMovableOrthodox). Все — крупные (isMajor: true).
+        Add(1, 7, "Рождество Христово", isMajor: true);
+        Add(1, 19, "Крещение Господне (Богоявление)", isMajor: true);
+        Add(2, 15, "Сретение Господне", isMajor: true);
+        Add(4, 7, "Благовещение Пресвятой Богородицы", isMajor: true);
+        Add(8, 19, "Преображение Господне (Яблочный Спас)", isMajor: true);
+        Add(8, 28, "Успение Пресвятой Богородицы", isMajor: true);
+        Add(9, 21, "Рождество Пресвятой Богородицы", isMajor: true);
+        Add(9, 27, "Воздвижение Креста Господня", isMajor: true);
+        Add(12, 4, "Введение во храм Пресвятой Богородицы", isMajor: true);
 
         // Великие НЕдвунадесятые. Изначально их не было — из-за чего
         // 12 июля (Петров день) не показывался, хотя это один из самых
@@ -120,19 +120,20 @@ public static class HolidayCalculator
     {
         var easter = OrthodoxEaster(year);
 
-        void Add(int offsetDays, string name) =>
-            list.Add(new Holiday(easter.AddDays(offsetDays), name, HolidayCategory.Orthodox));
+        void Add(int offsetDays, string name, bool isMajor = false) =>
+            list.Add(new Holiday(easter.AddDays(offsetDays), name, HolidayCategory.Orthodox, isMajor));
 
         Add(-55, "Начало Масленицы (Сырная седмица)");
         Add(-49, "Прощёное воскресенье");
         Add(-42, "Торжество Православия");
-        Add(-7, "Вход Господень в Иерусалим (Вербное воскресенье)");
+        // Переходящие двунадесятые + Пасха — крупные.
+        Add(-7, "Вход Господень в Иерусалим (Вербное воскресенье)", isMajor: true);
         Add(-3, "Великий четверг");
         Add(-2, "Великая пятница");
         Add(-1, "Великая суббота");
-        Add(0, "Пасха (Светлое Христово Воскресение)");
-        Add(39, "Вознесение Господне");
-        Add(49, "Троица (Пятидесятница)");
+        Add(0, "Пасха (Светлое Христово Воскресение)", isMajor: true);
+        Add(39, "Вознесение Господне", isMajor: true);
+        Add(49, "Троица (Пятидесятница)", isMajor: true);
         Add(50, "День Святого Духа (Духов день)");
         Add(56, "Неделя всех святых");
     }
@@ -151,8 +152,9 @@ public static class HolidayCalculator
     {
         var easter = OrthodoxEaster(year);
 
+        // Посты — все крупные.
         void Add(DateOnly date, string name) =>
-            list.Add(new Holiday(date, name, HolidayCategory.Fast));
+            list.Add(new Holiday(date, name, HolidayCategory.Fast, IsMajor: true));
 
         Add(new DateOnly(year, 1, 6), "Рождественский сочельник (строгий пост)");
         Add(new DateOnly(year, 1, 18), "Крещенский сочельник (строгий пост)");
@@ -166,8 +168,9 @@ public static class HolidayCalculator
     {
         var easter = OrthodoxEaster(year);
 
+        // Поминальные/родительские дни — все крупные.
         void Add(DateOnly date, string name) =>
-            list.Add(new Holiday(date, name, HolidayCategory.Memorial));
+            list.Add(new Holiday(date, name, HolidayCategory.Memorial, IsMajor: true));
 
         // Подвижные, считаются смещением от Пасхи (все — субботы, кроме
         // Радоницы-вторника).
@@ -196,8 +199,9 @@ public static class HolidayCalculator
 
     private static void AddState(List<Holiday> list, int year)
     {
+        // Государственные праздники РФ — все крупные.
         void Add(int month, int day, string name) =>
-            list.Add(new Holiday(new DateOnly(year, month, day), name, HolidayCategory.State));
+            list.Add(new Holiday(new DateOnly(year, month, day), name, HolidayCategory.State, IsMajor: true));
 
         Add(1, 1, "Новый год");
         Add(2, 23, "День защитника Отечества");
@@ -221,8 +225,9 @@ public static class HolidayCalculator
             TryAddMuslim(list, calendar, hijriYear, 3, 12, "Мавлид ан-Наби", year);
             TryAddMuslim(list, calendar, hijriYear, 9, 1, "Начало Рамадана", year);
             TryAddMuslim(list, calendar, hijriYear, 9, 27, "Ляйлятуль-Кадр (Ночь предопределения)", year);
-            TryAddMuslim(list, calendar, hijriYear, 10, 1, "Ураза-байрам (Ид аль-Фитр)", year);
-            TryAddMuslim(list, calendar, hijriYear, 12, 10, "Курбан-байрам (Ид аль-Адха)", year);
+            // Крупные — два больших праздника разговения и жертвоприношения.
+            TryAddMuslim(list, calendar, hijriYear, 10, 1, "Ураза-байрам (Ид аль-Фитр)", year, isMajor: true);
+            TryAddMuslim(list, calendar, hijriYear, 12, 10, "Курбан-байрам (Ид аль-Адха)", year, isMajor: true);
         }
     }
 
@@ -233,7 +238,8 @@ public static class HolidayCalculator
         int hijriMonth,
         int hijriDay,
         string name,
-        int targetGregorianYear)
+        int targetGregorianYear,
+        bool isMajor = false)
     {
         DateTime dateTime;
         try
@@ -249,7 +255,7 @@ public static class HolidayCalculator
         if (dateTime.Year != targetGregorianYear)
             return;
 
-        list.Add(new Holiday(DateOnly.FromDateTime(dateTime), name, HolidayCategory.Muslim));
+        list.Add(new Holiday(DateOnly.FromDateTime(dateTime), name, HolidayCategory.Muslim, isMajor));
     }
 
     /// <summary>Ближайшая суббота на указанную дату или раньше.</summary>

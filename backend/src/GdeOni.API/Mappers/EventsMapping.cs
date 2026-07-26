@@ -1,10 +1,11 @@
 using GdeOni.API.Models.Events;
+using GdeOni.Application.Events.Commands.SetHolidayReminder.Model;
 using GdeOni.Application.Events.Queries.GetHolidays.Model;
 
 namespace GdeOni.API.Mappers;
 
 /// <summary>
-/// Маппинг request-DTO событий → Application-query. Дефолты диапазона
+/// Маппинг request-DTO событий → Application-query/command. Дефолты диапазона
 /// проставляются здесь (presentation-слой), домен о них не знает.
 /// </summary>
 public static class EventsMapping
@@ -18,4 +19,7 @@ public static class EventsMapping
         var to = request.To ?? from.AddDays(DefaultRangeDays);
         return new GetHolidaysQuery(from, to);
     }
+
+    public static SetHolidayReminderCommand ToCommand(this SetHolidayReminderRequest request) =>
+        new(request.HolidayKey ?? string.Empty, request.LeadDays ?? Array.Empty<int>());
 }

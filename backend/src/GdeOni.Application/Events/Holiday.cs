@@ -4,5 +4,15 @@ namespace GdeOni.Application.Events;
 /// Одна памятная дата: когда, название, категория. Чистая модель без
 /// привязки к транспорту — используется калькулятором и разворачивается
 /// в DTO на уровне use case.
+///
+/// <see cref="IsMajor"/> — «крупный» праздник (двунадесятые + Пасха,
+/// родительские/поминальные, посты, государственные, крупные мусульманские).
+/// По нему клиент ставит дефолтную галку напоминания «в день» и решает,
+/// показывать ли попап «сегодня праздник». Мелкие праздники редактируемы
+/// так же, но по умолчанию напоминание выключено.
 /// </summary>
-public sealed record Holiday(DateOnly Date, string Name, HolidayCategory Category);
+public sealed record Holiday(
+    DateOnly Date,
+    string Name,
+    HolidayCategory Category,
+    bool IsMajor = false);

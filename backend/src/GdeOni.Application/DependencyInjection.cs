@@ -51,6 +51,8 @@ using GdeOni.Application.Legal.Commands.AcceptLegal.UseCase;
 using GdeOni.Application.Legal.Queries.GetLegalDocument.UseCase;
 using GdeOni.Application.Admin.Queries.GetAdminStats.UseCase;
 using GdeOni.Application.Events.Queries.GetHolidays.UseCase;
+using GdeOni.Application.Events.Queries.GetMyHolidayReminders.UseCase;
+using GdeOni.Application.Events.Commands.SetHolidayReminder.UseCase;
 using GdeOni.Application.Geo.Queries.ReverseGeocode.UseCase;
 using GdeOni.Application.Routing.Queries.GetRouteToGrave.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
@@ -184,6 +186,9 @@ public static class DependencyInjection
 
         // События: справочник праздников (вычисляемый, без БД).
         services.AddScoped<IGetHolidaysUseCase, GetHolidaysUseCase>();
+        // Персональные напоминания о праздниках (настройки за юзером).
+        services.AddScoped<IGetMyHolidayRemindersUseCase, GetMyHolidayRemindersUseCase>();
+        services.AddScoped<ISetHolidayReminderUseCase, SetHolidayReminderUseCase>();
 
         // F38. Справка по системе для админа (счётчики).
         services.AddScoped<IGetAdminStatsUseCase, GetAdminStatsUseCase>();

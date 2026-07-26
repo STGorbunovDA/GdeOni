@@ -69,6 +69,8 @@ public static class DependencyInjection
         services.AddScoped<ISubscriptionPaymentRepository, SubscriptionPaymentRepository>();
         // D25. Обращения в службу поддержки (manual + auto-инциденты).
         services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
+        // Персональные настройки напоминаний о праздниках.
+        services.AddScoped<IHolidayReminderRepository, HolidayReminderRepository>();
 
         // F38. Read-model админской справки: только COUNT/SUM, без сущностей.
         services.AddScoped<IAdminStatsRepository, AdminStatsRepository>();

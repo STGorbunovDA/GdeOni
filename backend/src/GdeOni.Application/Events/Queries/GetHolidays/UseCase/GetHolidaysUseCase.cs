@@ -25,7 +25,7 @@ public sealed class GetHolidaysUseCase(IValidatedUseCaseExecutor validatedUseCas
         CancellationToken cancellationToken)
     {
         var holidays = HolidayCalculator.GetHolidays(query.From, query.To)
-            .Select(h => new HolidayDto(h.Date, h.Name, h.Category.ToString()))
+            .Select(h => new HolidayDto(h.Date, h.Name, h.Category.ToString(), h.IsMajor))
             .ToList();
 
         return Task.FromResult(

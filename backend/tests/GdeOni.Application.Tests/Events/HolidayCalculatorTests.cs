@@ -178,4 +178,48 @@ public sealed class HolidayCalculatorTests
         HolidayCalculator.GetHolidays(new DateOnly(2026, 5, 1), new DateOnly(2026, 4, 1))
             .Should().BeEmpty();
     }
+
+    /// <summary>
+    /// Крупные праздники помечены IsMajor=true: двунадесятые + Пасха,
+    /// родительские/поминальные, посты, государственные, крупные
+    /// мусульманские. По этому флагу клиент ставит дефолтную галку
+    /// напоминания «в день» и решает, показывать ли попап.
+    /// </summary>
+    [Theory]
+    [InlineData("Пасха (Светлое Христово Воскресение)")]
+    [InlineData("Рождество Христово")]
+    [InlineData("Троица (Пятидесятница)")]
+    [InlineData("Вход Господень в Иерусалим (Вербное воскресенье)")]
+    [InlineData("Радоница")]
+    [InlineData("Троицкая родительская суббота")]
+    [InlineData("Начало Великого поста")]
+    [InlineData("День Победы")]
+    [InlineData("Ураза-байрам (Ид аль-Фитр)")]
+    public void GetHolidays_MajorHolidays_AreMarkedMajor(string name)
+    {
+        var holidays = HolidayCalculator.GetHolidays(
+            new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        holidays.Where(h => h.Name == name)
+            .Should().OnlyContain(h => h.IsMajor);
+    }
+
+    /// <summary>
+    /// Мелкие праздники (обычные святые, некрупные мусульманские) —
+    /// IsMajor=false: редактируемы так же, но по умолчанию напоминание
+    /// выключено и попап по ним не показывается.
+    /// </summary>
+    [Theory]
+    [InlineData("Пророк Илия (Ильин день)")]
+    [InlineData("Медовый Спас. Изнесение Древ Креста Господня")]
+    [InlineData("Прощёное воскресенье")]
+    [InlineData("Ашура")]
+    public void GetHolidays_MinorHolidays_AreNotMajor(string name)
+    {
+        var holidays = HolidayCalculator.GetHolidays(
+            new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        holidays.Where(h => h.Name == name)
+            .Should().OnlyContain(h => !h.IsMajor);
+    }
 }

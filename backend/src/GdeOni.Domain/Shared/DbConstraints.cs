@@ -12,4 +12,7 @@ public static class DbConstraints
     // D37. Дедуп-ключ разосланных писем о годовщинах: одно письмо на
     // (пользователь, умерший, тип годовщины, дата годовщины).
     public const string UxSentAnniversaryEmails = "ux_sent_anniversary_emails_user_deceased_kind_date";
+
+    // Одна настройка напоминания на пару (пользователь, праздник по ключу-имени).
+    public const string UxHolidayRemindersUserKey = "ux_holiday_reminders_user_id_holiday_key";
 }

@@ -308,6 +308,42 @@ namespace GdeOni.Infrastructure.Migrations
                     b.ToTable("deceased_memory_entries", (string)null);
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Events.HolidayReminder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("HolidayKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("holiday_key");
+
+                    b.Property<string>("LeadDaysCsv")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("lead_days");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_holiday_reminders");
+
+                    b.HasIndex("UserId", "HolidayKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_holiday_reminders_user_id_holiday_key");
+
+                    b.ToTable("holiday_reminders", (string)null);
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Subscriptions.SubscriptionPayment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1090,6 +1126,16 @@ namespace GdeOni.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_deceased_memory_entries_deceased_records_deceased_id");
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Events.HolidayReminder", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_holiday_reminders_users_user_id");
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicket", b =>
