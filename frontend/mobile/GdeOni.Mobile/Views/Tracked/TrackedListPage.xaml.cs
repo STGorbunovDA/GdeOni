@@ -22,5 +22,7 @@ public partial class TrackedListPage : ContentPage
         // E22. Если вышла новая версия — показать диалог обновления поверх
         // экрана (один раз за запуск).
         await _viewModel.MaybePromptUpdateAsync();
+        // F42. Попап «сегодня праздник» — один раз в день при заходе.
+        await _viewModel.MaybeShowHolidayPopupAsync();
     }
 }

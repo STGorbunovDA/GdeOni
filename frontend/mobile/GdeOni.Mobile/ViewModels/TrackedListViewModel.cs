@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GdeOni.Mobile.Services.Api;
@@ -12,8 +13,12 @@ namespace GdeOni.Mobile.ViewModels;
 public partial class TrackedListViewModel(
     ITrackedDeceasedApi api,
     IPublicHostsService publicHosts,
-    IAppUpdateState appUpdateState) : ObservableObject
+    IAppUpdateState appUpdateState,
+    IEventsApi eventsApi) : ObservableObject
 {
+    // F42. Попап «сегодня праздник» показываем один раз в день.
+    private const string HolidayPopupShownKey = "gdeoni-holiday-popup-shown";
+
     [ObservableProperty]
     private string _title = "Поиск";
 
@@ -56,6 +61,40 @@ public partial class TrackedListViewModel(
         {
             // Невалидный URL — показывать ошибку негде; юзер увидит, что
             // браузер не открылся, и попробует снова.
+        }
+    }
+
+    /// <summary>
+    /// F42. Если сегодня крупный праздник — один раз в день показать попап
+    /// «Сегодня праздник: …». Зовётся из OnAppearing главной (при заходе).
+    /// Best-effort: ошибки/сеть глушим. Эндпоинт праздников не за paywall'ом.
+    /// </summary>
+    public async Task MaybeShowHolidayPopupAsync()
+    {
+        try
+        {
+            var todayIso = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            // Проверяем ДО запроса — если уже показывали сегодня, сеть не дёргаем.
+            if (Preferences.Get(HolidayPopupShownKey, string.Empty) == todayIso)
+                return;
+
+            var envelope = await eventsApi.GetHolidaysAsync(todayIso, todayIso);
+            var major = (envelope.Result?.Holidays ?? Array.Empty<HolidayDto>())
+                .Where(h => h.IsMajor)
+                .Select(h => h.Name)
+                .ToList();
+            if (major.Count == 0)
+                return;
+
+            // Помечаем показанным до самого показа — чтобы не всплыл повторно.
+            Preferences.Set(HolidayPopupShownKey, todayIso);
+
+            var body = string.Join(Environment.NewLine, major.Select(n => "• " + n));
+            await Shell.Current.DisplayAlert("Сегодня праздник", body, "ОК");
+        }
+        catch
+        {
+            // Попап не критичен — молча пропускаем при любой ошибке.
         }
     }
 

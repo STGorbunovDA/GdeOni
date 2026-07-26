@@ -99,15 +99,10 @@
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
 
-                <!-- Праздники сегодня -->
+                <!-- Праздники сегодня — секция видна только когда они есть -->
                 <Label Text="Праздники сегодня"
-                       Style="{StaticResource SubTitleLabel}" />
-
-                <Border IsVisible="{Binding HasNoTodayHolidays}"
-                        Style="{StaticResource CloudCard}">
-                    <Label Text="Сегодня праздников нет."
-                           Style="{StaticResource BodyLabel}" />
-                </Border>
+                       Style="{StaticResource SubTitleLabel}"
+                       IsVisible="{Binding HasTodayHolidays}" />
 
                 <Border IsVisible="{Binding HasTodayHolidays}"
                         Style="{StaticResource CloudCard}">
