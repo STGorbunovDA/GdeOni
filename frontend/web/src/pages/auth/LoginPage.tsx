@@ -25,6 +25,7 @@ import { authApi } from '../../api/endpoints/authApi';
 import { type LoginFormValues, loginSchema } from '../../auth/schemas';
 import { formatError } from '../../auth/errorMessages';
 import { InAppBrowserNotice } from '../../components/InAppBrowserNotice';
+import { InstallPwaButton } from '../../components/pwa/InstallPwaButton';
 
 /**
  * F4. Форма логина: email + password, валидация Zod, сабмит через
@@ -133,14 +134,16 @@ export function LoginPage() {
               </Anchor>
             </CaptionLabel>
 
-            {/* F27. Ссылка на публичную страницу скачивания APK —
-                мелким шрифтом, чтобы не отвлекать от логин-флоу. */}
-            <CaptionLabel>
-              Нет приложения?{' '}
-              <Anchor component={Link} to="/download" c={cloudColors.azureDeep}>
-                Скачать приложение для Android →
-              </Anchor>
-            </CaptionLabel>
+            {/* PWA. «Скачать на смартфон» = установить сайт как приложение
+                (Android/iPhone). Компактно, чтобы не отвлекать от логина. */}
+            <Group justify="center">
+              <InstallPwaButton
+                label="Скачать на смартфон"
+                variant="subtle"
+                size="sm"
+                fw={600}
+              />
+            </Group>
           </Stack>
         </form>
       </CloudCard>

@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   CreditCard,
-  Download,
   KeyRound,
   LogOut,
   MessageSquare,
@@ -24,9 +23,10 @@ import { useAuthStore, useIsAdmin } from '../../auth/authStore';
 import { formatError } from '../../auth/errorMessages';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
-import { APK_DOWNLOAD_URL, CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
+import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { formatDateTime } from '../../utils/formatDate';
 import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
+import { InstallPwaButton } from '../../components/pwa/InstallPwaButton';
 
 /**
  * F16. Профиль пользователя — UserName / FullName / Email.
@@ -162,9 +162,9 @@ export function ProfilePage() {
         </Stack>
       </CloudCard>
 
-      {/* F27. Скачивание Android-приложения. Кнопка ведёт прямо на файл
-          APK (APK_DOWNLOAD_URL → /apk/latest.apk), nginx отдаёт его как
-          attachment. За подробной инструкцией по установке — на /download. */}
+      {/* F27 / PWA. «Скачать на смартфон» = установка сайта как приложения
+          (PWA) — работает и на Android, и на iPhone. Внутри кнопки, если
+          нативной установки нет, показывается инструкция + запасной APK. */}
       <CloudCard>
         <Stack gap="md">
           <Group gap={8}>
@@ -172,20 +172,11 @@ export function ProfilePage() {
             <BodyLabel>Мобильное приложение</BodyLabel>
           </Group>
           <CaptionLabel>
-            Приложение для Android. Все функции те же, что в браузере, плюс
-            напоминания приходят прямо на телефон.
+            Установите сайт на главный экран — работает на Android и iPhone,
+            открывается как приложение. Все функции те же, что в браузере.
           </CaptionLabel>
           <Group>
-            <Button
-              component="a"
-              href={APK_DOWNLOAD_URL}
-              leftSection={<Download size={16} />}
-              radius={24}
-              fw={700}
-              size="md"
-            >
-              Скачать приложение для Android
-            </Button>
+            <InstallPwaButton />
             <Button
               variant="subtle"
               radius={24}

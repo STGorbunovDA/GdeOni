@@ -6,6 +6,8 @@ import { cloudColors } from '../../design/theme';
 import {
   clearInstallPrompt,
   getInstallPrompt,
+  isIosSafari,
+  isStandalone,
   onInstallChange,
 } from '../../pwa/installPrompt';
 
@@ -19,28 +21,6 @@ import {
  * баннер (запоминаем в localStorage).
  */
 const DISMISS_KEY = 'gdeoni:pwa-install-dismissed';
-
-function isStandalone(): boolean {
-  try {
-    return (
-      window.matchMedia('(display-mode: standalone)').matches ||
-      // iOS Safari отдаёт факт «запущено с домашнего экрана» так:
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true
-    );
-  } catch {
-    return false;
-  }
-}
-
-function isIos(): boolean {
-  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-}
-
-/** iOS Safari (не Chrome/Firefox/Edge на iOS — там пункта «На экран Домой» нет). */
-function isIosSafari(): boolean {
-  const ua = window.navigator.userAgent;
-  return isIos() && /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
-}
 
 function readDismissed(): boolean {
   try {

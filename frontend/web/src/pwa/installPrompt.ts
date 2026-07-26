@@ -46,3 +46,29 @@ export function onInstallChange(cb: () => void): () => void {
     listeners.delete(cb);
   };
 }
+
+/** Приложение уже запущено «как приложение» (установлено на экран). */
+export function isStandalone(): boolean {
+  try {
+    return (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      // iOS Safari сообщает факт запуска с домашнего экрана так:
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function isIos(): boolean {
+  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+}
+
+/**
+ * iOS Safari — только там есть «На экран „Домой"». В Chrome/Firefox/Edge на
+ * iOS такого пункта нет (это ограничение самой iOS).
+ */
+export function isIosSafari(): boolean {
+  const ua = window.navigator.userAgent;
+  return isIos() && /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
+}
