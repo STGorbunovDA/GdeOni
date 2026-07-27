@@ -85,6 +85,12 @@ public static class DependencyInjection
             var opts = sp.GetRequiredService<IOptions<GeocodingOptions>>().Value;
             NominatimReverseGeocoder.ConfigureClient(http, opts);
         });
+        // Прямое геокодирование (город → координаты) — тот же клиент/настройки.
+        services.AddHttpClient<IForwardGeocoder, NominatimForwardGeocoder>((sp, http) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<GeocodingOptions>>().Value;
+            NominatimReverseGeocoder.ConfigureClient(http, opts);
+        });
         // PasswordHasher без состояния: BCrypt.Net не использует поля
         // экземпляра. Singleton экономит аллокацию на каждый запрос
         // (см. D11.7.2).

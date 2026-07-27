@@ -53,6 +53,7 @@ using GdeOni.Application.Admin.Queries.GetAdminStats.UseCase;
 using GdeOni.Application.Events.Queries.GetHolidays.UseCase;
 using GdeOni.Application.Events.Queries.GetMyHolidayReminders.UseCase;
 using GdeOni.Application.Events.Commands.SetHolidayReminder.UseCase;
+using GdeOni.Application.Geo.Queries.ForwardGeocode.UseCase;
 using GdeOni.Application.Geo.Queries.ReverseGeocode.UseCase;
 using GdeOni.Application.Routing.Queries.GetRouteToGrave.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
@@ -195,6 +196,7 @@ public static class DependencyInjection
 
         // D41. Обратное геокодирование: координаты → город.
         services.AddScoped<IReverseGeocodeUseCase, ReverseGeocodeUseCase>();
+        services.AddScoped<IForwardGeocodeUseCase, ForwardGeocodeUseCase>();
 
         // D16. Subscription use cases.
         services.AddScoped<IGetMySubscriptionUseCase, GetMySubscriptionUseCase>();

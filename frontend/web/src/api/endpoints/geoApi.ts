@@ -14,6 +14,13 @@ export type ReverseGeocodeResult = {
   city: string | null;
 };
 
+/** Прямое геокодирование: текст адреса → координаты. */
+export type ForwardGeocodeResult = {
+  latitude: number;
+  longitude: number;
+  displayName: string | null;
+};
+
 export const geoApi = {
   /**
    * GET /api/geo/reverse. Бросает ApiError, если адрес не найден или
@@ -27,6 +34,19 @@ export const geoApi = {
     return unwrap(
       apiClient.get<ApiEnvelope<ReverseGeocodeResult>>('/api/geo/reverse', {
         params: { latitude, longitude },
+      }),
+    );
+  },
+
+  /**
+   * GET /api/geo/search?query= — координаты по тексту адреса (город /
+   * кладбище). Бросает ApiError, если ничего не нашлось или геокодер
+   * недоступен — вызывающий проглатывает: это подсказка, а не шаг сценария.
+   */
+  async search(query: string): Promise<ForwardGeocodeResult> {
+    return unwrap(
+      apiClient.get<ApiEnvelope<ForwardGeocodeResult>>('/api/geo/search', {
+        params: { query },
       }),
     );
   },

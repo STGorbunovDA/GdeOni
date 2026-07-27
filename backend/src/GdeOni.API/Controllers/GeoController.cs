@@ -1,5 +1,7 @@
 using GdeOni.API.Authorization;
 using GdeOni.API.Response;
+using GdeOni.Application.Geo.Queries.ForwardGeocode.Model;
+using GdeOni.Application.Geo.Queries.ForwardGeocode.UseCase;
 using GdeOni.Application.Geo.Queries.ReverseGeocode.Model;
 using GdeOni.Application.Geo.Queries.ReverseGeocode.UseCase;
 using Microsoft.AspNetCore.Authorization;
@@ -42,6 +44,32 @@ public sealed class GeoController : ApiControllerBase
     {
         var result = await useCase.Execute(
             new ReverseGeocodeQuery(latitude, longitude),
+            cancellationToken);
+
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// Ищет координаты по тексту адреса (город / кладбище). Форма «добавить
+    /// умершего» подставляет по нему точку на карте, пока у пользователя ещё
+    /// нет координат.
+    ///
+    /// 404 (geo.address.not_found) и 500 (geo.geocoding.unavailable) —
+    /// штатные исходы: пользователь поставит точку на карте сам.
+    /// </summary>
+    [HttpGet("search")]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
+    [ProducesResponseType(typeof(ApiResponse<ForwardGeocodeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Search(
+        [FromQuery] string query,
+        [FromServices] IForwardGeocodeUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new ForwardGeocodeQuery(query),
             cancellationToken);
 
         return FromResult(result);

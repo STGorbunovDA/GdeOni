@@ -125,8 +125,17 @@ export function AtGravePage() {
   // ----- Геолокация -----
   const geo = useGeolocation();
 
+  // Координаты, выставленные «руками» (GPS / клик по карте), важнее подсказки
+  // по городу: пока точку не трогали вручную, её двигает прямой геокодинг по
+  // адресу; после ручной точки — больше нет.
+  const coordsManualRef = useRef(false);
+  // Последний адрес, по которому реально искали — чтобы не искать повторно тем
+  // же запросом (и не зациклиться с обратным геокодингом).
+  const lastForwardQueryRef = useRef('');
+
   useEffect(() => {
     if (geo.position) {
+      coordsManualRef.current = true;
       setLatInput(geo.position.latitude.toFixed(6));
       setLonInput(geo.position.longitude.toFixed(6));
       setAccInput(Math.round(geo.position.accuracyMeters).toString());
@@ -182,6 +191,41 @@ export function AtGravePage() {
       clearTimeout(timer);
     };
   }, [lat, lon]);
+
+  // ----- Прямой геокодинг: адрес → координаты -----
+  //
+  // Пока пользователь не поставил точку вручную (GPS / клик по карте), по
+  // введённому адресу (кладбище, город, страна) ищем координаты и двигаем
+  // маркер. Debounce — чтобы не дёргать геокодер на каждый символ.
+  useEffect(() => {
+    if (coordsManualRef.current) return;
+
+    const query = [cemeteryName, city, country]
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(', ');
+    if (query.length < 2 || query === lastForwardQueryRef.current) return;
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const place = await geoApi.search(query);
+        if (cancelled || coordsManualRef.current) return;
+        lastForwardQueryRef.current = query;
+        setLatInput(place.latitude.toFixed(6));
+        setLonInput(place.longitude.toFixed(6));
+        // Координаты по городу — без GPS-точности.
+        setAccInput('');
+      } catch {
+        // Адрес не нашёлся / геокодер молчит — не страшно, юзер ткнёт в карту.
+      }
+    }, 800);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [city, country, cemeteryName]);
 
   // ----- Submit -----
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -350,9 +394,11 @@ export function AtGravePage() {
             latitude={lat}
             longitude={lon}
             onPick={(pickedLat, pickedLon) => {
+              // Клик по карте — ручная точка: прямой геокодинг больше не двигает.
+              coordsManualRef.current = true;
               setLatInput(pickedLat.toFixed(6));
               setLonInput(pickedLon.toFixed(6));
-              // Клик по карте — ручная точка, GPS-точности нет.
+              // GPS-точности у ручной точки нет.
               setAccInput('');
             }}
           />
