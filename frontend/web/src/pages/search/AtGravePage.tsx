@@ -200,6 +200,12 @@ export function AtGravePage() {
   useEffect(() => {
     if (coordsManualRef.current) return;
 
+    // Геокодим только когда есть населённый пункт: по одной стране (значение
+    // country по умолчанию — «Россия») Nominatim вернул бы её географический
+    // центр посреди Сибири. Поэтому пока не введён город/кладбище — не ищем.
+    const hasPlace = city.trim() !== '' || cemeteryName.trim() !== '';
+    if (!hasPlace) return;
+
     const query = [cemeteryName, city, country]
       .map((s) => s.trim())
       .filter(Boolean)
