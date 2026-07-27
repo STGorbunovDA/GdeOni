@@ -31,9 +31,10 @@ const pinIcon = L.divIcon({
 
 /**
  * F5+. Карта-пикер координат. Тайлы — OpenStreetMap (без API-ключей).
- * Клик по карте отдаёт координаты; внешний lat/lon (ручной ввод или
- * «Получить координаты») синхронизирует маркер. Первое появление точки
- * зумит карту на неё, дальше клики только двигают маркер, не дёргая карту.
+ * Клик по карте отдаёт координаты и двигает маркер, НЕ меняя вид (иначе клик
+ * у края «прыгал» бы). Внешнее изменение lat/lon («Получить координаты» или
+ * ручной ввод) синхронизирует маркер И центрирует карту на точке, чтобы
+ * маркер был виден.
  */
 export function MapPicker({
   latitude,
@@ -44,7 +45,10 @@ export function MapPicker({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
-  const focusedRef = useRef(latitude != null && longitude != null);
+  // Клик по карте выставляет этот флаг, чтобы sync-эффект НЕ рецентрил вид
+  // на клик. Геолокация/ручной ввод флаг не ставят → карта центрируется на
+  // новой точке.
+  const skipRecenterRef = useRef(false);
 
   // onPick в ref — чтобы init-эффект не пересоздавал карту при смене колбэка.
   const onPickRef = useRef(onPick);
@@ -74,11 +78,9 @@ export function MapPicker({
     // лицензией OSM на тайлы).
     map.attributionControl.setPrefix(false);
     map.on('click', (e: L.LeafletMouseEvent) => {
-      // Клик — пользователь сам выбрал и точку, и текущий вид карты.
-      // Помечаем focused, чтобы sync-эффект НЕ центрировал и не зумил
-      // карту (иначе первый клик «прыгал» и увеличивал масштаб). Зум/
-      // панораму дальше меняет только сам пользователь.
-      focusedRef.current = true;
+      // Клик — пользователь сам выбрал и точку, и вид карты: маркер двигаем,
+      // но карту НЕ рецентрим (иначе клик у края «прыгал» бы и зумил).
+      skipRecenterRef.current = true;
       onPickRef.current(e.latlng.lat, e.latlng.lng);
     });
     mapRef.current = map;
@@ -108,11 +110,13 @@ export function MapPicker({
     } else {
       markerRef.current = L.marker(pos, { icon: pinIcon }).addTo(map);
     }
-    // Первое появление точки — центрируем и зумим. Дальше карту не дёргаем
-    // (клики по краю не должны рецентрить вид).
-    if (!focusedRef.current) {
-      map.setView(pos, PICK_ZOOM);
-      focusedRef.current = true;
+    if (skipRecenterRef.current) {
+      // Точку выставил клик по карте — вид не трогаем.
+      skipRecenterRef.current = false;
+    } else {
+      // Внешнее изменение («Получить координаты» / ручной ввод) — центрируем
+      // карту на точке, чтобы маркер был виден.
+      map.setView(pos, PICK_ZOOM, { animate: true });
     }
   }, [latitude, longitude]);
 
