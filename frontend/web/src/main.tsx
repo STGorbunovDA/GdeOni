@@ -16,7 +16,6 @@ import { AppRouter } from './routes/AppRouter';
 import { queryClient } from './api/queryClient';
 import { theme } from './design/theme';
 import { SessionBootstrap } from './auth/SessionBootstrap';
-import { VersionGate } from './components/version/VersionGate';
 // PWA: перехват beforeinstallprompt должен встать ДО первого рендера,
 // иначе браузерное событие можно пропустить (импорт ради side-effect).
 import './pwa/installPrompt';
@@ -48,9 +47,6 @@ createRoot(document.getElementById('root')!).render(
               после длительных/деструктивных операций (пока только удаление
               юзера); маунтим глобально на самом верху. */}
           <Notifications position="top-right" />
-          {/* F22 / D17. Проверка версии клиента — если бэк сказал
-              "обновись" → блокирующая модалка. */}
-          <VersionGate />
           <SessionBootstrap>
             <AppRouter />
           </SessionBootstrap>

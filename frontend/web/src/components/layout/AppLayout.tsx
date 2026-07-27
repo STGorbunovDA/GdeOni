@@ -27,8 +27,7 @@ import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { CaptionLabel } from '../ui/Labels';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { OutdatedLegalModal } from '../legal/OutdatedLegalModal';
-import { AnniversaryModal } from '../events/AnniversaryModal';
-import { HolidayReminderPopup } from '../events/HolidayReminderPopup';
+import { EventsPopup } from '../events/EventsPopup';
 import { InstallPwaBanner } from '../pwa/InstallPwaBanner';
 import { NavItem } from './NavItem';
 
@@ -190,14 +189,9 @@ export function AppLayout() {
           страницах без дублирования. */}
       <OutdatedLegalModal />
 
-      {/* D38. Модалка «сегодня памятная дата» (день памяти / година) —
-          один показ в сутки после входа. Сама проверяет paywall-гейт и не
-          показывается поверх блокирующей legal-модалки. */}
-      <AnniversaryModal />
-
-      {/* F42. Попап «сегодня/скоро праздник» — один показ в сутки по
-          крупным праздникам и включённым напоминаниям. */}
-      <HolidayReminderPopup />
+      {/* Единый попап «События сегодня» (памятные даты + праздники) —
+          всплывает при каждом заходе, пока событие актуально. */}
+      <EventsPopup />
 
       {/* PWA: подсказка «установить приложение на главный экран». */}
       <InstallPwaBanner />
