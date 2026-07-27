@@ -11,7 +11,6 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft,
   ChevronRight,
   RotateCcw,
   Trash2,
@@ -21,7 +20,6 @@ import {
   BodyLabel,
   CaptionLabel,
   CloudCard,
-  GhostButton,
   SubTitleLabel,
   TitleLabel,
 } from '../../components/ui';
@@ -108,14 +106,6 @@ export function ArchivePage() {
 
   return (
     <Stack gap="lg">
-      <Group>
-        <GhostButton
-          leftSection={<ChevronLeft size={16} />}
-          onClick={() => navigate('/tracked')}
-        >
-          Назад
-        </GhostButton>
-      </Group>
 
       <Stack gap="xs">
         <TitleLabel>Архив</TitleLabel>

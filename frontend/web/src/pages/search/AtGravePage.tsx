@@ -12,12 +12,11 @@ import {
 } from '@mantine/core';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
   CloudCard,
-  GhostButton,
   PrimaryButton,
   SubTitleLabel,
   TitleLabel,
@@ -269,15 +268,6 @@ export function AtGravePage() {
 
   return (
     <Stack gap="lg">
-      <Group>
-        <GhostButton
-          leftSection={<ChevronLeft size={16} />}
-          onClick={() => navigate(-1)}
-        >
-          Назад
-        </GhostButton>
-      </Group>
-
       <TitleLabel>Добавить умершего</TitleLabel>
 
       {/* ---------- Координаты ---------- */}
