@@ -27,4 +27,12 @@ public sealed class GetCurrentUserResponse
     /// сравнения сам.
     /// </summary>
     public bool HasOutdatedLegalAcceptance { get; init; }
+
+    /// <summary>
+    /// D45. Подтверждён ли email. Внутрь приложения неподтверждёнными
+    /// попадают только «старые» пользователи (новых до подтверждения
+    /// не пускает гейт входа) — клиент по false показывает баннер
+    /// «Подтвердите email».
+    /// </summary>
+    public bool IsEmailConfirmed { get; init; }
 }

@@ -84,6 +84,38 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasDatabaseName("ix_users_password_reset_token_hash")
             .HasFilter("password_reset_token_hash IS NOT NULL");
 
+        // D45. Подтверждение email. is_email_confirmed / required —
+        // default false: бэкфилл существующих строк даёт ровно нужное
+        // «старым» юзерам состояние (баннер есть, гейта нет). Новые
+        // регистрации проставляют required=true через домен-фабрику.
+        builder.Property(x => x.IsEmailConfirmed)
+            .HasColumnName("is_email_confirmed")
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        builder.Property(x => x.EmailConfirmedAtUtc)
+            .HasColumnName("email_confirmed_at_utc");
+
+        builder.Property(x => x.EmailConfirmationRequired)
+            .HasColumnName("email_confirmation_required")
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        // В колонке лежит SHA-256 hex (64 символа), а не сам токен — как и
+        // у password_reset_token_hash.
+        builder.Property(x => x.EmailConfirmationTokenHash)
+            .HasColumnName("email_confirmation_token_hash")
+            .HasMaxLength(128);
+
+        builder.Property(x => x.EmailConfirmationTokenExpiresAtUtc)
+            .HasColumnName("email_confirmation_token_expires_at_utc");
+
+        // Поиск юзера по хешу токена подтверждения — фильтрованный индекс
+        // по тем же соображениям, что у сброса пароля.
+        builder.HasIndex(x => x.EmailConfirmationTokenHash)
+            .HasDatabaseName("ix_users_email_confirmation_token_hash")
+            .HasFilter("email_confirmation_token_hash IS NOT NULL");
+
         // D19. Legal acceptance: четыре колонки, заполняются единым
         // методом User.AcceptLegal в одной транзакции — допускаем
         // NULL timestamps для исторических юзеров до миграции D19.

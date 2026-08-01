@@ -1,6 +1,7 @@
 using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Auth.ConfirmEmail;
 using GdeOni.Application.Auth.Login.Model;
 using GdeOni.Application.Common.Security;
 using GdeOni.Domain.Aggregates.Auth;
@@ -16,6 +17,7 @@ public sealed class LoginUseCase(
     IJwtProvider jwtProvider,
     IRefreshTokenFactory refreshTokenFactory,
     ICurrentUserService currentUserService,
+    IEmailConfirmationService emailConfirmationService,
     IOptions<JwtOptions> jwtOptions,
     IValidatedUseCaseExecutor validatedUseCaseExecutor,
     TimeProvider timeProvider)
@@ -54,6 +56,16 @@ public sealed class LoginUseCase(
         if (user.IsBlocked)
             return Errors.User.AccountBlocked(user.BlockedReason);
 
+        // D45. Гейт подтверждения email для новых пользователей: пока адрес
+        // не подтверждён, вход не выдаём (и веб, и мобилка ходят сюда же).
+        // Только для аккаунтов с EmailConfirmationRequired и лишь когда
+        // почтовый канал реально настроен (иначе разблокировать было бы
+        // нечем) — «старые» юзеры и dev/тесты без SMTP не затрагиваются.
+        // Проверяем после пароля — чтобы неверный пароль не палил статус
+        // подтверждения.
+        if (emailConfirmationService.IsLoginBlocked(user))
+            return Errors.User.EmailNotConfirmed();
+
         user.MarkLogin();
 
         var accessToken = jwtProvider.GenerateAccessToken(user);
@@ -85,6 +97,7 @@ public sealed class LoginUseCase(
             accessToken.Token,
             accessToken.ExpiresAtUtc,
             refreshTokenPlain,
-            refreshExpiresAtUtc));
+            refreshExpiresAtUtc,
+            user.IsEmailConfirmed));
     }
 }

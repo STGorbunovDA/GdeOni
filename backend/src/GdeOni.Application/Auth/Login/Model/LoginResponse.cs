@@ -9,4 +9,8 @@ public sealed record LoginResponse(
     string AccessToken,
     DateTime AccessTokenExpiresAtUtc,
     string RefreshToken,
-    DateTime RefreshTokenExpiresAtUtc);
+    DateTime RefreshTokenExpiresAtUtc,
+    // D45. Подтверждён ли email. false бывает только у «старых»
+    // пользователей (новых до подтверждения гейт вообще не пускает) —
+    // клиент по этому полю показывает баннер «подтвердите email».
+    bool IsEmailConfirmed);

@@ -27,6 +27,13 @@ public interface IUserRepository
     Task<User?> GetByPasswordResetTokenHash(string tokenHash, CancellationToken cancellationToken);
 
     /// <summary>
+    /// D45. Поиск пользователя по хешу токена подтверждения email.
+    /// Возвращает null, если такого токена нет — срок действия и
+    /// одноразовость проверяет уже сам агрегат в <c>ConfirmEmailByToken</c>.
+    /// </summary>
+    Task<User?> GetByEmailConfirmationTokenHash(string tokenHash, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Лёгкий lookup только email'а по id. Нужен для отображения "кто
     /// заблокировал" в GetUserById — поднимать второй User entity
     /// ради одного string'а избыточно.

@@ -1,4 +1,5 @@
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Auth.ConfirmEmail;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Tests.TestSupport;
 using GdeOni.Application.Users.Commands.Register.Model;
@@ -196,9 +197,13 @@ public sealed class RegisterUserUseCaseTests
         // из LegalOptions и вызывает User.AcceptLegal.
         var legalOptions = Microsoft.Extensions.Options.Options.Create(
             new GdeOni.Application.Legal.LegalOptions());
+        // D45. По умолчанию IssueConfirmation → null (Mock), письмо не
+        // шлётся, гейт не применяется — регистрация в тестах как раньше.
+        var emailConfirmation = new Mock<IEmailConfirmationService>();
         var useCase = new RegisterUserUseCase(
             userRepo.Object,
             hasher.Object,
+            emailConfirmation.Object,
             TestExecutor.With<RegisterUserCommand, RegisterUserCommandValidator>(),
             subscriptionOptions,
             legalOptions,

@@ -1,5 +1,6 @@
 import {
   Anchor,
+  Button,
   Container,
   Group,
   PasswordInput,
@@ -9,8 +10,9 @@ import {
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Cloud } from 'lucide-react';
+import { Cloud, MailWarning } from 'lucide-react';
 import { useState } from 'react';
+import { notifications } from '@mantine/notifications';
 import { useAuthStore } from '../../auth/authStore';
 import {
   BodyLabel,
@@ -23,7 +25,7 @@ import {
 import { cloudColors } from '../../design/theme';
 import { authApi } from '../../api/endpoints/authApi';
 import { type LoginFormValues, loginSchema } from '../../auth/schemas';
-import { formatError } from '../../auth/errorMessages';
+import { formatError, getErrorCode } from '../../auth/errorMessages';
 import { InAppBrowserNotice } from '../../components/InAppBrowserNotice';
 import { InstallPwaButton } from '../../components/pwa/InstallPwaButton';
 
@@ -40,6 +42,11 @@ export function LoginPage() {
   const location = useLocation();
   const setSession = useAuthStore((s) => s.setSession);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // D45. Гейт: вход нового юзера закрыт до подтверждения email. Ловим код
+  // user.email.not_confirmed и показываем панель «подтвердите почту» с
+  // повторной отправкой — email берём из введённого в форме.
+  const [needsConfirmEmail, setNeedsConfirmEmail] = useState<string | null>(null);
+  const [resendBusy, setResendBusy] = useState(false);
 
   const {
     register,
@@ -65,7 +72,32 @@ export function LoginPage() {
       const target = state?.from && state.from !== '/login' ? state.from : '/tracked';
       navigate(target, { replace: true });
     } catch (e) {
+      if (getErrorCode(e) === 'user.email.not_confirmed') {
+        setNeedsConfirmEmail(values.email);
+        return;
+      }
       setSubmitError(formatError(e));
+    }
+  }
+
+  async function handleResend() {
+    if (!needsConfirmEmail) return;
+    setResendBusy(true);
+    try {
+      await authApi.resendConfirmation(needsConfirmEmail);
+      notifications.show({
+        title: 'Письмо отправлено',
+        message: `Проверьте почту ${needsConfirmEmail} и перейдите по ссылке.`,
+        color: 'blue',
+      });
+    } catch (e) {
+      notifications.show({
+        title: 'Не удалось отправить',
+        message: formatError(e),
+        color: 'red',
+      });
+    } finally {
+      setResendBusy(false);
     }
   }
 
@@ -89,7 +121,34 @@ export function LoginPage() {
       <InAppBrowserNotice />
 
       <CloudCard>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        {needsConfirmEmail ? (
+          <Stack gap="md" align="center">
+            <MailWarning size={40} color={cloudColors.azureDeep} />
+            <BodyLabel ta="center">Подтвердите email, чтобы войти.</BodyLabel>
+            <CaptionLabel ta="center">
+              Мы отправили ссылку на {needsConfirmEmail}. Перейдите по ней,
+              затем войдите снова. Проверьте папку «Спам».
+            </CaptionLabel>
+            <Button
+              variant="subtle"
+              size="sm"
+              fw={600}
+              loading={resendBusy}
+              onClick={handleResend}
+            >
+              Отправить письмо повторно
+            </Button>
+            <Anchor
+              component="button"
+              type="button"
+              c={cloudColors.azureDeep}
+              onClick={() => setNeedsConfirmEmail(null)}
+            >
+              Вернуться ко входу
+            </Anchor>
+          </Stack>
+        ) : (
+          <form onSubmit={handleSubmit(onSubmit)}>
           <Stack gap="md">
             <TextInput
               label="Email"
@@ -145,7 +204,8 @@ export function LoginPage() {
               />
             </Group>
           </Stack>
-        </form>
+          </form>
+        )}
       </CloudCard>
     </Container>
   );

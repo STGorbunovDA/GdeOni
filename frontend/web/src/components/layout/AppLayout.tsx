@@ -27,6 +27,7 @@ import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { CaptionLabel } from '../ui/Labels';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { OutdatedLegalModal } from '../legal/OutdatedLegalModal';
+import { EmailConfirmationBanner } from '../auth/EmailConfirmationBanner';
 import { EventsPopup } from '../events/EventsPopup';
 import { InstallPwaBanner } from '../pwa/InstallPwaBanner';
 import { NavItem } from './NavItem';
@@ -181,6 +182,9 @@ export function AppLayout() {
       </AppShell.Navbar>
 
       <AppShell.Main>
+        {/* D45. Баннер «Подтвердите email» для «старых» пользователей —
+            над контентом на всех приватных страницах. */}
+        <EmailConfirmationBanner />
         <Outlet />
       </AppShell.Main>
 

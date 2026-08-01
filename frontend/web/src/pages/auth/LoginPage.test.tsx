@@ -65,6 +65,7 @@ describe('LoginPage', () => {
       accessTokenExpiresAtUtc: '2030-01-01T00:00:00Z',
       refreshToken: 'refresh-token',
       refreshTokenExpiresAtUtc: '2030-01-01T00:00:00Z',
+      isEmailConfirmed: true,
     });
 
     const user = userEvent.setup();

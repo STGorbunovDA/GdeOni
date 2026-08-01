@@ -742,6 +742,25 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnType("character varying(320)")
                         .HasColumnName("email");
 
+                    b.Property<bool>("EmailConfirmationRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("email_confirmation_required");
+
+                    b.Property<DateTime?>("EmailConfirmationTokenExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("email_confirmation_token_expires_at_utc");
+
+                    b.Property<string>("EmailConfirmationTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("email_confirmation_token_hash");
+
+                    b.Property<DateTime?>("EmailConfirmedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("email_confirmed_at_utc");
+
                     b.Property<string>("FullName")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)")
@@ -752,6 +771,12 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(false)
                         .HasColumnName("is_blocked");
+
+                    b.Property<bool>("IsEmailConfirmed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_email_confirmed");
 
                     b.Property<DateTime?>("LastLoginAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -834,6 +859,10 @@ namespace GdeOni.Infrastructure.Migrations
                     b.HasIndex("Email")
                         .IsUnique()
                         .HasDatabaseName("ux_users_email");
+
+                    b.HasIndex("EmailConfirmationTokenHash")
+                        .HasDatabaseName("ix_users_email_confirmation_token_hash")
+                        .HasFilter("email_confirmation_token_hash IS NOT NULL");
 
                     b.HasIndex("IsBlocked")
                         .HasDatabaseName("ix_users_is_blocked")

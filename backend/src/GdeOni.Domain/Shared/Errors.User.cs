@@ -63,6 +63,30 @@ public static partial class Errors
         public static Error PasswordResetTokenExpired() =>
             Error.Unauthorized("user.password_reset_token.expired", "Password reset link has expired");
 
+        /// <summary>
+        /// D45. Токен подтверждения email не найден, не совпал или уже
+        /// использован. Человек уже перешёл по ссылке — ошибку показываем
+        /// честно, enumeration тут не возникает (токен не подбирается).
+        /// </summary>
+        public static Error EmailConfirmationTokenInvalid() =>
+            Error.Unauthorized("user.email_confirmation_token.invalid", "Email confirmation link is invalid");
+
+        /// <summary>D45. Срок действия ссылки подтверждения email истёк.</summary>
+        public static Error EmailConfirmationTokenExpired() =>
+            Error.Unauthorized("user.email_confirmation_token.expired", "Email confirmation link has expired");
+
+        /// <summary>
+        /// D45. Гейт входа для новых пользователей: адрес ещё не подтверждён.
+        /// Проверяется в <c>LoginUseCase</c> ПОСЛЕ верификации пароля — по
+        /// коду клиент показывает экран «проверьте почту» с кнопкой resend.
+        /// Отдельный код (не InvalidCredentials), чтобы UI отличил «нужно
+        /// подтвердить» от «неверный пароль».
+        /// </summary>
+        public static Error EmailNotConfirmed() =>
+            Error.Forbidden(
+                "user.email.not_confirmed",
+                "Please confirm your email address to sign in. We have sent you a confirmation link.");
+
         public static Error RoleInvalid() =>
             Error.Validation("user.role.invalid", "User role is invalid");
 

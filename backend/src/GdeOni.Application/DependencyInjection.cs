@@ -2,8 +2,11 @@
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Auth.Login.UseCase;
 using GdeOni.Application.Auth.Logout.UseCase;
+using GdeOni.Application.Auth.ConfirmEmail;
+using GdeOni.Application.Auth.ConfirmEmail.UseCase;
 using GdeOni.Application.Auth.ForgotPassword.UseCase;
 using GdeOni.Application.Auth.Refresh.UseCase;
+using GdeOni.Application.Auth.ResendConfirmation.UseCase;
 using GdeOni.Application.Auth.ResetPassword.UseCase;
 using GdeOni.Application.Complimentary.Commands.Grant.UseCase;
 using GdeOni.Application.Complimentary.Commands.Revoke.UseCase;
@@ -116,6 +119,13 @@ public static class DependencyInjection
         // D43. Восстановление пароля по ссылке из письма.
         services.AddScoped<IForgotPasswordUseCase, ForgotPasswordUseCase>();
         services.AddScoped<IResetPasswordUseCase, ResetPasswordUseCase>();
+
+        // D45. Подтверждение email: гейт входа для новых юзеров + выдача/
+        // отправка ссылки. Сервис держит политику готовности почтового
+        // канала; use case'ы confirm/resend её переиспользуют.
+        services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();
+        services.AddScoped<IConfirmEmailUseCase, ConfirmEmailUseCase>();
+        services.AddScoped<IResendEmailConfirmationUseCase, ResendEmailConfirmationUseCase>();
 
         services.AddScoped<IRegisterUserUseCase, RegisterUserUseCase>();
         services.AddScoped<IGetUserByIdUseCase, GetUserByIdUseCase>();

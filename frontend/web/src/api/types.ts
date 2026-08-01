@@ -44,6 +44,9 @@ export type LoginResponse = {
   accessTokenExpiresAtUtc: string;
   refreshToken: string;
   refreshTokenExpiresAtUtc: string;
+  // D45. Подтверждён ли email. false бывает только у «старых» юзеров
+  // (новых до подтверждения гейт входа не пускает) — драйвит баннер.
+  isEmailConfirmed: boolean;
 };
 
 /**
@@ -59,12 +62,15 @@ export type RefreshResponse = {
 };
 
 /**
- * Ответ POST /api/users (register). Содержит только Id — токены
- * НЕ возвращаются. После успешной регистрации фронт должен сам
- * сделать login с тем же email/password.
+ * Ответ POST /api/users (register). Токены НЕ возвращаются.
+ *
+ * D45. requiresEmailConfirmation=true → вход закрыт до подтверждения
+ * email: фронт показывает экран «проверьте почту» вместо авто-логина.
+ * false (dev без SMTP) → можно логиниться сразу, как раньше.
  */
 export type RegisterResponse = {
   id: string;
+  requiresEmailConfirmation: boolean;
 };
 
 /**
@@ -81,4 +87,7 @@ export type CurrentUserResponse = {
   privacyPolicyVersion: number;
   termsVersion: number;
   hasOutdatedLegalAcceptance: boolean;
+  // D45. false → показать баннер «Подтвердите email». Внутрь приложения
+  // неподтверждёнными попадают только «старые» пользователи.
+  isEmailConfirmed: boolean;
 };

@@ -37,6 +37,7 @@ public sealed class GetCurrentUserUseCase(
             HasOutdatedLegalAcceptance = user.HasOutdatedLegalAcceptance(
                 legal.CurrentPrivacyPolicyVersion,
                 legal.CurrentTermsVersion),
+            IsEmailConfirmed = user.IsEmailConfirmed,
         });
     }
 }

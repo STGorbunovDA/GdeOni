@@ -3,6 +3,7 @@ import { LoginPage } from '../pages/auth/LoginPage';
 import { RegisterPage } from '../pages/auth/RegisterPage';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '../pages/auth/ResetPasswordPage';
+import { ConfirmEmailPage } from '../pages/auth/ConfirmEmailPage';
 import { TrackedListPage } from '../pages/tracked/TrackedListPage';
 import { DeceasedDetailsPage } from '../pages/tracked/DeceasedDetailsPage';
 import { EditCoordsPage } from '../pages/tracked/EditCoordsPage';
@@ -78,6 +79,10 @@ export function AppRouter() {
             иначе ссылка из письма приведёт в никуда. */}
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        {/* D45. Подтверждение email по ссылке из письма — публичный роут:
+            новый юзер под гейтом ещё не вошёл. Адрес должен совпадать с
+            EmailConfirmation:WebConfirmUrl в конфиге бэка. */}
+        <Route path="/confirm-email" element={<ConfirmEmailPage />} />
         {/* F27. Публичная страница скачивания APK — доступна анонимам. */}
         <Route path="/download" element={<DownloadPage />} />
         {/* F24 / D19. Публичные legal-документы — доступны до логина,

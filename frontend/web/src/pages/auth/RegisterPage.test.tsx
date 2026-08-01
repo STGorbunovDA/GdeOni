@@ -159,7 +159,10 @@ describe('RegisterPage', () => {
   });
 
   it('registers → logs in → stores session → navigates to /tracked', async () => {
-    vi.mocked(usersApi.register).mockResolvedValueOnce({ id: 'user-1' });
+    vi.mocked(usersApi.register).mockResolvedValueOnce({
+      id: 'user-1',
+      requiresEmailConfirmation: false,
+    });
     vi.mocked(authApi.login).mockResolvedValueOnce({
       id: 'user-1',
       email: 'new@example.com',
@@ -170,6 +173,7 @@ describe('RegisterPage', () => {
       accessTokenExpiresAtUtc: '2030-01-01T00:00:00Z',
       refreshToken: 'refresh-token',
       refreshTokenExpiresAtUtc: '2030-01-01T00:00:00Z',
+      isEmailConfirmed: true,
     });
 
     const user = userEvent.setup();

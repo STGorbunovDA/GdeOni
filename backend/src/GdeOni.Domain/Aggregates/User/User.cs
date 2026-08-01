@@ -193,7 +193,15 @@ public sealed partial class User : Entity<Guid>
         if (birthDateResult.IsFailure)
             return birthDateResult.Error;
 
-        return BuildUser(email, passwordHash, fullName, userName, birthDate, role);
+        var buildResult = BuildUser(email, passwordHash, fullName, userName, birthDate, role);
+        if (buildResult.IsFailure)
+            return buildResult;
+
+        // D45. Новая регистрация подчиняется гейту «вход только после
+        // подтверждения email». Legacy-фабрика ниже флаг не ставит, чтобы
+        // тесты и исторические сценарии не упирались в гейт.
+        buildResult.Value.MarkEmailConfirmationRequired();
+        return buildResult;
     }
 
     /// <summary>
@@ -230,7 +238,14 @@ public sealed partial class User : Entity<Guid>
         string? fullName = null,
         string? userName = null)
     {
-        return BuildUser(email, passwordHash, fullName, userName, birthDate: null, UserRole.SuperAdmin);
+        var buildResult = BuildUser(email, passwordHash, fullName, userName, birthDate: null, UserRole.SuperAdmin);
+        if (buildResult.IsFailure)
+            return buildResult;
+
+        // D45. Сид-админа не гоняем через письмо подтверждения: его почте
+        // доверяем, а под гейт/баннер он попадать не должен.
+        buildResult.Value.MarkEmailPreconfirmed(DateTime.UtcNow);
+        return buildResult;
     }
 
     /// <summary>
@@ -348,6 +363,10 @@ public sealed partial class User : Entity<Guid>
         // обязана умереть, иначе прежний почтовый ящик остаётся ключом
         // к аккаунту.
         ClearPasswordResetToken();
+        // D45. Новый адрес ещё не подтверждён — сбрасываем флаг и гасим
+        // токен, который вёл на прежний ящик. Баннер «Подтвердите email»
+        // покажется снова, resend вышлет письмо уже на новый адрес.
+        ResetEmailConfirmation();
         SecurityStamp = Guid.NewGuid();
         Touch();
         return UnitResult.Success<Error>();

@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
+using GdeOni.Application.Auth.ConfirmEmail;
 using GdeOni.Application.Auth.Login.Model;
 using GdeOni.Application.Auth.Login.UseCase;
 using GdeOni.Application.Auth.Login.Validation;
@@ -45,6 +46,8 @@ public sealed class LoginUseCaseTests
         var jwt = new Mock<IJwtProvider>();
         var rtFactory = new Mock<IRefreshTokenFactory>();
         var currentUser = new Mock<ICurrentUserService>();
+        // D45. По умолчанию IsLoginBlocked → false (Mock), гейт не мешает.
+        var emailConfirmation = new Mock<IEmailConfirmationService>();
 
         // GetByEmail вернёт null — пользователя нет.
         userRepo
@@ -57,6 +60,7 @@ public sealed class LoginUseCaseTests
         var useCase = new LoginUseCase(
             userRepo.Object, refreshRepo.Object, hasher.Object,
             jwt.Object, rtFactory.Object, currentUser.Object,
+            emailConfirmation.Object,
             Options.Create(JwtOptions),
             TestExecutor.With<LoginCommand, LoginCommandValidator>(),
             TimeProvider.System);
@@ -95,6 +99,8 @@ public sealed class LoginUseCaseTests
         var jwt = new Mock<IJwtProvider>();
         var rtFactory = new Mock<IRefreshTokenFactory>();
         var currentUser = new Mock<ICurrentUserService>();
+        // D45. По умолчанию IsLoginBlocked → false (Mock), гейт не мешает.
+        var emailConfirmation = new Mock<IEmailConfirmationService>();
 
         userRepo
             .Setup(x => x.GetByEmail("john@example.com", It.IsAny<CancellationToken>()))
@@ -108,6 +114,7 @@ public sealed class LoginUseCaseTests
         var useCase = new LoginUseCase(
             userRepo.Object, refreshRepo.Object, hasher.Object,
             jwt.Object, rtFactory.Object, currentUser.Object,
+            emailConfirmation.Object,
             Options.Create(JwtOptions),
             TestExecutor.With<LoginCommand, LoginCommandValidator>(),
             TimeProvider.System);
@@ -121,6 +128,54 @@ public sealed class LoginUseCaseTests
         // refresh-token НЕ создавался.
         result.IsFailure.Should().BeTrue();
         result.Error.Code.Should().Be("user.invalid.credentials");
+        refreshRepo.Verify(
+            x => x.Add(It.IsAny<Domain.Aggregates.Auth.RefreshToken>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// D45. Гейт подтверждения email: пароль верный, но
+    /// IsLoginBlocked=true → вход отбивается user.email.not_confirmed,
+    /// refresh-token НЕ создаётся. Проверяем после верного пароля (чтобы
+    /// неверный пароль не палил статус подтверждения).
+    /// </summary>
+    [Fact]
+    public async Task Execute_EmailNotConfirmed_ReturnsErrorAndNoRefresh()
+    {
+        var user = User.Register("john@example.com", "$bcrypt-hash").Value;
+
+        var userRepo = new Mock<IUserRepository>();
+        var refreshRepo = new Mock<IRefreshTokenRepository>();
+        var hasher = new Mock<IPasswordHasher>();
+        var jwt = new Mock<IJwtProvider>();
+        var rtFactory = new Mock<IRefreshTokenFactory>();
+        var currentUser = new Mock<ICurrentUserService>();
+        var emailConfirmation = new Mock<IEmailConfirmationService>();
+
+        userRepo
+            .Setup(x => x.GetByEmail("john@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        hasher
+            .Setup(x => x.Verify("Password123!", user.PasswordHash))
+            .Returns(true);
+        emailConfirmation
+            .Setup(x => x.IsLoginBlocked(user))
+            .Returns(true);
+
+        var useCase = new LoginUseCase(
+            userRepo.Object, refreshRepo.Object, hasher.Object,
+            jwt.Object, rtFactory.Object, currentUser.Object,
+            emailConfirmation.Object,
+            Options.Create(JwtOptions),
+            TestExecutor.With<LoginCommand, LoginCommandValidator>(),
+            TimeProvider.System);
+
+        var result = await useCase.Execute(
+            new LoginCommand("john@example.com", "Password123!"),
+            CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("user.email.not_confirmed");
         refreshRepo.Verify(
             x => x.Add(It.IsAny<Domain.Aggregates.Auth.RefreshToken>(), It.IsAny<CancellationToken>()),
             Times.Never);
@@ -142,6 +197,8 @@ public sealed class LoginUseCaseTests
         var jwt = new Mock<IJwtProvider>();
         var rtFactory = new Mock<IRefreshTokenFactory>();
         var currentUser = new Mock<ICurrentUserService>();
+        // D45. По умолчанию IsLoginBlocked → false (Mock), гейт не мешает.
+        var emailConfirmation = new Mock<IEmailConfirmationService>();
 
         userRepo
             .Setup(x => x.GetByEmail("john@example.com", It.IsAny<CancellationToken>()))
@@ -161,6 +218,7 @@ public sealed class LoginUseCaseTests
         var useCase = new LoginUseCase(
             userRepo.Object, refreshRepo.Object, hasher.Object,
             jwt.Object, rtFactory.Object, currentUser.Object,
+            emailConfirmation.Object,
             Options.Create(JwtOptions),
             TestExecutor.With<LoginCommand, LoginCommandValidator>(),
             TimeProvider.System);

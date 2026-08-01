@@ -1,6 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Auth.ConfirmEmail;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Legal;
 using GdeOni.Application.Subscriptions;
@@ -14,6 +15,7 @@ namespace GdeOni.Application.Users.Commands.Register.UseCase;
 public sealed class RegisterUserUseCase(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
+    IEmailConfirmationService emailConfirmationService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor,
     IOptions<SubscriptionOptions> subscriptionOptions,
     IOptions<LegalOptions> legalOptions,
@@ -82,8 +84,24 @@ public sealed class RegisterUserUseCase(
         if (legalResult.IsFailure)
             return legalResult.Error;
 
+        // D45. Выписываем токен подтверждения email ДО Save (мутирует user),
+        // само письмо шлём ПОСЛЕ Save — чтобы ссылка не вела на несохранённый
+        // токен, если транзакция откатится. Если канал не готов (dev без SMTP)
+        // — message=null, ничего не шлём, и гейт входа не применится.
+        var confirmationMessage = emailConfirmationService.IssueConfirmation(user, nowUtc);
+
         await userRepository.Add(user, cancellationToken);
         await userRepository.Save(cancellationToken);
-        return Result.Success<RegisterUserResponse, Error>(new RegisterUserResponse(user.Id));
+
+        if (confirmationMessage is not null)
+            await emailConfirmationService.SendAsync(confirmationMessage, cancellationToken);
+
+        // Вход будет закрыт до подтверждения только когда гейт реально сработает
+        // (аккаунт под гейтом И канал готов). В dev без SMTP — false, клиент
+        // логинит сразу.
+        var requiresConfirmation = emailConfirmationService.IsLoginBlocked(user);
+
+        return Result.Success<RegisterUserResponse, Error>(
+            new RegisterUserResponse(user.Id, requiresConfirmation));
     }
 }

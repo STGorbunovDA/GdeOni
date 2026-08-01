@@ -103,6 +103,12 @@ public static class DependencyInjection
         services.Configure<PasswordResetOptions>(
             configuration.GetSection(PasswordResetOptions.SectionName));
 
+        // D45. Подтверждение email. Секция опциональна: без неё
+        // (WebConfirmUrl пуст) письма не шлются и гейт входа не применяется
+        // — приложение стартует и работает как раньше (dev без SMTP).
+        services.Configure<EmailConfirmationOptions>(
+            configuration.GetSection(EmailConfirmationOptions.SectionName));
+
         var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
                          ?? throw new InvalidOperationException("JWT settings are not configured.");
 

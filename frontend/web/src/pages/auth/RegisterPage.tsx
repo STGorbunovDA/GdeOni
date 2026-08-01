@@ -1,5 +1,6 @@
 import {
   Anchor,
+  Button,
   Checkbox,
   Container,
   Group,
@@ -10,8 +11,9 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { Cloud } from 'lucide-react';
+import { Cloud, MailCheck } from 'lucide-react';
 import { useState } from 'react';
+import { notifications } from '@mantine/notifications';
 import { useAuthStore } from '../../auth/authStore';
 import {
   BodyLabel,
@@ -42,6 +44,32 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const setSession = useAuthStore((s) => s.setSession);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // D45. После регистрации нового юзера вход закрыт до подтверждения email
+  // (гейт). Тогда вместо авто-логина показываем экран «проверьте почту» и
+  // помним адрес — чтобы кнопка «отправить повторно» знала, куда слать.
+  const [sentEmail, setSentEmail] = useState<string | null>(null);
+  const [resendBusy, setResendBusy] = useState(false);
+
+  async function handleResend() {
+    if (!sentEmail) return;
+    setResendBusy(true);
+    try {
+      await authApi.resendConfirmation(sentEmail);
+      notifications.show({
+        title: 'Письмо отправлено',
+        message: `Проверьте почту ${sentEmail} и перейдите по ссылке.`,
+        color: 'blue',
+      });
+    } catch (e) {
+      notifications.show({
+        title: 'Не удалось отправить',
+        message: formatError(e),
+        color: 'red',
+      });
+    } finally {
+      setResendBusy(false);
+    }
+  }
 
   const {
     register,
@@ -66,7 +94,7 @@ export function RegisterPage() {
   async function onSubmit(values: RegisterFormValues) {
     setSubmitError(null);
     try {
-      await usersApi.register({
+      const reg = await usersApi.register({
         email: values.email,
         password: values.password,
         userName: values.userName?.trim() || undefined,
@@ -74,7 +102,15 @@ export function RegisterPage() {
         birthDate: toDateInputValue(values.birthDate),
       });
 
-      // Регистрация без токенов — сразу login с теми же creds.
+      // D45. Новому юзеру вход закрыт до подтверждения email — показываем
+      // экран «проверьте почту», логиниться нет смысла (гейт отобьёт).
+      if (reg.requiresEmailConfirmation) {
+        setSentEmail(values.email);
+        return;
+      }
+
+      // Канал подтверждения не настроен (dev без SMTP) — гейта нет, логинимся
+      // сразу с теми же creds, как раньше.
       const resp = await authApi.login(values.email, values.password);
       setSession(resp.accessToken, resp.refreshToken, {
         id: resp.id,
@@ -106,7 +142,29 @@ export function RegisterPage() {
       <InAppBrowserNotice />
 
       <CloudCard>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        {sentEmail ? (
+          <Stack gap="md" align="center">
+            <MailCheck size={40} color={cloudColors.azureDeep} />
+            <BodyLabel ta="center">Почти готово — подтвердите email.</BodyLabel>
+            <CaptionLabel ta="center">
+              Мы отправили ссылку на {sentEmail}. Перейдите по ней, чтобы
+              подтвердить адрес и войти в приложение. Проверьте папку «Спам».
+            </CaptionLabel>
+            <PrimaryButton onClick={() => navigate('/login', { replace: true })}>
+              Перейти ко входу
+            </PrimaryButton>
+            <Button
+              variant="subtle"
+              size="sm"
+              fw={600}
+              loading={resendBusy}
+              onClick={handleResend}
+            >
+              Отправить письмо повторно
+            </Button>
+          </Stack>
+        ) : (
+          <form onSubmit={handleSubmit(onSubmit)}>
           <Stack gap="md">
             <TextInput
               label="Email"
@@ -228,7 +286,8 @@ export function RegisterPage() {
               </Anchor>
             </CaptionLabel>
           </Stack>
-        </form>
+          </form>
+        )}
       </CloudCard>
     </Container>
   );

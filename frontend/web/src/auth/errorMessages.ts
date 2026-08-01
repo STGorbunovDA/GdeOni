@@ -34,6 +34,14 @@ const KNOWN_CODES: Record<string, string> = {
   'user.password_reset_token.expired':
     'Срок действия ссылки истёк. Запросите восстановление ещё раз.',
 
+  // D45. Подтверждение email.
+  'user.email_confirmation_token.invalid':
+    'Ссылка недействительна или уже использована. Отправьте письмо ещё раз.',
+  'user.email_confirmation_token.expired':
+    'Срок действия ссылки истёк. Отправьте письмо ещё раз.',
+  'user.email.not_confirmed':
+    'Подтвердите email, чтобы войти. Мы отправили ссылку на вашу почту.',
+
   // Authorization
   'user.forbidden': 'У вас нет доступа к этому действию.',
 
@@ -109,6 +117,22 @@ function extractEnvelopeError(
       code: data.errorCode,
       message: data.errorMessage ?? data.errorCode,
     };
+  }
+  return null;
+}
+
+/**
+ * Достаёт машинный errorCode бэка из ApiError или AxiosError-envelope.
+ * Нужен, когда UI должен по КОДУ развилиться (например, показать экран
+ * «подтвердите email» на 403 user.email.not_confirmed), а не просто
+ * вывести человеческий текст. Возвращает null, если кода нет.
+ */
+export function getErrorCode(error: unknown): string | null {
+  if (error instanceof ApiError) {
+    return error.code;
+  }
+  if (error instanceof AxiosError) {
+    return extractEnvelopeError(error)?.code ?? null;
   }
   return null;
 }

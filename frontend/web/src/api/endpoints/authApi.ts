@@ -66,6 +66,32 @@ export const authApi = {
       }),
     );
   },
+
+  /**
+   * D45. POST /api/auth/confirm-email — подтверждение адреса по токену
+   * из письма. Ошибку показываем честно (человек уже перешёл по ссылке):
+   * «ссылка устарела, отправьте письмо заново».
+   */
+  async confirmEmail(token: string): Promise<void> {
+    await unwrap(
+      apiClient.post<ApiEnvelope<null>>('/api/auth/confirm-email', { token }),
+    );
+  },
+
+  /**
+   * D45. POST /api/auth/resend-confirmation — повторная отправка письма
+   * подтверждения. Бэк ВСЕГДА отвечает 200 (как forgot-password), даже
+   * если такого email нет или он уже подтверждён — чтобы по ответу нельзя
+   * было перебором выяснить, кто зарегистрирован. Анонимный: зовётся и с
+   * экрана «проверьте почту», и из внутреннего баннера.
+   */
+  async resendConfirmation(email: string): Promise<void> {
+    await unwrap(
+      apiClient.post<ApiEnvelope<null>>('/api/auth/resend-confirmation', {
+        email,
+      }),
+    );
+  },
 };
 
 /**

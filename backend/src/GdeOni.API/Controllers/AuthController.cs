@@ -4,12 +4,14 @@ using GdeOni.API.Models.Auth;
 using GdeOni.API.Models.Users;
 using GdeOni.API.RateLimiting;
 using GdeOni.API.Response;
+using GdeOni.Application.Auth.ConfirmEmail.UseCase;
 using GdeOni.Application.Auth.ForgotPassword.UseCase;
 using GdeOni.Application.Auth.Login.Model;
 using GdeOni.Application.Auth.Login.UseCase;
 using GdeOni.Application.Auth.Logout.UseCase;
 using GdeOni.Application.Auth.Refresh.Model;
 using GdeOni.Application.Auth.Refresh.UseCase;
+using GdeOni.Application.Auth.ResendConfirmation.UseCase;
 using GdeOni.Application.Auth.ResetPassword.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -87,6 +89,55 @@ public sealed class AuthController : ApiControllerBase
         CancellationToken cancellationToken)
     {
         var result = await resetPasswordUseCase.Execute(request.ToCommand(), cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D45. Подтверждает адрес email по токену из письма.
+    /// </summary>
+    /// <remarks>
+    /// Токен одноразовый и с ограниченным сроком жизни. Анонимный —
+    /// подтверждением личности служит сам токен. Повторный клик по уже
+    /// использованной ссылке отвечает успехом (адрес уже подтверждён).
+    /// </remarks>
+    [HttpPost("confirm-email")]
+    [AllowAnonymous]
+    [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ConfirmEmail(
+        [FromBody] ConfirmEmailRequest request,
+        [FromServices] IConfirmEmailUseCase confirmEmailUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await confirmEmailUseCase.Execute(request.ToCommand(), cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// D45. Повторно отправляет письмо с подтверждением email.
+    /// </summary>
+    /// <remarks>
+    /// Всегда возвращает 200, даже если такого пользователя нет или адрес
+    /// уже подтверждён — как и forgot-password, чтобы по ответу нельзя было
+    /// перебором выяснить, кто зарегистрирован. Анонимный: зовётся и с
+    /// экрана «проверьте почту» (новый юзер ещё не вошёл), и из баннера
+    /// (клиент подставляет email текущего юзера сам).
+    /// </remarks>
+    [HttpPost("resend-confirmation")]
+    [AllowAnonymous]
+    [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ResendConfirmation(
+        [FromBody] ResendConfirmationRequest request,
+        [FromServices] IResendEmailConfirmationUseCase resendUseCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await resendUseCase.Execute(request.ToCommand(), cancellationToken);
         return FromUnitResult(result);
     }
 

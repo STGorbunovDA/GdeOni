@@ -37,7 +37,7 @@ public sealed class AuthService(
         }
         catch (ApiException apiEx)
         {
-            return new AuthResult(false, $"http.{(int)apiEx.StatusCode}", ExtractErrorMessage(apiEx));
+            return FromApiException(apiEx);
         }
         catch (HttpRequestException httpEx)
         {
@@ -78,12 +78,16 @@ public sealed class AuthService(
             if (registerEnv.Result is null)
                 return new AuthResult(false, registerEnv.ErrorCode, registerEnv.ErrorMessage ?? "Регистрация не удалась.");
 
-            // Auto-login после регистрации — UX лучше, чем форсить логин руками.
+            // Auto-login после регистрации. D45: если бэк требует подтверждения
+            // email (гейт), LoginAsync вернёт AuthResult с кодом
+            // user.email.not_confirmed и русским сообщением — новый юзер
+            // подтверждает адрес по ссылке из письма (веб-страница
+            // /confirm-email открывается на любом устройстве) и входит снова.
             return await LoginAsync(email, password, ct);
         }
         catch (ApiException apiEx)
         {
-            return new AuthResult(false, $"http.{(int)apiEx.StatusCode}", ExtractErrorMessage(apiEx));
+            return FromApiException(apiEx);
         }
         catch (HttpRequestException httpEx)
         {
@@ -131,13 +135,33 @@ public sealed class AuthService(
         }
     }
 
-    private static string ExtractErrorMessage(ApiException apiEx)
+    /// <summary>
+    /// Превращает ApiException в AuthResult, сохраняя реальный errorCode
+    /// бэка (а не http.статус) — чтобы ViewModel мог развилиться по коду.
+    /// D45: гейт подтверждения email (user.email.not_confirmed) отдаём с
+    /// русским сообщением, остальное — как пришло с бэка.
+    /// </summary>
+    private static AuthResult FromApiException(ApiException apiEx)
+    {
+        var (code, message) = ExtractError(apiEx);
+
+        if (code == "user.email.not_confirmed")
+        {
+            message =
+                "Подтвердите email, чтобы войти. Мы отправили ссылку на вашу почту — " +
+                "перейдите по ней и войдите снова.";
+        }
+
+        return new AuthResult(false, code ?? $"http.{(int)apiEx.StatusCode}", message);
+    }
+
+    private static (string? Code, string Message) ExtractError(ApiException apiEx)
     {
         if (string.IsNullOrEmpty(apiEx.Content))
-            return apiEx.ReasonPhrase ?? apiEx.StatusCode.ToString();
+            return (null, apiEx.ReasonPhrase ?? apiEx.StatusCode.ToString());
 
         // Backend всегда отвечает в формате ApiEnvelope; пытаемся достать
-        // errorMessage. Если не вышло — возвращаем сырой текст ответа.
+        // errorCode/errorMessage. Если не вышло — возвращаем сырой текст.
         try
         {
             var envelope = System.Text.Json.JsonSerializer.Deserialize<ApiEnvelope<object>>(
@@ -146,11 +170,11 @@ public sealed class AuthService(
                 {
                     PropertyNameCaseInsensitive = true
                 });
-            return envelope?.ErrorMessage ?? apiEx.Content;
+            return (envelope?.ErrorCode, envelope?.ErrorMessage ?? apiEx.Content);
         }
         catch
         {
-            return apiEx.Content;
+            return (null, apiEx.Content);
         }
     }
 }
