@@ -382,6 +382,7 @@ public static partial class Errors
                 DbConstraints.UxRefreshTokensTokenHash => RefreshToken.TokenHashAlreadyExists(),
                 DbConstraints.UxSubscriptionPaymentsExternalPaymentId => Subscription.PaymentDuplicate(),
                 DbConstraints.UxTrackedDeceasedUserIdDeceasedId => Tracking.AlreadyExists(),
+                DbConstraints.UxShareBundlesCode => Share.CodeGenerationFailed(),
                 _ => Error.Conflict(
                     "conflict.unique_constraint",
                     "A unique constraint was violated.")

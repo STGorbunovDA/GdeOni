@@ -15,4 +15,7 @@ public static class DbConstraints
 
     // Одна настройка напоминания на пару (пользователь, праздник по ключу-имени).
     public const string UxHolidayRemindersUserKey = "ux_holiday_reminders_user_id_holiday_key";
+
+    // D46. Уникальный короткий код ссылки «поделиться подборкой».
+    public const string UxShareBundlesCode = "ux_share_bundles_code";
 }

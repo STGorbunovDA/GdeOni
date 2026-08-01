@@ -113,6 +113,22 @@ public sealed class DeceasedRepository(AppDbContext dbContext, TimeProvider time
             .AnyAsync(x => x.Id == id, cancellationToken);
     }
 
+    public async Task<List<Deceased>> GetForShare(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken cancellationToken)
+    {
+        if (ids.Count == 0)
+            return new List<Deceased>();
+
+        // WHERE id = ANY(@ids). Коллекции (media/memories) не грузим — для
+        // подборки нужны только owned VO: имя/даты/место. AsNoTracking:
+        // и превью, и импорт только читают карточку.
+        return await dbContext.DeceasedRecords
+            .AsNoTracking()
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<Dictionary<Guid, MainMediaProjection>> GetApprovedMainMedia(
         IReadOnlyList<Guid> mediaIds,
         CancellationToken cancellationToken)

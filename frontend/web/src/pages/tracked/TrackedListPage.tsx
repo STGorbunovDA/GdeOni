@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import {
   Alert,
+  Button,
+  Checkbox,
   Group,
   Loader,
   Pagination,
@@ -9,7 +11,8 @@ import {
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Navigation, UserRound } from 'lucide-react';
+import { notifications } from '@mantine/notifications';
+import { ChevronRight, Navigation, Share2, UserRound } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -24,6 +27,8 @@ import {
   TrackStatuses,
   type TrackedDeceasedListItem,
 } from '../../api/endpoints/trackedDeceasedApi';
+import { shareApi } from '../../api/endpoints/shareApi';
+import { ShareQrModal } from '../../components/share/ShareQrModal';
 import { formatError } from '../../auth/errorMessages';
 import { relationshipDisplay } from '../../utils/relationshipDisplay';
 import { buildMediaUrl } from '../../utils/mediaUrl';
@@ -33,14 +38,9 @@ import { useAppFeatures } from '../../hooks/useAppFeatures';
 /**
  * F9. Список отслеживаемых (E8 на mobile). Страница `/tracked`.
  *
- * Зеркало TrackedListViewModel + TrackedListPage.xaml:
- *  - GET /api/users/me/tracked-deceased через TanStack Query;
- *    refetchOnWindowFocus заменяет mobile pull-to-refresh.
- *  - Archived фильтруется на клиенте (как mobile) — для них F10.
- *  - Карточки кликабельны целиком → /tracked/:deceasedId (F11).
- *  - "Добавить умершего" (→ /search) и "Архив" (→ /tracked/archive)
- *    переехали в боковое меню (AppLayout); в шапке остаётся только
- *    "Найти рядом" (F36/E21).
+ * D46. Добавлен режим мультивыбора: кнопка «Поделиться» включает галочки,
+ * отмеченные карточки уходят в подборку (короткая ссылка + QR), которую
+ * получатель добавляет себе.
  */
 
 const PAGE_SIZE = 20;
@@ -50,6 +50,14 @@ export function TrackedListPage() {
   const [page, setPage] = useState(1);
   const features = useAppFeatures();
 
+  // D46. Режим «Поделиться»: галочки на карточках + подборка выбранных
+  // (deceasedId). Выбор переживает смену страницы пагинации.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareCount, setShareCount] = useState(0);
+  const [creating, setCreating] = useState(false);
+
   const query = useQuery({
     queryKey: ['tracked-list', page],
     queryFn: () => trackedDeceasedApi.list(page, PAGE_SIZE),
@@ -57,8 +65,6 @@ export function TrackedListPage() {
     placeholderData: (prev) => prev,
   });
 
-  // Archived не показываем — для них отдельный экран /tracked/archive (F10).
-  // Muted остаётся: это статус уведомлений, не отслеживания.
   const visibleItems = (query.data?.items ?? []).filter(
     (item) => item.status !== TrackStatuses.Archived,
   );
@@ -71,23 +77,69 @@ export function TrackedListPage() {
   const showEmptyState =
     query.isSuccess && !query.isFetching && visibleItems.length === 0;
 
+  function toggleSelect(deceasedId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(deceasedId)) next.delete(deceasedId);
+      else next.add(deceasedId);
+      return next;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
+  async function handleShare() {
+    if (selectedIds.size === 0) return;
+    setCreating(true);
+    try {
+      const res = await shareApi.create([...selectedIds]);
+      setShareCount(selectedIds.size);
+      setShareUrl(`${window.location.origin}/s/${res.code}`);
+      exitSelectMode();
+    } catch (e) {
+      notifications.show({
+        title: 'Не удалось создать ссылку',
+        message: formatError(e),
+        color: 'red',
+      });
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <Stack gap="lg">
       <Group justify="space-between" align="flex-start" wrap="wrap">
         <Stack gap="xs">
           <TitleLabel>Отслеживаемые</TitleLabel>
           <CaptionLabel>
-            Здесь карточки умерших, за которыми вы следите.
+            {selectMode
+              ? 'Отметьте карточки, которыми хотите поделиться.'
+              : 'Здесь карточки умерших, за которыми вы следите.'}
           </CaptionLabel>
         </Stack>
-        {/* «Добавить умершего» и «Архив» переехали в боковое меню.
-            В шапке остаётся только F36/E21 — тот же вход, что на mobile. */}
-        <GhostButton
-          onClick={() => navigate('/nearby')}
-          leftSection={<Navigation size={16} />}
-        >
-          Найти рядом
-        </GhostButton>
+
+        {selectMode ? (
+          <GhostButton onClick={exitSelectMode}>Отмена</GhostButton>
+        ) : (
+          <Group gap="xs" wrap="nowrap">
+            <GhostButton
+              onClick={() => navigate('/nearby')}
+              leftSection={<Navigation size={16} />}
+            >
+              Найти рядом
+            </GhostButton>
+            <GhostButton
+              onClick={() => setSelectMode(true)}
+              leftSection={<Share2 size={16} />}
+            >
+              Поделиться
+            </GhostButton>
+          </Group>
+        )}
       </Group>
 
       {query.isLoading && (
@@ -107,7 +159,10 @@ export function TrackedListPage() {
           key={item.trackingId}
           item={item}
           mediaBaseUrl={features.data?.mediaBaseUrl}
-          onClick={() => navigate(`/tracked/${item.deceasedId}`)}
+          selectMode={selectMode}
+          selected={selectedIds.has(item.deceasedId)}
+          onOpen={() => navigate(`/tracked/${item.deceasedId}`)}
+          onToggleSelect={() => toggleSelect(item.deceasedId)}
         />
       ))}
 
@@ -133,23 +188,54 @@ export function TrackedListPage() {
           />
         </Group>
       )}
+
+      {/* D46. Нижняя панель действия в режиме выбора. */}
+      {selectMode && (
+        <Group justify="center" mt="xs">
+          <Button
+            color="azure"
+            radius="xl"
+            size="md"
+            fw={700}
+            leftSection={<Share2 size={18} />}
+            disabled={selectedIds.size === 0}
+            loading={creating}
+            onClick={handleShare}
+          >
+            {selectedIds.size === 0
+              ? 'Выберите карточки'
+              : `Поделиться выбранными (${selectedIds.size})`}
+          </Button>
+        </Group>
+      )}
+
+      <ShareQrModal
+        url={shareUrl}
+        count={shareCount}
+        onClose={() => setShareUrl(null)}
+      />
     </Stack>
   );
 }
 
 /**
- * Карточка одного отслеживаемого. Кликабельна целиком (тот же паттерн,
- * что в SearchPage.ResultCard). Аватарка 56×56, под именем —
- * "relationship · † dd.mm.yyyy", шеврон справа.
+ * Карточка одного отслеживаемого. Вне режима выбора кликабельна целиком
+ * (→ детали). В режиме выбора клик переключает галочку.
  */
 function TrackedCard({
   item,
   mediaBaseUrl,
-  onClick,
+  selectMode,
+  selected,
+  onOpen,
+  onToggleSelect,
 }: {
   item: TrackedDeceasedListItem;
   mediaBaseUrl: string | undefined;
-  onClick: () => void;
+  selectMode: boolean;
+  selected: boolean;
+  onOpen: () => void;
+  onToggleSelect: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const photoUrl = buildMediaUrl(
@@ -159,9 +245,11 @@ function TrackedCard({
   );
   const subtitle = `${relationshipDisplay(item.relationshipType)} · † ${formatDateOnly(item.deathDate)}`;
 
+  const highlighted = selectMode && selected;
+
   return (
     <UnstyledButton
-      onClick={onClick}
+      onClick={selectMode ? onToggleSelect : onOpen}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{ display: 'block', width: '100%', textAlign: 'left' }}
@@ -173,10 +261,20 @@ function TrackedCard({
           boxShadow: hovered
             ? '0 6px 18px rgba(30, 58, 95, 0.14)'
             : '0 4px 14px rgba(30, 58, 95, 0.08)',
-          borderColor: hovered ? cloudColors.azure : cloudColors.cloudBorder,
+          borderColor:
+            highlighted || hovered ? cloudColors.azure : cloudColors.cloudBorder,
         }}
       >
         <Group align="center" gap="md" wrap="nowrap">
+          {selectMode && (
+            <Checkbox
+              checked={selected}
+              onChange={onToggleSelect}
+              onClick={(e) => e.stopPropagation()}
+              color="azure"
+              aria-label="Выбрать карточку"
+            />
+          )}
           <Avatar url={photoUrl} />
           <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
             <Group gap={6} align="center">
@@ -187,7 +285,9 @@ function TrackedCard({
             </Group>
             <CaptionLabel>{subtitle}</CaptionLabel>
           </Stack>
-          <ChevronRight size={24} color={cloudColors.azure} />
+          {!selectMode && (
+            <ChevronRight size={24} color={cloudColors.azure} />
+          )}
         </Group>
       </CloudCard>
     </UnstyledButton>

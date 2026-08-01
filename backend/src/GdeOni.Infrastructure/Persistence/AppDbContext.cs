@@ -1,6 +1,7 @@
 ﻿using GdeOni.Domain.Aggregates.Auth;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.Events;
+using GdeOni.Domain.Aggregates.Sharing;
 using GdeOni.Domain.Aggregates.Subscriptions;
 using GdeOni.Domain.Aggregates.Support;
 using GdeOni.Domain.Aggregates.User;
@@ -28,6 +29,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     // Персональные настройки напоминаний о праздниках (per-user).
     public DbSet<HolidayReminder> HolidayReminders => Set<HolidayReminder>();
+
+    // D46. Подборки «поделиться карточками» (короткий код → список id).
+    public DbSet<ShareBundle> ShareBundles => Set<ShareBundle>();
 
     // D37. Лог разосланных писем о годовщинах (дедупликация). Инфра-
     // сущность, не доменный агрегат.

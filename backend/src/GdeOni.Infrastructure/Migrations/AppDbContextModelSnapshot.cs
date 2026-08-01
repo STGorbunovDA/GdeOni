@@ -344,6 +344,51 @@ namespace GdeOni.Infrastructure.Migrations
                     b.ToTable("holiday_reminders", (string)null);
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Sharing.ShareBundle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<Guid[]>("DeceasedIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("deceased_ids");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_share_bundles");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_share_bundles_code");
+
+                    b.HasIndex("CreatedByUserId")
+                        .HasDatabaseName("ix_share_bundles_created_by_user_id");
+
+                    b.HasIndex("ExpiresAtUtc")
+                        .HasDatabaseName("ix_share_bundles_expires_at_utc");
+
+                    b.ToTable("share_bundles", (string)null);
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Subscriptions.SubscriptionPayment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1169,6 +1214,15 @@ namespace GdeOni.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_holiday_reminders_users_user_id");
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Sharing.ShareBundle", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_share_bundles_users_created_by_user_id");
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicket", b =>

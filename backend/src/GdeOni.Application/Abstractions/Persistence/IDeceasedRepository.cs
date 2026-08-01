@@ -24,6 +24,16 @@ public interface IDeceasedRepository
     Task<Deceased?> GetByIdWithMedia(Guid id, CancellationToken cancellationToken);
     Task<Deceased?> GetByIdWithMediaById(Guid id, Guid mediaId, CancellationToken cancellationToken);
     Task<bool> ExistsById(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// D46. Батч-выборка карточек по списку id (read-only) — для функции
+    /// «Поделиться»: показать получателю строки подборки и импортировать их
+    /// в отслеживание. Несуществующие id просто отсутствуют в результате
+    /// (карточку могли удалить между шэром и открытием). Коллекции
+    /// (media/memories) не грузятся — нужны только имя/даты/место.
+    /// </summary>
+    Task<List<Deceased>> GetForShare(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+
     Task<(List<Deceased> Items, int TotalCount)> GetPaged(GetAllDeceasedQuery query, CancellationToken cancellationToken);
 
     /// <summary>

@@ -72,6 +72,11 @@ public static class DependencyInjection
         // Персональные настройки напоминаний о праздниках.
         services.AddScoped<IHolidayReminderRepository, HolidayReminderRepository>();
 
+        // D46. «Поделиться подборкой»: хранилище подборок + генератор
+        // коротких кодов (без состояния → Singleton).
+        services.AddScoped<IShareBundleRepository, ShareBundleRepository>();
+        services.AddSingleton<IShareCodeFactory, ShareCodeFactory>();
+
         // F38. Read-model админской справки: только COUNT/SUM, без сущностей.
         services.AddScoped<IAdminStatsRepository, AdminStatsRepository>();
 
@@ -102,6 +107,9 @@ public static class DependencyInjection
         services.AddSingleton<ISecureTokenFactory>(sp => sp.GetRequiredService<RefreshTokenFactory>());
 
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
+
+        // D46. «Поделиться подборкой» — срок жизни ссылки/QR.
+        services.Configure<SharingOptions>(configuration.GetSection(SharingOptions.SectionName));
 
         services.Configure<MinioOptions>(configuration.GetSection(MinioOptions.SectionName));
         services.Configure<BCryptOptions>(configuration.GetSection(BCryptOptions.SectionName));

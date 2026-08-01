@@ -42,6 +42,15 @@ const KNOWN_CODES: Record<string, string> = {
   'user.email.not_confirmed':
     'Подтвердите email, чтобы войти. Мы отправили ссылку на вашу почту.',
 
+  // D46. Поделиться подборкой
+  'share.deceased_ids.required': 'Выберите хотя бы одну карточку.',
+  'share.deceased_ids.too_many':
+    'Слишком много карточек за раз (максимум 100).',
+  'share.bundle.not_found': 'Ссылка недействительна или устарела.',
+  'share.bundle.expired': 'Срок действия ссылки истёк — попросите новую.',
+  'share.code.generation_failed':
+    'Не удалось создать ссылку. Попробуйте ещё раз.',
+
   // Authorization
   'user.forbidden': 'У вас нет доступа к этому действию.',
 

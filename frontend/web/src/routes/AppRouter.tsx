@@ -12,6 +12,7 @@ import { SearchPage } from '../pages/search/SearchPage';
 import { NearbyPage } from '../pages/search/NearbyPage';
 import { AtGravePage } from '../pages/search/AtGravePage';
 import { PreviewPage } from '../pages/search/PreviewPage';
+import { ShareImportPage } from '../pages/share/ShareImportPage';
 import { RoutePage } from '../pages/route/RoutePage';
 import { EventsPage } from '../pages/events/EventsPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
@@ -109,6 +110,10 @@ export function AppRouter() {
             <Route path="/support/new" element={<SupportNewPage />} />
             <Route path="/support/mine" element={<SupportMinePage />} />
             <Route path="/support/:id" element={<SupportTicketPage />} />
+            {/* D46. Импорт подборки по ссылке/QR. В whitelist (до paywall):
+                список показываем и без активной подписки; сам импорт под
+                подпиской — 403 subscription.required уведёт на paywall. */}
+            <Route path="/s/:code" element={<ShareImportPage />} />
 
             {/* F22 gated: требует активную подписку (или admin роль). */}
             <Route element={<RequireSubscription />}>

@@ -58,6 +58,9 @@ using GdeOni.Application.Events.Queries.GetMyHolidayReminders.UseCase;
 using GdeOni.Application.Events.Commands.SetHolidayReminder.UseCase;
 using GdeOni.Application.Geo.Queries.ForwardGeocode.UseCase;
 using GdeOni.Application.Geo.Queries.ReverseGeocode.UseCase;
+using GdeOni.Application.Sharing.Commands.CreateShareBundle.UseCase;
+using GdeOni.Application.Sharing.Commands.ImportShareBundle.UseCase;
+using GdeOni.Application.Sharing.Queries.GetShareBundle.UseCase;
 using GdeOni.Application.Routing.Queries.GetRouteToGrave.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CancelSubscription.UseCase;
 using GdeOni.Application.Subscriptions.Commands.CreatePayment.UseCase;
@@ -207,6 +210,11 @@ public static class DependencyInjection
         // D41. Обратное геокодирование: координаты → город.
         services.AddScoped<IReverseGeocodeUseCase, ReverseGeocodeUseCase>();
         services.AddScoped<IForwardGeocodeUseCase, ForwardGeocodeUseCase>();
+
+        // D46. «Поделиться подборкой»: создать код, раскрыть по коду, импорт.
+        services.AddScoped<ICreateShareBundleUseCase, CreateShareBundleUseCase>();
+        services.AddScoped<IGetShareBundleUseCase, GetShareBundleUseCase>();
+        services.AddScoped<IImportShareBundleUseCase, ImportShareBundleUseCase>();
 
         // D16. Subscription use cases.
         services.AddScoped<IGetMySubscriptionUseCase, GetMySubscriptionUseCase>();
