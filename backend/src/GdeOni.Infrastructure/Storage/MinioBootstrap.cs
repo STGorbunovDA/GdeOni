@@ -19,11 +19,18 @@ internal static class MinioBootstrap
         var options = sp.GetRequiredService<IOptions<MinioOptions>>().Value;
         var client = sp.GetRequiredService<IMinioClient>();
 
+        // D47. Бакеты фото — ПРИВАТНЫЕ. Доступ к фото только через «вахтёра»
+        // (GET /api/media/{id}/content) с проверкой входа; прямой анонимный
+        // GdeOni-URL хранилища больше не работает — закрываем утечку по
+        // вечной ссылке (152-ФЗ: узнаваемые лица на надгробиях). ВНИМАНИЕ:
+        // SetPolicyAsync применяется только при СОЗДАНИИ бакета (см. ниже),
+        // поэтому на уже существующих бакетах публичную политику нужно снять
+        // вручную при деплое: `mc anonymous set none <alias>/<bucket>`.
         await EnsureBucketAsync(
-            client, options.Buckets.DeceasedPhotos, publicRead: true, logger, cancellationToken);
+            client, options.Buckets.DeceasedPhotos, publicRead: false, logger, cancellationToken);
 
         await EnsureBucketAsync(
-            client, options.Buckets.GravePhotos, publicRead: true, logger, cancellationToken);
+            client, options.Buckets.GravePhotos, publicRead: false, logger, cancellationToken);
 
         await EnsureBucketAsync(
             client, options.Buckets.DeceasedDocuments, publicRead: false, logger, cancellationToken);

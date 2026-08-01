@@ -113,6 +113,30 @@ public sealed class DeceasedRepository(AppDbContext dbContext, TimeProvider time
             .AnyAsync(x => x.Id == id, cancellationToken);
     }
 
+    public async Task<MediaContentInfo?> GetMediaContentInfoById(
+        Guid mediaId,
+        CancellationToken cancellationToken)
+    {
+        // JOIN media → deceased: нужен CreatedByUserId владельца карточки для
+        // модерационной проверки в use case'е. Одним запросом, AsNoTracking.
+        return await dbContext.Set<DeceasedMedia>()
+            .AsNoTracking()
+            .Where(m => m.Id == mediaId)
+            .Join(
+                dbContext.DeceasedRecords.AsNoTracking(),
+                m => m.DeceasedId,
+                d => d.Id,
+                (m, d) => new MediaContentInfo(
+                    m.Bucket,
+                    m.StorageKey,
+                    m.ContentType,
+                    m.OriginalFileName,
+                    m.ModerationStatus,
+                    m.UploadedByUserId,
+                    d.CreatedByUserId))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<List<Deceased>> GetForShare(
         IReadOnlyCollection<Guid> ids,
         CancellationToken cancellationToken)

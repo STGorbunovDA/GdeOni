@@ -59,6 +59,19 @@ public interface IFileStorage
     string GetPublicUrl(string bucket, string objectKey);
 
     /// <summary>
+    /// D47. Относительный путь к «вахтёру» фото — эндпоинту
+    /// <c>GET /api/media/{mediaId}/content</c>, который стримит файл только
+    /// авторизованному пользователю. Заменяет <see cref="GetPublicUrl"/> для
+    /// фото: после закрытия анонимного доступа к бакетам (MinioBootstrap,
+    /// publicRead:false) прямые вечные ссылки на MinIO больше не отдаются —
+    /// утекший URL без входа отдаёт 401. Путь относительный (от origin,
+    /// с префиксом <c>/api</c>) — каждый клиент бьёт по нему своим
+    /// авторизованным HTTP-клиентом (web same-origin axios, mobile —
+    /// HttpClient с BaseAddress = API). Документы остаются на presigned URL.
+    /// </summary>
+    string GetPhotoContentPath(Guid mediaId);
+
+    /// <summary>
     /// D36. Базовый URL хранилища без bucket/key — отдаётся клиентам
     /// через <c>/api/app/features</c>, чтобы они сами строили URL
     /// под свою сеть (web → localhost, Android-эмулятор → 10.0.2.2,

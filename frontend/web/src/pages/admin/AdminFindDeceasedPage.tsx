@@ -16,7 +16,6 @@ import {
   Search as SearchIcon,
   RotateCcw,
   Route as RouteIcon,
-  UserRound,
 } from 'lucide-react';
 import {
   BodyLabel,
@@ -38,9 +37,8 @@ import {
   toDateInputValue,
   parseDateInputValue,
 } from '../../utils/formatDate';
-import { buildMediaUrl } from '../../utils/mediaUrl';
+import { AuthAvatar } from '../../components/media/AuthAvatar';
 import { buildYandexLookupUrl, openYandexRoute } from '../../utils/routing';
-import { useAppFeatures } from '../../hooks/useAppFeatures';
 
 /**
  * F17.15 / D27. Админский поиск умерших по всем характеристикам —
@@ -373,12 +371,6 @@ function ResultCard({
   onOpen: () => void;
   onRoute: () => void;
 }) {
-  const features = useAppFeatures();
-  const photoUrl = buildMediaUrl(
-    features.data?.mediaBaseUrl,
-    item.mainPhotoBucket,
-    item.mainPhotoStorageKey,
-  );
   const lifePeriod =
     (item.birthDate ? formatDateOnly(item.birthDate) : '?') +
     ' — ' +
@@ -400,7 +392,7 @@ function ResultCard({
         background: cloudColors.cloud,
       }}
     >
-      <Avatar url={photoUrl} />
+      <AuthAvatar src={item.mainPhotoUrl} size={48} />
       <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
         <Group gap={8}>
           <BodyLabel style={{ fontWeight: 600 }}>{item.fullName}</BodyLabel>
@@ -433,36 +425,6 @@ function ResultCard({
   );
 }
 
-function Avatar({ url }: { url: string | null }) {
-  return (
-    <div
-      style={{
-        width: 48,
-        height: 48,
-        borderRadius: '50%',
-        background: cloudColors.sky,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        color: cloudColors.azureDeep,
-        flexShrink: 0,
-      }}
-    >
-      {url ? (
-        <img
-          src={url}
-          alt=""
-          width={48}
-          height={48}
-          style={{ objectFit: 'cover', display: 'block' }}
-        />
-      ) : (
-        <UserRound size={24} strokeWidth={1.5} />
-      )}
-    </div>
-  );
-}
 
 /**
  * Преобразует Date в 'yyyy-MM-dd' без учёта таймзоны — так бэк примет

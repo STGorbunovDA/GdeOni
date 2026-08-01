@@ -5,9 +5,9 @@ import type { ApiEnvelope, PagedResponse } from '../types';
  * F13. Эндпоинты медиа-галерей. Чтение доступно всем авторизованным,
  * запись (upload/delete/main-photo) — admin-only (D26 на бэке).
  *
- * D36: бэк отдаёт bucket+storageKey, клиент собирает URL для фото через
- * buildMediaUrl (см. mediaUrl.ts). Для документов поле url — presigned,
- * клиент использует его как есть.
+ * D47: для фото поле url — путь к «вахтёру» (/api/media/{id}/content),
+ * его грузит компонент AuthImage авторизованным запросом (getBlob). Для
+ * документов url — presigned, клиент использует его как есть.
  */
 
 /** Зеркало MediaKind enum на бэке (FromForm принимает int). */
@@ -41,7 +41,7 @@ export type MediaListItem = {
   moderationStatus: string;
   bucket: string;
   storageKey: string;
-  /** Presigned для документов; для фото — public URL (deprecated, сборка через bucket+key). */
+  /** D47: для фото — путь к «вахтёру» (/api/media/{id}/content, грузить через AuthImage); для документов — presigned URL. */
   url: string;
   isPresigned: boolean;
   createdAtUtc: string;
@@ -148,6 +148,18 @@ export const mediaApi = {
       `/api/deceased-records/${deceasedId}/media/${mediaId}/download`,
       { responseType: 'blob' },
     );
+    return response.data;
+  },
+
+  /**
+   * D47. Качает фото через «вахтёра» (GET /api/media/{id}/content) как blob.
+   * Тег <img> Bearer-заголовок сам не шлёт, поэтому фото за авторизацией
+   * грузим axios'ом (токен + refresh через интерсепторы), а показываем
+   * через object URL — см. компонент AuthImage. `path` приходит готовым
+   * от бэка в поле url/mainPhotoUrl (относительный /api/media/...).
+   */
+  async getBlob(path: string): Promise<Blob> {
+    const response = await apiClient.get<Blob>(path, { responseType: 'blob' });
     return response.data;
   },
 

@@ -149,7 +149,9 @@ public sealed class UploadMediaUseCase(
             return (presigned, true);
         }
 
-        return (fileStorage.GetPublicUrl(media.Bucket, media.StorageKey), false);
+        // D47: фото — путь к «вахтёру» (авторизованный стрим через сервер),
+        // не прямой публичный URL MinIO.
+        return (fileStorage.GetPhotoContentPath(media.Id), false);
     }
 
     private async Task TryDeleteFromStorage(string bucket, string objectKey)

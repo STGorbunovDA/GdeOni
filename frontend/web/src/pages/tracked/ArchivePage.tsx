@@ -14,7 +14,6 @@ import {
   ChevronRight,
   RotateCcw,
   Trash2,
-  UserRound,
 } from 'lucide-react';
 import {
   BodyLabel,
@@ -31,9 +30,8 @@ import {
 } from '../../api/endpoints/trackedDeceasedApi';
 import { formatError } from '../../auth/errorMessages';
 import { relationshipDisplay } from '../../utils/relationshipDisplay';
-import { buildMediaUrl } from '../../utils/mediaUrl';
+import { AuthAvatar } from '../../components/media/AuthAvatar';
 import { formatDateOnly } from '../../utils/formatDate';
-import { useAppFeatures } from '../../hooks/useAppFeatures';
 
 /**
  * F10. Архив отслеживаемых (~ E9.1 + E17.2). Страница `/tracked/archive`.
@@ -52,7 +50,6 @@ import { useAppFeatures } from '../../hooks/useAppFeatures';
 export function ArchivePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const features = useAppFeatures();
   const [pendingDelete, setPendingDelete] =
     useState<TrackedDeceasedListItem | null>(null);
 
@@ -143,7 +140,6 @@ export function ArchivePage() {
         <ArchivedCard
           key={item.trackingId}
           item={item}
-          mediaBaseUrl={features.data?.mediaBaseUrl}
           onOpen={() => navigate(`/tracked/${item.deceasedId}`)}
           onRestore={() => restoreMutation.mutate(item.deceasedId)}
           onDelete={() => setPendingDelete(item)}
@@ -217,7 +213,6 @@ export function ArchivePage() {
  */
 function ArchivedCard({
   item,
-  mediaBaseUrl,
   onOpen,
   onRestore,
   onDelete,
@@ -225,7 +220,6 @@ function ArchivedCard({
   isDeleting,
 }: {
   item: TrackedDeceasedListItem;
-  mediaBaseUrl: string | undefined;
   onOpen: () => void;
   onRestore: () => void;
   onDelete: () => void;
@@ -233,11 +227,6 @@ function ArchivedCard({
   isDeleting: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
-  const photoUrl = buildMediaUrl(
-    mediaBaseUrl,
-    item.mainPhotoBucket,
-    item.mainPhotoStorageKey,
-  );
   const subtitle = `${relationshipDisplay(item.relationshipType)} · † ${formatDateOnly(item.deathDate)}`;
   const busy = isRestoring || isDeleting;
 
@@ -265,7 +254,7 @@ function ArchivedCard({
         }}
       >
         <Group align="center" gap="md" wrap="nowrap">
-          <Avatar url={photoUrl} />
+          <AuthAvatar src={item.mainPhotoUrl} size={56} />
           <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
             <Group gap={6} align="center">
               <SubTitleLabel>{item.fullName}</SubTitleLabel>
@@ -307,37 +296,3 @@ function ArchivedCard({
   );
 }
 
-function Avatar({ url }: { url: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const show = url && !failed;
-
-  return (
-    <div
-      style={{
-        width: 56,
-        height: 56,
-        flexShrink: 0,
-        borderRadius: '50%',
-        background: cloudColors.sky,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        color: cloudColors.azureDeep,
-      }}
-    >
-      {show ? (
-        <img
-          src={url}
-          alt=""
-          width={56}
-          height={56}
-          style={{ objectFit: 'cover', display: 'block' }}
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <UserRound size={28} strokeWidth={1.5} />
-      )}
-    </div>
-  );
-}

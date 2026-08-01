@@ -23,6 +23,16 @@ public interface IDeceasedRepository
     Task<Deceased?> GetByIdWithMemoryById(Guid id, Guid memoryId, CancellationToken cancellationToken);
     Task<Deceased?> GetByIdWithMedia(Guid id, CancellationToken cancellationToken);
     Task<Deceased?> GetByIdWithMediaById(Guid id, Guid mediaId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// D47. Узкая проекция для «вахтёра» фото (<c>GET /api/media/{id}/content</c>):
+    /// по одному mediaId (без deceasedId в маршруте) достаёт всё, что нужно
+    /// для проверки доступа и стрима — bucket/key/content-type + данные для
+    /// модерационной проверки (кто загрузил, кто автор карточки). JOIN на
+    /// deceased, AsNoTracking. null — media нет.
+    /// </summary>
+    Task<MediaContentInfo?> GetMediaContentInfoById(Guid mediaId, CancellationToken cancellationToken);
+
     Task<bool> ExistsById(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
@@ -138,6 +148,21 @@ public interface IDeceasedRepository
 /// IFileStorage.GetPublicUrl, остальные поля DeceasedMedia не нужны.
 /// </summary>
 public sealed record MainMediaProjection(Guid Id, string Bucket, string StorageKey);
+
+/// <summary>
+/// D47. Проекция для стрима файла через «вахтёра». Помимо storage-координат
+/// несёт всё для модерационной проверки видимости (зеркало
+/// DownloadMediaUseCase): Pending/Rejected видит только админ, автор карточки
+/// или загрузивший.
+/// </summary>
+public sealed record MediaContentInfo(
+    string Bucket,
+    string StorageKey,
+    string ContentType,
+    string OriginalFileName,
+    ModerationStatus ModerationStatus,
+    Guid UploadedByUserId,
+    Guid DeceasedCreatedByUserId);
 
 /// <summary>
 /// D24. Audit row: DeceasedEdit + резолвленные данные о редакторе.

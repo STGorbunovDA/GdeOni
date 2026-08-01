@@ -10,7 +10,7 @@ import {
 } from '@mantine/core';
 import { Calendar } from '@mantine/dates';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ChevronRight, Cross, Flower2, UserRound } from 'lucide-react';
+import { ChevronRight, Cross, Flower2 } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -25,8 +25,7 @@ import {
   holidayRemindersApi,
   type Holiday,
 } from '../../api/endpoints/eventsApi';
-import { useAppFeatures } from '../../hooks/useAppFeatures';
-import { buildMediaUrl } from '../../utils/mediaUrl';
+import { AuthAvatar } from '../../components/media/AuthAvatar';
 import { formatDateOnly } from '../../utils/formatDate';
 import {
   buildOverridesMap,
@@ -104,7 +103,6 @@ type DayDeceased = {
 
 export function EventsPage() {
   const navigate = useNavigate();
-  const features = useAppFeatures();
 
   const today = useMemo(() => new Date(), []);
   const todayIso = isoDate(today);
@@ -221,11 +219,7 @@ export function EventsPage() {
     const result: TodayAnniversary[] = [];
     for (const item of items) {
       if (item.status === 'Archived') continue;
-      const photoUrl = buildMediaUrl(
-        features.data?.mediaBaseUrl,
-        item.mainPhotoBucket,
-        item.mainPhotoStorageKey,
-      );
+      const photoUrl = item.mainPhotoUrl;
       const deathYears = anniversaryYearsToday(item.deathDate, today);
       if (deathYears !== null) {
         result.push({ deceasedId: item.deceasedId, fullName: item.fullName, photoUrl, kind: 'death', years: deathYears });
@@ -238,7 +232,7 @@ export function EventsPage() {
       }
     }
     return result;
-  }, [trackedQuery.data, features.data, today]);
+  }, [trackedQuery.data, today]);
 
   const todayHolidays = useMemo(
     () => holidaysByDate.get(todayIso) ?? [],
@@ -485,7 +479,7 @@ function AnniversaryRow({
     >
       <CloudCard style={{ cursor: 'pointer' }}>
         <Group align="center" gap="md" wrap="nowrap">
-          <Avatar url={anniversary.photoUrl} />
+          <AuthAvatar src={anniversary.photoUrl} size={48} />
           <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
             <SubTitleLabel>{anniversary.fullName}</SubTitleLabel>
             <Group gap={6} align="center">
@@ -523,33 +517,3 @@ function HolidayRow({
   );
 }
 
-function Avatar({ url }: { url: string | null }) {
-  return (
-    <div
-      style={{
-        width: 48,
-        height: 48,
-        flexShrink: 0,
-        borderRadius: '50%',
-        background: cloudColors.sky,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        color: cloudColors.azureDeep,
-      }}
-    >
-      {url ? (
-        <img
-          src={url}
-          alt=""
-          width={48}
-          height={48}
-          style={{ objectFit: 'cover', display: 'block' }}
-        />
-      ) : (
-        <UserRound size={24} strokeWidth={1.5} />
-      )}
-    </div>
-  );
-}

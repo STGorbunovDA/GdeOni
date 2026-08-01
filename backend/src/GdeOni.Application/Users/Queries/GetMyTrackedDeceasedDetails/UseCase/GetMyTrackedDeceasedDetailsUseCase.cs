@@ -68,9 +68,9 @@ public sealed class GetMyTrackedDeceasedDetailsUseCase(
                 mainMediaId = photo.Id;
                 mainPhotoBucket = photo.Bucket;
                 mainPhotoStorageKey = photo.StorageKey;
-                // D36: оставляем для обратной совместимости со старыми
-                // клиентами.
-                mainPhotoUrl = fileStorage.GetPublicUrl(photo.Bucket, photo.StorageKey);
+                // D47: путь к «вахтёру» — клиент грузит фото авторизованным
+                // запросом, прямой URL хранилища не отдаём (бакеты приватны).
+                mainPhotoUrl = fileStorage.GetPhotoContentPath(photo.Id);
             }
         }
 

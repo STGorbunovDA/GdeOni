@@ -86,7 +86,9 @@ public sealed class GetMediaListUseCase(
             return (presigned, true);
         }
 
-        return (fileStorage.GetPublicUrl(media.Bucket, media.StorageKey), false);
+        // D47: фото — путь к «вахтёру» (авторизованный стрим через сервер),
+        // не прямой публичный URL MinIO.
+        return (fileStorage.GetPhotoContentPath(media.Id), false);
     }
 
     private static MediaListItemResponse MapToResponse(DeceasedMedia media, string url, bool isPresigned) =>

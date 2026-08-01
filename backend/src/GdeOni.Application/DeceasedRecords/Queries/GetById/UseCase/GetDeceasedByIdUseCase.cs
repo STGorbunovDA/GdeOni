@@ -55,9 +55,10 @@ public sealed class GetDeceasedByIdUseCase(
                 mainMediaId = photo.Id;
                 mainPhotoBucket = photo.Bucket;
                 mainPhotoStorageKey = photo.StorageKey;
-                // D36: оставляем для обратной совместимости со старыми
-                // клиентами. Новые клиенты используют bucket+storageKey.
-                mainPhotoUrl = fileStorage.GetPublicUrl(photo.Bucket, photo.StorageKey);
+                // D47: путь к «вахтёру» — клиент грузит фото авторизованным
+                // запросом. bucket/storageKey оставляем в DTO как справочные,
+                // но прямой URL хранилища больше не отдаём (бакеты приватны).
+                mainPhotoUrl = fileStorage.GetPhotoContentPath(photo.Id);
             }
         }
 

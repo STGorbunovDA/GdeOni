@@ -8,7 +8,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { Route as RouteIcon, UserRound } from 'lucide-react';
+import { Route as RouteIcon } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -23,8 +23,7 @@ import {
   TrackStatuses,
 } from '../../api/endpoints/trackedDeceasedApi';
 import { formatError } from '../../auth/errorMessages';
-import { useAppFeatures } from '../../hooks/useAppFeatures';
-import { buildMediaUrl } from '../../utils/mediaUrl';
+import { AuthAvatar } from '../../components/media/AuthAvatar';
 import { formatDateOnly } from '../../utils/formatDate';
 import { relationshipDisplay } from '../../utils/relationshipDisplay';
 import {
@@ -45,7 +44,6 @@ import {
  * поддерживает ?status= параметр.
  */
 export function RoutePage() {
-  const features = useAppFeatures();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const query = useQuery({
@@ -142,11 +140,7 @@ export function RoutePage() {
           key={item.deceasedId}
           fullName={item.fullName}
           subtitle={`${relationshipDisplay(item.relationshipType)} · † ${formatDateOnly(item.deathDate)}`}
-          photoUrl={buildMediaUrl(
-            features.data?.mediaBaseUrl,
-            item.mainPhotoBucket,
-            item.mainPhotoStorageKey,
-          )}
+          photoUrl={item.mainPhotoUrl}
           checked={selected.has(item.deceasedId)}
           onToggle={() => toggle(item.deceasedId)}
         />
@@ -203,7 +197,7 @@ function CandidateRow({
             // и двойного toggle нет потому что мы используем onChange
             // только как fallback для accessibility-юзеров (Tab+Space).
           />
-          <Avatar url={photoUrl} />
+          <AuthAvatar src={photoUrl} size={56} />
           <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
             <SubTitleLabel>{fullName}</SubTitleLabel>
             <CaptionLabel>{subtitle}</CaptionLabel>
@@ -214,36 +208,3 @@ function CandidateRow({
   );
 }
 
-function Avatar({ url }: { url: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const show = url && !failed;
-  return (
-    <div
-      style={{
-        width: 56,
-        height: 56,
-        flexShrink: 0,
-        borderRadius: '50%',
-        background: cloudColors.sky,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        color: cloudColors.azureDeep,
-      }}
-    >
-      {show ? (
-        <img
-          src={url}
-          alt=""
-          width={56}
-          height={56}
-          style={{ objectFit: 'cover', display: 'block' }}
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <UserRound size={28} strokeWidth={1.5} />
-      )}
-    </div>
-  );
-}

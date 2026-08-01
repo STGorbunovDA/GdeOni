@@ -13,7 +13,7 @@ import {
 } from '../../utils/formatDate';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Navigation, Search, UserPlus, UserRound } from 'lucide-react';
+import { Navigation, Search, UserPlus } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -30,8 +30,7 @@ import {
   type SearchDeceasedParams,
 } from '../../api/endpoints/deceasedApi';
 import { formatError } from '../../auth/errorMessages';
-import { buildMediaUrl } from '../../utils/mediaUrl';
-import { useAppFeatures } from '../../hooks/useAppFeatures';
+import { AuthAvatar } from '../../components/media/AuthAvatar';
 
 import '@mantine/dates/styles.css';
 
@@ -120,7 +119,6 @@ export function SearchPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [activeForm, setActiveForm] = useState<FormState | null>(null);
   const [page, setPage] = useState(1);
-  const features = useAppFeatures();
 
   const canSearch = hasAnyFilter(form);
 
@@ -292,7 +290,6 @@ export function SearchPage() {
                 key={item.id}
                 item={item}
                 onClick={() => navigate(`/preview/${item.id}`)}
-                mediaBaseUrl={features.data?.mediaBaseUrl}
               />
             ))
           )}
@@ -346,11 +343,9 @@ export function SearchPage() {
 function ResultCard({
   item,
   onClick,
-  mediaBaseUrl,
 }: {
   item: DeceasedListItem;
   onClick: () => void;
-  mediaBaseUrl: string | undefined;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -358,11 +353,6 @@ function ResultCard({
   const locationParts = [item.country, item.city, item.cemeteryName]
     .filter(Boolean)
     .join(', ');
-  const photoUrl = buildMediaUrl(
-    mediaBaseUrl,
-    item.mainPhotoBucket,
-    item.mainPhotoStorageKey,
-  );
 
   return (
     <UnstyledButton
@@ -382,7 +372,7 @@ function ResultCard({
         }}
       >
         <Group align="center" gap="md" wrap="nowrap">
-          <Avatar url={photoUrl} />
+          <AuthAvatar src={item.mainPhotoUrl} size={64} />
           <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
             <Group justify="space-between">
               <SubTitleLabel>{item.fullName}</SubTitleLabel>
@@ -410,37 +400,3 @@ function ResultCard({
  * Color Emoji иногда не подгружается из системного шрифта и эмодзи
  * рендерится пустым прямоугольником.
  */
-function Avatar({ url }: { url: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const showImage = url && !failed;
-
-  return (
-    <div
-      style={{
-        width: 64,
-        height: 64,
-        flexShrink: 0,
-        borderRadius: '50%',
-        background: cloudColors.sky,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        color: cloudColors.azureDeep,
-      }}
-    >
-      {showImage ? (
-        <img
-          src={url}
-          alt=""
-          width={64}
-          height={64}
-          style={{ objectFit: 'cover', display: 'block' }}
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <UserRound size={32} strokeWidth={1.5} />
-      )}
-    </div>
-  );
-}

@@ -42,11 +42,11 @@ public sealed class GetMyTrackedDeceasedListUseCase(
             {
                 var (tracking, deceased) = pair;
                 var mainPhoto = deceased.GetMainPhoto();
-                // D36: bucket+storageKey — основной контракт. MainPhotoUrl
-                // оставляем для обратной совместимости со старыми клиентами.
+                // D47: MainPhotoUrl — путь к «вахтёру», клиент грузит фото
+                // авторизованным запросом (прямой URL хранилища не отдаём).
                 var mainPhotoUrl = mainPhoto is null
                     ? null
-                    : fileStorage.GetPublicUrl(mainPhoto.Bucket, mainPhoto.StorageKey);
+                    : fileStorage.GetPhotoContentPath(mainPhoto.Id);
 
                 return new MyTrackedDeceasedListItemResponse
                 {

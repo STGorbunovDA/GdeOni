@@ -143,6 +143,11 @@ internal sealed class MinioFileStorage : IFileStorage
         return $"{GetMediaBaseUrl()}/{bucket}/{Uri.EscapeDataString(objectKey)}";
     }
 
+    // D47. Путь-«вахтёр» — маршрут MediaContentController.GetContent.
+    // Строка-константа осознанно дублирует route контроллера: Infrastructure
+    // не ссылается на API. При переименовании маршрута — синхронизировать.
+    public string GetPhotoContentPath(Guid mediaId) => $"/api/media/{mediaId}/content";
+
     public string GetMediaBaseUrl()
     {
         return string.IsNullOrWhiteSpace(_options.PublicBaseUrl)

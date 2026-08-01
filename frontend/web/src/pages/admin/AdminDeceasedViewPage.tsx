@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   ShieldOff,
   Trash2,
-  UserRound,
 } from 'lucide-react';
 import {
   BodyLabel,
@@ -26,8 +25,7 @@ import {
 import { cloudColors } from '../../design/theme';
 import { deceasedApi, type DeceasedMemory } from '../../api/endpoints/deceasedApi';
 import { memoriesApi } from '../../api/endpoints/memoriesApi';
-import { useAppFeatures } from '../../hooks/useAppFeatures';
-import { buildMediaUrl } from '../../utils/mediaUrl';
+import { AuthAvatar } from '../../components/media/AuthAvatar';
 import { formatDateOnly, formatDateTime } from '../../utils/formatDate';
 import { buildYandexLookupUrl, openYandexRoute } from '../../utils/routing';
 import { formatError } from '../../auth/errorMessages';
@@ -49,7 +47,6 @@ import { MediaSection } from '../tracked/MediaSection';
 export function AdminDeceasedViewPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const features = useAppFeatures();
   const { id } = useParams<{ id: string }>();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -148,11 +145,6 @@ export function AdminDeceasedViewPage() {
   }
 
   const d = query.data;
-  const photoUrl = buildMediaUrl(
-    features.data?.mediaBaseUrl,
-    d.mainPhotoBucket,
-    d.mainPhotoStorageKey,
-  );
   const hasBurial =
     d.hasBurialLocation || d.country || d.city || d.cemeteryName;
 
@@ -193,7 +185,7 @@ export function AdminDeceasedViewPage() {
       )}
 
       <Stack align="center" gap="md">
-        <Avatar url={photoUrl} />
+        <AuthAvatar src={d.mainPhotoUrl} size={120} iconSize={56} />
         <Stack gap={4} align="center">
           <TitleLabel>{d.fullName}</TitleLabel>
           <CaptionLabel>
@@ -445,32 +437,3 @@ function BackButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function Avatar({ url }: { url: string | null }) {
-  return (
-    <div
-      style={{
-        width: 120,
-        height: 120,
-        borderRadius: '50%',
-        background: cloudColors.sky,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        color: cloudColors.azureDeep,
-      }}
-    >
-      {url ? (
-        <img
-          src={url}
-          alt=""
-          width={120}
-          height={120}
-          style={{ objectFit: 'cover', display: 'block' }}
-        />
-      ) : (
-        <UserRound size={56} strokeWidth={1.5} />
-      )}
-    </div>
-  );
-}

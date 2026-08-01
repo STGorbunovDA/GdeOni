@@ -20,7 +20,6 @@ import {
   ShieldCheck,
   ShieldOff,
   Trash2,
-  UserRound,
 } from 'lucide-react';
 import {
   BodyLabel,
@@ -40,8 +39,7 @@ import { deceasedApi } from '../../api/endpoints/deceasedApi';
 import { buildYandexLookupUrl, openYandexRoute } from '../../utils/routing';
 import { formatError } from '../../auth/errorMessages';
 import { useAuthStore, useIsAdmin } from '../../auth/authStore';
-import { useAppFeatures } from '../../hooks/useAppFeatures';
-import { buildMediaUrl } from '../../utils/mediaUrl';
+import { AuthAvatar } from '../../components/media/AuthAvatar';
 import { formatDateOnly } from '../../utils/formatDate';
 import { relationshipDisplay } from '../../utils/relationshipDisplay';
 import { MemoriesSection } from './MemoriesSection';
@@ -68,7 +66,6 @@ export function DeceasedDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const isAdmin = useIsAdmin();
   const currentUserId = useAuthStore((s) => s.user?.id);
-  const features = useAppFeatures();
   const [archiveError, setArchiveError] = useState<string | null>(null);
 
   const query = useQuery({
@@ -198,11 +195,6 @@ export function DeceasedDetailsPage() {
   }
 
   const { deceased, tracking } = query.data;
-  const photoUrl = buildMediaUrl(
-    features.data?.mediaBaseUrl,
-    deceased.mainPhotoBucket,
-    deceased.mainPhotoStorageKey,
-  );
   const lifePeriod = `${deceased.birthDate ? formatDateOnly(deceased.birthDate) : '?'} — ${formatDateOnly(deceased.deathDate)}`;
   const isArchived = tracking.status === TrackStatuses.Archived;
   // Кнопка "Поправить координаты" — только автору карточки или
@@ -296,7 +288,7 @@ export function DeceasedDetailsPage() {
 
       {/* ---------- Hero ---------- */}
       <Stack align="center" gap="xs">
-        <Avatar url={photoUrl} />
+        <AuthAvatar src={deceased.mainPhotoUrl} size={140} iconSize={64} />
         <TitleLabel>{deceased.fullName}</TitleLabel>
         <CaptionLabel>{lifePeriod}</CaptionLabel>
         {deceased.isVerified && (
@@ -518,36 +510,3 @@ function BackButton({ onClick }: { onClick: () => void }) {
  * соответствовать F7-preview по визуальной массе. UserRound из lucide
  * вместо 🕊 (тот же повод что в SearchPage/PreviewPage).
  */
-function Avatar({ url }: { url: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const show = url && !failed;
-
-  return (
-    <div
-      style={{
-        width: 140,
-        height: 140,
-        borderRadius: '50%',
-        background: cloudColors.sky,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        color: cloudColors.azureDeep,
-      }}
-    >
-      {show ? (
-        <img
-          src={url}
-          alt=""
-          width={140}
-          height={140}
-          style={{ objectFit: 'cover', display: 'block' }}
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <UserRound size={64} strokeWidth={1.5} />
-      )}
-    </div>
-  );
-}

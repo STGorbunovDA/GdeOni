@@ -11,7 +11,7 @@ import {
 } from '@mantine/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Navigation, UserRound } from 'lucide-react';
+import { MapPin, Navigation } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -34,8 +34,7 @@ import { formatError } from '../../auth/errorMessages';
 import { requestGeolocationOnce } from '../../utils/requestGeolocation';
 import { formatDistance } from '../../utils/formatDistance';
 import { formatDateOnly } from '../../utils/formatDate';
-import { buildMediaUrl } from '../../utils/mediaUrl';
-import { useAppFeatures } from '../../hooks/useAppFeatures';
+import { AuthAvatar } from '../../components/media/AuthAvatar';
 
 /**
  * F36 / E21. «Найти рядом» — юзер стоит на кладбище, берём GPS и
@@ -72,7 +71,6 @@ type SearchResult = {
 export function NearbyPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const features = useAppFeatures();
 
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
   const [result, setResult] = useState<SearchResult | null>(null);
@@ -246,7 +244,6 @@ export function NearbyPage() {
           item={item}
           checked={selected.has(item.id)}
           alreadyTracked={result.trackedIds.has(item.id)}
-          mediaBaseUrl={features.data?.mediaBaseUrl}
           onToggle={() => toggle(item.id)}
           onOpen={() => navigate(`/preview/${item.id}`)}
         />
@@ -327,23 +324,16 @@ function NearbyCard({
   item,
   checked,
   alreadyTracked,
-  mediaBaseUrl,
   onToggle,
   onOpen,
 }: {
   item: NearbyDeceasedItem;
   checked: boolean;
   alreadyTracked: boolean;
-  mediaBaseUrl: string | undefined;
   onToggle: () => void;
   onOpen: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const photoUrl = buildMediaUrl(
-    mediaBaseUrl,
-    item.mainPhotoBucket,
-    item.mainPhotoStorageKey,
-  );
 
   const lifePeriod = `${item.birthDate ? formatDateOnly(item.birthDate) : '?'} — ${formatDateOnly(item.deathDate)}`;
   const location = [item.city, item.cemeteryName, item.plotNumber, item.graveNumber]
@@ -381,7 +371,7 @@ function NearbyCard({
           }}
         >
           <Group align="center" gap="md" wrap="nowrap">
-            <Avatar url={photoUrl} />
+            <AuthAvatar src={item.mainPhotoUrl} size={56} />
             <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
               <Group justify="space-between" gap="xs" wrap="nowrap">
                 <Group gap={6} align="center" style={{ minWidth: 0 }}>
@@ -413,37 +403,3 @@ function NearbyCard({
 }
 
 /** Круглая 56×56 аватарка — тот же паттерн, что в TrackedListPage. */
-function Avatar({ url }: { url: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const show = url && !failed;
-
-  return (
-    <div
-      style={{
-        width: 56,
-        height: 56,
-        flexShrink: 0,
-        borderRadius: '50%',
-        background: cloudColors.sky,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        color: cloudColors.azureDeep,
-      }}
-    >
-      {show ? (
-        <img
-          src={url}
-          alt=""
-          width={56}
-          height={56}
-          style={{ objectFit: 'cover', display: 'block' }}
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <UserRound size={28} strokeWidth={1.5} />
-      )}
-    </div>
-  );
-}

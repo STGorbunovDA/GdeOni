@@ -94,6 +94,9 @@ public sealed class GetMediaByIdUseCase(
             return (presigned, true);
         }
 
-        return (fileStorage.GetPublicUrl(media.Bucket, media.StorageKey), false);
+        // D47: фото — путь к «вахтёру» (авторизованный стрим через сервер),
+        // не прямой публичный URL MinIO. isPresigned=false: клиент грузит
+        // его своим авторизованным клиентом, как и остальные фото.
+        return (fileStorage.GetPhotoContentPath(media.Id), false);
     }
 }

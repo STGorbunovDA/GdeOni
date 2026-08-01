@@ -356,10 +356,12 @@ public sealed class MediaUseCaseTests
     }
 
     /// <summary>
-    /// GetMediaById для DeceasedPhoto → public URL (IsPresigned=false).
+    /// D47. GetMediaById для DeceasedPhoto → путь к «вахтёру»
+    /// (/api/media/{id}/content), IsPresigned=false. Прямой публичный URL
+    /// хранилища больше не отдаётся — GetPublicUrl не дёргается.
     /// </summary>
     [Fact]
-    public async Task GetById_Photo_ReturnsPublicUrl()
+    public async Task GetById_Photo_ReturnsContentPath()
     {
         var deceased = MakeDeceased();
         var media = deceased.AddMedia(
@@ -374,8 +376,8 @@ public sealed class MediaUseCaseTests
             .Setup(x => x.GetByIdWithMediaById(deceased.Id, media.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(deceased);
         fileStorage
-            .Setup(x => x.GetPublicUrl("deceased-photos", "k1"))
-            .Returns("http://public/url");
+            .Setup(x => x.GetPhotoContentPath(media.Id))
+            .Returns($"/api/media/{media.Id}/content");
 
         var useCase = new GetMediaByIdUseCase(
             deceasedRepo.Object, fileStorage.Object, currentUser.Object,
@@ -386,8 +388,11 @@ public sealed class MediaUseCaseTests
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.Url.Should().Be("http://public/url");
+        result.Value.Url.Should().Be($"/api/media/{media.Id}/content");
         result.Value.IsPresigned.Should().BeFalse();
+        fileStorage.Verify(
+            x => x.GetPublicUrl(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
     }
 
     /// <summary>

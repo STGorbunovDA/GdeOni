@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { Group, Loader, Stack } from '@mantine/core';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, UserRound } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -19,8 +18,7 @@ import {
   trackedDeceasedApi,
 } from '../../api/endpoints/trackedDeceasedApi';
 import { formatError } from '../../auth/errorMessages';
-import { buildMediaUrl } from '../../utils/mediaUrl';
-import { useAppFeatures } from '../../hooks/useAppFeatures';
+import { AuthAvatar } from '../../components/media/AuthAvatar';
 
 /**
  * F7. Preview карточки умершего (E17.1 на mobile).
@@ -38,7 +36,6 @@ import { useAppFeatures } from '../../hooks/useAppFeatures';
 export function PreviewPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const features = useAppFeatures();
 
   const detailsQuery = useQuery({
     queryKey: ['deceased-details', id],
@@ -104,11 +101,6 @@ export function PreviewPage() {
   }
 
   const data = detailsQuery.data;
-  const photoUrl = buildMediaUrl(
-    features.data?.mediaBaseUrl,
-    data.mainPhotoBucket,
-    data.mainPhotoStorageKey,
-  );
   const lifePeriod = `${data.birthDate ?? '?'} — ${data.deathDate}`;
   const location = [data.country, data.city, data.cemeteryName]
     .filter(Boolean)
@@ -126,7 +118,7 @@ export function PreviewPage() {
       </Group>
 
       <Stack align="center" gap="xs">
-        <Avatar url={photoUrl} />
+        <AuthAvatar src={data.mainPhotoUrl} size={140} iconSize={64} />
         <TitleLabel>{data.fullName}</TitleLabel>
         <CaptionLabel>{lifePeriod}</CaptionLabel>
         {data.isVerified && (
@@ -218,36 +210,3 @@ function ErrorBlock({
  * эмодзи 🕊 — по той же причине, что и в SearchPage.ResultCard:
  * на Windows в Яндекс.Браузере color-emoji иногда не рендерится.
  */
-function Avatar({ url }: { url: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const show = url && !failed;
-
-  return (
-    <div
-      style={{
-        width: 140,
-        height: 140,
-        borderRadius: '50%',
-        background: cloudColors.sky,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        color: cloudColors.azureDeep,
-      }}
-    >
-      {show ? (
-        <img
-          src={url}
-          alt=""
-          width={140}
-          height={140}
-          style={{ objectFit: 'cover', display: 'block' }}
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <UserRound size={64} strokeWidth={1.5} />
-      )}
-    </div>
-  );
-}

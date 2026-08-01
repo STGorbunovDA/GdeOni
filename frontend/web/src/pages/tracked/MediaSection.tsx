@@ -37,8 +37,7 @@ import {
   type MediaKindValue,
 } from '../../api/endpoints/mediaApi';
 import { useIsAdmin } from '../../auth/authStore';
-import { useAppFeatures } from '../../hooks/useAppFeatures';
-import { buildMediaUrl } from '../../utils/mediaUrl';
+import { AuthImage } from '../../components/media/AuthImage';
 import { formatError } from '../../auth/errorMessages';
 
 /**
@@ -93,7 +92,6 @@ function Gallery({
 }) {
   const queryClient = useQueryClient();
   const isAdmin = useIsAdmin();
-  const features = useAppFeatures();
   const [viewing, setViewing] = useState<MediaListItem | null>(null);
   const [pendingDelete, setPendingDelete] = useState<MediaListItem | null>(null);
   const [pendingReject, setPendingReject] = useState<MediaListItem | null>(null);
@@ -344,7 +342,6 @@ function Gallery({
               <PhotoTile
                 key={item.id}
                 item={item}
-                mediaBaseUrl={features.data?.mediaBaseUrl}
                 isAdmin={isAdmin}
                 canBeMain={
                   kind === MediaKinds.DeceasedPhoto && !item.isMainPhoto
@@ -361,7 +358,6 @@ function Gallery({
 
         <FullScreenViewer
           item={viewing}
-          mediaBaseUrl={features.data?.mediaBaseUrl}
           onClose={() => setViewing(null)}
         />
 
@@ -449,7 +445,6 @@ function Gallery({
 
 function PhotoTile({
   item,
-  mediaBaseUrl,
   isAdmin,
   canBeMain,
   onOpen,
@@ -459,7 +454,6 @@ function PhotoTile({
   onApprove,
 }: {
   item: MediaListItem;
-  mediaBaseUrl: string | undefined;
   isAdmin: boolean;
   canBeMain: boolean;
   onOpen: () => void;
@@ -468,8 +462,6 @@ function PhotoTile({
   onReject: () => void;
   onApprove: () => void;
 }) {
-  const photoUrl = buildMediaUrl(mediaBaseUrl, item.bucket, item.storageKey);
-  const [failed, setFailed] = useState(false);
   const isRejected = item.moderationStatus === 'Rejected';
 
   return (
@@ -489,32 +481,30 @@ function PhotoTile({
       }}
       onClick={onOpen}
     >
-      {photoUrl && !failed ? (
-        <img
-          src={photoUrl}
-          alt={item.originalFileName}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            display: 'block',
-          }}
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100%',
-            height: '100%',
-            color: cloudColors.azureDeep,
-          }}
-        >
-          <FileText size={32} strokeWidth={1.5} />
-        </div>
-      )}
+      <AuthImage
+        src={item.url}
+        alt={item.originalFileName}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          display: 'block',
+        }}
+        fallback={
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              height: '100%',
+              color: cloudColors.azureDeep,
+            }}
+          >
+            <FileText size={32} strokeWidth={1.5} />
+          </div>
+        }
+      />
 
       {item.isMainPhoto && (
         <div
@@ -711,18 +701,13 @@ function DocumentRow({
  */
 function FullScreenViewer({
   item,
-  mediaBaseUrl,
   onClose,
 }: {
   item: MediaListItem | null;
-  mediaBaseUrl: string | undefined;
   onClose: () => void;
 }) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
-  const photoUrl = item
-    ? buildMediaUrl(mediaBaseUrl, item.bucket, item.storageKey)
-    : null;
 
   return (
     <Modal
@@ -744,10 +729,10 @@ function FullScreenViewer({
           position: 'relative',
         }}
       >
-        {photoUrl && (
-          <img
-            src={photoUrl}
-            alt={item?.originalFileName}
+        {item && (
+          <AuthImage
+            src={item.url}
+            alt={item.originalFileName}
             onClick={(e) => e.stopPropagation()}
             style={{
               maxWidth: '95vw',

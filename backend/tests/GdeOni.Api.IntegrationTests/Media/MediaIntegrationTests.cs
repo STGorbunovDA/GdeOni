@@ -146,8 +146,9 @@ public sealed class MediaIntegrationTests
     }
 
     /// <summary>
-    /// GET /media/{mediaId} возвращает URL и метаданные. Для DeceasedPhoto
-    /// — public URL, для Document — presigned (X-Amz-Signature).
+    /// GET /media/{mediaId} возвращает URL и метаданные. D47: для DeceasedPhoto
+    /// url — путь к «вахтёру» (/api/media/{id}/content), а не прямой публичный
+    /// URL MinIO; для Document — presigned (X-Amz-Signature).
     /// </summary>
     [Fact]
     public async Task GetById_ReturnsUrlAndMetadata()
@@ -163,10 +164,49 @@ public sealed class MediaIntegrationTests
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await response.Content.ReadAsStringAsync();
         body.Should().Contain("\"url\"");
-        // Для DeceasedPhoto URL — public (без подписи), просто bucket+key.
-        body.Should().Contain("deceased-photos");
+        // D47: для DeceasedPhoto url ведёт на «вахтёра», не на MinIO.
+        body.Should().Contain($"/api/media/{photoId}/content");
         // isPresigned=false для photo.
         body.Should().Contain("\"isPresigned\":false");
+    }
+
+    /// <summary>
+    /// D47. «Вахтёр» фото: авторизованный пользователь получает файл по
+    /// GET /api/media/{id}/content — 200 + image/*. Байты реально отдаются
+    /// через сервер, не по прямой ссылке MinIO.
+    /// </summary>
+    [Fact]
+    public async Task GetContent_Authenticated_ReturnsFile()
+    {
+        var user = await _factory.RegisterAndLoginAsync();
+        var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
+        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
+        var photoId = await TestSeed.UploadPhotoAsync(admin.Client, deceasedId);
+
+        var response = await user.Client.GetAsync($"/api/media/{photoId}/content");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("image/jpeg");
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        bytes.Should().NotBeEmpty();
+    }
+
+    /// <summary>
+    /// D47. Тот же файл без входа (аноним) — 401. Это и есть закрытие дырки:
+    /// утёкшая ссылка без авторизации фото больше не отдаёт.
+    /// </summary>
+    [Fact]
+    public async Task GetContent_Anonymous_Unauthorized()
+    {
+        var user = await _factory.RegisterAndLoginAsync();
+        var deceasedId = await TestSeed.CreateAtGraveAsync(user.Client);
+        var admin = await _factory.CreateAuthorizedUserWithRoleAsync(UserRole.Admin);
+        var photoId = await TestSeed.UploadPhotoAsync(admin.Client, deceasedId);
+
+        var anonymous = _factory.CreateClient();
+        var response = await anonymous.GetAsync($"/api/media/{photoId}/content");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     /// <summary>

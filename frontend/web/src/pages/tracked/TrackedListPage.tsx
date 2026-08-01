@@ -12,7 +12,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
-import { ChevronRight, Navigation, Share2, UserRound } from 'lucide-react';
+import { ChevronRight, Navigation, Share2 } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -31,9 +31,8 @@ import { shareApi } from '../../api/endpoints/shareApi';
 import { ShareQrModal } from '../../components/share/ShareQrModal';
 import { formatError } from '../../auth/errorMessages';
 import { relationshipDisplay } from '../../utils/relationshipDisplay';
-import { buildMediaUrl } from '../../utils/mediaUrl';
+import { AuthAvatar } from '../../components/media/AuthAvatar';
 import { formatDateOnly } from '../../utils/formatDate';
-import { useAppFeatures } from '../../hooks/useAppFeatures';
 
 /**
  * F9. Список отслеживаемых (E8 на mobile). Страница `/tracked`.
@@ -48,7 +47,6 @@ const PAGE_SIZE = 20;
 export function TrackedListPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const features = useAppFeatures();
 
   // D46. Режим «Поделиться»: галочки на карточках + подборка выбранных
   // (deceasedId). Выбор переживает смену страницы пагинации.
@@ -158,7 +156,6 @@ export function TrackedListPage() {
         <TrackedCard
           key={item.trackingId}
           item={item}
-          mediaBaseUrl={features.data?.mediaBaseUrl}
           selectMode={selectMode}
           selected={selectedIds.has(item.deceasedId)}
           onOpen={() => navigate(`/tracked/${item.deceasedId}`)}
@@ -224,25 +221,18 @@ export function TrackedListPage() {
  */
 function TrackedCard({
   item,
-  mediaBaseUrl,
   selectMode,
   selected,
   onOpen,
   onToggleSelect,
 }: {
   item: TrackedDeceasedListItem;
-  mediaBaseUrl: string | undefined;
   selectMode: boolean;
   selected: boolean;
   onOpen: () => void;
   onToggleSelect: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const photoUrl = buildMediaUrl(
-    mediaBaseUrl,
-    item.mainPhotoBucket,
-    item.mainPhotoStorageKey,
-  );
   const subtitle = `${relationshipDisplay(item.relationshipType)} · † ${formatDateOnly(item.deathDate)}`;
 
   const highlighted = selectMode && selected;
@@ -275,7 +265,7 @@ function TrackedCard({
               aria-label="Выбрать карточку"
             />
           )}
-          <Avatar url={photoUrl} />
+          <AuthAvatar src={item.mainPhotoUrl} size={56} />
           <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
             <Group gap={6} align="center">
               <SubTitleLabel>{item.fullName}</SubTitleLabel>
@@ -299,37 +289,3 @@ function TrackedCard({
  * причине что в SearchPage/PreviewPage (color-emoji иногда не
  * рендерится в Яндекс.Браузере на Windows).
  */
-function Avatar({ url }: { url: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const show = url && !failed;
-
-  return (
-    <div
-      style={{
-        width: 56,
-        height: 56,
-        flexShrink: 0,
-        borderRadius: '50%',
-        background: cloudColors.sky,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        color: cloudColors.azureDeep,
-      }}
-    >
-      {show ? (
-        <img
-          src={url}
-          alt=""
-          width={56}
-          height={56}
-          style={{ objectFit: 'cover', display: 'block' }}
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <UserRound size={28} strokeWidth={1.5} />
-      )}
-    </div>
-  );
-}
