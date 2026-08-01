@@ -1,10 +1,11 @@
 import { Anchor, Container, Divider, Group, List, Stack } from '@mantine/core';
-import { Link } from 'react-router-dom';
-import { Cloud, Smartphone } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ChevronLeft, Cloud, Smartphone } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
   CloudCard,
+  GhostButton,
   SubTitleLabel,
   TitleLabel,
 } from '../components/ui';
@@ -17,9 +18,29 @@ import { InstallPwaButton } from '../components/pwa/InstallPwaButton';
  * Android, и на iPhone, App Store/Google Play не нужны. Anonymous-роут.
  */
 export function DownloadPage() {
+  const navigate = useNavigate();
+
+  // Кнопка «Назад» своя: часть телефонов не имеет системной «назад»
+  // (жест/кнопки), и без неё человек застревал бы на этой странице и был
+  // вынужден заново открывать ссылку. Если истории нет (открыли по прямой
+  // ссылке) — ведём на вход, безопасный публичный экран.
+  function goBack() {
+    if (window.history.length > 1) navigate(-1);
+    else navigate('/login', { replace: true });
+  }
+
   return (
-    <Container size="sm" pt={64} pb={64}>
+    <Container size="sm" pt={24} pb={64}>
       <Stack gap="xl">
+        <Group>
+          <GhostButton
+            leftSection={<ChevronLeft size={16} />}
+            onClick={goBack}
+          >
+            Назад
+          </GhostButton>
+        </Group>
+
         <Stack gap="sm" align="center">
           <Cloud size={56} color={cloudColors.azureDeep} />
           <TitleLabel>ГдеОни</TitleLabel>
