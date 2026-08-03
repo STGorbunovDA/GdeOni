@@ -7,6 +7,7 @@ import {
   Eye,
   EyeOff,
   History,
+  Pencil,
   MapPin,
   Route as RouteIcon,
   ShieldCheck,
@@ -153,6 +154,12 @@ export function AdminDeceasedViewPage() {
       <Group justify="space-between" wrap="wrap">
         <BackButton onClick={() => navigate('/admin/deceased')} />
         <Group gap="sm">
+          <PrimaryButton
+            leftSection={<Pencil size={16} />}
+            onClick={() => navigate(`/admin/deceased/${id}/edit`)}
+          >
+            Изменить
+          </PrimaryButton>
           <GhostButton
             leftSection={<History size={16} />}
             onClick={() => navigate(`/admin/deceased/${id}/edits`)}
