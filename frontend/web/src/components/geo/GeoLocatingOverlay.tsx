@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Button, Group, Loader } from '@mantine/core';
-import { cloudColors } from '../../design/theme';
+import { Loader } from '@mantine/core';
 
 /**
  * F5. Полноэкранный оверлей поверх всех окон на время сбора координат
@@ -88,7 +87,7 @@ export function GeoLocatingOverlay({
         <div
           style={{
             fontSize: 14,
-            color: cloudColors.azureDeep,
+            color: '#1977cc',
             minHeight: 20,
             fontWeight: 500,
           }}
@@ -102,22 +101,54 @@ export function GeoLocatingOverlay({
           Не закрывайте окно — ищем самую точную точку, это до 15 секунд.
         </div>
 
-        <Group gap="sm" justify="center" mt={4} wrap="nowrap">
-          <Button variant="subtle" color="gray" size="sm" onClick={onCancel}>
+        {/* Кнопки — с фиксированными цветами: карточка всегда белая, а
+            Mantine-кнопки подстраиваются под тёмную тему приложения и на белом
+            фоне становятся невидимыми. Поэтому обычные button со своими цветами. */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            justifyContent: 'center',
+            marginTop: 4,
+            width: '100%',
+          }}
+        >
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              background: 'transparent',
+              border: '1px solid #cbd5e1',
+              color: '#475569',
+              fontSize: 14,
+              fontWeight: 500,
+              padding: '9px 18px',
+              borderRadius: 10,
+              cursor: 'pointer',
+            }}
+          >
             Отмена
-          </Button>
-          <Button
-            variant="light"
-            color="azure"
-            size="sm"
+          </button>
+          <button
+            type="button"
             onClick={onAccept}
             disabled={accuracyMeters == null}
+            style={{
+              background: accuracyMeters == null ? '#cbd5e1' : '#1977cc',
+              border: 'none',
+              color: '#ffffff',
+              fontSize: 14,
+              fontWeight: 600,
+              padding: '9px 18px',
+              borderRadius: 10,
+              cursor: accuracyMeters == null ? 'default' : 'pointer',
+            }}
           >
             {accuracyMeters != null
               ? `Пропустить (~${Math.round(accuracyMeters)} м)`
               : 'Пропустить'}
-          </Button>
-        </Group>
+          </button>
+        </div>
       </div>
     </div>,
     document.body,
