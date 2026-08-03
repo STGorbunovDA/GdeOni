@@ -172,4 +172,12 @@ export const usersApi = {
   async setRelativeConnectionsConsent(allow: boolean): Promise<void> {
     await apiClient.patch('/api/users/me/relative-connections', { allow });
   },
+
+  /**
+   * PATCH /api/users/me/city — указать/сменить город. Пустая строка очищает.
+   * 204 No Content. SecurityStamp не меняется — перелогин не нужен.
+   */
+  async updateCity(city: string | null): Promise<void> {
+    await apiClient.patch('/api/users/me/city', { city });
+  },
 };

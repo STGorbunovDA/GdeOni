@@ -83,6 +83,8 @@ export type CurrentUserResponse = {
   email: string;
   userName: string;
   fullName: string | null;
+  // Город пользователя. null/пусто → баннер «укажите город» + поле в профиле.
+  city: string | null;
   role: 'User' | 'Admin' | 'SuperAdmin';
   privacyPolicyVersion: number;
   termsVersion: number;

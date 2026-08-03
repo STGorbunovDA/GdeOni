@@ -36,6 +36,12 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("full_name")
             .HasMaxLength(User.MaxFullNameLength);
 
+        // Город — nullable: у существующих аккаунтов остаётся null (баннер
+        // «укажите город»), новые тоже стартуют без города.
+        builder.Property(x => x.City)
+            .HasColumnName("city")
+            .HasMaxLength(User.MaxCityLength);
+
         // D19. Дата рождения — nullable для обратной совместимости с
         // юзерами, зарегистрированными до введения возрастного гарда.
         // Postgres date подставляется автоматически через

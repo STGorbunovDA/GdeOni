@@ -17,6 +17,7 @@ using GdeOni.Infrastructure.Payments;
 using GdeOni.Infrastructure.Persistence;
 using GdeOni.Infrastructure.Persistence.Cleanup;
 using GdeOni.Infrastructure.Persistence.Repositories;
+using GdeOni.Infrastructure.Relatives;
 using GdeOni.Infrastructure.Routing;
 using GdeOni.Infrastructure.Security;
 using GdeOni.Infrastructure.Storage;
@@ -84,6 +85,7 @@ public static class DependencyInjection
         // внутренней переписки (Фаза 3).
         services.AddScoped<IRelativesRepository, RelativesRepository>();
         services.AddScoped<IRelativeConversationRepository, RelativeConversationRepository>();
+        services.AddScoped<IRelativeReportRepository, RelativeReportRepository>();
 
         // D41. Обратное геокодирование (координаты → город) через Nominatim.
         // Ходим с сервера, а не с клиента: иначе IP юзера ушёл бы во внешний
@@ -233,6 +235,13 @@ public static class DependencyInjection
         services.Configure<AnniversaryEmailOptions>(
             configuration.GetSection(AnniversaryEmailOptions.SectionName));
         services.AddHostedService<AnniversaryEmailService>();
+
+        // Функция «Родственники» (Фаза 4). Ночной джоб ищет новых
+        // родственников и заводит уведомления. Внешних зависимостей нет →
+        // включён по умолчанию (см. RelativeDiscoveryOptions.Enabled).
+        services.Configure<RelativeDiscoveryOptions>(
+            configuration.GetSection(RelativeDiscoveryOptions.SectionName));
+        services.AddHostedService<RelativeDiscoveryService>();
 
         return services;
     }

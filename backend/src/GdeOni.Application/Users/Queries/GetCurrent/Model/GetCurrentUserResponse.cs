@@ -6,6 +6,13 @@ public sealed class GetCurrentUserResponse
     public string Email { get; init; } = null!;
     public string UserName { get; init; } = null!;
     public string? FullName { get; init; }
+
+    /// <summary>
+    /// Город пользователя. null/пусто → клиент показывает баннер-напоминание
+    /// «укажите город» и даёт заполнить в профиле.
+    /// </summary>
+    public string? City { get; init; }
+
     public string Role { get; init; } = null!;
 
     /// <summary>

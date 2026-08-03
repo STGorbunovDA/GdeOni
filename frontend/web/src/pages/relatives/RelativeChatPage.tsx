@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
   Group,
   Loader,
+  Modal,
   Stack,
   Textarea,
 } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
-import { ChevronLeft, Send } from 'lucide-react';
+import { ChevronLeft, Flag, Send } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
@@ -25,6 +27,7 @@ import {
   type RelativeMessage,
 } from '../../api/endpoints/relativesApi';
 import { relationshipDisplay } from '../../utils/relationshipDisplay';
+import { RELATIVES_SUMMARY_KEY } from '../../hooks/useRelativesSummary';
 import { formatError } from '../../auth/errorMessages';
 import { formatDateTime } from '../../utils/formatDate';
 
@@ -42,6 +45,8 @@ export function RelativeChatPage() {
   const [draft, setDraft] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState('');
+  const [reportOpened, reportModal] = useDisclosure(false);
+  const [reportReason, setReportReason] = useState('');
 
   const query = useQuery({
     queryKey: ['relative-conversation', id],
@@ -50,6 +55,15 @@ export function RelativeChatPage() {
     refetchInterval: 15_000,
     refetchOnWindowFocus: true,
   });
+
+  // Открытие диалога помечает сообщения собеседника прочитанными на бэке —
+  // инвалидируем сводку, чтобы бейдж «Родственники» и попап «События»
+  // подхватили уменьшившийся счётчик непрочитанных.
+  useEffect(() => {
+    if (query.isSuccess) {
+      queryClient.invalidateQueries({ queryKey: RELATIVES_SUMMARY_KEY });
+    }
+  }, [query.isSuccess, id, queryClient]);
 
   const apply = (d: RelativeConversationDetail) =>
     queryClient.setQueryData(['relative-conversation', id], d);
@@ -86,6 +100,22 @@ export function RelativeChatPage() {
     onError: notifyError,
   });
 
+  const reportMutation = useMutation({
+    mutationFn: (reason: string) => relativesApi.report(id!, reason),
+    onSuccess: (res) => {
+      reportModal.close();
+      setReportReason('');
+      notifications.show({
+        title: res.created ? 'Жалоба отправлена' : 'Жалоба уже была',
+        message: res.created
+          ? 'Модератор рассмотрит обращение.'
+          : 'Ваша прошлая жалоба на этого человека ещё на рассмотрении.',
+        color: res.created ? 'green' : 'blue',
+      });
+    },
+    onError: notifyError,
+  });
+
   const data = query.data;
 
   return (
@@ -113,15 +143,23 @@ export function RelativeChatPage() {
 
       {data && (
         <>
-          <Stack gap={2}>
-            <SubTitleLabel>{data.otherUserName}</SubTitleLabel>
-            <CaptionLabel>
-              {data.otherRelationship
-                ? `${relationshipDisplay(data.otherRelationship)} · `
-                : ''}
-              {data.deceasedFullName}
-            </CaptionLabel>
-          </Stack>
+          <Group justify="space-between" align="flex-start" wrap="nowrap">
+            <Stack gap={2}>
+              <SubTitleLabel>{data.otherUserName}</SubTitleLabel>
+              <CaptionLabel>
+                {data.otherRelationship
+                  ? `${relationshipDisplay(data.otherRelationship)} · `
+                  : ''}
+                {data.deceasedFullName}
+              </CaptionLabel>
+            </Stack>
+            <GhostButton
+              leftSection={<Flag size={16} />}
+              onClick={reportModal.open}
+            >
+              Пожаловаться
+            </GhostButton>
+          </Group>
 
           <Stack gap="sm">
             {data.messages.length === 0 && (
@@ -178,6 +216,40 @@ export function RelativeChatPage() {
           )}
         </>
       )}
+
+      <Modal
+        opened={reportOpened}
+        onClose={reportModal.close}
+        title="Пожаловаться на собеседника"
+        centered
+      >
+        <Stack gap="sm">
+          <CaptionLabel>
+            Опишите, что не так. Жалобу увидит модератор — он может
+            заблокировать нарушителя. Переписка останется у нас как контекст.
+          </CaptionLabel>
+          <Textarea
+            value={reportReason}
+            onChange={(e) => setReportReason(e.currentTarget.value)}
+            placeholder="Что случилось…"
+            autosize
+            minRows={3}
+            maxRows={8}
+            maxLength={1000}
+          />
+          <Group justify="flex-end" gap="sm">
+            <GhostButton onClick={reportModal.close}>Отмена</GhostButton>
+            <PrimaryButton
+              leftSection={<Flag size={16} />}
+              onClick={() => reportMutation.mutate(reportReason)}
+              loading={reportMutation.isPending}
+              disabled={reportReason.trim().length === 0}
+            >
+              Отправить жалобу
+            </PrimaryButton>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

@@ -13,6 +13,8 @@ public sealed class RateLimitingOptions
     public AuthRateLimitOptions Auth { get; set; } = new();
     /// <summary>Лимит для webhook-эндпоинтов платёжных провайдеров.</summary>
     public WebhookRateLimitOptions Webhook { get; set; } = new();
+    /// <summary>Лимит на отправку сообщений в переписке «Родственники» (антиспам).</summary>
+    public RelativeMessagesRateLimitOptions RelativeMessages { get; set; } = new();
 }
 
 /// <summary>
@@ -58,6 +60,24 @@ public sealed class WebhookRateLimitOptions
 
     /// <summary>Сколько запросов разрешено в окне на один IP.</summary>
     public int PermitLimit { get; set; } = 60;
+    /// <summary>Длина окна в минутах.</summary>
+    public int WindowMinutes { get; set; } = 1;
+    /// <summary>Количество сегментов в sliding window.</summary>
+    public int SegmentsPerWindow { get; set; } = 6;
+}
+
+/// <summary>
+/// Антиспам на отправку сообщений в переписке «Родственники». Партиция —
+/// по id пользователя (из JWT), а не по IP: переписка turn-based (по одному
+/// сообщению по очереди), поэтому потолок щедрый и ловит только явный флуд.
+/// </summary>
+public sealed class RelativeMessagesRateLimitOptions
+{
+    /// <summary>Имя политики, крепится к SendMessage через [EnableRateLimiting].</summary>
+    public const string PolicyName = "relatives-messages";
+
+    /// <summary>Сколько сообщений разрешено в окне на одного пользователя.</summary>
+    public int PermitLimit { get; set; } = 20;
     /// <summary>Длина окна в минутах.</summary>
     public int WindowMinutes { get; set; } = 1;
     /// <summary>Количество сегментов в sliding window.</summary>

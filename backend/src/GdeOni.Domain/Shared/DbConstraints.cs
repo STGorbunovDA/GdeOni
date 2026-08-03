@@ -23,4 +23,9 @@ public static class DbConstraints
     // карточки умершего (participant_a_id < participant_b_id).
     public const string UxRelativeConversationsPair =
         "ux_relative_conversations_deceased_a_b";
+
+    // Функция «Родственники» (Фаза 4): дедуп «уже обнаруженных» родственников —
+    // одна запись-уведомление на (владелец, умерший, родственник).
+    public const string UxRelativeDiscoveries =
+        "ux_relative_discoveries_owner_deceased_relative";
 }

@@ -1,4 +1,14 @@
-import { Alert, Badge, Button, Group, Loader, Stack, Switch } from '@mantine/core';
+import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Group,
+  Loader,
+  Stack,
+  Switch,
+  TextInput,
+} from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { Link, useNavigate } from 'react-router-dom';
@@ -6,6 +16,7 @@ import {
   CreditCard,
   KeyRound,
   LogOut,
+  MapPin,
   MessageSquare,
   MessagesSquare,
   RefreshCw,
@@ -51,6 +62,33 @@ export function ProfilePage() {
   const query = useQuery({
     queryKey: ['me'],
     queryFn: () => usersApi.me(),
+  });
+
+  // Город: контролируемое поле, синхронизируем с сервером при загрузке/
+  // сохранении. Зависимость по значению city — фоновый refetch с тем же
+  // городом не перетрёт то, что человек печатает.
+  const [cityInput, setCityInput] = useState('');
+  useEffect(() => {
+    setCityInput(query.data?.city ?? '');
+  }, [query.data?.city]);
+
+  const cityMutation = useMutation({
+    mutationFn: (city: string) =>
+      usersApi.updateCity(city.trim().length > 0 ? city.trim() : null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+      notifications.show({
+        title: 'Город сохранён',
+        message: '',
+        color: 'green',
+      });
+    },
+    onError: (e) =>
+      notifications.show({
+        title: 'Не удалось сохранить',
+        message: formatError(e),
+        color: 'red',
+      }),
   });
 
   // Функция «Родственники»: переключатель согласия. Оптимистично меняем
@@ -140,6 +178,42 @@ export function ProfilePage() {
               >
                 Выйти
               </Button>
+            </Group>
+          </Stack>
+        </CloudCard>
+      )}
+
+      {/* Город: указывается здесь; пока пусто — в приложении висит баннер
+          «укажите город» (аналог баннера неподтверждённого email). */}
+      {query.data && (
+        <CloudCard>
+          <Stack gap="md">
+            <Group gap={8}>
+              <MapPin size={20} />
+              <BodyLabel>Город</BodyLabel>
+            </Group>
+            <CaptionLabel>
+              Укажите свой город. Пока он не указан, в приложении показывается
+              напоминание.
+            </CaptionLabel>
+            <Group align="flex-end" gap="sm" wrap="nowrap">
+              <TextInput
+                style={{ flex: 1 }}
+                placeholder="Например, Москва"
+                value={cityInput}
+                maxLength={200}
+                onChange={(e) => setCityInput(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') cityMutation.mutate(cityInput);
+                }}
+              />
+              <PrimaryButton
+                onClick={() => cityMutation.mutate(cityInput)}
+                loading={cityMutation.isPending}
+                disabled={cityInput.trim() === (query.data.city ?? '')}
+              >
+                Сохранить
+              </PrimaryButton>
             </Group>
           </Stack>
         </CloudCard>

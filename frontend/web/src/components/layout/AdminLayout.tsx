@@ -10,6 +10,7 @@ import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import {
   ArrowLeft,
   CreditCard,
+  Flag,
   History,
   Info,
   LifeBuoy,
@@ -132,6 +133,12 @@ export function AdminLayout() {
               to="/admin/users"
               icon={UsersIcon}
               label="Пользователи"
+              onNavigate={close}
+            />
+            <NavItem
+              to="/admin/relative-reports"
+              icon={Flag}
+              label="Жалобы"
               onNavigate={close}
             />
             <NavItem

@@ -23,12 +23,17 @@ import {
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore, useIsAdmin } from '../../auth/authStore';
 import { authApi } from '../../api/endpoints/authApi';
+import {
+  relativesBadgeCount,
+  useRelativesSummary,
+} from '../../hooks/useRelativesSummary';
 import { cloudColors } from '../../design/theme';
 import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { CaptionLabel } from '../ui/Labels';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { OutdatedLegalModal } from '../legal/OutdatedLegalModal';
 import { EmailConfirmationBanner } from '../auth/EmailConfirmationBanner';
+import { CityReminderBanner } from '../auth/CityReminderBanner';
 import { AppUpdateBanner } from './AppUpdateBanner';
 import { EventsPopup } from '../events/EventsPopup';
 import { InstallPwaBanner } from '../pwa/InstallPwaBanner';
@@ -59,6 +64,10 @@ export function AppLayout() {
   const isAdmin = useIsAdmin();
   const clear = useAuthStore((s) => s.clear);
   const navigate = useNavigate();
+
+  // Бейдж на вкладке «Родственники»: новые родственники + непрочитанные.
+  const relativesSummary = useRelativesSummary();
+  const relativesBadge = relativesBadgeCount(relativesSummary.data);
 
   async function handleLogout() {
     close();
@@ -160,6 +169,7 @@ export function AppLayout() {
               to="/relatives"
               icon={UsersRound}
               label="Родственники"
+              badge={relativesBadge}
               onNavigate={close}
             />
             <NavItem
@@ -196,6 +206,8 @@ export function AppLayout() {
         {/* D45. Баннер «Подтвердите email» для «старых» пользователей —
             над контентом на всех приватных страницах. */}
         <EmailConfirmationBanner />
+        {/* Баннер «Укажите город» — пока город не заполнен (аналог email). */}
+        <CityReminderBanner />
         <Outlet />
       </AppShell.Main>
 

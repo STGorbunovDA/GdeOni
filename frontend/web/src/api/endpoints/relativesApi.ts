@@ -17,6 +17,33 @@ export type MyRelativeItem = {
   relationshipType: string;
 };
 
+/** Новый родственник для попапа «События» (Фаза 4). */
+export type NewRelativeSummaryItem = {
+  deceasedId: string;
+  deceasedFullName: string;
+  relativeUserId: string;
+  relativeUserName: string;
+  /** Имя связи (enum) — рендерим через relationshipDisplay. */
+  relationshipType: string;
+};
+
+/** Диалог с непрочитанными сообщениями (Фаза 4). */
+export type UnreadConversationItem = {
+  conversationId: string;
+  deceasedId: string;
+  deceasedFullName: string;
+  otherUserId: string;
+  otherUserName: string;
+  unreadCount: number;
+};
+
+/** Сводка «Родственников»: для попапа «События» и бейджа вкладки (Фаза 4). */
+export type RelativesSummary = {
+  newRelatives: NewRelativeSummaryItem[];
+  unreadConversations: UnreadConversationItem[];
+  totalUnreadMessages: number;
+};
+
 /** Одно сообщение в переписке (Фаза 3). */
 export type RelativeMessage = {
   id: string;
@@ -64,6 +91,18 @@ export const relativesApi = {
       apiClient.get<ApiEnvelope<{ items: MyRelativeItem[] }>>('/api/relatives'),
     );
     return res.items;
+  },
+
+  /** GET /api/relatives/summary — новые родственники + непрочитанные (Фаза 4). */
+  async getSummary(): Promise<RelativesSummary> {
+    return unwrap(
+      apiClient.get<ApiEnvelope<RelativesSummary>>('/api/relatives/summary'),
+    );
+  },
+
+  /** POST /api/relatives/seen — отметить новых родственников просмотренными. */
+  async markRelativesSeen(): Promise<void> {
+    await unwrap(apiClient.post<ApiEnvelope<unknown>>('/api/relatives/seen'));
   },
 
   /** POST /api/relatives/conversations — открыть/получить диалог с родственником. */
@@ -133,6 +172,64 @@ export const relativesApi = {
     return unwrap(
       apiClient.delete<ApiEnvelope<RelativeConversationDetail>>(
         `/api/relatives/conversations/${id}/messages/${messageId}`,
+      ),
+    );
+  },
+
+  /**
+   * POST /api/relatives/reports — пожаловаться на собеседника (Фаза 5).
+   * created=false — активная жалоба на него в этом диалоге уже была.
+   */
+  async report(
+    conversationId: string,
+    reason: string,
+  ): Promise<{ created: boolean }> {
+    return unwrap(
+      apiClient.post<ApiEnvelope<{ created: boolean }>>(
+        '/api/relatives/reports',
+        { conversationId, reason },
+      ),
+    );
+  },
+};
+
+/** Жалоба на родственника в админском списке (Фаза 5). */
+export type AdminRelativeReport = {
+  id: string;
+  reporterUserId: string;
+  reporterUserName: string;
+  reportedUserId: string;
+  reportedUserName: string;
+  reportedIsBlocked: boolean;
+  deceasedId: string;
+  deceasedFullName: string;
+  conversationId: string | null;
+  reason: string;
+  createdAtUtc: string;
+  /** 'Pending' | 'Resolved'. */
+  status: string;
+  resolvedAtUtc: string | null;
+  resolutionNote: string | null;
+};
+
+export const adminRelativeReportsApi = {
+  /** GET /api/admin/relative-reports?pendingOnly= — список жалоб. */
+  async list(pendingOnly: boolean): Promise<AdminRelativeReport[]> {
+    const res = await unwrap(
+      apiClient.get<ApiEnvelope<{ items: AdminRelativeReport[] }>>(
+        '/api/admin/relative-reports',
+        { params: { pendingOnly } },
+      ),
+    );
+    return res.items;
+  },
+
+  /** POST /api/admin/relative-reports/{id}/resolve — пометить разобранной. */
+  async resolve(id: string, note: string | null): Promise<void> {
+    await unwrap(
+      apiClient.post<ApiEnvelope<unknown>>(
+        `/api/admin/relative-reports/${id}/resolve`,
+        { note },
       ),
     );
   },

@@ -1,4 +1,4 @@
-import { NavLink as MantineNavLink } from '@mantine/core';
+import { Badge, NavLink as MantineNavLink } from '@mantine/core';
 import type { LucideIcon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { navFont } from '../../design/theme';
@@ -25,9 +25,18 @@ type Props = {
   onNavigate?: () => void;
   /** Альтернатива to: произвольное действие. */
   onClick?: () => void;
+  /** Счётчик-бейдж справа (0/undefined — не показывать). */
+  badge?: number;
 };
 
-export function NavItem({ to, label, icon: Icon, onNavigate, onClick }: Props) {
+export function NavItem({
+  to,
+  label,
+  icon: Icon,
+  onNavigate,
+  onClick,
+  badge,
+}: Props) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -46,10 +55,19 @@ export function NavItem({ to, label, icon: Icon, onNavigate, onClick }: Props) {
     }
   }
 
+  const showBadge = typeof badge === 'number' && badge > 0;
+
   return (
     <MantineNavLink
       label={label}
       leftSection={<Icon size={18} />}
+      rightSection={
+        showBadge ? (
+          <Badge size="sm" variant="filled" color="red">
+            {badge > 99 ? '99+' : badge}
+          </Badge>
+        ) : undefined
+      }
       active={isActive}
       onClick={handleClick}
       variant="filled"

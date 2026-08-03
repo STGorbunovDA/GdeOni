@@ -1,8 +1,10 @@
+import { useEffect } from 'react';
 import { Alert, Group, Loader, Stack } from '@mantine/core';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import { MessageSquare, UserRound } from 'lucide-react';
+import { RELATIVES_SUMMARY_KEY } from '../../hooks/useRelativesSummary';
 import {
   CaptionLabel,
   CloudCard,
@@ -27,11 +29,25 @@ import { formatDateOnly } from '../../utils/formatDate';
  */
 export function RelativesPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ['relatives'],
     queryFn: () => relativesApi.myRelatives(),
   });
+
+  // Заход на вкладку = «увидел новых родственников»: сбрасываем is_new на
+  // бэке и инвалидируем сводку, чтобы попап «События» и бейдж их не показывали.
+  useEffect(() => {
+    relativesApi
+      .markRelativesSeen()
+      .then(() =>
+        queryClient.invalidateQueries({ queryKey: RELATIVES_SUMMARY_KEY }),
+      )
+      .catch(() => {
+        // best-effort: не удалось отметить — не мешаем показу списка.
+      });
+  }, [queryClient]);
 
   // «Написать»: открываем/получаем диалог и переходим в чат.
   const startMutation = useMutation({

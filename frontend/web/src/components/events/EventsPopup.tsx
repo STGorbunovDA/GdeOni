@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Button, Modal, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { trackedDeceasedApi } from '../../api/endpoints/trackedDeceasedApi';
 import { eventsApi, holidayRemindersApi } from '../../api/endpoints/eventsApi';
 import { usersApi } from '../../api/endpoints/authApi';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
 import { useSubscription } from '../../hooks/useSubscription';
+import { useRelativesSummary } from '../../hooks/useRelativesSummary';
 import { useAuthStore, useIsAdmin } from '../../auth/authStore';
 import { anniversaryYearsToday, yearsWord } from '../../utils/anniversary';
+import { relationshipDisplay } from '../../utils/relationshipDisplay';
 import {
   buildOverridesMap,
   computeTodayPopupItems,
@@ -69,7 +72,9 @@ type AnniversaryEvent = {
 export function EventsPopup() {
   const features = useAppFeatures();
   const subscription = useSubscription();
+  const relativesSummary = useRelativesSummary();
   const isAdmin = useIsAdmin();
+  const navigate = useNavigate();
   const userId = useAuthStore((s) => s.user?.id ?? null);
 
   const today = useMemo(() => new Date(), []);
@@ -154,7 +159,20 @@ export function EventsPopup() {
     );
   }, [holidaysQuery.data, remindersQuery.data, todayIso]);
 
-  const hasEvents = anniversaries.length > 0 || holidayItems.length > 0;
+  // Функция «Родственники» (Фаза 4): новые родственники + непрочитанные.
+  const newRelatives = relativesSummary.data?.newRelatives ?? [];
+  const unreadConversations = relativesSummary.data?.unreadConversations ?? [];
+
+  function goToRelatives() {
+    setDismissed(true);
+    navigate('/relatives');
+  }
+
+  const hasEvents =
+    anniversaries.length > 0 ||
+    holidayItems.length > 0 ||
+    newRelatives.length > 0 ||
+    unreadConversations.length > 0;
   const opened = enabled && hasEvents;
 
   return (
@@ -210,6 +228,64 @@ export function EventsPopup() {
                   {it.holiday.name}
                 </Text>
                 <CaptionLabel>{leadLabel(it.leadDays)}</CaptionLabel>
+              </Stack>
+            ))}
+          </Stack>
+        )}
+
+        {newRelatives.length > 0 && (
+          <Stack gap="xs">
+            <BodyLabel>Новые родственники:</BodyLabel>
+            {newRelatives.map((r) => (
+              <Stack
+                key={`${r.deceasedId}-${r.relativeUserId}`}
+                gap={2}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  background: cloudColors.sky,
+                  cursor: 'pointer',
+                }}
+                onClick={goToRelatives}
+              >
+                <Text fw={700} c={cloudColors.inkBlue}>
+                  👪 {r.relativeUserName}
+                </Text>
+                <CaptionLabel>
+                  {relationshipDisplay(r.relationshipType)} · {r.deceasedFullName}
+                </CaptionLabel>
+              </Stack>
+            ))}
+          </Stack>
+        )}
+
+        {unreadConversations.length > 0 && (
+          <Stack gap="xs">
+            <BodyLabel>Новые сообщения от родственников:</BodyLabel>
+            {unreadConversations.map((c) => (
+              <Stack
+                key={c.conversationId}
+                gap={2}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  background: cloudColors.sky,
+                  cursor: 'pointer',
+                }}
+                onClick={() => {
+                  setDismissed(true);
+                  navigate(`/relatives/chat/${c.conversationId}`);
+                }}
+              >
+                <Text fw={700} c={cloudColors.inkBlue}>
+                  ✉️ {c.otherUserName}
+                </Text>
+                <CaptionLabel>
+                  {c.unreadCount === 1
+                    ? 'Новое сообщение'
+                    : `Новых сообщений: ${c.unreadCount}`}{' '}
+                  · {c.deceasedFullName}
+                </CaptionLabel>
               </Stack>
             ))}
           </Stack>

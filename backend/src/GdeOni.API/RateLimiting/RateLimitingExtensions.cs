@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 using GdeOni.API.Response;
 using GdeOni.Domain.Shared;
@@ -28,6 +29,7 @@ public static class RateLimitingExtensions
 
         var auth = options.Auth;
         var webhook = options.Webhook;
+        var relativeMessages = options.RelativeMessages;
 
         services.AddRateLimiter(rl =>
         {
@@ -68,6 +70,27 @@ public static class RateLimitingExtensions
                         PermitLimit = webhook.PermitLimit,
                         Window = TimeSpan.FromMinutes(webhook.WindowMinutes),
                         SegmentsPerWindow = webhook.SegmentsPerWindow,
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    });
+            });
+
+            // Антиспам переписки «Родственники». Партиция по id пользователя
+            // (JWT sub/NameIdentifier) — лимит персональный, а не по IP, иначе
+            // юзеры за одним NAT делили бы квоту сообщений. Без юзера (не
+            // должно случаться — эндпоинт под [Authorize]) — fallback на IP.
+            rl.AddPolicy(RelativeMessagesRateLimitOptions.PolicyName, httpContext =>
+            {
+                var key = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                    ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                    ?? "anonymous";
+                return RateLimitPartition.GetSlidingWindowLimiter(
+                    partitionKey: key,
+                    factory: _ => new SlidingWindowRateLimiterOptions
+                    {
+                        PermitLimit = relativeMessages.PermitLimit,
+                        Window = TimeSpan.FromMinutes(relativeMessages.WindowMinutes),
+                        SegmentsPerWindow = relativeMessages.SegmentsPerWindow,
                         QueueLimit = 0,
                         AutoReplenishment = true
                     });

@@ -27,6 +27,9 @@ public static partial class Errors
         public static Error FullNameTooLong(int maxLength) =>
             Error.Validation("user.full_name.too_long", $"Full name must be at most {maxLength} characters");
 
+        public static Error CityTooLong(int maxLength) =>
+            Error.Validation("user.city.too_long", $"City must be at most {maxLength} characters");
+
         public static Error PasswordHashRequired() =>
             Error.Validation("user.password_hash.required", "Password hash is required");
 

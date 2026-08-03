@@ -17,6 +17,19 @@ public sealed record RelativeMatch(
     string RelativeUserName,
     RelationshipType RelationshipType);
 
+/// <summary>
+/// Фаза 4. «Новый» родственник для владельца — обнаруженный ночным джобом и
+/// ещё не просмотренный (is_new). Отдаётся уже перепроверенным по текущему
+/// состоянию (связь всё ещё связывающая, согласие включено, не заблокирован).
+/// </summary>
+public sealed record NewRelativeItem(
+    Guid DeceasedId,
+    string DeceasedFullName,
+    Guid RelativeUserId,
+    string RelativeUserName,
+    RelationshipType RelationshipType,
+    DateTime DiscoveredAtUtc);
+
 public interface IRelativesRepository
 {
     /// <summary>
@@ -34,4 +47,17 @@ public interface IRelativesRepository
     /// </summary>
     Task<bool> IsRelative(
         Guid viewerId, Guid targetUserId, Guid deceasedId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Фаза 4. «Новые» родственники владельца (обнаружены джобом, is_new и
+    /// всё ещё валидны по текущему состоянию) — для попапа «События» и бейджа.
+    /// </summary>
+    Task<List<NewRelativeItem>> GetNewRelatives(Guid ownerId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Фаза 4. Отметить всех «новых» родственников владельца просмотренными
+    /// (сбрасывает is_new). Immediate-запись (ExecuteUpdate), минуя Save —
+    /// вызывается при заходе на вкладку «Родственники».
+    /// </summary>
+    Task MarkRelativesSeen(Guid ownerId, CancellationToken cancellationToken);
 }

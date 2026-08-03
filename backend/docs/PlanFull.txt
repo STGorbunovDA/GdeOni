@@ -12018,6 +12018,72 @@ F39. Тариф 99 ₽ и цена как единый источник прав
     тариф хуже, чем промолчать.
 
 ---------------------------------------------------------------------
+D48. Родственники (соединение со-отслеживающих + внутренняя переписка)
+---------------------------------------------------------------------
+
+Задача владельца (2026-08-03): по карточкам, которые человек отслеживает,
+находить ДРУГИХ отслеживающих с семейной/близкой связью и давать связаться
+внутри сервиса — без раскрытия email, полноценной внутренней перепиской,
+уведомлениями о новых родственниках и модерацией. Матчинг — по id карточки.
+Мобилку НЕ делаем (PWA вместо MAUI, решение владельца 2026-08-02, см. D47).
+
+Фаза 1 — согласие + политика:
+[x] User.AllowRelativeConnections (default true) + SetRelativeConnectionsConsent
+    (no-op guard, SecurityStamp НЕ трогаем — это предпочтение). Миграция
+    AddAllowRelativeConnections. Галочка при регистрации + переключатель в
+    профиле + поле в /me.
+[x] Политика конфиденциальности: п.5.4 про фичу, Редакция 3 → 4
+    (Legal:CurrentPrivacyPolicyVersion=4 → форс-переприём для всех).
+
+Фаза 2 — вкладка «Родственники» (список вживую):
+[x] RelativesRepository.GetRelativesForUser: self-join tracked_deceased по
+    deceased_id; другой отслеживающий со связывающей связью (всё кроме
+    «Знакомый»/«Другое», RelativeRelationships.Connectable), с согласием, не
+    заблокирован. Почты нет. GET /api/relatives (BasicAuthenticated, без
+    paywall — соц-функция). Пункт меню под «Маршрут».
+
+Фаза 3 — turn-based переписка:
+[x] Домен RelativeConversation/RelativeMessage: по одному сообщению по
+    очереди (CanSend = последнее видимое чужое или диалог пуст); своё
+    последнее правишь/удаляешь, пока собеседник не ответил; удаление
+    возвращает ход. Участники канонично (A<B), один диалог на пару в
+    контексте карточки (ux_relative_conversations_deceased_a_b).
+[x] StartConversation get-or-create (IsRelative + гонка через unique-index),
+    Send/Edit/Delete/GetConversation(+MarkReadBy)/ListConversations. Миграция
+    AddRelativeConversations. Веб: экран чата (пузыри, ввод только на своём
+    ходу, поллинг 15с), кнопка «Написать».
+
+Фаза 4 — детект новых + уведомления:
+[x] Ночной джоб RelativeDiscoveryService (03:00 МСК, «вместе с бэкапом БД»):
+    находит новые пары (владелец, умерший, родственник) → relative_discoveries
+    (дедуп ux_relative_discoveries_owner_deceased_relative, is_new). Обе
+    стороны с согласием и не заблокированы. Миграция AddRelativeDiscoveries.
+[x] GET /api/relatives/summary (новые родственники + непрочитанные вживую),
+    POST /api/relatives/seen (сброс is_new на входе на вкладку). EventsPopup:
+    секции «Новые родственники»/«Новые сообщения»; бейдж на пункте меню.
+    Непрочитанные считаются ВЖИВУЮ (не через джоб).
+
+Фаза 5 — жалобы + блокировка + рейт-лимит:
+[x] Домен RelativeReport (жалоба на собеседника из диалога: нарушитель =
+    второй участник; причина обязательна ≤1000; Resolve идемпотентен).
+    Дедуп активной жалобы в use case. Миграция AddRelativeReports.
+[x] POST /api/relatives/reports (пользователь). Админка: RelativesAdminController
+    GET /api/admin/relative-reports + POST .../{id}/resolve; страница «Жалобы»
+    в AdminLayout; блокировка — существующий /api/users/{id}/block (User.Block
+    уже убирает заблокированного из всей фичи через фильтры !IsBlocked).
+[x] Рейт-лимит отправки сообщений: политика relatives-messages (партиция по
+    id пользователя, 20/мин по умолчанию) на POST .../messages.
+
+Деплой (всей фичей разом — из-за бампа версии политики):
+    4 миграции: AddAllowRelativeConnections, AddRelativeConversations,
+    AddRelativeDiscoveries, AddRelativeReports (dotnet ef database update).
+    ВАЖНО: на сервере поднять Legal:CurrentPrivacyPolicyVersion → 4 (иначе
+    старт упадёт fail-fast на рассинхроне с редакцией в privacy-policy.md;
+    после бампа все юзеры увидят блокирующую модалку переприёма).
+    RelativeDiscovery:Enabled по умолчанию true — секция в appsettings
+    опциональна.
+
+---------------------------------------------------------------------
 D47. Приватные фото за «вахтёром» (закрытие вечной публичной ссылки)
 ---------------------------------------------------------------------
 

@@ -21,6 +21,8 @@ using GdeOni.Application.Users.Commands.Register.Model;
 using GdeOni.Application.Users.Commands.Register.UseCase;
 using GdeOni.Application.Users.Commands.SetRelativeConnectionsConsent.Model;
 using GdeOni.Application.Users.Commands.SetRelativeConnectionsConsent.UseCase;
+using GdeOni.Application.Users.Commands.UpdateCity.Model;
+using GdeOni.Application.Users.Commands.UpdateCity.UseCase;
 using GdeOni.Application.Users.Commands.Unblock.Model;
 using GdeOni.Application.Users.Commands.Unblock.UseCase;
 using GdeOni.Application.Users.Commands.UpdateProfile.Model;
@@ -101,6 +103,28 @@ public sealed class UsersController : ApiControllerBase
     {
         var result = await useCase.Execute(
             new SetRelativeConnectionsConsentCommand(request.Allow),
+            cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// Указать/сменить город текущего пользователя (id из JWT). Это
+    /// предпочтение — SecurityStamp не меняется, повторного входа не требует.
+    /// Пустая строка очищает город.
+    /// </summary>
+    [HttpPatch("me/city")]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateCity(
+        [FromBody] UpdateCityRequest request,
+        [FromServices] IUpdateCityUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new UpdateCityCommand(request.City),
             cancellationToken);
         return FromUnitResult(result);
     }

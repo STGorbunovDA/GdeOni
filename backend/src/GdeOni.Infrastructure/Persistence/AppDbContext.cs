@@ -7,6 +7,7 @@ using GdeOni.Domain.Aggregates.Subscriptions;
 using GdeOni.Domain.Aggregates.Support;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Infrastructure.Notifications;
+using GdeOni.Infrastructure.Relatives;
 using Microsoft.EntityFrameworkCore;
 
 namespace GdeOni.Infrastructure.Persistence;
@@ -38,9 +39,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     // навигацию). Один диалог на пару участников в контексте карточки.
     public DbSet<RelativeConversation> RelativeConversations => Set<RelativeConversation>();
 
+    // Функция «Родственники» (Фаза 5): жалобы на родственников для модерации.
+    public DbSet<RelativeReport> RelativeReports => Set<RelativeReport>();
+
     // D37. Лог разосланных писем о годовщинах (дедупликация). Инфра-
     // сущность, не доменный агрегат.
     internal DbSet<SentAnniversaryEmail> SentAnniversaryEmails => Set<SentAnniversaryEmail>();
+
+    // Функция «Родственники» (Фаза 4): лог обнаруженных родственников для
+    // уведомлений о новых. Инфра-сущность, не доменный агрегат.
+    internal DbSet<RelativeDiscovery> RelativeDiscoveries => Set<RelativeDiscovery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

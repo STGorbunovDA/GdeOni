@@ -9,6 +9,7 @@ public sealed partial class User : Entity<Guid>
     public const int MaxEmailLength = 320;
     public const int MaxUserNameLength = 100;
     public const int MaxFullNameLength = 300;
+    public const int MaxCityLength = 200;
     public const int MaxRole = 50;
     public const int MaxPasswordHash = 1000;
     public const int MaxComplimentaryNoteLength = 500;
@@ -37,6 +38,14 @@ public sealed partial class User : Entity<Guid>
     public string UserNameNormalized { get; private set; }
 
     public string? FullName { get; private set; }
+
+    /// <summary>
+    /// Город пользователя. Nullable: у аккаунтов, зарегистрированных до
+    /// введения поля, остаётся null — клиент показывает баннер-напоминание
+    /// «укажите город» (зеркало баннера неподтверждённого email). Указывается
+    /// в профиле. Это ПРЕДПОЧТЕНИЕ — SecurityStamp не ротируется.
+    /// </summary>
+    public string? City { get; private set; }
 
     /// <summary>
     /// D19. Дата рождения пользователя. Обязательное поле при новой
@@ -356,6 +365,26 @@ public sealed partial class User : Entity<Guid>
         SecurityStamp = Guid.NewGuid();
         Touch();
 
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// Указать/сменить/очистить город. No-op guard: то же значение (после
+    /// trim) — без Touch. SecurityStamp НЕ ротируется: город — предпочтение,
+    /// а не удостоверяющее действие, force-logout не нужен. Пустая строка
+    /// трактуется как «не указан» (null).
+    /// </summary>
+    public UnitResult<Error> UpdateCity(string? city)
+    {
+        var normalized = string.IsNullOrWhiteSpace(city) ? null : city.Trim();
+        if (normalized is not null && normalized.Length > MaxCityLength)
+            return Errors.User.CityTooLong(MaxCityLength);
+
+        if (City == normalized)
+            return UnitResult.Success<Error>();
+
+        City = normalized;
+        Touch();
         return UnitResult.Success<Error>();
     }
 

@@ -1,6 +1,7 @@
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Domain.Shared;
+using GdeOni.Infrastructure.Relatives;
 using Microsoft.EntityFrameworkCore;
 
 namespace GdeOni.Infrastructure.Persistence.Repositories;
@@ -90,10 +91,77 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
             cancellationToken);
     }
 
+    public async Task<List<NewRelativeItem>> GetNewRelatives(
+        Guid ownerId,
+        CancellationToken cancellationToken)
+    {
+        var tracked = dbContext.Set<TrackedDeceased>().AsNoTracking();
+
+        // Перепроверяем каждый discovery по текущему состоянию: владелец и
+        // родственник всё ещё активно отслеживают карточку, связь связывающая,
+        // согласие включено, не заблокирован. Устаревшие discovery молча
+        // отпадают (не попадают в результат), хотя строка в БД остаётся.
+        var rows = await (
+            from disc in dbContext.Set<RelativeDiscovery>().AsNoTracking()
+            where disc.OwnerUserId == ownerId && disc.IsNew
+            join mine in tracked on disc.DeceasedId equals mine.DeceasedId
+            where EF.Property<Guid>(mine, "user_id") == ownerId
+                  && mine.Status == TrackStatus.Active
+            join theirs in tracked on disc.DeceasedId equals theirs.DeceasedId
+            where EF.Property<Guid>(theirs, "user_id") == disc.RelativeUserId
+                  && theirs.Status == TrackStatus.Active
+                  && theirs.RelationshipType != RelationshipType.Acquaintance
+                  && theirs.RelationshipType != RelationshipType.Other
+            join u in dbContext.Users.AsNoTracking() on disc.RelativeUserId equals u.Id
+            where u.AllowRelativeConnections && !u.IsBlocked
+            join d in dbContext.DeceasedRecords.AsNoTracking() on disc.DeceasedId equals d.Id
+            select new NewRow(
+                disc.DeceasedId,
+                d.Name.FirstName,
+                d.Name.LastName,
+                d.Name.MiddleName,
+                disc.RelativeUserId,
+                u.UserName,
+                theirs.RelationshipType,
+                disc.DiscoveredAtUtc))
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(r => new NewRelativeItem(
+                r.DeceasedId,
+                BuildFullName(r.LastName, r.FirstName, r.MiddleName),
+                r.RelativeUserId,
+                r.RelativeUserName,
+                r.RelationshipType,
+                r.DiscoveredAtUtc))
+            .OrderByDescending(r => r.DiscoveredAtUtc)
+            .ThenBy(r => r.DeceasedFullName)
+            .ToList();
+    }
+
+    public async Task MarkRelativesSeen(Guid ownerId, CancellationToken cancellationToken)
+    {
+        await dbContext.Set<RelativeDiscovery>()
+            .Where(d => d.OwnerUserId == ownerId && d.IsNew)
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(d => d.IsNew, false),
+                cancellationToken);
+    }
+
     // Зеркало PersonName.FullName: «Фамилия Имя Отчество» без пустых частей.
     private static string BuildFullName(string lastName, string firstName, string? middleName) =>
         string.Join(" ", new[] { lastName, firstName, middleName }
             .Where(x => !string.IsNullOrWhiteSpace(x)));
+
+    private sealed record NewRow(
+        Guid DeceasedId,
+        string FirstName,
+        string LastName,
+        string? MiddleName,
+        Guid RelativeUserId,
+        string RelativeUserName,
+        RelationshipType RelationshipType,
+        DateTime DiscoveredAtUtc);
 
     private sealed record Row(
         Guid DeceasedId,

@@ -50,5 +50,20 @@ public static partial class Errors
         /// </summary>
         public static Error MessageLocked() =>
             Error.Conflict("relatives.message.locked", "This message can no longer be edited or deleted");
+
+        // ─────────────── Жалобы (Фаза 5) ───────────────
+
+        public static Error ReportReasonRequired() =>
+            Error.Validation("relatives.report.reason.required", "Report reason is required");
+
+        public static Error ReportReasonTooLong(int max) =>
+            Error.Validation("relatives.report.reason.too_long", $"Report reason must be at most {max} characters");
+
+        /// <summary>Нельзя пожаловаться на самого себя.</summary>
+        public static Error CannotReportSelf() =>
+            Error.Validation("relatives.report.self", "You cannot report yourself");
+
+        public static Error ReportNotFound() =>
+            Error.NotFound("relatives.report.not_found", "Report not found");
     }
 }

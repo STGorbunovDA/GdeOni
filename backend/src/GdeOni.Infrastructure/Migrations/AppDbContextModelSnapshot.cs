@@ -447,6 +447,73 @@ namespace GdeOni.Infrastructure.Migrations
                     b.ToTable("relative_messages", (string)null);
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Relatives.RelativeReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("DeceasedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deceased_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ReportedUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reported_user_id");
+
+                    b.Property<Guid>("ReporterUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reporter_user_id");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("resolution_note");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at_utc");
+
+                    b.Property<Guid?>("ResolvedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolved_by_user_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_relative_reports");
+
+                    b.HasIndex("DeceasedId")
+                        .HasDatabaseName("ix_relative_reports_deceased_id");
+
+                    b.HasIndex("ReportedUserId")
+                        .HasDatabaseName("ix_relative_reports_reported_user_id");
+
+                    b.HasIndex("Status", "CreatedAtUtc")
+                        .HasDatabaseName("ix_relative_reports_status_created_at_utc");
+
+                    b.HasIndex("ReporterUserId", "ReportedUserId", "ConversationId")
+                        .HasDatabaseName("ix_relative_reports_reporter_user_id_reported_user_id_conversa");
+
+                    b.ToTable("relative_reports", (string)null);
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Sharing.ShareBundle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -873,6 +940,11 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("blocked_reason");
 
+                    b.Property<string>("City")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("city");
+
                     b.Property<DateTime?>("ComplimentaryAccessGrantedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("complimentary_access_granted_at_utc");
@@ -1073,6 +1145,51 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasDatabaseName("ux_sent_anniversary_emails_user_deceased_kind_date");
 
                     b.ToTable("sent_anniversary_emails", (string)null);
+                });
+
+            modelBuilder.Entity("GdeOni.Infrastructure.Relatives.RelativeDiscovery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("DeceasedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deceased_id");
+
+                    b.Property<DateTime>("DiscoveredAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discovered_at_utc");
+
+                    b.Property<bool>("IsNew")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_new");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_user_id");
+
+                    b.Property<Guid>("RelativeUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("relative_user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_relative_discoveries");
+
+                    b.HasIndex("DeceasedId")
+                        .HasDatabaseName("ix_relative_discoveries_deceased_id");
+
+                    b.HasIndex("RelativeUserId")
+                        .HasDatabaseName("ix_relative_discoveries_relative_user_id");
+
+                    b.HasIndex("OwnerUserId", "IsNew")
+                        .HasDatabaseName("ix_relative_discoveries_owner_user_id_is_new");
+
+                    b.HasIndex("OwnerUserId", "DeceasedId", "RelativeUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_relative_discoveries_owner_deceased_relative");
+
+                    b.ToTable("relative_discoveries", (string)null);
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Auth.RefreshToken", b =>
@@ -1359,6 +1476,30 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasConstraintName("fk_relative_messages_relative_conversations_conversation_id");
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Relatives.RelativeReport", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.DeceasedRecords.Deceased", null)
+                        .WithMany()
+                        .HasForeignKey("DeceasedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_relative_reports_deceased_records_deceased_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("ReportedUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_relative_reports_users_reported_user_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("ReporterUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_relative_reports_users_reporter_user_id");
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Sharing.ShareBundle", b =>
                 {
                     b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
@@ -1508,6 +1649,30 @@ namespace GdeOni.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_sent_anniversary_emails_users_user_id");
+                });
+
+            modelBuilder.Entity("GdeOni.Infrastructure.Relatives.RelativeDiscovery", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.DeceasedRecords.Deceased", null)
+                        .WithMany()
+                        .HasForeignKey("DeceasedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_relative_discoveries_deceased_records_deceased_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_relative_discoveries_users_owner_user_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("RelativeUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_relative_discoveries_users_relative_user_id");
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.DeceasedRecords.Deceased", b =>
