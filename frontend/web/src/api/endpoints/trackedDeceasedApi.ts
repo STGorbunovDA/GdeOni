@@ -16,7 +16,11 @@ import type { DeceasedDetails } from './deceasedApi';
  * (см. D11.1.1).
  */
 export const RelationshipTypes = {
+  // Parent — устаревшее объединённое (только для старых карточек);
+  // в новых используются раздельные Mother / Father.
   Parent: 'Parent',
+  Mother: 'Mother',
+  Father: 'Father',
   // Grandparent — устаревшее объединённое значение (только для старых
   // карточек); в новых используются раздельные Grandfather / Grandmother.
   Grandparent: 'Grandparent',
@@ -26,7 +30,11 @@ export const RelationshipTypes = {
   GreatGrandmother: 'GreatGrandmother',
   Child: 'Child',
   Spouse: 'Spouse',
+  // Sibling — устаревшее объединённое (только для старых карточек);
+  // в новых используются раздельные Brother / Sister.
   Sibling: 'Sibling',
+  Brother: 'Brother',
+  Sister: 'Sister',
   Relative: 'Relative',
   DistantRelative: 'DistantRelative',
   Friend: 'Friend',

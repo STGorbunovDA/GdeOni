@@ -3,7 +3,8 @@
 public enum RelationshipType
 {
     /// <summary>
-    /// Родитель
+    /// Родитель (устаревшее, объединённое — только для СТАРЫХ записей;
+    /// в новых карточках используются раздельные Mother / Father).
     /// </summary>
     Parent = 1,
     /// <summary>
@@ -21,7 +22,8 @@ public enum RelationshipType
     /// </summary>
     Spouse = 4,
     /// <summary>
-    /// Брат/сестра
+    /// Брат/сестра (устаревшее, объединённое — только для СТАРЫХ записей;
+    /// в новых карточках используются раздельные Brother / Sister).
     /// </summary>
     Sibling = 5,
     /// <summary>
@@ -56,5 +58,21 @@ public enum RelationshipType
     /// Бабушка
     /// </summary>
     Grandmother = 13,
+    /// <summary>
+    /// Мама
+    /// </summary>
+    Mother = 14,
+    /// <summary>
+    /// Папа
+    /// </summary>
+    Father = 15,
+    /// <summary>
+    /// Брат
+    /// </summary>
+    Brother = 16,
+    /// <summary>
+    /// Сестра
+    /// </summary>
+    Sister = 17,
     Other = 99
 }

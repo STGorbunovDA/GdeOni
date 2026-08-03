@@ -4,6 +4,8 @@ import { relationshipDisplay } from './relationshipDisplay';
 describe('relationshipDisplay', () => {
   it.each([
     ['Parent', 'Родитель'],
+    ['Mother', 'Мама'],
+    ['Father', 'Папа'],
     ['Grandparent', 'Бабушка/дедушка'],
     ['Grandfather', 'Дедушка'],
     ['Grandmother', 'Бабушка'],
@@ -12,6 +14,8 @@ describe('relationshipDisplay', () => {
     ['Child', 'Ребёнок'],
     ['Spouse', 'Супруг(а)'],
     ['Sibling', 'Брат/сестра'],
+    ['Brother', 'Брат'],
+    ['Sister', 'Сестра'],
     ['Relative', 'Родственник'],
     ['DistantRelative', 'Дальний родственник'],
     ['Friend', 'Друг'],

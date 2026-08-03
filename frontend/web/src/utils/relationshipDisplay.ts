@@ -11,6 +11,8 @@
  */
 const DISPLAY: Record<string, string> = {
   Parent: 'Родитель',
+  Mother: 'Мама',
+  Father: 'Папа',
   Grandparent: 'Бабушка/дедушка',
   Grandfather: 'Дедушка',
   Grandmother: 'Бабушка',
@@ -19,6 +21,8 @@ const DISPLAY: Record<string, string> = {
   Child: 'Ребёнок',
   Spouse: 'Супруг(а)',
   Sibling: 'Брат/сестра',
+  Brother: 'Брат',
+  Sister: 'Сестра',
   Relative: 'Родственник',
   DistantRelative: 'Дальний родственник',
   Friend: 'Друг',
