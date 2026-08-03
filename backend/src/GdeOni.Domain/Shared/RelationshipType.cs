@@ -34,5 +34,17 @@ public enum RelationshipType
     /// Знакомый
     /// </summary>
     Acquaintance = 8,
+    /// <summary>
+    /// Прадедушка (прадед)
+    /// </summary>
+    GreatGrandfather = 9,
+    /// <summary>
+    /// Прабабушка (прабабка)
+    /// </summary>
+    GreatGrandmother = 10,
+    /// <summary>
+    /// Дальний родственник
+    /// </summary>
+    DistantRelative = 11,
     Other = 99
 }

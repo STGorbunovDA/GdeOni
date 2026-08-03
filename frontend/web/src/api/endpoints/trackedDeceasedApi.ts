@@ -18,10 +18,13 @@ import type { DeceasedDetails } from './deceasedApi';
 export const RelationshipTypes = {
   Parent: 'Parent',
   Grandparent: 'Grandparent',
+  GreatGrandfather: 'GreatGrandfather',
+  GreatGrandmother: 'GreatGrandmother',
   Child: 'Child',
   Spouse: 'Spouse',
   Sibling: 'Sibling',
   Relative: 'Relative',
+  DistantRelative: 'DistantRelative',
   Friend: 'Friend',
   Acquaintance: 'Acquaintance',
   Other: 'Other',

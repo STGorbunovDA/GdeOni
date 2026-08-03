@@ -64,10 +64,13 @@ import '@mantine/dates/styles.css';
 const RELATIONSHIP_OPTIONS = [
   { value: RelationshipTypes.Parent, label: 'Родитель' },
   { value: RelationshipTypes.Grandparent, label: 'Бабушка/дедушка' },
+  { value: RelationshipTypes.GreatGrandfather, label: 'Прадедушка' },
+  { value: RelationshipTypes.GreatGrandmother, label: 'Прабабушка' },
   { value: RelationshipTypes.Child, label: 'Ребёнок' },
   { value: RelationshipTypes.Spouse, label: 'Супруг(а)' },
   { value: RelationshipTypes.Sibling, label: 'Брат/сестра' },
   { value: RelationshipTypes.Relative, label: 'Родственник' },
+  { value: RelationshipTypes.DistantRelative, label: 'Дальний родственник' },
   { value: RelationshipTypes.Friend, label: 'Друг' },
   { value: RelationshipTypes.Acquaintance, label: 'Знакомый' },
   { value: RelationshipTypes.Other, label: 'Другое' },
