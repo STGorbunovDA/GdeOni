@@ -60,8 +60,8 @@ const REMINDER_ON_GREEN = '#2F9E44';
 /** Жёлтая точка — памятная дата близкого (годовщина смерти/рождения). */
 const DECEASED_DOT_YELLOW = '#FAB005';
 
-/** Голубая точка — своё (ручное) событие пользователя. */
-const CUSTOM_DOT_BLUE = '#4DABF7';
+/** Бирюзовая точка — своё (ручное) событие пользователя. */
+const CUSTOM_DOT_TEAL = '#20C997';
 
 /** «за сколько дней» → короткая подпись для строки события. */
 function leadDaysSummary(leadDays: number[]): string {
@@ -363,7 +363,7 @@ export function EventsPage() {
         <CaptionLabel>
           Стрелками листайте месяцы. Точка под числом: синяя — праздник без
           напоминания, зелёная — напоминание включено, жёлтая — памятная дата
-          близкого, голубая — ваше событие. Нажмите на дату, чтобы настроить.
+          близкого, бирюзовая — ваше событие. Нажмите на дату, чтобы настроить.
         </CaptionLabel>
         <CloudCard>
           {calendarHolidaysQuery.isLoading && !calendarHolidaysQuery.data ? (
@@ -473,7 +473,7 @@ export function EventsPage() {
                             <Dot color={DECEASED_DOT_YELLOW} />
                           )}
                           {dayCustom.length > 0 && (
-                            <Dot color={CUSTOM_DOT_BLUE} />
+                            <Dot color={CUSTOM_DOT_TEAL} />
                           )}
                         </div>
                       </div>
@@ -523,7 +523,7 @@ export function EventsPage() {
                     width: 10,
                     height: 10,
                     borderRadius: '50%',
-                    background: CUSTOM_DOT_BLUE,
+                    background: CUSTOM_DOT_TEAL,
                     flexShrink: 0,
                   }}
                 />
