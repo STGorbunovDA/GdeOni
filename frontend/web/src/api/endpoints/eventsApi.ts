@@ -61,6 +61,66 @@ export const eventsApi = {
   },
 };
 
+/**
+ * Ручное (пользовательское) событие. date — ISO yyyy-MM-dd (якорь; повторяется
+ * каждый год по дню/месяцу). leadDays — «за сколько дней» (0/1/3/7); пусто =
+ * напоминание отключено. Приватное для текущего пользователя.
+ */
+export type CustomEvent = {
+  id: string;
+  title: string;
+  date: string;
+  leadDays: number[];
+};
+
+export const customEventsApi = {
+  /** GET /api/events/custom — мои ручные события. */
+  async list(): Promise<CustomEvent[]> {
+    const res = await unwrap(
+      apiClient.get<ApiEnvelope<{ items: CustomEvent[] }>>('/api/events/custom'),
+    );
+    return res.items;
+  },
+
+  /** POST /api/events/custom — создать событие. */
+  async create(
+    title: string,
+    date: string,
+    leadDays: number[],
+  ): Promise<{ id: string }> {
+    return unwrap(
+      apiClient.post<ApiEnvelope<{ id: string }>>('/api/events/custom', {
+        title,
+        date,
+        leadDays,
+      }),
+    );
+  },
+
+  /** PUT /api/events/custom/{id} — обновить событие. */
+  async update(
+    id: string,
+    title: string,
+    date: string,
+    leadDays: number[],
+  ): Promise<void> {
+    await unwrap(
+      apiClient.put<ApiEnvelope<unknown>>(`/api/events/custom/${id}`, {
+        title,
+        date,
+        leadDays,
+      }),
+    );
+  },
+
+  /** DELETE /api/events/custom/{id} — удалить событие. */
+  async remove(id: string): Promise<void> {
+    await unwrap(
+      apiClient.delete<ApiEnvelope<unknown>>(`/api/events/custom/${id}`),
+    );
+  },
+};
+
 export const holidayRemindersApi = {
   /** GET /api/events/holiday-reminders — явные настройки текущего юзера. */
   async getMine(): Promise<HolidayReminder[]> {

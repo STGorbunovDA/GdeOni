@@ -10,21 +10,26 @@ import {
 } from '@mantine/core';
 import { Calendar } from '@mantine/dates';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ChevronRight, Cross, Flower2 } from 'lucide-react';
+import { CalendarPlus, ChevronRight, Cross, Flower2, Plus } from 'lucide-react';
 import {
   BodyLabel,
   CaptionLabel,
   CloudCard,
+  PrimaryButton,
   SubTitleLabel,
   TitleLabel,
 } from '../../components/ui';
 import { cloudColors } from '../../design/theme';
 import { trackedDeceasedApi } from '../../api/endpoints/trackedDeceasedApi';
 import {
+  customEventsApi,
   eventsApi,
   holidayRemindersApi,
+  type CustomEvent,
   type Holiday,
 } from '../../api/endpoints/eventsApi';
+import { CustomEventModal } from '../../components/events/CustomEventModal';
+import { LEAD_OPTIONS } from '../../utils/holidayReminders';
 import { AuthAvatar } from '../../components/media/AuthAvatar';
 import { formatDateOnly } from '../../utils/formatDate';
 import {
@@ -54,6 +59,18 @@ const REMINDER_ON_GREEN = '#2F9E44';
 
 /** Жёлтая точка — памятная дата близкого (годовщина смерти/рождения). */
 const DECEASED_DOT_YELLOW = '#FAB005';
+
+/** Красная точка — своё (ручное) событие пользователя. */
+const CUSTOM_DOT_RED = '#E03131';
+
+/** «за сколько дней» → короткая подпись для строки события. */
+function leadDaysSummary(leadDays: number[]): string {
+  if (leadDays.length === 0) return 'Напоминание выключено';
+  const labels = LEAD_OPTIONS.filter((o) => leadDays.includes(o.days)).map(
+    (o) => o.label.toLowerCase(),
+  );
+  return `Напоминать: ${labels.join(', ')}`;
+}
 
 type CategoryMeta = { label: string; color: string; order: number };
 
@@ -160,6 +177,24 @@ export function EventsPage() {
     queryFn: () => holidayRemindersApi.getMine(),
   });
 
+  const customQuery = useQuery({
+    queryKey: ['events-custom'],
+    queryFn: () => customEventsApi.list(),
+  });
+
+  // Модалка добавления/правки своего события. null = режим создания.
+  const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [editEvent, setEditEvent] = useState<CustomEvent | null>(null);
+
+  function openNewEvent() {
+    setEditEvent(null);
+    setEventModalOpen(true);
+  }
+  function openEditEvent(ev: CustomEvent) {
+    setEditEvent(ev);
+    setEventModalOpen(true);
+  }
+
   const overrides = useMemo(
     () => buildOverridesMap(remindersQuery.data ?? []),
     [remindersQuery.data],
@@ -213,6 +248,18 @@ export function EventsPage() {
     }
     return map;
   }, [trackedQuery.data]);
+
+  // Map «MM-DD → мои события» — повторяются каждый год по дню/месяцу.
+  const customByMonthDay = useMemo(() => {
+    const map = new Map<string, CustomEvent[]>();
+    for (const ev of customQuery.data ?? []) {
+      const md = monthDay(ev.date);
+      const list = map.get(md) ?? [];
+      list.push(ev);
+      map.set(md, list);
+    }
+    return map;
+  }, [customQuery.data]);
 
   const anniversaries = useMemo<TodayAnniversary[]>(() => {
     const items = trackedQuery.data?.items ?? [];
@@ -316,7 +363,7 @@ export function EventsPage() {
         <CaptionLabel>
           Стрелками листайте месяцы. Точка под числом: синяя — праздник без
           напоминания, зелёная — напоминание включено, жёлтая — памятная дата
-          близкого. Нажмите на дату, чтобы настроить напоминание.
+          близкого, красная — ваше событие. Нажмите на дату, чтобы настроить.
         </CaptionLabel>
         <CloudCard>
           {calendarHolidaysQuery.isLoading && !calendarHolidaysQuery.data ? (
@@ -332,20 +379,37 @@ export function EventsPage() {
                 highlightToday
                 getDayProps={(date) => {
                   const iso = isoDate(date);
+                  const md = monthDayOf(date);
                   const hasHoliday = calendarHolidaysByDate.has(iso);
-                  const hasDeceased = deceasedByMonthDay.has(monthDayOf(date));
-                  if (!hasHoliday && !hasDeceased) return {};
-                  return { onClick: () => setSelectedDateIso(iso) };
+                  const hasDeceased = deceasedByMonthDay.has(md);
+                  const custom = customByMonthDay.get(md);
+                  if (!hasHoliday && !hasDeceased && !custom) return {};
+                  return {
+                    onClick: () => {
+                      // Дата только со своим событием → сразу правка события.
+                      if (!hasHoliday && !hasDeceased && custom && custom.length > 0) {
+                        openEditEvent(custom[0]);
+                      } else {
+                        setSelectedDateIso(iso);
+                      }
+                    },
+                  };
                 }}
                 renderDay={(date) => {
                   const iso = isoDate(date);
+                  const md = monthDayOf(date);
                   const dayNum = date.getDate();
                   const dayHolidays = calendarHolidaysByDate.get(iso) ?? [];
-                  const dayDeceased = deceasedByMonthDay.get(monthDayOf(date));
+                  const dayDeceased = deceasedByMonthDay.get(md);
                   const deceasedRows = dayDeceased
                     ? [...dayDeceased.deaths, ...dayDeceased.births]
                     : [];
-                  if (dayHolidays.length === 0 && deceasedRows.length === 0) {
+                  const dayCustom = customByMonthDay.get(md) ?? [];
+                  if (
+                    dayHolidays.length === 0 &&
+                    deceasedRows.length === 0 &&
+                    dayCustom.length === 0
+                  ) {
                     return <span>{dayNum}</span>;
                   }
 
@@ -372,6 +436,11 @@ export function EventsPage() {
                             <Text key={`${r.deceasedId}-${r.kind}`} size="xs">
                               {r.kind === 'death' ? 'Година: ' : 'День памяти: '}
                               {r.fullName}
+                            </Text>
+                          ))}
+                          {dayCustom.map((c) => (
+                            <Text key={c.id} size="xs">
+                              {c.title}
                             </Text>
                           ))}
                         </Stack>
@@ -403,6 +472,9 @@ export function EventsPage() {
                           {deceasedRows.length > 0 && (
                             <Dot color={DECEASED_DOT_YELLOW} />
                           )}
+                          {dayCustom.length > 0 && (
+                            <Dot color={CUSTOM_DOT_RED} />
+                          )}
                         </div>
                       </div>
                     </Tooltip>
@@ -412,6 +484,60 @@ export function EventsPage() {
             </Group>
           )}
         </CloudCard>
+      </Stack>
+
+      {/* Мои события — ручные, приватные, повторяются каждый год */}
+      <Stack gap="sm">
+        <Group justify="space-between" align="center">
+          <SubTitleLabel>Мои события</SubTitleLabel>
+          <PrimaryButton leftSection={<Plus size={16} />} onClick={openNewEvent}>
+            Добавить событие
+          </PrimaryButton>
+        </Group>
+        <CaptionLabel>
+          Свои даты (например, ДР близкого) с напоминаниями. Повторяются каждый
+          год, видны только вам.
+        </CaptionLabel>
+
+        {customQuery.data && customQuery.data.length === 0 && (
+          <CloudCard>
+            <Group gap="sm" align="center">
+              <CalendarPlus size={20} color={cloudColors.azureDeep} />
+              <CaptionLabel>
+                Пока нет своих событий. Нажмите «Добавить событие».
+              </CaptionLabel>
+            </Group>
+          </CloudCard>
+        )}
+
+        {customQuery.data?.map((ev) => (
+          <UnstyledButton
+            key={ev.id}
+            onClick={() => openEditEvent(ev)}
+            style={{ display: 'block', width: '100%', textAlign: 'left' }}
+          >
+            <CloudCard style={{ cursor: 'pointer' }}>
+              <Group align="center" gap="md" wrap="nowrap">
+                <div
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: CUSTOM_DOT_RED,
+                    flexShrink: 0,
+                  }}
+                />
+                <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+                  <SubTitleLabel>{ev.title}</SubTitleLabel>
+                  <CaptionLabel>
+                    {formatDateOnly(ev.date)} · {leadDaysSummary(ev.leadDays)}
+                  </CaptionLabel>
+                </Stack>
+                <ChevronRight size={20} color={cloudColors.captionGray} />
+              </Group>
+            </CloudCard>
+          </UnstyledButton>
+        ))}
       </Stack>
 
       {/* Ближайшие праздники по категориям — под календарём */}
@@ -442,6 +568,12 @@ export function EventsPage() {
         holidays={modalHolidays}
         effectiveByName={modalEffective}
         deceased={modalDeceased}
+      />
+
+      <CustomEventModal
+        opened={eventModalOpen}
+        onClose={() => setEventModalOpen(false)}
+        event={editEvent}
       />
     </Stack>
   );

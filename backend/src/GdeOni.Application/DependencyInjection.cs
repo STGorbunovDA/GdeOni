@@ -56,7 +56,11 @@ using GdeOni.Application.Legal.Queries.GetLegalDocument.UseCase;
 using GdeOni.Application.Admin.Queries.GetAdminStats.UseCase;
 using GdeOni.Application.Events.Queries.GetHolidays.UseCase;
 using GdeOni.Application.Events.Queries.GetMyHolidayReminders.UseCase;
+using GdeOni.Application.Events.Queries.GetMyCustomEvents.UseCase;
 using GdeOni.Application.Events.Commands.SetHolidayReminder.UseCase;
+using GdeOni.Application.Events.Commands.CreateCustomEvent.UseCase;
+using GdeOni.Application.Events.Commands.UpdateCustomEvent.UseCase;
+using GdeOni.Application.Events.Commands.DeleteCustomEvent.UseCase;
 using GdeOni.Application.Geo.Queries.ForwardGeocode.UseCase;
 using GdeOni.Application.Geo.Queries.ReverseGeocode.UseCase;
 using GdeOni.Application.Sharing.Commands.CreateShareBundle.UseCase;
@@ -233,6 +237,11 @@ public static class DependencyInjection
         // Персональные напоминания о праздниках (настройки за юзером).
         services.AddScoped<IGetMyHolidayRemindersUseCase, GetMyHolidayRemindersUseCase>();
         services.AddScoped<ISetHolidayReminderUseCase, SetHolidayReminderUseCase>();
+        // Ручные (пользовательские) события.
+        services.AddScoped<IGetMyCustomEventsUseCase, GetMyCustomEventsUseCase>();
+        services.AddScoped<ICreateCustomEventUseCase, CreateCustomEventUseCase>();
+        services.AddScoped<IUpdateCustomEventUseCase, UpdateCustomEventUseCase>();
+        services.AddScoped<IDeleteCustomEventUseCase, DeleteCustomEventUseCase>();
 
         // F38. Справка по системе для админа (счётчики).
         services.AddScoped<IGetAdminStatsUseCase, GetAdminStatsUseCase>();

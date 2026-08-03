@@ -8,6 +8,13 @@ using GdeOni.Application.Events.Queries.GetHolidays.Model;
 using GdeOni.Application.Events.Queries.GetHolidays.UseCase;
 using GdeOni.Application.Events.Queries.GetMyHolidayReminders.Model;
 using GdeOni.Application.Events.Queries.GetMyHolidayReminders.UseCase;
+using GdeOni.Application.Events.Queries.GetMyCustomEvents.Model;
+using GdeOni.Application.Events.Queries.GetMyCustomEvents.UseCase;
+using GdeOni.Application.Events.Commands.CreateCustomEvent.Model;
+using GdeOni.Application.Events.Commands.CreateCustomEvent.UseCase;
+using GdeOni.Application.Events.Commands.UpdateCustomEvent.Model;
+using GdeOni.Application.Events.Commands.UpdateCustomEvent.UseCase;
+using GdeOni.Application.Events.Commands.DeleteCustomEvent.UseCase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -73,5 +80,70 @@ public sealed class EventsController : ApiControllerBase
     {
         var result = await useCase.Execute(request.ToCommand(), cancellationToken);
         return FromResult(result);
+    }
+
+    // ─────────────── Ручные (пользовательские) события ───────────────
+
+    /// <summary>Список ручных событий текущего пользователя (приватные).</summary>
+    [HttpGet("custom")]
+    [ProducesResponseType(typeof(ApiResponse<GetMyCustomEventsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyCustomEvents(
+        [FromServices] IGetMyCustomEventsUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(cancellationToken);
+        return FromResult(result);
+    }
+
+    /// <summary>
+    /// Создать ручное событие (например, «ДР друга»). Повторяется каждый год по
+    /// дню/месяцу; напоминания — тот же набор «за сколько дней», что у праздников.
+    /// </summary>
+    [HttpPost("custom")]
+    [ProducesResponseType(typeof(ApiResponse<CreateCustomEventResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> CreateCustomEvent(
+        [FromBody] CustomEventRequest request,
+        [FromServices] ICreateCustomEventUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new CreateCustomEventCommand(request.Title, request.Date, request.LeadDays),
+            cancellationToken);
+        return FromResult(result);
+    }
+
+    /// <summary>Обновить своё ручное событие.</summary>
+    [HttpPut("custom/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateCustomEvent(
+        [FromRoute] Guid id,
+        [FromBody] CustomEventRequest request,
+        [FromServices] IUpdateCustomEventUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new UpdateCustomEventCommand(id, request.Title, request.Date, request.LeadDays),
+            cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>Удалить своё ручное событие.</summary>
+    [HttpDelete("custom/{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteCustomEvent(
+        [FromRoute] Guid id,
+        [FromServices] IDeleteCustomEventUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(id, cancellationToken);
+        return FromUnitResult(result);
     }
 }

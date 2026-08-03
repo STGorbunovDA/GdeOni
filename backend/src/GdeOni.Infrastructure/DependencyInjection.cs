@@ -72,6 +72,8 @@ public static class DependencyInjection
         services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
         // Персональные настройки напоминаний о праздниках.
         services.AddScoped<IHolidayReminderRepository, HolidayReminderRepository>();
+        // Ручные события пользователя.
+        services.AddScoped<ICustomEventRepository, CustomEventRepository>();
 
         // D46. «Поделиться подборкой»: хранилище подборок + генератор
         // коротких кодов (без состояния → Singleton).

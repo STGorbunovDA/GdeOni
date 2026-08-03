@@ -3,7 +3,11 @@ import { Button, Modal, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { trackedDeceasedApi } from '../../api/endpoints/trackedDeceasedApi';
-import { eventsApi, holidayRemindersApi } from '../../api/endpoints/eventsApi';
+import {
+  customEventsApi,
+  eventsApi,
+  holidayRemindersApi,
+} from '../../api/endpoints/eventsApi';
 import { usersApi } from '../../api/endpoints/authApi';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
 import { useSubscription } from '../../hooks/useSubscription';
@@ -121,6 +125,13 @@ export function EventsPopup() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const customQuery = useQuery({
+    queryKey: ['events-popup-custom'],
+    queryFn: () => customEventsApi.list(),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const anniversaries = useMemo<AnniversaryEvent[]>(() => {
     const items = trackedQuery.data?.items ?? [];
     const result: AnniversaryEvent[] = [];
@@ -159,6 +170,21 @@ export function EventsPopup() {
     );
   }, [holidaysQuery.data, remindersQuery.data, todayIso]);
 
+  // Мои события: срабатывают, когда сегодня + d = день события (по MM-DD,
+  // каждый год). d = 0 → сегодня, d > 0 → скоро.
+  const customItems = useMemo(() => {
+    const monthDay = (iso: string) => iso.slice(5, 10);
+    const result: { id: string; title: string; leadDays: number }[] = [];
+    for (const ev of customQuery.data ?? []) {
+      for (const d of ev.leadDays) {
+        if (monthDay(shiftIso(todayIso, d)) === monthDay(ev.date)) {
+          result.push({ id: `${ev.id}-${d}`, title: ev.title, leadDays: d });
+        }
+      }
+    }
+    return result.sort((a, b) => a.leadDays - b.leadDays);
+  }, [customQuery.data, todayIso]);
+
   // Функция «Родственники» (Фаза 4): новые родственники + непрочитанные.
   const newRelatives = relativesSummary.data?.newRelatives ?? [];
   const unreadConversations = relativesSummary.data?.unreadConversations ?? [];
@@ -171,6 +197,7 @@ export function EventsPopup() {
   const hasEvents =
     anniversaries.length > 0 ||
     holidayItems.length > 0 ||
+    customItems.length > 0 ||
     newRelatives.length > 0 ||
     unreadConversations.length > 0;
   const opened = enabled && hasEvents;
@@ -226,6 +253,33 @@ export function EventsPopup() {
               >
                 <Text fw={700} c={cloudColors.inkBlue}>
                   {it.holiday.name}
+                </Text>
+                <CaptionLabel>{leadLabel(it.leadDays)}</CaptionLabel>
+              </Stack>
+            ))}
+          </Stack>
+        )}
+
+        {customItems.length > 0 && (
+          <Stack gap="xs">
+            <BodyLabel>Мои события:</BodyLabel>
+            {customItems.map((it) => (
+              <Stack
+                key={it.id}
+                gap={2}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  background: cloudColors.sky,
+                  cursor: 'pointer',
+                }}
+                onClick={() => {
+                  setDismissed(true);
+                  navigate('/events');
+                }}
+              >
+                <Text fw={700} c={cloudColors.inkBlue}>
+                  📌 {it.title}
                 </Text>
                 <CaptionLabel>{leadLabel(it.leadDays)}</CaptionLabel>
               </Stack>

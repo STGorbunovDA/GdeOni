@@ -32,6 +32,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     // Персональные настройки напоминаний о праздниках (per-user).
     public DbSet<HolidayReminder> HolidayReminders => Set<HolidayReminder>();
 
+    // Ручные (пользовательские) события в «Событиях» — приватные, per-user.
+    public DbSet<CustomEvent> CustomEvents => Set<CustomEvent>();
+
     // D46. Подборки «поделиться карточками» (короткий код → список id).
     public DbSet<ShareBundle> ShareBundles => Set<ShareBundle>();
 

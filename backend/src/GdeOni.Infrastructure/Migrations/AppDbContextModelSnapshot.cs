@@ -308,6 +308,49 @@ namespace GdeOni.Infrastructure.Migrations
                     b.ToTable("deceased_memory_entries", (string)null);
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Events.CustomEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateOnly>("EventDate")
+                        .HasColumnType("date")
+                        .HasColumnName("event_date");
+
+                    b.Property<string>("LeadDaysCsv")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("lead_days");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_custom_events");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_custom_events_user_id");
+
+                    b.ToTable("custom_events", (string)null);
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Events.HolidayReminder", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1430,6 +1473,16 @@ namespace GdeOni.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_deceased_memory_entries_deceased_records_deceased_id");
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Events.CustomEvent", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_custom_events_users_user_id");
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Events.HolidayReminder", b =>
