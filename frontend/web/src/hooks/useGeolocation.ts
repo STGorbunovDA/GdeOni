@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * либо это вообще WiFi-позиция. GPS дозревает за 10-30 секунд. Поэтому мы:
  *
  *  1. Через watchPosition (enableHighAccuracy, maximumAge 0) собираем замеры
- *     в течение окна SAMPLE_WINDOW_MS (15 с).
+ *     в течение окна SAMPLE_WINDOW_MS (30 с).
  *  2. Всё время держим ЛУЧШИЙ по coords.accuracy (минимальный радиус).
  *  3. Если точность достигла TARGET_ACCURACY_M — останавливаемся раньше.
  *  4. По истечении окна отдаём лучший собранный fix.
@@ -62,7 +62,7 @@ export type UseGeolocationResult = {
 /** Порог ранней остановки: достигли — не ждём остаток окна. */
 const TARGET_ACCURACY_M = 2;
 /** Сколько собираем замеры перед тем, как взять лучший. */
-const SAMPLE_WINDOW_MS = 15_000;
+const SAMPLE_WINDOW_MS = 30_000;
 
 /**
  * Фолбэк, если высокоточный сбор не дал ни одного fix (нет GPS-чипа /
