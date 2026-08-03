@@ -12,7 +12,8 @@ namespace GdeOni.Application.Sharing.Commands.ImportShareBundle.UseCase;
 ///
 /// Добавляем СТРОГО тех, кого у получателя нет (по бизнес-логике владельца):
 ///   - записи нет вообще (никогда не отслеживал ИЛИ раньше удалил запись) —
-///     добавляем с типом «Другое» и напоминанием о дне памяти;
+///     добавляем с типом «Другое», напоминанием о дне памяти, а если у
+///     умершего указана дата рождения — и напоминанием о дне рождения;
 ///   - запись есть при ЛЮБОМ статусе (Active/Muted/Archived) — не трогаем:
 ///     архив оставляем архивом, настройки активных не перезаписываем,
 ///     считаем «уже есть» (Skipped);
@@ -58,16 +59,17 @@ public sealed class ImportShareBundleUseCase(
             return Errors.General.NotFound("user", userIdResult.Value);
 
         // Существующие карточки подборки (удалённые между шэром и импортом —
-        // отпадают, попадут в Skipped).
+        // отпадают, попадут в Skipped). Индекс по id: нужен и для проверки
+        // наличия, и чтобы взять дату рождения (для напоминания о ДР).
         var existing = await deceasedRepository.GetForShare(bundle.DeceasedIds, cancellationToken);
-        var existingIds = existing.Select(d => d.Id).ToHashSet();
+        var byId = existing.ToDictionary(d => d.Id);
 
         var added = 0;
         var skipped = 0;
 
         foreach (var deceasedId in bundle.DeceasedIds)
         {
-            if (!existingIds.Contains(deceasedId))
+            if (!byId.TryGetValue(deceasedId, out var deceased))
             {
                 // Карточку удалили из системы между шэром и импортом — нечего добавлять.
                 skipped++;
@@ -83,12 +85,14 @@ public sealed class ImportShareBundleUseCase(
             }
 
             // Записи нет (никогда не отслеживал ИЛИ раньше удалил) — добавляем как «Другое».
+            // Напоминание о дне памяти включаем всегда; о дне рождения — только
+            // если дата рождения указана (иначе напоминать не о чем).
             var trackResult = user.TrackDeceased(
                 deceasedId,
                 RelationshipType.Other,
                 personalNotes: null,
                 notifyOnDeathAnniversary: true,
-                notifyOnBirthAnniversary: false);
+                notifyOnBirthAnniversary: deceased.LifePeriod.BirthDate is not null);
 
             if (trackResult.IsFailure)
             {
