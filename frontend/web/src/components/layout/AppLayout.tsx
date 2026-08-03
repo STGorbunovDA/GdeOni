@@ -34,6 +34,7 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 import { OutdatedLegalModal } from '../legal/OutdatedLegalModal';
 import { EmailConfirmationBanner } from '../auth/EmailConfirmationBanner';
 import { CityReminderBanner } from '../auth/CityReminderBanner';
+import { RelativeMessagesBanner } from '../auth/RelativeMessagesBanner';
 import { AppUpdateBanner } from './AppUpdateBanner';
 import { EventsPopup } from '../events/EventsPopup';
 import { InstallPwaBanner } from '../pwa/InstallPwaBanner';
@@ -208,6 +209,8 @@ export function AppLayout() {
         <EmailConfirmationBanner />
         {/* Баннер «Укажите город» — пока город не заполнен (аналог email). */}
         <CityReminderBanner />
+        {/* Баннер «Новое сообщение от родственника» — пока есть непрочитанные. */}
+        <RelativeMessagesBanner />
         <Outlet />
       </AppShell.Main>
 

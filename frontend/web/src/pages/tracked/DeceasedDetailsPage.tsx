@@ -5,9 +5,12 @@ import {
   Group,
   Loader,
   Modal,
+  Select,
   Stack,
+  Textarea,
 } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { notifications } from '@mantine/notifications';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Archive,
@@ -42,6 +45,7 @@ import { useAuthStore, useIsAdmin } from '../../auth/authStore';
 import { AuthAvatar } from '../../components/media/AuthAvatar';
 import { formatDateOnly } from '../../utils/formatDate';
 import { relationshipDisplay } from '../../utils/relationshipDisplay';
+import { RELATIONSHIP_OPTIONS } from '../../utils/relationshipOptions';
 import { MemoriesSection } from './MemoriesSection';
 import { MediaSection } from './MediaSection';
 
@@ -101,6 +105,50 @@ export function DeceasedDetailsPage() {
 
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Правка своего отслеживания (отношение + заметки). Уведомления и статус
+  // сохраняем как есть — меняем только то, что в форме.
+  const [editOpen, setEditOpen] = useState(false);
+  const [relInput, setRelInput] = useState<string>('');
+  const [notesInput, setNotesInput] = useState('');
+
+  function openEdit() {
+    const t = query.data!.tracking;
+    setRelInput(t.relationshipType);
+    setNotesInput(t.personalNotes ?? '');
+    setEditOpen(true);
+  }
+
+  const editTrackingMutation = useMutation({
+    mutationFn: async () => {
+      const t = query.data!.tracking;
+      await trackedDeceasedApi.update(id!, {
+        relationshipType: relInput,
+        personalNotes: notesInput.trim().length > 0 ? notesInput.trim() : null,
+        // Уведомления и наборы «за сколько дней» — без изменений.
+        notifyOnDeathAnniversary: t.notifyOnDeathAnniversary,
+        notifyOnBirthAnniversary: t.notifyOnBirthAnniversary,
+        deathAnniversaryLeadDays: t.deathAnniversaryLeadDays,
+        birthAnniversaryLeadDays: t.birthAnniversaryLeadDays,
+        trackStatus: t.status,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tracked-details', id] });
+      queryClient.invalidateQueries({ queryKey: ['tracked-list'] });
+      // Отношение влияет на матчинг «Родственников» — обновим их кеши.
+      queryClient.invalidateQueries({ queryKey: ['relatives'] });
+      queryClient.invalidateQueries({ queryKey: ['relatives-summary'] });
+      setEditOpen(false);
+      notifications.show({ title: 'Сохранено', message: '', color: 'green' });
+    },
+    onError: (e) =>
+      notifications.show({
+        title: 'Не удалось сохранить',
+        message: formatError(e),
+        color: 'red',
+      }),
+  });
 
   // F17.2: удаление карточки (admin-only). После успеха ничего не
   // показываем на странице — карточки больше нет — и кидаем на
@@ -363,7 +411,12 @@ export function DeceasedDetailsPage() {
       {/* ---------- Ваше отслеживание ---------- */}
       <CloudCard>
         <Stack gap="xs">
-          <SubTitleLabel>Ваше отслеживание</SubTitleLabel>
+          <Group justify="space-between" align="center">
+            <SubTitleLabel>Ваше отслеживание</SubTitleLabel>
+            <GhostButton leftSection={<Edit size={16} />} onClick={openEdit}>
+              Изменить
+            </GhostButton>
+          </Group>
           <BodyLabel>
             Отношение: {relationshipDisplay(tracking.relationshipType)}
           </BodyLabel>
@@ -409,6 +462,59 @@ export function DeceasedDetailsPage() {
           </Group>
         </Stack>
       </CloudCard>
+
+      {/* ---------- Изменить отслеживание (отношение + заметки) ---------- */}
+      <Modal
+        opened={editOpen}
+        onClose={() => !editTrackingMutation.isPending && setEditOpen(false)}
+        title="Изменить отслеживание"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <Select
+            label="Кем приходится"
+            data={
+              RELATIONSHIP_OPTIONS.some((o) => o.value === relInput) || !relInput
+                ? RELATIONSHIP_OPTIONS
+                : [
+                    { value: relInput, label: relationshipDisplay(relInput) },
+                    ...RELATIONSHIP_OPTIONS,
+                  ]
+            }
+            value={relInput}
+            onChange={(v) => v && setRelInput(v)}
+            allowDeselect={false}
+            comboboxProps={{ withinPortal: true }}
+          />
+          <Textarea
+            label="Заметки (для себя)"
+            placeholder="Например, участок, как ухаживать…"
+            value={notesInput}
+            onChange={(e) => setNotesInput(e.currentTarget.value)}
+            autosize
+            minRows={2}
+            maxRows={6}
+          />
+          <CaptionLabel>
+            Напоминания о годовщинах здесь не меняются.
+          </CaptionLabel>
+          <Group justify="flex-end" gap="sm">
+            <GhostButton
+              onClick={() => setEditOpen(false)}
+              disabled={editTrackingMutation.isPending}
+            >
+              Отмена
+            </GhostButton>
+            <PrimaryButton
+              onClick={() => editTrackingMutation.mutate()}
+              loading={editTrackingMutation.isPending}
+            >
+              Сохранить
+            </PrimaryButton>
+          </Group>
+        </Stack>
+      </Modal>
 
       {/* ---------- Confirm archive ---------- */}
       <Modal

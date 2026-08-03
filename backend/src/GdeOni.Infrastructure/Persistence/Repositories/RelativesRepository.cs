@@ -8,12 +8,12 @@ namespace GdeOni.Infrastructure.Persistence.Repositories;
 
 /// <summary>
 /// Функция «Родственники». Один запрос: свои активные отслеживания
-/// self-join'ятся с чужими активными по deceased_id; чужой отслеживающий
-/// должен иметь связывающую связь (не «Знакомый»/«Другое» — зеркало
-/// <see cref="RelativeRelationships"/>), включённое согласие и не быть
-/// заблокированным. Имя умершего склеиваем в памяти (PersonName.FullName —
-/// вычисляемое, в SQL не транслируется). user_id у TrackedDeceased —
-/// теневой FK, поэтому EF.Property.
+/// self-join'ятся с чужими активными по deceased_id; показываем ВСЕХ
+/// со-отслеживающих (любая связь, включая «Знакомый»/«Другое»), у кого
+/// включено согласие и кто не заблокирован — фильтр по связи вынесен на
+/// клиент (комбобокс на странице «Родственники»). Имя умершего склеиваем в
+/// памяти (PersonName.FullName — вычисляемое, в SQL не транслируется).
+/// user_id у TrackedDeceased — теневой FK, поэтому EF.Property.
 /// </summary>
 public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepository
 {
@@ -30,8 +30,6 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
             join theirs in tracked on mine.DeceasedId equals theirs.DeceasedId
             where EF.Property<Guid>(theirs, "user_id") != userId
                   && theirs.Status == TrackStatus.Active
-                  && theirs.RelationshipType != RelationshipType.Acquaintance
-                  && theirs.RelationshipType != RelationshipType.Other
             join u in dbContext.Users.AsNoTracking()
                 on EF.Property<Guid>(theirs, "user_id") equals u.Id
             where u.AllowRelativeConnections && !u.IsBlocked
@@ -79,9 +77,7 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
         var targetTracks = await tracked.AnyAsync(
             t => EF.Property<Guid>(t, "user_id") == targetUserId
                  && t.DeceasedId == deceasedId
-                 && t.Status == TrackStatus.Active
-                 && t.RelationshipType != RelationshipType.Acquaintance
-                 && t.RelationshipType != RelationshipType.Other,
+                 && t.Status == TrackStatus.Active,
             cancellationToken);
         if (!targetTracks)
             return false;
@@ -110,8 +106,6 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
             join theirs in tracked on disc.DeceasedId equals theirs.DeceasedId
             where EF.Property<Guid>(theirs, "user_id") == disc.RelativeUserId
                   && theirs.Status == TrackStatus.Active
-                  && theirs.RelationshipType != RelationshipType.Acquaintance
-                  && theirs.RelationshipType != RelationshipType.Other
             join u in dbContext.Users.AsNoTracking() on disc.RelativeUserId equals u.Id
             where u.AllowRelativeConnections && !u.IsBlocked
             join d in dbContext.DeceasedRecords.AsNoTracking() on disc.DeceasedId equals d.Id

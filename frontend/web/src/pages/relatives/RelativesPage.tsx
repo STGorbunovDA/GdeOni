@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Alert, Group, Loader, Stack } from '@mantine/core';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Group, Loader, Select, Stack } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -31,10 +31,36 @@ export function RelativesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  // Фильтр по связи (комбобокс). null = все связи.
+  const [relFilter, setRelFilter] = useState<string | null>(null);
+
   const query = useQuery({
     queryKey: ['relatives'],
     queryFn: () => relativesApi.myRelatives(),
   });
+
+  // Варианты фильтра — только реально встречающиеся связи, по-русски.
+  const relOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: { value: string; label: string }[] = [];
+    for (const it of query.data ?? []) {
+      if (!seen.has(it.relationshipType)) {
+        seen.add(it.relationshipType);
+        opts.push({
+          value: it.relationshipType,
+          label: relationshipDisplay(it.relationshipType),
+        });
+      }
+    }
+    return opts.sort((a, b) => a.label.localeCompare(b.label, 'ru'));
+  }, [query.data]);
+
+  const shown = useMemo(() => {
+    const items = query.data ?? [];
+    return relFilter
+      ? items.filter((i) => i.relationshipType === relFilter)
+      : items;
+  }, [query.data, relFilter]);
 
   // Заход на вкладку = «увидел новых родственников»: сбрасываем is_new на
   // бэке и инвалидируем сводку, чтобы попап «События» и бейдж их не показывали.
@@ -67,11 +93,24 @@ export function RelativesPage() {
       <Stack gap="xs">
         <TitleLabel>Родственники</TitleLabel>
         <CaptionLabel>
-          Люди, которые отслеживают те же карточки, что и вы, и указали своё
-          родство с умершим. Почта не показывается — связаться можно внутри
-          приложения.
+          Люди, которые отслеживают те же карточки, что и вы. Рядом с именем —
+          кем они приходятся умершему. Почта не показывается — связаться можно
+          внутри приложения.
         </CaptionLabel>
       </Stack>
+
+      {query.data && query.data.length > 0 && (
+        <Select
+          label="Фильтр по связи"
+          placeholder="Все связи"
+          data={relOptions}
+          value={relFilter}
+          onChange={setRelFilter}
+          clearable
+          style={{ maxWidth: 280 }}
+          comboboxProps={{ withinPortal: true }}
+        />
+      )}
 
       {query.isLoading && (
         <Stack align="center" py="xl">
@@ -89,12 +128,18 @@ export function RelativesPage() {
         <CloudCard>
           <CaptionLabel>
             Пока никого не нашли. Как только кто-то ещё начнёт отслеживать те же
-            карточки и укажет родство — он появится здесь.
+            карточки — он появится здесь.
           </CaptionLabel>
         </CloudCard>
       )}
 
-      {query.data?.map((item) => (
+      {query.data && query.data.length > 0 && shown.length === 0 && (
+        <CloudCard>
+          <CaptionLabel>По выбранной связи никого нет.</CaptionLabel>
+        </CloudCard>
+      )}
+
+      {shown.map((item) => (
         <RelativeRow
           key={`${item.deceasedId}:${item.relativeUserId}`}
           item={item}

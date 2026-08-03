@@ -29,7 +29,8 @@ import { AuthAvatar } from '../../components/media/AuthAvatar';
  *  - Если уже трекает (Active/Muted/Archived) → кнопка "Открыть мою
  *    карточку" → /tracked/:id (idempotent navigate).
  *  - Если не трекает → кнопка "Добавить в отслеживание" → POST /tracked
- *    с дефолтом Friend (как mobile), затем → /tracked/:id.
+ *    с дефолтом «Другое» (связь из поиска неизвестна; правится на карточке),
+ *    затем → /tracked/:id.
  *
  * Зеркало DeceasedPreviewViewModel + DeceasedPreviewPage.xaml на mobile.
  */
@@ -57,7 +58,9 @@ export function PreviewPage() {
   const trackMutation = useMutation({
     mutationFn: () =>
       trackedDeceasedApi.track(id!, {
-        relationshipType: RelationshipTypes.Friend,
+        // При добавлении из поиска связь заранее неизвестна — ставим «Другое»,
+        // человек уточнит на карточке кнопкой «Изменить».
+        relationshipType: RelationshipTypes.Other,
         personalNotes: null,
         // F42. Напоминание о годовщине смерти включено по умолчанию («в день»).
         notifyOnDeathAnniversary: true,

@@ -18,12 +18,11 @@ namespace GdeOni.Infrastructure.Relatives;
 /// <see cref="RelativeDiscovery.IsNew"/> = true — она и превращается в
 /// уведомление «у вас новый родственник» в попапе «События» при входе.
 ///
-/// «Родственник» = другой пользователь, который активно отслеживает ту же
-/// карточку со связывающей связью (не «Знакомый»/«Другое», зеркало
-/// <see cref="RelativeRelationships"/>), с включённым согласием и не
-/// заблокированный. Дополнительно (в отличие от пассивного списка Фазы 2)
-/// требуем согласие и у самого владельца: уведомление — это push, тот кто
-/// выключил «Родственников», не должен получать всплывашки.
+/// «Родственник» = любой другой пользователь, который активно отслеживает ту
+/// же карточку (связь любая, включая «Знакомый»/«Другое»), с включённым
+/// согласием и не заблокированный. Дополнительно (в отличие от пассивного
+/// списка Фазы 2) требуем согласие и у самого владельца: уведомление — это
+/// push, тот кто выключил «Родственников», не должен получать всплывашки.
 ///
 /// Структурно повторяет <c>AnniversaryEmailService</c>: scoped-DbContext на
 /// прогон, никаких исключений наружу из цикла, graceful-stop по
@@ -160,8 +159,6 @@ internal sealed class RelativeDiscoveryService(
             where owner.Status == TrackStatus.Active
             join relative in tracked on owner.DeceasedId equals relative.DeceasedId
             where relative.Status == TrackStatus.Active
-                  && relative.RelationshipType != RelationshipType.Acquaintance
-                  && relative.RelationshipType != RelationshipType.Other
             join ou in dbContext.Users.AsNoTracking()
                 on EF.Property<Guid>(owner, "user_id") equals ou.Id
             where ou.AllowRelativeConnections && !ou.IsBlocked

@@ -37,6 +37,7 @@ import {
 } from '../../utils/coordinateParser';
 import { toDateInputValue } from '../../utils/formatDate';
 import { DateMaskInput } from '../../components/DateMaskInput';
+import { RELATIONSHIP_OPTIONS } from '../../utils/relationshipOptions';
 
 import '@mantine/dates/styles.css';
 
@@ -61,23 +62,6 @@ import '@mantine/dates/styles.css';
  * сценарий Android-specific (E7.1).
  */
 
-const RELATIONSHIP_OPTIONS = [
-  { value: RelationshipTypes.Mother, label: 'Мама' },
-  { value: RelationshipTypes.Father, label: 'Папа' },
-  { value: RelationshipTypes.Grandfather, label: 'Дедушка' },
-  { value: RelationshipTypes.Grandmother, label: 'Бабушка' },
-  { value: RelationshipTypes.GreatGrandfather, label: 'Прадедушка' },
-  { value: RelationshipTypes.GreatGrandmother, label: 'Прабабушка' },
-  { value: RelationshipTypes.Child, label: 'Ребёнок' },
-  { value: RelationshipTypes.Spouse, label: 'Супруг(а)' },
-  { value: RelationshipTypes.Brother, label: 'Брат' },
-  { value: RelationshipTypes.Sister, label: 'Сестра' },
-  { value: RelationshipTypes.Relative, label: 'Родственник' },
-  { value: RelationshipTypes.DistantRelative, label: 'Дальний родственник' },
-  { value: RelationshipTypes.Friend, label: 'Друг' },
-  { value: RelationshipTypes.Acquaintance, label: 'Знакомый' },
-  { value: RelationshipTypes.Other, label: 'Другое' },
-];
 
 function nullIfEmpty(s: string): string | null {
   const t = s.trim();

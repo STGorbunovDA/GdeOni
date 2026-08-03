@@ -12037,10 +12037,16 @@ D48. Родственники (соединение со-отслеживающ�
 
 Фаза 2 — вкладка «Родственники» (список вживую):
 [x] RelativesRepository.GetRelativesForUser: self-join tracked_deceased по
-    deceased_id; другой отслеживающий со связывающей связью (всё кроме
-    «Знакомый»/«Другое», RelativeRelationships.Connectable), с согласием, не
-    заблокирован. Почты нет. GET /api/relatives (BasicAuthenticated, без
-    paywall — соц-функция). Пункт меню под «Маршрут».
+    deceased_id; показываем ВСЕХ активных со-отслеживающих (связь любая), с
+    согласием, не заблокированных. Почты нет. GET /api/relatives
+    (BasicAuthenticated, без paywall — соц-функция). Пункт меню под «Маршрут».
+[x] Правка (2026-08-03): изначально прятали «Знакомый»/«Другое»
+    (RelativeRelationshipsConnectable). По решению владельца перешли на
+    «показывать всех со-отслеживающих» — иначе матчинг асимметричен (A видит
+    B, B не видит A, если у B связь «Другое»). Фильтр по связи вынесен на
+    клиент — комбобокс на странице «Родственники». Класс RelativeRelationships
+    удалён; фильтры сняты в GetRelativesForUser/IsRelative/GetNewRelatives и
+    RelativeDiscoveryService.
 
 Фаза 3 — turn-based переписка:
 [x] Домен RelativeConversation/RelativeMessage: по одному сообщению по

@@ -34,16 +34,16 @@ public interface IRelativesRepository
 {
     /// <summary>
     /// Находит «родственников» для пользователя: по каждой его АКТИВНО
-    /// отслеживаемой карточке — других активных отслеживающих со связывающей
-    /// связью (RelativeRelationships.Connectable), у кого включено согласие
-    /// (AllowRelativeConnections) и кто не заблокирован. Считается вживую.
+    /// отслеживаемой карточке — ВСЕХ других активных отслеживающих (связь
+    /// любая), у кого включено согласие (AllowRelativeConnections) и кто не
+    /// заблокирован. Фильтр по связи — на клиенте. Считается вживую.
     /// </summary>
     Task<List<RelativeMatch>> GetRelativesForUser(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Можно ли viewer'у написать target'у по карточке deceasedId: оба активно
-    /// её отслеживают, у target связывающая связь, включено согласие и он не
-    /// заблокирован. Используется при старте диалога.
+    /// её отслеживают, у target включено согласие и он не заблокирован.
+    /// Используется при старте диалога.
     /// </summary>
     Task<bool> IsRelative(
         Guid viewerId, Guid targetUserId, Guid deceasedId, CancellationToken cancellationToken);
