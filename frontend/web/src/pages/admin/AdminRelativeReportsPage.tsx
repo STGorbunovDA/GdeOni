@@ -241,7 +241,7 @@ function ReportCard({
               )}
               {!isPending && (
                 <Badge color="gray" variant="light">
-                  Разобрана
+                  Решена
                 </Badge>
               )}
             </Group>
