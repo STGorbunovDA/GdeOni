@@ -1,6 +1,7 @@
 ﻿using GdeOni.Domain.Aggregates.Auth;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.Events;
+using GdeOni.Domain.Aggregates.Relatives;
 using GdeOni.Domain.Aggregates.Sharing;
 using GdeOni.Domain.Aggregates.Subscriptions;
 using GdeOni.Domain.Aggregates.Support;
@@ -32,6 +33,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     // D46. Подборки «поделиться карточками» (короткий код → список id).
     public DbSet<ShareBundle> ShareBundles => Set<ShareBundle>();
+
+    // Функция «Родственники»: диалоги внутренней переписки (+ сообщения через
+    // навигацию). Один диалог на пару участников в контексте карточки.
+    public DbSet<RelativeConversation> RelativeConversations => Set<RelativeConversation>();
 
     // D37. Лог разосланных писем о годовщинах (дедупликация). Инфра-
     // сущность, не доменный агрегат.

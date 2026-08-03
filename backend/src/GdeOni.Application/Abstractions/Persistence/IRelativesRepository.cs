@@ -26,4 +26,12 @@ public interface IRelativesRepository
     /// (AllowRelativeConnections) и кто не заблокирован. Считается вживую.
     /// </summary>
     Task<List<RelativeMatch>> GetRelativesForUser(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Можно ли viewer'у написать target'у по карточке deceasedId: оба активно
+    /// её отслеживают, у target связывающая связь, включено согласие и он не
+    /// заблокирован. Используется при старте диалога.
+    /// </summary>
+    Task<bool> IsRelative(
+        Guid viewerId, Guid targetUserId, Guid deceasedId, CancellationToken cancellationToken);
 }

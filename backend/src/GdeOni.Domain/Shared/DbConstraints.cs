@@ -18,4 +18,9 @@ public static class DbConstraints
 
     // D46. Уникальный короткий код ссылки «поделиться подборкой».
     public const string UxShareBundlesCode = "ux_share_bundles_code";
+
+    // Функция «Родственники»: один диалог на пару участников в контексте
+    // карточки умершего (participant_a_id < participant_b_id).
+    public const string UxRelativeConversationsPair =
+        "ux_relative_conversations_deceased_a_b";
 }

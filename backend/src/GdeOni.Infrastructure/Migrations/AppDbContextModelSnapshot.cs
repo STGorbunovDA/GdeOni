@@ -344,6 +344,109 @@ namespace GdeOni.Infrastructure.Migrations
                     b.ToTable("holiday_reminders", (string)null);
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Relatives.RelativeConversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("DeceasedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deceased_id");
+
+                    b.Property<DateTime>("LastMessageAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_message_at_utc");
+
+                    b.Property<Guid>("ParticipantAId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("participant_a_id");
+
+                    b.Property<Guid>("ParticipantBId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("participant_b_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_relative_conversations");
+
+                    b.HasIndex("LastMessageAtUtc")
+                        .IsDescending()
+                        .HasDatabaseName("ix_relative_conversations_last_message_at_utc");
+
+                    b.HasIndex("ParticipantAId")
+                        .HasDatabaseName("ix_relative_conversations_participant_a_id");
+
+                    b.HasIndex("ParticipantBId")
+                        .HasDatabaseName("ix_relative_conversations_participant_b_id");
+
+                    b.HasIndex("DeceasedId", "ParticipantAId", "ParticipantBId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_relative_conversations_deceased_a_b");
+
+                    b.ToTable("relative_conversations", (string)null);
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Relatives.RelativeMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at_utc");
+
+                    b.Property<DateTime?>("EditedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("edited_at_utc");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
+
+                    b.Property<bool>("IsRead")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_read");
+
+                    b.Property<DateTime?>("ReadAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at_utc");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sender_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_relative_messages");
+
+                    b.HasIndex("ConversationId", "CreatedAtUtc")
+                        .HasDatabaseName("ix_relative_messages_conversation_created");
+
+                    b.ToTable("relative_messages", (string)null);
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Sharing.ShareBundle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1222,6 +1325,40 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasConstraintName("fk_holiday_reminders_users_user_id");
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Relatives.RelativeConversation", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.DeceasedRecords.Deceased", null)
+                        .WithMany()
+                        .HasForeignKey("DeceasedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_relative_conversations_deceased_records_deceased_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("ParticipantAId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_relative_conversations_users_participant_a_id");
+
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("ParticipantBId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_relative_conversations_users_participant_b_id");
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Relatives.RelativeMessage", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.Relatives.RelativeConversation", null)
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_relative_messages_relative_conversations_conversation_id");
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Sharing.ShareBundle", b =>
                 {
                     b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
@@ -1380,6 +1517,11 @@ namespace GdeOni.Infrastructure.Migrations
                     b.Navigation("Media");
 
                     b.Navigation("Memories");
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Relatives.RelativeConversation", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Support.SupportTicket", b =>

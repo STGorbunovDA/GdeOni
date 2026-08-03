@@ -16,6 +16,7 @@ import { ShareImportPage } from '../pages/share/ShareImportPage';
 import { RoutePage } from '../pages/route/RoutePage';
 import { EventsPage } from '../pages/events/EventsPage';
 import { RelativesPage } from '../pages/relatives/RelativesPage';
+import { RelativeChatPage } from '../pages/relatives/RelativeChatPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 import { ChangePasswordPage } from '../pages/profile/ChangePasswordPage';
 import { AdminPage } from '../pages/admin/AdminPage';
@@ -120,6 +121,7 @@ export function AppRouter() {
                 социальная функция связи между близкими, доступна и без
                 активной подписки. */}
             <Route path="/relatives" element={<RelativesPage />} />
+            <Route path="/relatives/chat/:id" element={<RelativeChatPage />} />
 
             {/* F22 gated: требует активную подписку (или admin роль). */}
             <Route element={<RequireSubscription />}>

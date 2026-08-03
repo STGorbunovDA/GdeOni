@@ -62,6 +62,34 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
             .ToList();
     }
 
+    public async Task<bool> IsRelative(
+        Guid viewerId, Guid targetUserId, Guid deceasedId, CancellationToken cancellationToken)
+    {
+        var tracked = dbContext.Set<TrackedDeceased>().AsNoTracking();
+
+        var viewerTracks = await tracked.AnyAsync(
+            t => EF.Property<Guid>(t, "user_id") == viewerId
+                 && t.DeceasedId == deceasedId
+                 && t.Status == TrackStatus.Active,
+            cancellationToken);
+        if (!viewerTracks)
+            return false;
+
+        var targetTracks = await tracked.AnyAsync(
+            t => EF.Property<Guid>(t, "user_id") == targetUserId
+                 && t.DeceasedId == deceasedId
+                 && t.Status == TrackStatus.Active
+                 && t.RelationshipType != RelationshipType.Acquaintance
+                 && t.RelationshipType != RelationshipType.Other,
+            cancellationToken);
+        if (!targetTracks)
+            return false;
+
+        return await dbContext.Users.AsNoTracking().AnyAsync(
+            u => u.Id == targetUserId && u.AllowRelativeConnections && !u.IsBlocked,
+            cancellationToken);
+    }
+
     // Зеркало PersonName.FullName: «Фамилия Имя Отчество» без пустых частей.
     private static string BuildFullName(string lastName, string firstName, string? middleName) =>
         string.Join(" ", new[] { lastName, firstName, middleName }

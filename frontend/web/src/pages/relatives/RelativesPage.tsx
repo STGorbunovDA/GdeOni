@@ -1,9 +1,12 @@
 import { Alert, Group, Loader, Stack } from '@mantine/core';
-import { useQuery } from '@tanstack/react-query';
-import { UserRound } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { notifications } from '@mantine/notifications';
+import { MessageSquare, UserRound } from 'lucide-react';
 import {
   CaptionLabel,
   CloudCard,
+  PrimaryButton,
   SubTitleLabel,
   TitleLabel,
 } from '../../components/ui';
@@ -23,9 +26,24 @@ import { formatDateOnly } from '../../utils/formatDate';
  * Фаза 3.
  */
 export function RelativesPage() {
+  const navigate = useNavigate();
+
   const query = useQuery({
     queryKey: ['relatives'],
     queryFn: () => relativesApi.myRelatives(),
+  });
+
+  // «Написать»: открываем/получаем диалог и переходим в чат.
+  const startMutation = useMutation({
+    mutationFn: (item: MyRelativeItem) =>
+      relativesApi.startConversation(item.deceasedId, item.relativeUserId),
+    onSuccess: (conv) => navigate(`/relatives/chat/${conv.conversationId}`),
+    onError: (e) =>
+      notifications.show({
+        title: 'Не удалось открыть переписку',
+        message: formatError(e),
+        color: 'red',
+      }),
   });
 
   return (
@@ -64,13 +82,27 @@ export function RelativesPage() {
         <RelativeRow
           key={`${item.deceasedId}:${item.relativeUserId}`}
           item={item}
+          onWrite={() => startMutation.mutate(item)}
+          writing={
+            startMutation.isPending &&
+            startMutation.variables?.deceasedId === item.deceasedId &&
+            startMutation.variables?.relativeUserId === item.relativeUserId
+          }
         />
       ))}
     </Stack>
   );
 }
 
-function RelativeRow({ item }: { item: MyRelativeItem }) {
+function RelativeRow({
+  item,
+  onWrite,
+  writing,
+}: {
+  item: MyRelativeItem;
+  onWrite: () => void;
+  writing: boolean;
+}) {
   const life = `${item.birthDate ? formatDateOnly(item.birthDate) : '?'} — ${formatDateOnly(item.deathDate)}`;
   return (
     <CloudCard>
@@ -97,7 +129,13 @@ function RelativeRow({ item }: { item: MyRelativeItem }) {
           </CaptionLabel>
           <CaptionLabel>{life}</CaptionLabel>
         </Stack>
-        {/* «Написать» + чат — Фаза 3. */}
+        <PrimaryButton
+          leftSection={<MessageSquare size={16} />}
+          onClick={onWrite}
+          loading={writing}
+        >
+          Написать
+        </PrimaryButton>
       </Group>
     </CloudCard>
   );
