@@ -10,8 +10,10 @@ namespace GdeOni.Infrastructure.Persistence.Repositories;
 /// Функция «Родственники». Один запрос: свои активные отслеживания
 /// self-join'ятся с чужими активными по deceased_id; показываем ВСЕХ
 /// со-отслеживающих (любая связь, включая «Знакомый»/«Другое»), у кого
-/// включено согласие и кто не заблокирован — фильтр по связи вынесен на
-/// клиент (комбобокс на странице «Родственники»). Имя умершего склеиваем в
+/// включено согласие, кто не заблокирован и НЕ является суперадмином
+/// (владелец сервиса — не родственник; Admin показываем) — фильтр по связи
+/// вынесен на клиент (комбобокс на странице «Родственники»). Имя умершего
+/// склеиваем в
 /// памяти (PersonName.FullName — вычисляемое, в SQL не транслируется).
 /// user_id у TrackedDeceased — теневой FK, поэтому EF.Property.
 /// </summary>
@@ -33,6 +35,7 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
             join u in dbContext.Users.AsNoTracking()
                 on EF.Property<Guid>(theirs, "user_id") equals u.Id
             where u.AllowRelativeConnections && !u.IsBlocked
+                  && u.Role != UserRole.SuperAdmin
             join d in dbContext.DeceasedRecords.AsNoTracking()
                 on mine.DeceasedId equals d.Id
             select new Row(
@@ -83,7 +86,8 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
             return false;
 
         return await dbContext.Users.AsNoTracking().AnyAsync(
-            u => u.Id == targetUserId && u.AllowRelativeConnections && !u.IsBlocked,
+            u => u.Id == targetUserId && u.AllowRelativeConnections && !u.IsBlocked
+                 && u.Role != UserRole.SuperAdmin,
             cancellationToken);
     }
 
@@ -108,6 +112,7 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
                   && theirs.Status == TrackStatus.Active
             join u in dbContext.Users.AsNoTracking() on disc.RelativeUserId equals u.Id
             where u.AllowRelativeConnections && !u.IsBlocked
+                  && u.Role != UserRole.SuperAdmin
             join d in dbContext.DeceasedRecords.AsNoTracking() on disc.DeceasedId equals d.Id
             select new NewRow(
                 disc.DeceasedId,

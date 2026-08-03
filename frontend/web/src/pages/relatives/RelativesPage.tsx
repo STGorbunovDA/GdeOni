@@ -18,6 +18,7 @@ import {
   type MyRelativeItem,
 } from '../../api/endpoints/relativesApi';
 import { relationshipDisplay } from '../../utils/relationshipDisplay';
+import { RELATIONSHIP_OPTIONS } from '../../utils/relationshipOptions';
 import { formatError } from '../../auth/errorMessages';
 import { formatDateOnly } from '../../utils/formatDate';
 
@@ -38,22 +39,6 @@ export function RelativesPage() {
     queryKey: ['relatives'],
     queryFn: () => relativesApi.myRelatives(),
   });
-
-  // Варианты фильтра — только реально встречающиеся связи, по-русски.
-  const relOptions = useMemo(() => {
-    const seen = new Set<string>();
-    const opts: { value: string; label: string }[] = [];
-    for (const it of query.data ?? []) {
-      if (!seen.has(it.relationshipType)) {
-        seen.add(it.relationshipType);
-        opts.push({
-          value: it.relationshipType,
-          label: relationshipDisplay(it.relationshipType),
-        });
-      }
-    }
-    return opts.sort((a, b) => a.label.localeCompare(b.label, 'ru'));
-  }, [query.data]);
 
   const shown = useMemo(() => {
     const items = query.data ?? [];
@@ -103,7 +88,7 @@ export function RelativesPage() {
         <Select
           label="Фильтр по связи"
           placeholder="Все связи"
-          data={relOptions}
+          data={RELATIONSHIP_OPTIONS}
           value={relFilter}
           onChange={setRelFilter}
           clearable

@@ -165,6 +165,7 @@ internal sealed class RelativeDiscoveryService(
             join ru in dbContext.Users.AsNoTracking()
                 on EF.Property<Guid>(relative, "user_id") equals ru.Id
             where ru.AllowRelativeConnections && !ru.IsBlocked && ru.Id != ou.Id
+                  && ru.Role != UserRole.SuperAdmin
             select new { OwnerId = ou.Id, owner.DeceasedId, RelativeId = ru.Id })
             .Distinct()
             .ToListAsync(cancellationToken);
