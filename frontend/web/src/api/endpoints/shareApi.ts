@@ -22,6 +22,12 @@ export type ShareBundleItem = {
   country: string | null;
   city: string | null;
   cemeteryName: string | null;
+  /**
+   * Статус этой карточки у текущего получателя: null — не отслеживает
+   * (будет добавлена), иначе 'Active' | 'Muted' | 'Archived' (уже есть,
+   * импорт её не трогает). D46 follow-up.
+   */
+  trackingStatus: string | null;
 };
 
 export type ShareBundleResult = {

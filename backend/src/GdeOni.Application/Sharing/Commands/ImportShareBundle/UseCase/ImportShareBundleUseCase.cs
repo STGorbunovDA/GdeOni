@@ -10,11 +10,16 @@ namespace GdeOni.Application.Sharing.Commands.ImportShareBundle.UseCase;
 /// <summary>
 /// D46. Импортирует подборку в отслеживание текущего пользователя.
 ///
-/// Каждая карточка добавляется с дефолтом (тип «Друг», напоминание о дне
-/// памяти включено — как при добавлении из превью). Идемпотентно: уже
-/// активно отслеживаемые пропускаются, приглушённые/архивные —
-/// реактивируются. Подписочный гейт — на контроллере (импорт = точка
-/// конверсии); новый юзер на триале импортирует сразу.
+/// Добавляем СТРОГО тех, кого у получателя нет (по бизнес-логике владельца):
+///   - записи нет вообще (никогда не отслеживал ИЛИ раньше удалил запись) —
+///     добавляем с типом «Другое» и напоминанием о дне памяти;
+///   - запись есть при ЛЮБОМ статусе (Active/Muted/Archived) — не трогаем:
+///     архив оставляем архивом, настройки активных не перезаписываем,
+///     считаем «уже есть» (Skipped);
+///   - карточку удалили из системы — добавлять нечего (Skipped).
+///
+/// Подписочный гейт — на контроллере (импорт = точка конверсии); новый юзер
+/// на триале импортирует сразу.
 /// </summary>
 public sealed class ImportShareBundleUseCase(
     IShareBundleRepository shareBundleRepository,
@@ -64,15 +69,23 @@ public sealed class ImportShareBundleUseCase(
         {
             if (!existingIds.Contains(deceasedId))
             {
+                // Карточку удалили из системы между шэром и импортом — нечего добавлять.
                 skipped++;
                 continue;
             }
 
-            var wasActive = user.GetTracking(deceasedId) is { Status: TrackStatus.Active };
+            // Запись есть при любом статусе (active/muted/archived) — не трогаем.
+            // Архив оставляем архивом, активным не перезаписываем настройки.
+            if (user.GetTracking(deceasedId) is not null)
+            {
+                skipped++;
+                continue;
+            }
 
+            // Записи нет (никогда не отслеживал ИЛИ раньше удалил) — добавляем как «Другое».
             var trackResult = user.TrackDeceased(
                 deceasedId,
-                RelationshipType.Friend,
+                RelationshipType.Other,
                 personalNotes: null,
                 notifyOnDeathAnniversary: true,
                 notifyOnBirthAnniversary: false);
@@ -83,10 +96,7 @@ public sealed class ImportShareBundleUseCase(
                 continue;
             }
 
-            if (wasActive)
-                skipped++;
-            else
-                added++;
+            added++;
         }
 
         // Save только если реально что-то поменялось — не гоняем UPDATE зря.

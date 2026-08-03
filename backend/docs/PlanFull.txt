@@ -12100,7 +12100,10 @@ QR, шлёт другому человеку. Получатель открыв�
     Получатель до входа не видит ничего — ProtectedRoute уводит на вход.
   - На экране получателя — только ФИО+даты+место (без фото/био/UGC),
     две кнопки «Добавить»/«Отменить». «Добавить» тащит ВСЮ подборку.
-  - Импорт с дефолтом (тип «Друг», напоминание о дне памяти вкл).
+  - Импорт добавляет СТРОГО отсутствующих (тип «Другое», напоминание о дне
+    памяти вкл); уже имеющихся (любой статус, включая архив) не трогает.
+    Экран получателя метит «уже отслеживаете / в архиве» до «Добавить»
+    (2026-08-03, бизнес-логика владельца).
   - Только веб+бэк. Мобилку не делаем: приложение кроссплатформенное,
     ставится из браузера как PWA.
 
@@ -12114,9 +12117,12 @@ QR, шлёт другому человеку. Получатель открыв�
     Errors.Share.*
 [x] Application: use cases CreateShareBundle / GetShareBundle / ImportShare
     Bundle. IShareBundleRepository, IShareCodeFactory, SharingOptions.
-    Импорт переиспользует User.TrackDeceased (идемпотентно; уже активные —
-    Skipped, приглушённые — реактивируются). GetForShare(ids) на deceased-
-    репозитории (WHERE id = ANY, без коллекций).
+    Импорт добавляет только отсутствующие (GetTracking==null → новый или
+    ранее удалённый) с типом «Другое»; существующие при любом статусе
+    (active/muted/archived) не трогает — архив остаётся архивом, активным
+    не перезаписываются настройки. GetShareBundle проставляет TrackingStatus
+    получателя на каждую строку. GetForShare(ids) на deceased-репозитории
+    (WHERE id = ANY, без коллекций).
 [x] Infrastructure: ShareCodeFactory (12 base62 ≈ 71 бит, крипто-стойко),
     ShareBundleRepository, EF-конфиг (uuid[], unique code), DbSet, миграция
     AddShareBundles.
@@ -12125,7 +12131,9 @@ QR, шлёт другому человеку. Получатель открыв�
     подписочный гейт).
 [x] Web: shareApi, ShareQrModal (qrcode.react — QR + копировать/Web Share),
     режим мультивыбора на TrackedListPage (галочки + «Поделиться выбранными»),
-    ShareImportPage (/s/:code, whitelist до paywall), коды в errorMessages.
+    ShareImportPage (/s/:code, whitelist до paywall) — метки «уже
+    отслеживаете / в архиве» на строках, кнопка «Добавить (N)» только по
+    новым; коды в errorMessages.
 [x] Конфиг: секция Sharing:LinkLifetimeHours (опц., дефолт 24ч). Ссылку/QR
     веб строит от своего origin — base URL в конфиге не нужен.
 

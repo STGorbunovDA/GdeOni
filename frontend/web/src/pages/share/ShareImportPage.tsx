@@ -1,4 +1,4 @@
-import { Alert, Group, Loader, Stack } from '@mantine/core';
+import { Alert, Badge, Group, Loader, Stack } from '@mantine/core';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -87,6 +87,7 @@ export function ShareImportPage() {
   }
 
   const items = bundleQuery.data.items;
+  const newCount = items.filter((i) => i.trackingStatus === null).length;
 
   if (items.length === 0) {
     return (
@@ -106,8 +107,9 @@ export function ShareImportPage() {
       <Stack gap="xs">
         <TitleLabel>Вам поделились карточками</TitleLabel>
         <CaptionLabel>
-          {items.length} {cardsWord(items.length)}. Нажмите «Добавить», чтобы
-          отслеживать их у себя.
+          {newCount > 0
+            ? `Новых карточек: ${newCount} из ${items.length}. Добавим только тех, кого у вас ещё нет.`
+            : 'Все карточки из подборки уже есть у вас в отслеживании.'}
         </CaptionLabel>
       </Stack>
 
@@ -127,8 +129,9 @@ export function ShareImportPage() {
         <PrimaryButton
           onClick={() => importMutation.mutate()}
           loading={importMutation.isPending}
+          disabled={newCount === 0}
         >
-          Добавить к себе
+          {newCount === 0 ? 'Все уже у вас' : `Добавить (${newCount})`}
         </PrimaryButton>
       </Group>
     </Stack>
@@ -140,9 +143,12 @@ function ShareRow({ item }: { item: ShareBundleItem }) {
   const place = [item.country, item.city, item.cemeteryName]
     .filter(Boolean)
     .join(', ');
+  // Метка «уже в списке / в архиве» — карточку, которая уже есть у
+  // получателя, импорт не трогает (см. ImportShareBundleUseCase).
+  const badge = trackingBadge(item.trackingStatus);
 
   return (
-    <CloudCard>
+    <CloudCard style={badge ? { opacity: 0.65 } : undefined}>
       <Group align="center" gap="md" wrap="nowrap">
         <div
           style={{
@@ -164,6 +170,11 @@ function ShareRow({ item }: { item: ShareBundleItem }) {
           <CaptionLabel>{life}</CaptionLabel>
           {place && <CaptionLabel>{place}</CaptionLabel>}
         </Stack>
+        {badge && (
+          <Badge color={badge.color} variant="light" style={{ flexShrink: 0 }}>
+            {badge.text}
+          </Badge>
+        )}
       </Group>
     </CloudCard>
   );
@@ -177,11 +188,11 @@ function Centered({ children }: { children: React.ReactNode }) {
   );
 }
 
-function cardsWord(n: number): string {
-  const mod100 = n % 100;
-  const mod10 = n % 10;
-  if (mod100 >= 11 && mod100 <= 14) return 'карточек';
-  if (mod10 === 1) return 'карточка';
-  if (mod10 >= 2 && mod10 <= 4) return 'карточки';
-  return 'карточек';
+/** Метка статуса карточки у получателя (null-статус — метки нет, будет добавлена). */
+function trackingBadge(
+  status: string | null,
+): { text: string; color: string } | null {
+  if (!status) return null;
+  if (status === 'Archived') return { text: 'В архиве', color: 'gray' };
+  return { text: 'Уже отслеживаете', color: 'azure' };
 }

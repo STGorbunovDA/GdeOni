@@ -1,6 +1,7 @@
 using CSharpFunctionalExtensions;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Common.Security;
 using GdeOni.Application.Sharing.Queries.GetShareBundle.Model;
 using GdeOni.Domain.Shared;
 
@@ -10,11 +11,14 @@ namespace GdeOni.Application.Sharing.Queries.GetShareBundle.UseCase;
 /// D46. Раскрывает подборку по коду: проверяет срок жизни и отдаёт строки
 /// существующих карточек (ФИО/даты/место) в порядке подборки. Получатель
 /// уже вошёл — ошибку «истекла» показываем честно (enumeration не грозит,
-/// код не подбирается).
+/// код не подбирается). На каждую строку проставляет TrackingStatus текущего
+/// получателя, чтобы экран показал «уже в списке / в архиве» до «Добавить».
 /// </summary>
 public sealed class GetShareBundleUseCase(
     IShareBundleRepository shareBundleRepository,
     IDeceasedRepository deceasedRepository,
+    IUserRepository userRepository,
+    ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor,
     TimeProvider timeProvider)
     : IGetShareBundleUseCase
@@ -38,6 +42,15 @@ public sealed class GetShareBundleUseCase(
         if (bundle.IsExpired(nowUtc))
             return Errors.Share.Expired();
 
+        var userIdResult = currentUserService.GetCurrentUserId();
+        if (userIdResult.IsFailure)
+            return userIdResult.Error;
+
+        // Текущее отслеживание получателя — чтобы отметить строки, которые у
+        // него уже есть (при любом статусе, включая архив). null у карточки
+        // = записи нет (никогда не отслеживал ИЛИ раньше удалил) → добавится.
+        var user = await userRepository.GetByIdWithAllTracking(userIdResult.Value, cancellationToken);
+
         var deceased = await deceasedRepository.GetForShare(bundle.DeceasedIds, cancellationToken);
         var byId = deceased.ToDictionary(d => d.Id);
 
@@ -47,6 +60,8 @@ public sealed class GetShareBundleUseCase(
             if (!byId.TryGetValue(id, out var d))
                 continue; // карточку удалили между шэром и открытием — пропускаем
 
+            var trackingStatus = user?.GetTracking(id)?.Status.ToString();
+
             items.Add(new ShareBundleItemResponse(
                 d.Id,
                 d.Name.FullName,
@@ -54,7 +69,8 @@ public sealed class GetShareBundleUseCase(
                 d.LifePeriod.DeathDate,
                 d.BurialLocation?.Country,
                 d.BurialLocation?.City,
-                d.BurialLocation?.CemeteryName));
+                d.BurialLocation?.CemeteryName,
+                trackingStatus));
         }
 
         return Result.Success<GetShareBundleResponse, Error>(
