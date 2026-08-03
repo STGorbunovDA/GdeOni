@@ -48,6 +48,7 @@ describe('registerSchema', () => {
     birthDate: new Date(new Date().getFullYear() - 20, 0, 1),
     privacyPolicyAccepted: true as const,
     termsAccepted: true as const,
+    allowRelativeConnections: true,
   };
 
   it('accepts valid input', () => {

@@ -1,5 +1,6 @@
-import { Alert, Badge, Button, Group, Loader, Stack } from '@mantine/core';
-import { useQuery } from '@tanstack/react-query';
+import { Alert, Badge, Button, Group, Loader, Stack, Switch } from '@mantine/core';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { notifications } from '@mantine/notifications';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   CreditCard,
@@ -9,7 +10,9 @@ import {
   MessagesSquare,
   RefreshCw,
   Smartphone,
+  UsersRound,
 } from 'lucide-react';
+import type { CurrentUserResponse } from '../../api/types';
 import {
   BodyLabel,
   CaptionLabel,
@@ -43,9 +46,38 @@ export function ProfilePage() {
   const subscription = useSubscription();
   const features = useAppFeatures();
 
+  const queryClient = useQueryClient();
+
   const query = useQuery({
     queryKey: ['me'],
     queryFn: () => usersApi.me(),
+  });
+
+  // Функция «Родственники»: переключатель согласия. Оптимистично меняем
+  // ['me'], при ошибке откатываем. SecurityStamp на бэке не трогается —
+  // перелогин не нужен.
+  const consentMutation = useMutation({
+    mutationFn: (allow: boolean) =>
+      usersApi.setRelativeConnectionsConsent(allow),
+    onMutate: async (allow) => {
+      await queryClient.cancelQueries({ queryKey: ['me'] });
+      const prev = queryClient.getQueryData<CurrentUserResponse>(['me']);
+      if (prev) {
+        queryClient.setQueryData<CurrentUserResponse>(['me'], {
+          ...prev,
+          allowRelativeConnections: allow,
+        });
+      }
+      return { prev };
+    },
+    onError: (e, _allow, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['me'], ctx.prev);
+      notifications.show({
+        title: 'Не удалось сохранить',
+        message: formatError(e),
+        color: 'red',
+      });
+    },
   });
 
   async function handleLogout() {
@@ -109,6 +141,30 @@ export function ProfilePage() {
                 Выйти
               </Button>
             </Group>
+          </Stack>
+        </CloudCard>
+      )}
+
+      {/* Функция «Родственники»: согласие быть видимым и получать сообщения. */}
+      {query.data && (
+        <CloudCard>
+          <Stack gap="md">
+            <Group gap={8}>
+              <UsersRound size={20} />
+              <BodyLabel>Родственники</BodyLabel>
+            </Group>
+            <Switch
+              color="azure"
+              checked={query.data.allowRelativeConnections}
+              onChange={(e) =>
+                consentMutation.mutate(e.currentTarget.checked)
+              }
+              label="Показывать меня как родственника другим, кто отслеживает те же карточки, и разрешить им писать мне (внутри приложения, без раскрытия почты)"
+            />
+            <CaptionLabel>
+              Если выключить — вы не появитесь в чужих списках родственников
+              и вам нельзя будет написать.
+            </CaptionLabel>
           </Stack>
         </CloudCard>
       )}

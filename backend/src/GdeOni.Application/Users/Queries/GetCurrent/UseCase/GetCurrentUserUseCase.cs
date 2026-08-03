@@ -38,6 +38,7 @@ public sealed class GetCurrentUserUseCase(
                 legal.CurrentPrivacyPolicyVersion,
                 legal.CurrentTermsVersion),
             IsEmailConfirmed = user.IsEmailConfirmed,
+            AllowRelativeConnections = user.AllowRelativeConnections,
         });
     }
 }

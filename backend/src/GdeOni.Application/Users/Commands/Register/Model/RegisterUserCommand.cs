@@ -14,4 +14,8 @@ public sealed record RegisterUserCommand(
     string Password,
     DateOnly BirthDate,
     bool PrivacyPolicyAccepted,
-    bool TermsAccepted);
+    bool TermsAccepted,
+    // Функция «Родственники»: согласие быть видимым/получать сообщения.
+    // По умолчанию true (маппер подставляет true, если клиент не прислал);
+    // человек может снять галочку при регистрации.
+    bool AllowRelativeConnections = true);

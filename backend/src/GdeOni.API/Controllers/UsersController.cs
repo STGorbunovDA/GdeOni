@@ -19,6 +19,8 @@ using GdeOni.Application.Users.Commands.Delete.Model;
 using GdeOni.Application.Users.Commands.Delete.UseCase;
 using GdeOni.Application.Users.Commands.Register.Model;
 using GdeOni.Application.Users.Commands.Register.UseCase;
+using GdeOni.Application.Users.Commands.SetRelativeConnectionsConsent.Model;
+using GdeOni.Application.Users.Commands.SetRelativeConnectionsConsent.UseCase;
 using GdeOni.Application.Users.Commands.Unblock.Model;
 using GdeOni.Application.Users.Commands.Unblock.UseCase;
 using GdeOni.Application.Users.Commands.UpdateProfile.Model;
@@ -78,6 +80,29 @@ public sealed class UsersController : ApiControllerBase
     {
         var result = await getCurrentUserUseCase.Execute(cancellationToken);
         return FromResult(result);
+    }
+
+    /// <summary>
+    /// Функция «Родственники»: включить/выключить согласие быть видимым как
+    /// родственник другим отслеживающим ту же карточку и получать от них
+    /// сообщения. Действует на текущего пользователя (id из JWT). Это
+    /// предпочтение — SecurityStamp не меняется, повторного входа не требует.
+    /// </summary>
+    [HttpPatch("me/relative-connections")]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetRelativeConnectionsConsent(
+        [FromBody] SetRelativeConnectionsConsentRequest request,
+        [FromServices] ISetRelativeConnectionsConsentUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new SetRelativeConnectionsConsentCommand(request.Allow),
+            cancellationToken);
+        return FromUnitResult(result);
     }
 
     /// <summary>

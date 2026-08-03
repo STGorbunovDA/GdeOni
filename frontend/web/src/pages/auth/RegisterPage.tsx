@@ -88,6 +88,8 @@ export function RegisterPage() {
       birthDate: undefined as unknown as Date,
       privacyPolicyAccepted: false as unknown as true,
       termsAccepted: false as unknown as true,
+      // Функция «Родственники»: по умолчанию включено.
+      allowRelativeConnections: true,
     },
   });
 
@@ -100,6 +102,7 @@ export function RegisterPage() {
         userName: values.userName?.trim() || undefined,
         // ISO date «yyyy-MM-dd» без учёта таймзоны — DateOnly на бэке.
         birthDate: toDateInputValue(values.birthDate),
+        allowRelativeConnections: values.allowRelativeConnections,
       });
 
       // D45. Новому юзеру вход закрыт до подтверждения email — показываем
@@ -267,6 +270,19 @@ export function RegisterPage() {
                     field.onChange(e.currentTarget.checked as unknown as true)
                   }
                   error={errors.termsAccepted?.message}
+                />
+              )}
+            />
+
+            {/* Функция «Родственники»: согласие по умолчанию включено. */}
+            <Controller
+              control={control}
+              name="allowRelativeConnections"
+              render={({ field }) => (
+                <Checkbox
+                  label="Разрешить другим людям, отслеживающим ту же карточку, видеть меня как родственника и писать мне (внутри приложения, без раскрытия почты)"
+                  checked={field.value === true}
+                  onChange={(e) => field.onChange(e.currentTarget.checked)}
                 />
               )}
             />

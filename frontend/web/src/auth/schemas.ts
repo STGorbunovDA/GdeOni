@@ -92,6 +92,10 @@ export const registerSchema = z
     termsAccepted: z.literal(true, {
       message: 'Необходимо принять Условия использования',
     }),
+    // Функция «Родственники»: согласие быть видимым как родственник и
+    // получать сообщения. НЕ обязательное (в отличие от двух выше) —
+    // по умолчанию включено, человек может снять.
+    allowRelativeConnections: z.boolean(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Пароли не совпадают',

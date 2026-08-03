@@ -196,6 +196,14 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasForeignKey(x => x.ComplimentaryAccessGrantedByAdminId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // Функция «Родственники»: согласие быть видимым как родственник и
+        // получать сообщения. Default true — миграция проставит true всем
+        // существующим строкам, домен новым тоже ставит true.
+        builder.Property(x => x.AllowRelativeConnections)
+            .HasColumnName("allow_relative_connections")
+            .HasDefaultValue(true)
+            .IsRequired();
+
         builder.OwnsOne(x => x.Subscription, subscription =>
         {
             subscription.Property(x => x.Status)

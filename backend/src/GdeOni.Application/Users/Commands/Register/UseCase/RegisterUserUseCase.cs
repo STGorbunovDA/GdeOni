@@ -84,6 +84,11 @@ public sealed class RegisterUserUseCase(
         if (legalResult.IsFailure)
             return legalResult.Error;
 
+        // Функция «Родственники»: согласие по умолчанию true (домен ставит
+        // true в инициализаторе); если человек снял галочку при регистрации —
+        // сюда прилетит false, применяем.
+        user.SetRelativeConnectionsConsent(command.AllowRelativeConnections);
+
         // D45. Выписываем токен подтверждения email ДО Save (мутирует user),
         // само письмо шлём ПОСЛЕ Save — чтобы ссылка не вела на несохранённый
         // токен, если транзакция откатится. Если канал не готов (dev без SMTP)

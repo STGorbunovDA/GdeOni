@@ -30,7 +30,10 @@ public static class UsersMapping
             request.Password,
             request.BirthDate,
             request.PrivacyPolicyAccepted,
-            request.TermsAccepted);
+            request.TermsAccepted,
+            // Функция «Родственники»: по умолчанию true; старый клиент поле
+            // не шлёт (null) — тоже true.
+            request.AllowRelativeConnections ?? true);
     }
 
     /// <summary>Маппит DTO листинга пользователей в запрос use case.</summary>

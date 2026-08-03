@@ -35,4 +35,12 @@ public sealed class GetCurrentUserResponse
     /// «Подтвердите email».
     /// </summary>
     public bool IsEmailConfirmed { get; init; }
+
+    /// <summary>
+    /// Функция «Родственники»: согласие быть видимым как родственник и
+    /// получать сообщения (по умолчанию true). Клиент показывает
+    /// переключатель в профиле; false — пользователь скрыт из чужих списков
+    /// родственников и ему нельзя написать.
+    /// </summary>
+    public bool AllowRelativeConnections { get; init; }
 }

@@ -112,6 +112,12 @@ export const usersApi = {
      * DateOnly, JsonSerializer конвертирует автоматически.
      */
     birthDate: string;
+    /**
+     * Функция «Родственники»: согласие быть видимым как родственник и
+     * получать сообщения. По умолчанию true; человек может снять галочку
+     * при регистрации.
+     */
+    allowRelativeConnections?: boolean;
   }): Promise<RegisterResponse> {
     return unwrap(
       apiClient.post<ApiEnvelope<RegisterResponse>>('/api/users', {
@@ -122,6 +128,7 @@ export const usersApi = {
         birthDate: input.birthDate,
         privacyPolicyAccepted: true,
         termsAccepted: true,
+        allowRelativeConnections: input.allowRelativeConnections ?? true,
       }),
     );
   },
@@ -155,5 +162,14 @@ export const usersApi = {
         input,
       ),
     );
+  },
+
+  /**
+   * Функция «Родственники»: PATCH /api/users/me/relative-connections —
+   * включить/выключить согласие быть видимым как родственник и получать
+   * сообщения. 204 No Content. SecurityStamp не меняется — перелогин не нужен.
+   */
+  async setRelativeConnectionsConsent(allow: boolean): Promise<void> {
+    await apiClient.patch('/api/users/me/relative-connections', { allow });
   },
 };

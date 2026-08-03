@@ -130,6 +130,18 @@ public sealed partial class User : Entity<Guid>
     public Guid? BlockedByUserId { get; private set; }
     public string? BlockedReason { get; private set; }
 
+    /// <summary>
+    /// Функция «Родственники»: согласие пользователя на то, чтобы его
+    /// видели как родственника другие люди, отслеживающие ту же карточку
+    /// умершего, и могли ему написать (внутренняя переписка, без раскрытия
+    /// email). По умолчанию <c>true</c> у всех (см. политику
+    /// конфиденциальности); снять можно при регистрации или в профиле.
+    /// Кто снял — не появляется в чужих списках родственников и ему нельзя
+    /// написать. Это ПРЕДПОЧТЕНИЕ, а не удостоверяющее действие —
+    /// SecurityStamp не ротируется, force-logout нет.
+    /// </summary>
+    public bool AllowRelativeConnections { get; private set; } = true;
+
     private readonly List<TrackedDeceased> _trackedDeceasedItems = new();
     public IReadOnlyCollection<TrackedDeceased> TrackedDeceasedItems => _trackedDeceasedItems.AsReadOnly();
 
@@ -344,6 +356,22 @@ public sealed partial class User : Entity<Guid>
         SecurityStamp = Guid.NewGuid();
         Touch();
 
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// Функция «Родственники»: включить/выключить согласие быть видимым
+    /// как родственник и получать сообщения. No-op guard: то же значение —
+    /// без Touch. SecurityStamp НЕ ротируется (это предпочтение, не
+    /// удостоверяющее действие — force-logout не нужен).
+    /// </summary>
+    public UnitResult<Error> SetRelativeConnectionsConsent(bool allow)
+    {
+        if (AllowRelativeConnections == allow)
+            return UnitResult.Success<Error>();
+
+        AllowRelativeConnections = allow;
+        Touch();
         return UnitResult.Success<Error>();
     }
 

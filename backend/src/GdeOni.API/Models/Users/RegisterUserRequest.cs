@@ -33,4 +33,11 @@ public sealed class RegisterUserRequest
     /// Формат — ISO date (yyyy-MM-dd).
     /// </summary>
     public DateOnly BirthDate { get; set; }
+
+    /// <summary>
+    /// Функция «Родственники»: согласие быть видимым как родственник и
+    /// получать сообщения. По умолчанию <c>true</c> (null от старого
+    /// клиента трактуется как true); человек может снять галочку.
+    /// </summary>
+    public bool? AllowRelativeConnections { get; set; }
 }

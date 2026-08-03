@@ -74,6 +74,7 @@ describe('OutdatedLegalModal', () => {
       termsVersion: 1,
       hasOutdatedLegalAcceptance: false,
       isEmailConfirmed: true,
+      allowRelativeConnections: true,
     });
     renderModal(<OutdatedLegalModal />);
 
@@ -96,6 +97,7 @@ describe('OutdatedLegalModal', () => {
       termsVersion: 1,
       hasOutdatedLegalAcceptance: true,
       isEmailConfirmed: true,
+      allowRelativeConnections: true,
     });
     vi.mocked(legalApi.getPrivacyPolicy).mockResolvedValue({
       documentKey: 'privacy',
@@ -129,6 +131,7 @@ describe('OutdatedLegalModal', () => {
       termsVersion: 1,
       hasOutdatedLegalAcceptance: true,
       isEmailConfirmed: true,
+      allowRelativeConnections: true,
     });
     vi.mocked(legalApi.getPrivacyPolicy).mockResolvedValue({
       documentKey: 'privacy',
