@@ -23,6 +23,7 @@ import { MapPicker } from '../../components/MapPicker';
 import { deceasedApi } from '../../api/endpoints/deceasedApi';
 import { formatError } from '../../auth/errorMessages';
 import { useGeolocation } from '../../hooks/useGeolocation';
+import { GeoLocatingOverlay } from '../../components/geo/GeoLocatingOverlay';
 import {
   tryParseAccuracy,
   tryParseLatitude,
@@ -229,6 +230,12 @@ export function EditDeceasedPage() {
 
   return (
     <Stack gap="lg">
+      <GeoLocatingOverlay
+        opened={geo.status === 'requesting'}
+        accuracyMeters={geo.currentAccuracy}
+        onCancel={geo.reset}
+        onAccept={geo.accept}
+      />
       <Group>
         <BackButton onClick={() => navigate(-1)} />
       </Group>

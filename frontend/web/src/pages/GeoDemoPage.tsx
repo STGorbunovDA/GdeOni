@@ -12,6 +12,7 @@ import {
   TitleLabel,
 } from '../components/ui';
 import { useGeolocation, type GeoPosition } from '../hooks/useGeolocation';
+import { GeoLocatingOverlay } from '../components/geo/GeoLocatingOverlay';
 import { cloudColors } from '../design/theme';
 import {
   tryParseLatitude,
@@ -63,6 +64,12 @@ export function GeoDemoPage() {
   return (
     <Container size="md" py="xl">
       <Stack gap="lg">
+        <GeoLocatingOverlay
+          opened={geo.status === 'requesting'}
+          accuracyMeters={geo.currentAccuracy}
+          onCancel={geo.reset}
+          onAccept={geo.accept}
+        />
         <Group>
           <GhostButton
             onClick={() => navigate('/tracked')}

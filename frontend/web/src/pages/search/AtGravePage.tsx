@@ -29,6 +29,7 @@ import { RelationshipTypes } from '../../api/endpoints/trackedDeceasedApi';
 import { formatError } from '../../auth/errorMessages';
 import { mergeAutofilled } from '../../utils/addressAutofill';
 import { useGeolocation } from '../../hooks/useGeolocation';
+import { GeoLocatingOverlay } from '../../components/geo/GeoLocatingOverlay';
 import {
   tryParseAccuracy,
   tryParseLatitude,
@@ -318,6 +319,12 @@ export function AtGravePage() {
 
   return (
     <Stack gap="lg">
+      <GeoLocatingOverlay
+        opened={geo.status === 'requesting'}
+        accuracyMeters={geo.currentAccuracy}
+        onCancel={geo.reset}
+        onAccept={geo.accept}
+      />
       <TitleLabel>Добавить умершего</TitleLabel>
 
       {/* ---------- Координаты ---------- */}
