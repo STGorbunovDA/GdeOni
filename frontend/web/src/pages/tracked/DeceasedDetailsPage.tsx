@@ -7,6 +7,7 @@ import {
   Modal,
   Select,
   Stack,
+  Switch,
   Textarea,
 } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -106,36 +107,55 @@ export function DeceasedDetailsPage() {
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Правка своего отслеживания (отношение + заметки). Уведомления и статус
-  // сохраняем как есть — меняем только то, что в форме.
+  // Правка своего отслеживания: отношение, заметки и напоминания о годовщинах
+  // (день смерти / день рождения) — включить/выключить прямо здесь.
   const [editOpen, setEditOpen] = useState(false);
   const [relInput, setRelInput] = useState<string>('');
   const [notesInput, setNotesInput] = useState('');
+  const [notifyDeath, setNotifyDeath] = useState(true);
+  const [notifyBirth, setNotifyBirth] = useState(false);
 
   function openEdit() {
     const t = query.data!.tracking;
     setRelInput(t.relationshipType);
     setNotesInput(t.personalNotes ?? '');
+    setNotifyDeath(t.notifyOnDeathAnniversary);
+    setNotifyBirth(t.notifyOnBirthAnniversary);
     setEditOpen(true);
   }
 
   const editTrackingMutation = useMutation({
     mutationFn: async () => {
       const t = query.data!.tracking;
+      // Выкл → пустой набор дней (не напоминаем). Вкл → сохраняем прежние
+      // «за сколько дней» (заданные в «Событиях»), а если их не было — «в день».
+      const deathLead = notifyDeath
+        ? t.deathAnniversaryLeadDays.length > 0
+          ? t.deathAnniversaryLeadDays
+          : [0]
+        : [];
+      const birthLead = notifyBirth
+        ? t.birthAnniversaryLeadDays.length > 0
+          ? t.birthAnniversaryLeadDays
+          : [0]
+        : [];
       await trackedDeceasedApi.update(id!, {
         relationshipType: relInput,
         personalNotes: notesInput.trim().length > 0 ? notesInput.trim() : null,
-        // Уведомления и наборы «за сколько дней» — без изменений.
-        notifyOnDeathAnniversary: t.notifyOnDeathAnniversary,
-        notifyOnBirthAnniversary: t.notifyOnBirthAnniversary,
-        deathAnniversaryLeadDays: t.deathAnniversaryLeadDays,
-        birthAnniversaryLeadDays: t.birthAnniversaryLeadDays,
+        notifyOnDeathAnniversary: notifyDeath,
+        notifyOnBirthAnniversary: notifyBirth,
+        deathAnniversaryLeadDays: deathLead,
+        birthAnniversaryLeadDays: birthLead,
         trackStatus: t.status,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tracked-details', id] });
       queryClient.invalidateQueries({ queryKey: ['tracked-list'] });
+      // Синк с «Событиями» (страница + попап + модалка годовщин).
+      queryClient.invalidateQueries({ queryKey: ['events-tracked'] });
+      queryClient.invalidateQueries({ queryKey: ['events-popup-tracked'] });
+      queryClient.invalidateQueries({ queryKey: ['anniversary-modal-tracked'] });
       // Отношение влияет на матчинг «Родственников» — обновим их кеши.
       queryClient.invalidateQueries({ queryKey: ['relatives'] });
       queryClient.invalidateQueries({ queryKey: ['relatives-summary'] });
@@ -496,9 +516,29 @@ export function DeceasedDetailsPage() {
             minRows={2}
             maxRows={6}
           />
-          <CaptionLabel>
-            Напоминания о годовщинах здесь не меняются.
-          </CaptionLabel>
+
+          <Stack gap="xs">
+            <BodyLabel>Напоминания о годовщинах</BodyLabel>
+            <Switch
+              color="azure"
+              checked={notifyDeath}
+              onChange={(e) => setNotifyDeath(e.currentTarget.checked)}
+              label="Напоминать в день памяти (годовщина смерти)"
+            />
+            {deceased.birthDate && (
+              <Switch
+                color="azure"
+                checked={notifyBirth}
+                onChange={(e) => setNotifyBirth(e.currentTarget.checked)}
+                label="Напоминать в день рождения"
+              />
+            )}
+            <CaptionLabel>
+              За сколько дней напоминать (в день / за день / за 3 / за неделю) —
+              настраивается на вкладке «События».
+            </CaptionLabel>
+          </Stack>
+
           <Group justify="flex-end" gap="sm">
             <GhostButton
               onClick={() => setEditOpen(false)}
