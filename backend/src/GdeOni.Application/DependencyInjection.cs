@@ -96,6 +96,7 @@ using GdeOni.Application.Users.Commands.RemoveTracking.UseCase;
 using GdeOni.Application.Users.Commands.TrackDeceased.UseCase;
 using GdeOni.Application.Users.Commands.UpdateProfile.UseCase;
 using GdeOni.Application.Users.Commands.SetRelativeConnectionsConsent.UseCase;
+using GdeOni.Application.Relatives.Queries.GetMyRelatives.UseCase;
 using GdeOni.Application.Users.Commands.UpdateTracking.UseCase;
 using GdeOni.Application.Users.Queries.GetAll.UseCase;
 using GdeOni.Application.Users.Queries.GetById.UseCase;
@@ -137,6 +138,7 @@ public static class DependencyInjection
         services.AddScoped<IGetCurrentUserUseCase, GetCurrentUserUseCase>();
         services.AddScoped<IUpdateUserProfileUseCase, UpdateUserProfileUseCase>();
         services.AddScoped<ISetRelativeConnectionsConsentUseCase, SetRelativeConnectionsConsentUseCase>();
+        services.AddScoped<IGetMyRelativesUseCase, GetMyRelativesUseCase>();
         services.AddScoped<IChangePasswordUseCase, ChangePasswordUseCase>();
         services.AddScoped<IChangeRoleUseCase, ChangeRoleUseCase>();
         services.AddScoped<IChangeEmailUseCase, ChangeEmailUseCase>();

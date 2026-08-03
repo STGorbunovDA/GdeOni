@@ -80,6 +80,9 @@ public static class DependencyInjection
         // F38. Read-model админской справки: только COUNT/SUM, без сущностей.
         services.AddScoped<IAdminStatsRepository, AdminStatsRepository>();
 
+        // Функция «Родственники»: матчинг со-отслеживающих (Фаза 2).
+        services.AddScoped<IRelativesRepository, RelativesRepository>();
+
         // D41. Обратное геокодирование (координаты → город) через Nominatim.
         // Ходим с сервера, а не с клиента: иначе IP юзера ушёл бы во внешний
         // сервис в ЕС, что противоречит нашей же политике (5.3).

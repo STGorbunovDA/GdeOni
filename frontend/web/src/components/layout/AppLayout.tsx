@@ -18,6 +18,7 @@ import {
   User,
   UserPlus,
   Users,
+  UsersRound,
 } from 'lucide-react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore, useIsAdmin } from '../../auth/authStore';
@@ -155,6 +156,12 @@ export function AppLayout() {
             <NavItem to="/tracked" icon={Users} label="Отслеживаемые" onNavigate={close} />
             <NavItem to="/events" icon={CalendarHeart} label="События" onNavigate={close} />
             <NavItem to="/route" icon={Map} label="Маршрут" onNavigate={close} />
+            <NavItem
+              to="/relatives"
+              icon={UsersRound}
+              label="Родственники"
+              onNavigate={close}
+            />
             <NavItem
               to="/tracked/archive"
               icon={Archive}

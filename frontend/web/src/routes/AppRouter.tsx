@@ -15,6 +15,7 @@ import { PreviewPage } from '../pages/search/PreviewPage';
 import { ShareImportPage } from '../pages/share/ShareImportPage';
 import { RoutePage } from '../pages/route/RoutePage';
 import { EventsPage } from '../pages/events/EventsPage';
+import { RelativesPage } from '../pages/relatives/RelativesPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 import { ChangePasswordPage } from '../pages/profile/ChangePasswordPage';
 import { AdminPage } from '../pages/admin/AdminPage';
@@ -114,6 +115,11 @@ export function AppRouter() {
                 список показываем и без активной подписки; сам импорт под
                 подпиской — 403 subscription.required уведёт на paywall. */}
             <Route path="/s/:code" element={<ShareImportPage />} />
+
+            {/* Функция «Родственники» — в whitelist (API BasicAuthenticated):
+                социальная функция связи между близкими, доступна и без
+                активной подписки. */}
+            <Route path="/relatives" element={<RelativesPage />} />
 
             {/* F22 gated: требует активную подписку (или admin роль). */}
             <Route element={<RequireSubscription />}>
