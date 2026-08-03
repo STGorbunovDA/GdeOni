@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Loader } from '@mantine/core';
+import { useAppFeatures } from '../../hooks/useAppFeatures';
 
 /**
  * F5. Полноэкранный оверлей поверх всех окон на время сбора координат
- * (useGeolocation, окно 30 с). Кружок + «Получаем координаты» с бегущими
+ * (useGeolocation, окно из конфига Geolocation:AcquireWindowSeconds, дефолт
+ * 60 с). Кружок + «Получаем координаты» с бегущими
  * точками (. → .. → ... → .) и текущей достигнутой точностью, чтобы человек
  * подождал прогрев GPS, а не хватал первый (худший) fix.
  *
@@ -26,6 +28,8 @@ export function GeoLocatingOverlay({
   onAccept: () => void;
 }) {
   const [dots, setDots] = useState('.');
+  const features = useAppFeatures();
+  const windowSeconds = features.data?.geoAcquireWindowSeconds ?? 60;
 
   useEffect(() => {
     if (!opened) {
@@ -98,7 +102,8 @@ export function GeoLocatingOverlay({
         </div>
 
         <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.4 }}>
-          Не закрывайте окно — ищем самую точную точку, это до 30 секунд.
+          Не закрывайте окно — ищем самую точную точку, это до {windowSeconds}{' '}
+          сек.
         </div>
 
         {/* Кнопки — с фиксированными цветами: карточка всегда белая, а

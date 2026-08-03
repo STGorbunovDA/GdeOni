@@ -58,7 +58,8 @@ public sealed class AppController : ApiControllerBase
         [FromServices] IFeatureFlagService featureFlags,
         [FromServices] IFileStorage fileStorage,
         [FromServices] IOptionsSnapshot<SubscriptionOptions> subscriptionOptions,
-        [FromServices] IOptionsSnapshot<YooKassaOptions> yooKassaOptions)
+        [FromServices] IOptionsSnapshot<YooKassaOptions> yooKassaOptions,
+        [FromServices] IOptionsSnapshot<GeolocationOptions> geolocationOptions)
     {
         // D36: mediaBaseUrl приходит из MinioOptions.PublicBaseUrl и
         // отдаётся клиентам без bucket/key — каждый клиент сам строит
@@ -73,12 +74,18 @@ public sealed class AppController : ApiControllerBase
         // принимает, для юзера это то же самое, что «оплата не
         // работает». Клиенты по флагу гасят кнопку оплаты и ведут
         // человека в обращение (оплата переводом).
+        // Кламп окна геолокации в разумные границы (5..300 сек) — защита от
+        // опечатки в конфиге (0 = моментальный, худший fix; гигантское =
+        // человек ждёт вечно).
+        var geoWindow = Math.Clamp(geolocationOptions.Value.AcquireWindowSeconds, 5, 300);
+
         var response = new AppFeaturesResponse(
             featureFlags.IsSubscriptionEnabled,
             featureFlags.GracePeriodDaysAfterExpiry,
             fileStorage.GetMediaBaseUrl(),
             subscriptionOptions.Value.MonthlyPriceRub,
-            yooKassaOptions.Value.IsLivePaymentsEnabled);
+            yooKassaOptions.Value.IsLivePaymentsEnabled,
+            geoWindow);
 
         return response.ToOkResponse();
     }

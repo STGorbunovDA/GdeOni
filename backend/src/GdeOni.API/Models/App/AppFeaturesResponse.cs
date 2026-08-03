@@ -28,4 +28,7 @@ public sealed record AppFeaturesResponse(
     int GracePeriodDaysAfterExpiry,
     string MediaBaseUrl,
     decimal MonthlyPriceRub,
-    bool PaymentsAvailable);
+    bool PaymentsAvailable,
+    // Окно сбора GPS-координат (сек) для веба — из секции Geolocation
+    // appsettings. Меняется без пересборки фронта: правишь конфиг → рестарт.
+    int GeoAcquireWindowSeconds);

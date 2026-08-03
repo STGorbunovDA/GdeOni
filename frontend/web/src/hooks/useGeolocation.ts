@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAppFeatures } from './useAppFeatures';
 
 /**
  * F5. Браузерная геолокация — стратегия «сбор лучшего fix за окно».
@@ -8,7 +9,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * либо это вообще WiFi-позиция. GPS дозревает за 10-30 секунд. Поэтому мы:
  *
  *  1. Через watchPosition (enableHighAccuracy, maximumAge 0) собираем замеры
- *     в течение окна SAMPLE_WINDOW_MS (30 с).
+ *     в течение окна (по умолчанию 60 с; значение приходит с бэка —
+ *     Geolocation:AcquireWindowSeconds, меняется без пересборки фронта).
  *  2. Всё время держим ЛУЧШИЙ по coords.accuracy (минимальный радиус).
  *  3. Если точность достигла TARGET_ACCURACY_M — останавливаемся раньше.
  *  4. По истечении окна отдаём лучший собранный fix.
@@ -57,12 +59,14 @@ export type UseGeolocationResult = {
    * момент fix (status → success). No-op, если ещё ни одного замера не пришло.
    */
   accept: () => void;
+  /** Длина окна сбора (сек) — для текста оверлея «это до N секунд». */
+  windowSeconds: number;
 };
 
 /** Порог ранней остановки: достигли — не ждём остаток окна. */
 const TARGET_ACCURACY_M = 2;
-/** Сколько собираем замеры перед тем, как взять лучший. */
-const SAMPLE_WINDOW_MS = 30_000;
+/** Фолбэк окна сбора (сек), если конфиг с бэка ещё не загрузился. */
+const DEFAULT_WINDOW_SECONDS = 60;
 
 /**
  * Фолбэк, если высокоточный сбор не дал ни одного fix (нет GPS-чипа /
@@ -110,6 +114,13 @@ export function useGeolocation(): UseGeolocationResult {
   const [position, setPosition] = useState<GeoPosition | null>(null);
   const [currentAccuracy, setCurrentAccuracy] = useState<number | null>(null);
   const [error, setError] = useState<GeoError | null>(null);
+
+  // Окно сбора приходит с бэка (Geolocation:AcquireWindowSeconds) — меняется
+  // без пересборки фронта. Пока не загрузилось / аноним — фолбэк 60 с.
+  const features = useAppFeatures();
+  const windowSeconds =
+    features.data?.geoAcquireWindowSeconds ?? DEFAULT_WINDOW_SECONDS;
+  const windowMs = windowSeconds * 1000;
 
   const watchIdRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -193,7 +204,7 @@ export function useGeolocation(): UseGeolocationResult {
           finishError(mapBrowserError(err));
         }
       },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: SAMPLE_WINDOW_MS },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: windowMs },
     );
 
     timerRef.current = setTimeout(async () => {
@@ -217,8 +228,8 @@ export function useGeolocation(): UseGeolocationResult {
       } catch (e) {
         finishError(mapBrowserError(e as GeolocationPositionError));
       }
-    }, SAMPLE_WINDOW_MS);
-  }, [status, cleanup]);
+    }, windowMs);
+  }, [status, cleanup, windowMs]);
 
   const reset = useCallback(() => {
     cleanup();
@@ -244,5 +255,5 @@ export function useGeolocation(): UseGeolocationResult {
     setStatus('success');
   }, [cleanup]);
 
-  return { status, position, currentAccuracy, error, request, reset, accept };
+  return { status, position, currentAccuracy, error, request, reset, accept, windowSeconds };
 }

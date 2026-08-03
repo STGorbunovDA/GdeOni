@@ -45,6 +45,8 @@ builder.Services.Configure<WebhookSecurityOptions>(
 // Секция в appsettings опциональна — дефолты в самом классе.
 builder.Services.Configure<AppVersionOptions>(
     builder.Configuration.GetSection(AppVersionOptions.SectionName));
+builder.Services.Configure<GeolocationOptions>(
+    builder.Configuration.GetSection(GeolocationOptions.SectionName));
 
 builder.Services
     .AddControllers()

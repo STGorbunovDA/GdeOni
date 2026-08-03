@@ -11,6 +11,7 @@ import {
 } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
+import { useNavigate } from 'react-router-dom';
 import { Ban, Check, Flag } from 'lucide-react';
 import {
   BodyLabel,
@@ -20,6 +21,7 @@ import {
   PrimaryButton,
   TitleLabel,
 } from '../../components/ui';
+import { cloudColors } from '../../design/theme';
 import {
   adminRelativeReportsApi,
   type AdminRelativeReport,
@@ -97,8 +99,9 @@ export function AdminRelativeReportsPage() {
         <Stack gap={2}>
           <TitleLabel>Жалобы на родственников</TitleLabel>
           <CaptionLabel>
-            Обращения из внутренней переписки. Блокировка убирает нарушителя из
-            функции «Родственники» и закрывает ему доступ к сервису.
+            Обращения из внутренней переписки. Клик по имени — полная карточка
+            пользователя. Блокировка убирает нарушителя из функции «Родственники»
+            и закрывает ему доступ к сервису.
           </CaptionLabel>
         </Stack>
         <Switch
@@ -182,6 +185,33 @@ export function AdminRelativeReportsPage() {
   );
 }
 
+/**
+ * Кликабельное имя участника жалобы → полная админская карточка пользователя
+ * (email, подписка, блокировка и т.д.). Так супер-админ видит про человека всё.
+ */
+function UserLink({ id, name }: { id: string; name: string }) {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(`/admin/users/${id}`)}
+      title="Открыть полную карточку пользователя"
+      style={{
+        background: 'transparent',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        fontWeight: 700,
+        fontSize: 'inherit',
+        color: cloudColors.azureDeep,
+        textDecoration: 'underline',
+      }}
+    >
+      {name}
+    </button>
+  );
+}
+
 function ReportCard({
   report,
   onBlock,
@@ -199,11 +229,11 @@ function ReportCard({
       <Stack gap="sm">
         <Group justify="space-between" align="flex-start" wrap="nowrap">
           <Stack gap={2} style={{ minWidth: 0 }}>
-            <Group gap={8} wrap="wrap">
-              <BodyLabel>
-                <Flag size={14} style={{ verticalAlign: -1 }} />{' '}
-                {report.reporterUserName} → {report.reportedUserName}
-              </BodyLabel>
+            <Group gap={6} wrap="wrap" align="center">
+              <Flag size={14} />
+              <UserLink id={report.reporterUserId} name={report.reporterUserName} />
+              <BodyLabel>→</BodyLabel>
+              <UserLink id={report.reportedUserId} name={report.reportedUserName} />
               {report.reportedIsBlocked && (
                 <Badge color="red" variant="light">
                   Заблокирован
