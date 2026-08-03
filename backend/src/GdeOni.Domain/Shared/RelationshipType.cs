@@ -7,7 +7,9 @@ public enum RelationshipType
     /// </summary>
     Parent = 1,
     /// <summary>
-    /// Дедушка/бабушка
+    /// Дедушка/бабушка (устаревшее, объединённое — только для СТАРЫХ записей;
+    /// в новых карточках используются раздельные Grandfather / Grandmother.
+    /// Не удалять: в БД хранится как число 2, снос сломает старые строки).
     /// </summary>
     Grandparent = 2,
     /// <summary>
@@ -46,5 +48,13 @@ public enum RelationshipType
     /// Дальний родственник
     /// </summary>
     DistantRelative = 11,
+    /// <summary>
+    /// Дедушка
+    /// </summary>
+    Grandfather = 12,
+    /// <summary>
+    /// Бабушка
+    /// </summary>
+    Grandmother = 13,
     Other = 99
 }

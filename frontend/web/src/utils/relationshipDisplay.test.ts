@@ -5,6 +5,8 @@ describe('relationshipDisplay', () => {
   it.each([
     ['Parent', 'Родитель'],
     ['Grandparent', 'Бабушка/дедушка'],
+    ['Grandfather', 'Дедушка'],
+    ['Grandmother', 'Бабушка'],
     ['GreatGrandfather', 'Прадедушка'],
     ['GreatGrandmother', 'Прабабушка'],
     ['Child', 'Ребёнок'],

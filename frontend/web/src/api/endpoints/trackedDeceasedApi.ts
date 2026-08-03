@@ -17,7 +17,11 @@ import type { DeceasedDetails } from './deceasedApi';
  */
 export const RelationshipTypes = {
   Parent: 'Parent',
+  // Grandparent — устаревшее объединённое значение (только для старых
+  // карточек); в новых используются раздельные Grandfather / Grandmother.
   Grandparent: 'Grandparent',
+  Grandfather: 'Grandfather',
+  Grandmother: 'Grandmother',
   GreatGrandfather: 'GreatGrandfather',
   GreatGrandmother: 'GreatGrandmother',
   Child: 'Child',

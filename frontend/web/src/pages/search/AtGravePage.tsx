@@ -63,7 +63,8 @@ import '@mantine/dates/styles.css';
 
 const RELATIONSHIP_OPTIONS = [
   { value: RelationshipTypes.Parent, label: 'Родитель' },
-  { value: RelationshipTypes.Grandparent, label: 'Бабушка/дедушка' },
+  { value: RelationshipTypes.Grandfather, label: 'Дедушка' },
+  { value: RelationshipTypes.Grandmother, label: 'Бабушка' },
   { value: RelationshipTypes.GreatGrandfather, label: 'Прадедушка' },
   { value: RelationshipTypes.GreatGrandmother, label: 'Прабабушка' },
   { value: RelationshipTypes.Child, label: 'Ребёнок' },
