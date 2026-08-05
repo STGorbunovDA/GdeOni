@@ -78,6 +78,9 @@ public sealed class AppController : ApiControllerBase
         // опечатки в конфиге (0 = моментальный, худший fix; гигантское =
         // человек ждёт вечно).
         var geoWindow = Math.Clamp(geolocationOptions.Value.AcquireWindowSeconds, 5, 300);
+        // Порог ранней остановки: 0 = не останавливаться досрочно (собирать
+        // всё окно); верхний предел бережём от абсурда.
+        var geoTargetAccuracy = Math.Clamp(geolocationOptions.Value.TargetAccuracyMeters, 0, 1000);
 
         var response = new AppFeaturesResponse(
             featureFlags.IsSubscriptionEnabled,
@@ -85,7 +88,8 @@ public sealed class AppController : ApiControllerBase
             fileStorage.GetMediaBaseUrl(),
             subscriptionOptions.Value.MonthlyPriceRub,
             yooKassaOptions.Value.IsLivePaymentsEnabled,
-            geoWindow);
+            geoWindow,
+            geoTargetAccuracy);
 
         return response.ToOkResponse();
     }

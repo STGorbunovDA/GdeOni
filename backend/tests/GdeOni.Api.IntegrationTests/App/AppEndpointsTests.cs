@@ -72,7 +72,8 @@ public sealed class AppEndpointsTests
         var result = doc.RootElement.GetProperty("result");
         result.GetProperty("subscriptionEnabled").GetBoolean().Should().BeFalse();
         result.GetProperty("gracePeriodDaysAfterExpiry").GetInt32().Should().Be(0);
-        // Окно геолокации: секция Geolocation в тестах не задана → дефолт 60.
+        // Геолокация: секция в тестах не задана → дефолты 60 c и 0.5 м.
         result.GetProperty("geoAcquireWindowSeconds").GetInt32().Should().Be(60);
+        result.GetProperty("geoTargetAccuracyMeters").GetDouble().Should().Be(0.5);
     }
 }

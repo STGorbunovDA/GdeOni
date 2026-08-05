@@ -31,4 +31,6 @@ public sealed record AppFeaturesResponse(
     bool PaymentsAvailable,
     // Окно сбора GPS-координат (сек) для веба — из секции Geolocation
     // appsettings. Меняется без пересборки фронта: правишь конфиг → рестарт.
-    int GeoAcquireWindowSeconds);
+    int GeoAcquireWindowSeconds,
+    // Порог ранней остановки сбора координат, метры (из той же секции).
+    double GeoTargetAccuracyMeters);

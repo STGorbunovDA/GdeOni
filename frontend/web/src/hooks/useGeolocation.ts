@@ -63,8 +63,8 @@ export type UseGeolocationResult = {
   windowSeconds: number;
 };
 
-/** Порог ранней остановки: достигли — не ждём остаток окна. */
-const TARGET_ACCURACY_M = 2;
+/** Фолбэк порога ранней остановки (м), если конфиг с бэка ещё не загрузился. */
+const DEFAULT_TARGET_ACCURACY_M = 0.5;
 /** Фолбэк окна сбора (сек), если конфиг с бэка ещё не загрузился. */
 const DEFAULT_WINDOW_SECONDS = 60;
 
@@ -121,6 +121,9 @@ export function useGeolocation(): UseGeolocationResult {
   const windowSeconds =
     features.data?.geoAcquireWindowSeconds ?? DEFAULT_WINDOW_SECONDS;
   const windowMs = windowSeconds * 1000;
+  // Порог ранней остановки (м) — тоже из конфига (Geolocation:TargetAccuracyMeters).
+  const targetAccuracyM =
+    features.data?.geoTargetAccuracyMeters ?? DEFAULT_TARGET_ACCURACY_M;
 
   const watchIdRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -191,8 +194,9 @@ export function useGeolocation(): UseGeolocationResult {
           bestRef.current = fix;
           setCurrentAccuracy(fix.accuracyMeters);
         }
-        // Достигли мечты — не ждём остаток окна.
-        if (bestRef.current.accuracyMeters <= TARGET_ACCURACY_M) {
+        // Достигли порога — не ждём остаток окна. При очень малом пороге
+        // (0.5/0.2 м) телефонный GPS его почти не берёт → собираем всё окно.
+        if (bestRef.current.accuracyMeters <= targetAccuracyM) {
           finishSuccess(bestRef.current);
         }
       },
@@ -229,7 +233,7 @@ export function useGeolocation(): UseGeolocationResult {
         finishError(mapBrowserError(e as GeolocationPositionError));
       }
     }, windowMs);
-  }, [status, cleanup, windowMs]);
+  }, [status, cleanup, windowMs, targetAccuracyM]);
 
   const reset = useCallback(() => {
     cleanup();
