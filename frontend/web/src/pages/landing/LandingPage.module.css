@@ -11,7 +11,7 @@
 .page {
   position: relative;
   min-height: 100vh;
-  overflow: hidden;
+  overflow-x: hidden;
   scroll-behavior: smooth;
   /* Светлое небо: сверху голубее, к низу — в белый. */
   background: linear-gradient(180deg, #eaf4ff 0%, #f6faff 46%, #ffffff 100%);
@@ -48,6 +48,29 @@
 .content {
   position: relative;
   z-index: 1;
+}
+
+/* Шапка: flex с переносом. На широком экране — логотип слева, меню и
+   кнопки справа в одну строку. На узком (см. media внизу) блок с
+   «Войти/Регистрация» переносится на отдельную строку под логотипом и
+   растягивается по ширине — иначе «Регистрация» уезжала за край. */
+.header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 18px 48px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-left: auto;
 }
 
 /* Ссылки верхнего меню — навигационный шрифт шаблона (Raleway). */
@@ -121,6 +144,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  max-width: 100%;
   padding: 8px 16px;
   border-radius: 999px;
   background: var(--cloud-surface);
@@ -157,8 +181,25 @@
    логотип с переключателем и кнопки входа/регистрации), уменьшаем
    заголовок и делаем поиск компактнее. */
 @media (max-width: 768px) {
+  .header {
+    padding: 14px 18px;
+    gap: 10px;
+  }
+  .eyebrow {
+    font-size: 12px;
+  }
   .navLinksDesktop {
     display: none !important;
+  }
+  /* Кнопки входа/регистрации — на отдельную строку под логотипом,
+     каждая на половину ширины (flex: 1). */
+  .headerRight {
+    width: 100%;
+    margin-left: 0;
+    gap: 10px;
+  }
+  .headerRight button {
+    flex: 1;
   }
   .searchWrap {
     padding: 8px 8px 8px 16px;

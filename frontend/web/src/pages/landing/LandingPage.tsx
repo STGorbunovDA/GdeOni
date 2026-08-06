@@ -60,15 +60,10 @@ export function LandingPage() {
 
       <Box className={styles.content}>
         {/* ── Шапка ── */}
-        <Group
-          justify="space-between"
-          wrap="nowrap"
-          px={{ base: 18, md: 48 }}
-          py="lg"
-        >
+        <Box component="header" className={styles.header}>
           {/* Логотип + название + переключатель темы (по просьбе — сразу
               справа от «ГдеОни»). */}
-          <Group gap="sm" wrap="nowrap">
+          <div className={styles.brand}>
             <Cloud size={30} color={cloudColors.azure} strokeWidth={2.2} />
             <Title
               order={3}
@@ -78,9 +73,11 @@ export function LandingPage() {
               ГдеОни
             </Title>
             <ThemeToggle size="md" />
-          </Group>
+          </div>
 
-          <Group gap="lg" wrap="nowrap">
+          {/* На мобиле этот блок переносится под логотип (см. media в
+              LandingPage.module.css) — кнопки перестают уезжать за край. */}
+          <div className={styles.headerRight}>
             <span
               className={`${styles.navLink} ${styles.navLinksDesktop}`}
               onClick={scrollToHow}
@@ -106,11 +103,17 @@ export function LandingPage() {
             <Button component={Link} to="/register" radius={50} fw={600}>
               Регистрация
             </Button>
-          </Group>
-        </Group>
+          </div>
+        </Box>
 
         {/* ── Герой ── */}
-        <Container size="lg" pt={{ base: 44, md: 68 }} pb={40} ta="center">
+        <Container
+          size="lg"
+          px="md"
+          pt={{ base: 40, md: 68 }}
+          pb={40}
+          ta="center"
+        >
           <span className={styles.eyebrow}>
             🕊️ Каталог мест памяти с GPS-координатами
           </span>
@@ -121,7 +124,7 @@ export function LandingPage() {
             mb="md"
             c={cloudColors.inkBlue}
             style={{
-              fontSize: 'clamp(38px, 6vw, 60px)',
+              fontSize: 'clamp(34px, 6vw, 58px)',
               lineHeight: 1.1,
               fontWeight: 800,
               letterSpacing: '-0.5px',
@@ -136,7 +139,7 @@ export function LandingPage() {
             maw={620}
             mx="auto"
             c={cloudColors.text}
-            style={{ fontSize: 19, lineHeight: 1.55 }}
+            style={{ fontSize: 'clamp(16px, 2.4vw, 19px)', lineHeight: 1.55 }}
           >
             Найдите могилу близкого по имени или координатам, поделитесь местом
             с роднёй и сохраните семейную память в одном месте.
@@ -194,13 +197,13 @@ export function LandingPage() {
         </Container>
 
         {/* ── Как это работает ── */}
-        <Container size="lg" id="how" py={{ base: 48, md: 72 }}>
+        <Container size="lg" px="md" id="how" py={{ base: 48, md: 72 }}>
           <Title
             order={2}
             ta="center"
             mb={6}
             c={cloudColors.inkBlue}
-            style={{ fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 800 }}
+            style={{ fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 800 }}
           >
             Как это работает
           </Title>
@@ -210,7 +213,7 @@ export function LandingPage() {
             mx="auto"
             mb={40}
             c={cloudColors.text}
-            style={{ fontSize: 17, lineHeight: 1.55 }}
+            style={{ fontSize: 'clamp(15px, 2vw, 17px)', lineHeight: 1.55 }}
           >
             Три шага, чтобы память о близком оставалась рядом.
           </Text>
