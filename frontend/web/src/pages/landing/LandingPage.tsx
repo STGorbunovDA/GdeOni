@@ -141,8 +141,7 @@ export function LandingPage() {
             c={cloudColors.text}
             style={{ fontSize: 'clamp(16px, 2.4vw, 19px)', lineHeight: 1.55 }}
           >
-            Найдите могилу близкого по имени или координатам, поделитесь местом
-            с роднёй и сохраните семейную память в одном месте.
+            Найдите близкого по имени или координатам, поделитесь местом и сохраните семейную память в одном месте.
           </Text>
 
           {/* Поиск. Текст в поле — визуальный хук: настоящий поиск у сайта
@@ -162,7 +161,7 @@ export function LandingPage() {
                 />
                 <input
                   className={styles.searchInput}
-                  placeholder="Имя, город или название кладбища…"
+                  placeholder="Имя, город или название кладбища"
                   aria-label="Поиск места памяти"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -191,8 +190,7 @@ export function LandingPage() {
 
           <Group justify="center" gap={54} mt={56} wrap="wrap">
             <Stat value="12 400+" label="карточек памяти" />
-            <Stat value="0,5 м" label="точность GPS" />
-            <Stat value="Бесплатно" label="основные функции" />
+            <Stat value="0,3 м" label="точность GPS" />
           </Group>
         </Container>
 
@@ -228,8 +226,8 @@ export function LandingPage() {
             <StepCard
               n="02"
               icon={<Users size={28} color={cloudColors.azure} />}
-              title="Поделитесь с роднёй"
-              text="Отправьте карточку близким — они дойдут до места сами и добавят свои фотографии и воспоминания."
+              title="Поделитесь с близкими"
+              text="Отправьте карточку близким — они дойдут до места сами."
             />
             <StepCard
               n="03"
