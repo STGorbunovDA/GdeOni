@@ -16,21 +16,44 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="ГдеОни" />
 
-    <!-- F27. SEO / social preview. Минимум для превью ссылки в
-         мессенджерах и поисковой выдачи. -->
-    <title>ГдеОни — сайт поиска умерших</title>
+    <!-- F27. SEO / social preview + русские варианты написания бренда
+         (ГдеОни / Где Они / Где они / где они / gdeoni), чтобы сайт находило
+         по этим запросам в Яндексе и Google. -->
+    <title>ГдеОни (Где Они) — поиск могил и мест захоронений по GPS</title>
     <meta
       name="description"
-      content="Каталог мест захоронений с GPS-координатами: быстро находите могилы близких, делитесь местом с родственниками, храните семейную память."
+      content="«Где Они» (ГдеОни) — каталог мест захоронений с GPS-координатами: быстро находите могилы близких, делитесь местом с родственниками, храните семейную память."
     />
+    <meta
+      name="keywords"
+      content="ГдеОни, Где Они, Где они, где они, GdeOni, gdeoni, поиск могил, найти могилу, места захоронений, каталог захоронений, GPS координаты могилы, поиск умерших, кладбище, память о близких"
+    />
+    <link rel="canonical" href="https://gdeoni.ru/" />
 
-    <meta property="og:title" content="ГдеОни" />
+    <meta property="og:site_name" content="ГдеОни (Где Они)" />
+    <meta property="og:title" content="ГдеОни (Где Они) — поиск могил" />
     <meta
       property="og:description"
-      content="Каталог мест захоронений с GPS-координатами."
+      content="Каталог мест захоронений с GPS-координатами. Найдите могилу близкого и поделитесь местом с родными."
     />
-    <meta property="og:image" content="/favicon.svg" />
+    <meta property="og:image" content="https://gdeoni.ru/apple-touch-icon.png" />
+    <meta property="og:url" content="https://gdeoni.ru/" />
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ru_RU" />
+
+    <!-- Структурированные данные: имя бренда + варианты написания
+         (alternateName) — сигнал Яндексу/Google, что «Где Они», «где они»
+         и «gdeoni» это один и тот же сайт. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "url": "https://gdeoni.ru/",
+        "name": "ГдеОни",
+        "alternateName": ["Где Они", "Где они", "где они", "GdeOni", "gdeoni"],
+        "inLanguage": "ru"
+      }
+    </script>
 
     <!-- Шрифты подключены локально (src/assets/fonts/fonts.css, импорт
          в main.tsx). Google Fonts НЕ используем: сайт должен работать
