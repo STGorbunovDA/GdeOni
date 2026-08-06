@@ -1,0 +1,170 @@
+/*
+ * Стартовая (публичная) страница «Ясное небо». F-блок F40.
+ *
+ * Фон, декоративные облака и специфичные для лендинга поверхности живут
+ * здесь. ЦВЕТА берём из общих токенов --cloud-* (styles.css), поэтому
+ * переключатель темы перекрашивает лендинг сам, без второго набора
+ * значений. Отдельно заданы только градиенты фона: у «неба» своя
+ * заливка, которой нет в общих токенах.
+ */
+
+.page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  scroll-behavior: smooth;
+  /* Светлое небо: сверху голубее, к низу — в белый. */
+  background: linear-gradient(180deg, #eaf4ff 0%, #f6faff 46%, #ffffff 100%);
+}
+
+:global([data-mantine-color-scheme='dark']) .page {
+  /* Тёмный вечер: глубокий сине-серый, в тон общему фону приложения. */
+  background: linear-gradient(180deg, #16273a 0%, #101a26 52%, #0c141d 100%);
+}
+
+/* Декоративные облака — мягкие эллипсы цвета поверхности карточки.
+   В светлой теме это белый (виден на голубом), в тёмной — тёмно-синий
+   (еле заметная фактура на фоне). Прозрачность приглушает их. */
+.clouds {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cloud {
+  position: absolute;
+  border-radius: 999px;
+  background: var(--cloud-surface);
+  filter: blur(2px);
+  opacity: 0.55;
+}
+
+:global([data-mantine-color-scheme='dark']) .cloud {
+  opacity: 0.28;
+}
+
+/* Весь контент — над облаками. */
+.content {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ссылки верхнего меню — навигационный шрифт шаблона (Raleway). */
+.navLink {
+  font-family: 'Raleway', 'Roboto', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--cloud-ink);
+  opacity: 0.82;
+  transition: opacity 0.2s, color 0.2s;
+}
+.navLink:hover {
+  opacity: 1;
+  color: var(--cloud-azure-deep);
+}
+
+/* Поисковая строка героя: поверхность + мягкая крупная тень. */
+.searchWrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 12px 12px 12px 22px;
+  background: var(--cloud-surface);
+  border: 1px solid var(--cloud-border);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(44, 73, 100, 0.14);
+}
+:global([data-mantine-color-scheme='dark']) .searchWrap {
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 18px;
+  color: var(--cloud-ink);
+  font-family: 'Roboto', system-ui, sans-serif;
+}
+.searchInput::placeholder {
+  color: var(--cloud-caption);
+}
+
+/* Кликабельная подсказка про GPS под поиском. */
+.gpsHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 22px auto 0;
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: var(--cloud-caption);
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.gpsHint:hover {
+  background: var(--cloud-sky);
+}
+.gpsHint b {
+  color: var(--cloud-azure-deep);
+}
+
+/* Пилюля-подзаголовок над h1. */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--cloud-surface);
+  border: 1px solid var(--cloud-border);
+  color: var(--cloud-azure-deep);
+  font-size: 13.5px;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(44, 73, 100, 0.06);
+}
+
+/* Карточка шага в блоке «Как это работает». */
+.stepCard {
+  background: var(--cloud-surface);
+  border: 1px solid var(--cloud-border);
+  border-radius: 22px;
+  padding: 34px 30px;
+  box-shadow: 0 18px 44px rgba(44, 73, 100, 0.07);
+}
+:global([data-mantine-color-scheme='dark']) .stepCard {
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
+}
+.stepIcon {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  background: var(--cloud-sky);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+/* Адаптив: на узких экранах прячем текстовые пункты меню (остаются
+   логотип с переключателем и кнопки входа/регистрации), уменьшаем
+   заголовок и делаем поиск компактнее. */
+@media (max-width: 768px) {
+  .navLinksDesktop {
+    display: none !important;
+  }
+  .searchWrap {
+    padding: 8px 8px 8px 16px;
+    gap: 8px;
+  }
+  .searchInput {
+    font-size: 15px;
+  }
+}

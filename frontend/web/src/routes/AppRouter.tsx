@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { RegisterPage } from '../pages/auth/RegisterPage';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
@@ -45,6 +45,7 @@ import { StyleDemoPage } from '../pages/StyleDemoPage';
 import { GeoDemoPage } from '../pages/GeoDemoPage';
 import { DownloadPage } from '../pages/DownloadPage';
 import { LegalPage } from '../pages/legal/LegalPage';
+import { LandingPage } from '../pages/landing/LandingPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { AdminRoute } from './AdminRoute';
 import { SuperAdminRoute } from './SuperAdminRoute';
@@ -75,6 +76,10 @@ export function AppRouter() {
     <BrowserRouter>
       <Routes>
         {/* Публичные */}
+        {/* F40. Стартовая страница для гостя. Залогиненного LandingPage
+            сам редиректит на /tracked (раньше здесь стоял этот редирект
+            под ProtectedRoute). */}
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         {/* D43. Восстановление пароля — публичные роуты: юзер по
@@ -126,8 +131,6 @@ export function AppRouter() {
 
             {/* F22 gated: требует активную подписку (или admin роль). */}
             <Route element={<RequireSubscription />}>
-              <Route path="/" element={<Navigate to="/tracked" replace />} />
-
               <Route path="/tracked" element={<TrackedListPage />} />
               <Route path="/tracked/archive" element={<ArchivePage />} />
               <Route path="/tracked/:id" element={<DeceasedDetailsPage />} />
