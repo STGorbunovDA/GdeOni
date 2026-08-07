@@ -20,6 +20,16 @@ public sealed class DeceasedRepository(AppDbContext dbContext, TimeProvider time
     public Task<int> CountAllAsync(CancellationToken cancellationToken)
         => dbContext.DeceasedRecords.CountAsync(cancellationToken);
 
+    // F40. Сколько разных городов в местах захоронения (без учёта регистра).
+    // City нормализован в BurialLocation.Create (trim, пусто → null), поэтому
+    // достаточно отсечь null и схлопнуть регистр через ToLower (→ lower() в PG).
+    public Task<int> CountDistinctCitiesAsync(CancellationToken cancellationToken)
+        => dbContext.DeceasedRecords
+            .Where(d => d.BurialLocation != null && d.BurialLocation.City != null)
+            .Select(d => d.BurialLocation!.City!.ToLower())
+            .Distinct()
+            .CountAsync(cancellationToken);
+
     public async Task<Deceased?> GetById(Guid id, CancellationToken cancellationToken)
     {
         // Tracked-вариант для use case-ов, которые мутируют сущность

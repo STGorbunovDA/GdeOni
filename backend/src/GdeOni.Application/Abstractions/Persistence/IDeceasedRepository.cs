@@ -73,6 +73,13 @@ public interface IDeceasedRepository
     Task<int> CountAllAsync(CancellationToken cancellationToken);
 
     /// <summary>
+    /// F40. Публичный счётчик: сколько РАЗНЫХ городов встречается в местах
+    /// захоронения (COUNT DISTINCT по City, без учёта регистра). Для
+    /// стартовой страницы. Карточки без города в подсчёт не идут.
+    /// </summary>
+    Task<int> CountDistinctCitiesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// True если юзер создавал хоть одну карточку умершего ИЛИ загружал
     /// хоть один медиа-файл. Используется DeleteUserUseCase: эти связи
     /// имеют OnDelete=Restrict в БД, поэтому удаление юзера без явной

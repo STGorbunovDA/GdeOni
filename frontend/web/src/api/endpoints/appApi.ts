@@ -48,6 +48,7 @@ export type AppFeatures = {
 export type AppStats = {
   usersCount: number;
   deceasedCount: number;
+  citiesCount: number;
 };
 
 /**

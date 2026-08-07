@@ -116,7 +116,8 @@ public sealed class AppController : ApiControllerBase
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
             var usersCount = await users.CountAllAsync(cancellationToken);
             var deceasedCount = await deceased.CountAllAsync(cancellationToken);
-            return new AppStatsResponse(usersCount, deceasedCount);
+            var citiesCount = await deceased.CountDistinctCitiesAsync(cancellationToken);
+            return new AppStatsResponse(usersCount, deceasedCount, citiesCount);
         });
 
         return response!.ToOkResponse();

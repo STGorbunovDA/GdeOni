@@ -215,9 +215,13 @@ export function LandingPage() {
                   value={numberFormat.format(statsQuery.data.deceasedCount)}
                   label="мест памяти"
                 />
+                <Stat
+                  value={numberFormat.format(statsQuery.data.citiesCount)}
+                  label="городов"
+                />
               </>
             )}
-            <Stat value="±2 м." label="GPS привязка" />
+            <Stat value="2" label="до метров точности GPS" />
           </Group>
         </Container>
 
