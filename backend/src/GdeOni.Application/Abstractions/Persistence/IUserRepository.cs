@@ -73,6 +73,12 @@ public interface IUserRepository
         Guid? excludeUserId,
         CancellationToken cancellationToken);
     Task<bool> ExistsById(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// F40. Публичный счётчик: всего зарегистрированных пользователей.
+    /// Для стартовой страницы (<c>GET /api/app/stats</c>) — простой COUNT(*).
+    /// </summary>
+    Task<int> CountAllAsync(CancellationToken cancellationToken);
     Task<bool> ExistsByEmail(string email, CancellationToken cancellationToken);
     Task<bool> ExistsByUserName(string userName, CancellationToken cancellationToken);
     Task<bool> IsActivelyTracking(Guid userId, Guid deceasedId, CancellationToken cancellationToken);

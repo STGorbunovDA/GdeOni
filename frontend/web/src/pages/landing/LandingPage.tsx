@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Box,
   Button,
@@ -14,7 +15,11 @@ import { Cloud, Heart, MapPin, Search, Users } from 'lucide-react';
 import { ThemeToggle } from '../../components/ui';
 import { cloudColors } from '../../design/theme';
 import { useIsAuthenticated } from '../../auth/authStore';
+import { appApi } from '../../api/endpoints/appApi';
 import styles from './LandingPage.module.css';
+
+/** Русский формат чисел: 12400 → «12 400» (с неразрывным пробелом). */
+const numberFormat = new Intl.NumberFormat('ru-RU');
 
 /**
  * F40. Стартовая (публичная) страница «Ясное небо».
@@ -33,6 +38,15 @@ export function LandingPage() {
   const isAuthenticated = useIsAuthenticated();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+
+  // Живые счётчики для героя (пользователи / карточки памяти). Публичный
+  // endpoint, для гостя. staleTime 60 с — столько же кешируется на бэке.
+  const statsQuery = useQuery({
+    queryKey: ['app-stats'],
+    queryFn: appApi.stats,
+    enabled: !isAuthenticated,
+    staleTime: 60_000,
+  });
 
   // Гость видит лендинг; вошедший пользователь — сразу в приложение.
   if (isAuthenticated) {
@@ -188,7 +202,21 @@ export function LandingPage() {
             </span>
           </div>
 
+          {/* Реальные счётчики появляются, когда пришли с бэка — до этого
+              показываем только GPS, без мигания нулями. */}
           <Group justify="center" gap={54} mt={56} wrap="wrap">
+            {statsQuery.data && (
+              <>
+                <Stat
+                  value={numberFormat.format(statsQuery.data.usersCount)}
+                  label="пользователей"
+                />
+                <Stat
+                  value={numberFormat.format(statsQuery.data.deceasedCount)}
+                  label="мест памяти"
+                />
+              </>
+            )}
             <Stat value="GPS" label="привязка к месту" />
           </Group>
         </Container>

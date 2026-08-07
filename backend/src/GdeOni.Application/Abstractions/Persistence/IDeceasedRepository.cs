@@ -67,6 +67,12 @@ public interface IDeceasedRepository
     Task<bool> ExistsBySearchKey(string searchKey, CancellationToken cancellationToken);
 
     /// <summary>
+    /// F40. Публичный счётчик: всего карточек памяти. Для стартовой
+    /// страницы (<c>GET /api/app/stats</c>) — простой COUNT(*).
+    /// </summary>
+    Task<int> CountAllAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// True если юзер создавал хоть одну карточку умершего ИЛИ загружал
     /// хоть один медиа-файл. Используется DeleteUserUseCase: эти связи
     /// имеют OnDelete=Restrict в БД, поэтому удаление юзера без явной

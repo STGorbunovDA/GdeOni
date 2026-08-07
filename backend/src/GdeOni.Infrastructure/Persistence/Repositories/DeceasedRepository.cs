@@ -16,6 +16,10 @@ public sealed class DeceasedRepository(AppDbContext dbContext, TimeProvider time
         await dbContext.DeceasedRecords.AddAsync(deceased, cancellationToken);
     }
 
+    // F40. Публичный счётчик карточек памяти для стартовой страницы.
+    public Task<int> CountAllAsync(CancellationToken cancellationToken)
+        => dbContext.DeceasedRecords.CountAsync(cancellationToken);
+
     public async Task<Deceased?> GetById(Guid id, CancellationToken cancellationToken)
     {
         // Tracked-вариант для use case-ов, которые мутируют сущность

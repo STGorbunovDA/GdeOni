@@ -12,6 +12,10 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
 {
     private IQueryable<User> UsersQuery() => dbContext.Users;
 
+    // F40. Публичный счётчик пользователей для стартовой страницы.
+    public Task<int> CountAllAsync(CancellationToken cancellationToken)
+        => dbContext.Users.CountAsync(cancellationToken);
+
     public Task<User?> GetById(Guid userId, CancellationToken cancellationToken)
     {
         // Tracked-вариант для use case-ов, мутирующих User

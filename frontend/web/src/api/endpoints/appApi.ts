@@ -41,6 +41,16 @@ export type AppFeatures = {
 };
 
 /**
+ * F40. /api/app/stats — публичные «живые» счётчики для стартовой страницы:
+ * сколько всего пользователей и карточек памяти. AllowAnonymous — работает
+ * без токена, значения на бэке кешируются на 60 с.
+ */
+export type AppStats = {
+  usersCount: number;
+  deceasedCount: number;
+};
+
+/**
  * D17 / F22. /api/app/version — минимально-поддерживаемая и последняя
  * версия клиента. AllowAnonymous на бэке — работает без токена.
  */
@@ -62,5 +72,9 @@ export const appApi = {
     return unwrap(
       apiClient.get<ApiEnvelope<AppVersion>>('/api/app/version'),
     );
+  },
+
+  async stats(): Promise<AppStats> {
+    return unwrap(apiClient.get<ApiEnvelope<AppStats>>('/api/app/stats'));
   },
 };

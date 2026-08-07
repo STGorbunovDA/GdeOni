@@ -4,11 +4,13 @@ using GdeOni.API.Models.App;
 using GdeOni.API.Options;
 using GdeOni.API.Response;
 using GdeOni.Application.Abstractions.Features;
+using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Subscriptions;
 using GdeOni.Infrastructure.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 namespace GdeOni.API.Controllers;
@@ -92,5 +94,31 @@ public sealed class AppController : ApiControllerBase
             geoTargetAccuracy);
 
         return response.ToOkResponse();
+    }
+
+    /// <summary>
+    /// F40. Публичные «живые» счётчики для стартовой страницы: число
+    /// зарегистрированных пользователей и заведённых карточек памяти.
+    /// AllowAnonymous — лендинг видит гость. Результат кешируется на 60 с:
+    /// лендинг открыт всем, не гоняем COUNT на каждый заход/бота.
+    /// </summary>
+    [HttpGet("stats")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<AppStatsResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetStats(
+        [FromServices] IUserRepository users,
+        [FromServices] IDeceasedRepository deceased,
+        [FromServices] IMemoryCache cache,
+        CancellationToken cancellationToken)
+    {
+        var response = await cache.GetOrCreateAsync("app:public-stats", async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
+            var usersCount = await users.CountAllAsync(cancellationToken);
+            var deceasedCount = await deceased.CountAllAsync(cancellationToken);
+            return new AppStatsResponse(usersCount, deceasedCount);
+        });
+
+        return response!.ToOkResponse();
     }
 }
