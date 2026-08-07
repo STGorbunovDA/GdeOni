@@ -1,6 +1,7 @@
 ﻿using GdeOni.Domain.Aggregates.Auth;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.Events;
+using GdeOni.Domain.Aggregates.Notifications;
 using GdeOni.Domain.Aggregates.Relatives;
 using GdeOni.Domain.Aggregates.Sharing;
 using GdeOni.Domain.Aggregates.Subscriptions;
@@ -44,6 +45,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     // Функция «Родственники» (Фаза 5): жалобы на родственников для модерации.
     public DbSet<RelativeReport> RelativeReports => Set<RelativeReport>();
+
+    // Внутрисайтовые уведомления (обращения/жалобы → админам; ответ/решение
+    // админа → пользователю). Показываются «колокольчиком» в шапке.
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     // D37. Лог разосланных писем о годовщинах (дедупликация). Инфра-
     // сущность, не доменный агрегат.

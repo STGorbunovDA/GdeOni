@@ -27,6 +27,7 @@ import { cloudColors } from '../../design/theme';
 import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { CaptionLabel } from '../ui/Labels';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import { NotificationBell } from '../notifications/NotificationBell';
 import { NavItem } from './NavItem';
 
 /**
@@ -93,6 +94,9 @@ export function AdminLayout() {
                 ГдеОни · Admin
               </Text>
             </Group>
+            <Group gap={4} wrap="nowrap" ml="auto">
+              <NotificationBell />
+            </Group>
           </Group>
         </AppShell.Header>
       )}
@@ -117,7 +121,10 @@ export function AdminLayout() {
                 <CaptionLabel>Админка</CaptionLabel>
               </Stack>
             </Group>
-            <ThemeToggle size="md" />
+            <Group gap={4} wrap="nowrap">
+              <NotificationBell />
+              <ThemeToggle size="md" />
+            </Group>
           </Group>
         </AppShell.Section>
 

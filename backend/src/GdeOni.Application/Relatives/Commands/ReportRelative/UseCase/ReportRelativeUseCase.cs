@@ -1,7 +1,9 @@
 using CSharpFunctionalExtensions;
+using GdeOni.Application.Abstractions.Notifications;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Relatives.Commands.ReportRelative.Model;
+using GdeOni.Domain.Aggregates.Notifications;
 using GdeOni.Domain.Aggregates.Relatives;
 using GdeOni.Domain.Shared;
 
@@ -17,6 +19,7 @@ public sealed class ReportRelativeUseCase(
     IRelativeConversationRepository conversationRepository,
     IRelativeReportRepository reportRepository,
     ICurrentUserService currentUserService,
+    INotificationService notificationService,
     TimeProvider timeProvider)
     : IReportRelativeUseCase
 {
@@ -55,6 +58,15 @@ public sealed class ReportRelativeUseCase(
 
         await reportRepository.Add(reportResult.Value, cancellationToken);
         await reportRepository.Save(cancellationToken);
+
+        // Уведомляем модераторов (Admin + SuperAdmin) о новой жалобе.
+        await notificationService.NotifyRolesAsync(
+            new[] { UserRole.Admin, UserRole.SuperAdmin },
+            NotificationKind.RelativeReportCreated,
+            "Новая жалоба",
+            "Поступила жалоба на пользователя в «Родственниках».",
+            "/admin/relative-reports",
+            cancellationToken);
 
         return Result.Success<ReportRelativeResponse, Error>(
             new ReportRelativeResponse(Created: true));

@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using GdeOni.Application.Abstractions.Notifications;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Support.Commands.Create.Model;
@@ -68,10 +69,14 @@ public sealed class CreateSupportTicketUseCaseTests
     {
         var repo = new Mock<ISupportTicketRepository>();
         var currentUser = new Mock<ICurrentUserService>();
+        // Moq по умолчанию возвращает Task.CompletedTask для async-методов —
+        // фан-аут уведомления в тесте просто no-op.
+        var notifications = new Mock<INotificationService>();
         var useCase = new CreateSupportTicketUseCase(
             repo.Object,
             currentUser.Object,
             TestExecutor.With<CreateSupportTicketCommand, CreateSupportTicketCommandValidator>(),
+            notifications.Object,
             TimeProvider.System);
         return (repo, currentUser, useCase);
     }

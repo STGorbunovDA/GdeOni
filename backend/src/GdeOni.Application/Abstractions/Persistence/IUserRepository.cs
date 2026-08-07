@@ -1,6 +1,7 @@
 ﻿using GdeOni.Application.Users.Queries.GetAll.Model;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.User;
+using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Abstractions.Persistence;
 
@@ -73,6 +74,14 @@ public interface IUserRepository
         Guid? excludeUserId,
         CancellationToken cancellationToken);
     Task<bool> ExistsById(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Id всех НЕзаблокированных пользователей с указанными ролями — для
+    /// адресной рассылки уведомлений (напр. всем SuperAdmin о новом обращении).
+    /// </summary>
+    Task<List<Guid>> GetIdsByRoles(
+        IReadOnlyCollection<UserRole> roles,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// F40. Публичный счётчик: всего зарегистрированных пользователей.

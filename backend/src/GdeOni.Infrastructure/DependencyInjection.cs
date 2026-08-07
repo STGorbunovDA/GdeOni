@@ -89,6 +89,10 @@ public static class DependencyInjection
         services.AddScoped<IRelativeConversationRepository, RelativeConversationRepository>();
         services.AddScoped<IRelativeReportRepository, RelativeReportRepository>();
 
+        // Внутрисайтовые уведомления (обращения/жалобы). Сервис доставки —
+        // в Application слое (INotificationService).
+        services.AddScoped<INotificationRepository, NotificationRepository>();
+
         // D41. Обратное геокодирование (координаты → город) через Nominatim.
         // Ходим с сервера, а не с клиента: иначе IP юзера ушёл бы во внешний
         // сервис в ЕС, что противоречит нашей же политике (5.3).

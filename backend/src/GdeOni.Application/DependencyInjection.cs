@@ -1,5 +1,7 @@
 ﻿using FluentValidation;
+using GdeOni.Application.Abstractions.Notifications;
 using GdeOni.Application.Abstractions.Validation;
+using GdeOni.Application.Notifications;
 using GdeOni.Application.Auth.Login.UseCase;
 using GdeOni.Application.Auth.Logout.UseCase;
 using GdeOni.Application.Auth.ConfirmEmail;
@@ -134,6 +136,10 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
 
         services.AddScoped<IValidatedUseCaseExecutor, ValidatedUseCaseExecutor>();
+
+        // Внутрисайтовые уведомления (новое обращение/жалоба → админам; ответ/
+        // решение админа → пользователю). Best-effort, зовётся из use case'ов.
+        services.AddScoped<INotificationService, NotificationService>();
 
         services.AddScoped<ILoginUseCase, LoginUseCase>();
         services.AddScoped<IRefreshUseCase, RefreshUseCase>();

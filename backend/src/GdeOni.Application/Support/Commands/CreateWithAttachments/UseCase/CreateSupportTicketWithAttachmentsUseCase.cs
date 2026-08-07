@@ -1,9 +1,11 @@
 using CSharpFunctionalExtensions;
+using GdeOni.Application.Abstractions.Notifications;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Support.Commands.CreateWithAttachments.Model;
+using GdeOni.Domain.Aggregates.Notifications;
 using GdeOni.Domain.Aggregates.Support;
 using GdeOni.Domain.Shared;
 using Microsoft.Extensions.Logging;
@@ -28,6 +30,7 @@ public sealed class CreateSupportTicketWithAttachmentsUseCase(
     ISupportAttachmentsBucketResolver bucketResolver,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    INotificationService notificationService,
     TimeProvider timeProvider,
     ILogger<CreateSupportTicketWithAttachmentsUseCase> logger)
     : ICreateSupportTicketWithAttachmentsUseCase
@@ -124,6 +127,15 @@ public sealed class CreateSupportTicketWithAttachmentsUseCase(
             await BestEffortDeleteAsync(uploaded);
             throw;
         }
+
+        // Тикет сохранён — уведомляем SuperAdmin'ов (best-effort).
+        await notificationService.NotifyRolesAsync(
+            new[] { UserRole.SuperAdmin },
+            NotificationKind.SupportTicketCreated,
+            "Новое обращение",
+            ticket.Title,
+            $"/admin/support-tickets/{ticket.Id}",
+            cancellationToken);
 
         return Result.Success<CreateSupportTicketWithAttachmentsResponse, Error>(
             new CreateSupportTicketWithAttachmentsResponse(ticket.Id, ticket.Attachments.Count));

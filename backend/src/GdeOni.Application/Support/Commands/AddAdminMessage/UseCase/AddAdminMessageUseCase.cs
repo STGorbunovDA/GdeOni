@@ -1,8 +1,10 @@
 using CSharpFunctionalExtensions;
+using GdeOni.Application.Abstractions.Notifications;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Validation;
 using GdeOni.Application.Common.Security;
 using GdeOni.Application.Support.Commands.AddAdminMessage.Model;
+using GdeOni.Domain.Aggregates.Notifications;
 using GdeOni.Domain.Shared;
 
 namespace GdeOni.Application.Support.Commands.AddAdminMessage.UseCase;
@@ -22,6 +24,7 @@ public sealed class AddAdminMessageUseCase(
     ISupportTicketRepository ticketRepository,
     ICurrentUserService currentUserService,
     IValidatedUseCaseExecutor validatedUseCaseExecutor,
+    INotificationService notificationService,
     TimeProvider timeProvider)
     : IAddAdminMessageUseCase
 {
@@ -56,6 +59,19 @@ public sealed class AddAdminMessageUseCase(
             return result.Error;
 
         await ticketRepository.Save(cancellationToken);
+
+        // Уведомляем автора обращения об ответе (у auto-инцидентов UserId нет).
+        if (ticket.UserId is Guid ownerId)
+        {
+            await notificationService.NotifyUserAsync(
+                ownerId,
+                NotificationKind.SupportTicketReplied,
+                "Ответ по обращению",
+                ticket.Title,
+                $"/support/{ticket.Id}",
+                cancellationToken);
+        }
+
         return UnitResult.Success<Error>();
     }
 }

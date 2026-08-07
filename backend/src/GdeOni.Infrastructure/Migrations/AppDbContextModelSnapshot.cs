@@ -387,6 +387,57 @@ namespace GdeOni.Infrastructure.Migrations
                     b.ToTable("holiday_reminders", (string)null);
                 });
 
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Notifications.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("body");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_read");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("link");
+
+                    b.Property<DateTime?>("ReadAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at_utc");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recipient_user_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notifications");
+
+                    b.HasIndex("RecipientUserId", "IsRead", "CreatedAtUtc")
+                        .HasDatabaseName("ix_notifications_recipient_user_id_is_read_created_at_utc");
+
+                    b.ToTable("notifications", (string)null);
+                });
+
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Relatives.RelativeConversation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1493,6 +1544,16 @@ namespace GdeOni.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_holiday_reminders_users_user_id");
+                });
+
+            modelBuilder.Entity("GdeOni.Domain.Aggregates.Notifications.Notification", b =>
+                {
+                    b.HasOne("GdeOni.Domain.Aggregates.User.User", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_notifications_users_recipient_user_id");
                 });
 
             modelBuilder.Entity("GdeOni.Domain.Aggregates.Relatives.RelativeConversation", b =>

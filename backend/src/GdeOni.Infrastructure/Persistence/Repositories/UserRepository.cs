@@ -16,6 +16,19 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
     public Task<int> CountAllAsync(CancellationToken cancellationToken)
         => dbContext.Users.CountAsync(cancellationToken);
 
+    // Id пользователей с нужными ролями (незаблокированные) — для адресной
+    // рассылки уведомлений. Массив для трансляции в SQL IN (...).
+    public Task<List<Guid>> GetIdsByRoles(
+        IReadOnlyCollection<UserRole> roles,
+        CancellationToken cancellationToken)
+    {
+        var roleArray = roles as UserRole[] ?? roles.ToArray();
+        return dbContext.Users.AsNoTracking()
+            .Where(u => roleArray.Contains(u.Role) && !u.IsBlocked)
+            .Select(u => u.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<User?> GetById(Guid userId, CancellationToken cancellationToken)
     {
         // Tracked-вариант для use case-ов, мутирующих User

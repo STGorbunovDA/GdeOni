@@ -31,6 +31,7 @@ import { cloudColors } from '../../design/theme';
 import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { CaptionLabel } from '../ui/Labels';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import { NotificationBell } from '../notifications/NotificationBell';
 import { OutdatedLegalModal } from '../legal/OutdatedLegalModal';
 import { EmailConfirmationBanner } from '../auth/EmailConfirmationBanner';
 import { CityReminderBanner } from '../auth/CityReminderBanner';
@@ -110,8 +111,9 @@ export function AppLayout() {
               <Text fw={700} c={cloudColors.inkBlue}>
                 ГдеОни
               </Text>
-              {/* На мобильном сайдбар спрятан в Drawer — переключатель
-                  должен быть виден и без его открытия. */}
+              {/* На мобильном сайдбар спрятан в Drawer — колокольчик и
+                  переключатель должны быть видны и без его открытия. */}
+              <NotificationBell />
               <ThemeToggle size="md" />
             </Group>
           </Group>
@@ -147,7 +149,10 @@ export function AppLayout() {
                 ГдеОни
               </Text>
             </a>
-            <ThemeToggle size="md" />
+            <Group gap={4} wrap="nowrap">
+              <NotificationBell />
+              <ThemeToggle size="md" />
+            </Group>
           </Group>
         </AppShell.Section>
 
