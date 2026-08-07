@@ -221,7 +221,7 @@ export function LandingPage() {
                 />
               </>
             )}
-            <Stat value="2" label="до метров точности GPS" />
+            <Stat value="2" label="метра до точности GPS" />
           </Group>
         </Container>
 
