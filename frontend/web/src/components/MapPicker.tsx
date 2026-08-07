@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { useComputedColorScheme } from '@mantine/core';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -18,16 +17,13 @@ const DEFAULT_ZOOM = 10;
 const PICK_ZOOM = 17;
 
 /**
- * Тайлы CARTO basemaps (без API-ключа): Positron для светлой темы,
- * Dark Matter для тёмной — приглушённые карты, спокойнее «сырого» OSM и
- * совпадают с темой сайта. Данные всё те же OpenStreetMap, поэтому в
- * атрибуции указаны и OSM, и CARTO (обязательно по условиям обоих).
+ * Тайлы — стандартный рендер OpenStreetMap: у него подписи на ЛОКАЛЬНОМ
+ * языке (для России — РУССКИЕ). Чистый светлый вид «как у CARTO Positron»
+ * даём CSS-фильтром на тайлах (класс .gdeoni-map в styles.css) — сама
+ * Positron romanized (Moscow), русских названий там нет. Карта ВСЕГДА
+ * светлая, от темы сайта не зависит.
  */
-const CARTO_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
-const CARTO_DARK = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
-const CARTO_ATTRIBUTION = '&copy; OpenStreetMap &copy; CARTO';
-const tileUrlForScheme = (scheme: 'light' | 'dark') =>
-  scheme === 'dark' ? CARTO_DARK : CARTO_LIGHT;
+const OSM_TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 /**
  * Leaflet default-иконка тянет png-ассеты, которые ломаются в бандлере
@@ -43,11 +39,12 @@ const pinIcon = L.divIcon({
 });
 
 /**
- * F5+. Карта-пикер координат. Тайлы — CARTO basemaps (без API-ключей),
- * светлые/тёмные под тему сайта. Клик по карте отдаёт координаты и двигает
- * маркер, НЕ меняя вид (иначе клик у края «прыгал» бы). Внешнее изменение
- * lat/lon («Получить координаты» или ручной ввод) синхронизирует маркер И
- * центрирует карту на точке, чтобы маркер был виден.
+ * F5+. Карта-пикер координат. Тайлы — OpenStreetMap (без API-ключей, подписи
+ * русские), приглушены под светлый «Positron»-вид CSS-фильтром; карта всегда
+ * светлая. Клик по карте отдаёт координаты и двигает маркер, НЕ меняя вид
+ * (иначе клик у края «прыгал» бы). Внешнее изменение lat/lon («Получить
+ * координаты» или ручной ввод) синхронизирует маркер И центрирует карту на
+ * точке, чтобы маркер был виден.
  */
 export function MapPicker({
   latitude,
@@ -58,19 +55,6 @@ export function MapPicker({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
-  // Какая схема сейчас применена к тайлам — чтобы не дёргать setUrl впустую.
-  const appliedSchemeRef = useRef<'light' | 'dark' | null>(null);
-
-  // Тема сайта → светлые/тёмные тайлы. Читаем реальное значение сразу
-  // (getInitialValueInEffect:false): атрибут схемы стоит на <html> ещё до
-  // первого рендера (см. index.html), поэтому тёмный юзер сразу получает
-  // тёмную карту без лишней перезагрузки тайлов.
-  const computed = useComputedColorScheme('light', {
-    getInitialValueInEffect: false,
-  });
-  const computedRef = useRef(computed);
-  computedRef.current = computed;
   // Клик по карте выставляет этот флаг, чтобы sync-эффект НЕ рецентрил вид
   // на клик. Геолокация/ручной ввод флаг не ставят → карта центрируется на
   // новой точке.
@@ -95,15 +79,13 @@ export function MapPicker({
       initialView.current.center,
       initialView.current.zoom,
     );
-    const tileLayer = L.tileLayer(tileUrlForScheme(computedRef.current), {
-      attribution: CARTO_ATTRIBUTION,
-      subdomains: 'abcd',
+    L.tileLayer(OSM_TILES, {
+      attribution: '&copy; OpenStreetMap',
       maxZoom: 19,
     }).addTo(map);
-    tileLayerRef.current = tileLayer;
-    appliedSchemeRef.current = computedRef.current;
     // Убираем дефолтный префикс Leaflet (в 1.9 он содержит флаг Украины) —
-    // оставляем только обязательную атрибуцию «© OpenStreetMap © CARTO».
+    // оставляем только «© OpenStreetMap» (без флага/страны; требуется
+    // лицензией OSM на тайлы).
     map.attributionControl.setPrefix(false);
     map.on('click', (e: L.LeafletMouseEvent) => {
       // Клик — пользователь сам выбрал и точку, и вид карты: маркер двигаем,
@@ -120,8 +102,6 @@ export function MapPicker({
       map.remove();
       mapRef.current = null;
       markerRef.current = null;
-      tileLayerRef.current = null;
-      appliedSchemeRef.current = null;
     };
   }, []);
 
@@ -150,20 +130,10 @@ export function MapPicker({
     }
   }, [latitude, longitude]);
 
-  // Смена темы сайта на лету → переключаем тайлы (светлые/тёмные) без
-  // пересоздания карты: setUrl меняет только источник тайлов «на месте»,
-  // маркер/вид/клики не трогаются. Пропускаем, если схема не изменилась
-  // (в т.ч. первый прогон — init-эффект уже поставил нужные тайлы).
-  useEffect(() => {
-    if (!tileLayerRef.current) return;
-    if (appliedSchemeRef.current === computed) return;
-    tileLayerRef.current.setUrl(tileUrlForScheme(computed));
-    appliedSchemeRef.current = computed;
-  }, [computed]);
-
   return (
     <div
       ref={containerRef}
+      className="gdeoni-map"
       style={{
         height,
         width: '100%',
