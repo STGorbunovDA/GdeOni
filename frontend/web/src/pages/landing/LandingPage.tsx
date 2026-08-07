@@ -217,7 +217,7 @@ export function LandingPage() {
                 />
               </>
             )}
-            <Stat value="GPS" label="привязка к месту" />
+            <Stat value="±2 м." label="GPS привязка" />
           </Group>
         </Container>
 
