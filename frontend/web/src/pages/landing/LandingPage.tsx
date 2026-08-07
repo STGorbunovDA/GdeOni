@@ -189,8 +189,7 @@ export function LandingPage() {
           </div>
 
           <Group justify="center" gap={54} mt={56} wrap="wrap">
-            <Stat value="12 400+" label="карточек памяти" />
-            <Stat value="0,3 м" label="точность GPS" />
+            <Stat value="GPS" label="привязка к месту" />
           </Group>
         </Container>
 
