@@ -192,14 +192,12 @@
     display: none !important;
   }
   /* Кнопки входа/регистрации — на отдельную строку под логотипом,
-     каждая на половину ширины (flex: 1). */
+     компактные и прижаты ВПРАВО (как на десктопе). */
   .headerRight {
     width: 100%;
     margin-left: 0;
     gap: 10px;
-  }
-  .headerRight button {
-    flex: 1;
+    justify-content: flex-end;
   }
   .searchWrap {
     padding: 8px 8px 8px 16px;

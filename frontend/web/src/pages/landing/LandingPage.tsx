@@ -198,7 +198,7 @@ export function LandingPage() {
           >
             <MapPin size={18} color={cloudColors.captionGray} />
             <span>
-              Вы у могилы? <b>Определите место по GPS в один тап</b>
+              Вы у захоронения? <b>Определите место по GPS в один тап</b>
             </span>
           </div>
 
