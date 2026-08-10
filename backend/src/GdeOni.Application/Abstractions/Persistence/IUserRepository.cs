@@ -84,6 +84,20 @@ public interface IUserRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Массовая выдача комплиментарного доступа ВСЕМ пользователям до
+    /// <paramref name="untilUtc"/>. Только ПРОДЛЕВАЕТ: строки, где комплимент
+    /// уже выдан на более поздний срок, не трогаются. ExecuteUpdate напрямую
+    /// (минуя Save), как RefreshTokenRepository.RevokeAllForUser — админская
+    /// bulk-операция. Возвращает число затронутых пользователей.
+    /// </summary>
+    Task<int> GrantComplimentaryAccessToAll(
+        DateTime untilUtc,
+        Guid grantedByAdminId,
+        string? note,
+        DateTime nowUtc,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// F40. Публичный счётчик: всего зарегистрированных пользователей.
     /// Для стартовой страницы (<c>GET /api/app/stats</c>) — простой COUNT(*).
     /// </summary>

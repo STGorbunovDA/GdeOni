@@ -229,6 +229,23 @@ export const adminUsersApi = {
       ),
     );
   },
+
+  /**
+   * F17.6+. POST /api/admin/complimentary-access/grant-all — массово выдать
+   * бесплатный доступ ВСЕМ пользователям на N дней (по умолчанию 30). Только
+   * SuperAdmin. Только продлевает (не укорачивает уже выданный более поздний
+   * комплимент). Возвращает { affectedCount, untilUtc }.
+   */
+  async grantComplimentaryToAll(
+    durationDays = 30,
+  ): Promise<{ affectedCount: number; untilUtc: string }> {
+    return unwrap(
+      apiClient.post<ApiEnvelope<{ affectedCount: number; untilUtc: string }>>(
+        '/api/admin/complimentary-access/grant-all',
+        { durationDays },
+      ),
+    );
+  },
 };
 
 /** Зеркало UserTrackedDeceasedItem с бэка. */

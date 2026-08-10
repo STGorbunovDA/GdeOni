@@ -11,6 +11,7 @@ using GdeOni.Application.Auth.Refresh.UseCase;
 using GdeOni.Application.Auth.ResendConfirmation.UseCase;
 using GdeOni.Application.Auth.ResetPassword.UseCase;
 using GdeOni.Application.Complimentary.Commands.Grant.UseCase;
+using GdeOni.Application.Complimentary.Commands.GrantToAll.UseCase;
 using GdeOni.Application.Complimentary.Commands.Revoke.UseCase;
 using GdeOni.Application.Subscriptions.Commands.RestartTrialByAdmin.UseCase;
 using GdeOni.Application.Subscriptions.Commands.RevokeByAdmin.UseCase;
@@ -283,6 +284,9 @@ public static class DependencyInjection
 
         // D22. Complimentary access (admin granted free access).
         services.AddScoped<IGrantComplimentaryAccessUseCase, GrantComplimentaryAccessUseCase>();
+        // Массовая выдача комплимента всем (только SuperAdmin) — «подушка»
+        // перед возвратом платного режима.
+        services.AddScoped<IGrantComplimentaryAccessToAllUseCase, GrantComplimentaryAccessToAllUseCase>();
         services.AddScoped<IRevokeComplimentaryAccessUseCase, RevokeComplimentaryAccessUseCase>();
         services.AddScoped<IRevokeSubscriptionByAdminUseCase, RevokeSubscriptionByAdminUseCase>();
         services.AddScoped<IRestartTrialByAdminUseCase, RestartTrialByAdminUseCase>();

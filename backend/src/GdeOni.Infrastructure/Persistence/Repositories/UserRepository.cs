@@ -29,6 +29,27 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .ToListAsync(cancellationToken);
     }
 
+    // Массовая выдача комплиментарного доступа всем: одним UPDATE, только
+    // продлеваем (не укорачиваем уже выданный более поздний комплимент).
+    public Task<int> GrantComplimentaryAccessToAll(
+        DateTime untilUtc,
+        Guid grantedByAdminId,
+        string? note,
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
+    {
+        return dbContext.Users
+            .Where(u => u.ComplimentaryAccessUntilUtc == null
+                        || u.ComplimentaryAccessUntilUtc < untilUtc)
+            .ExecuteUpdateAsync(
+                s => s
+                    .SetProperty(u => u.ComplimentaryAccessGrantedAtUtc, nowUtc)
+                    .SetProperty(u => u.ComplimentaryAccessUntilUtc, untilUtc)
+                    .SetProperty(u => u.ComplimentaryAccessGrantedByAdminId, grantedByAdminId)
+                    .SetProperty(u => u.ComplimentaryAccessNote, note),
+                cancellationToken);
+    }
+
     public Task<User?> GetById(Guid userId, CancellationToken cancellationToken)
     {
         // Tracked-вариант для use case-ов, мутирующих User
