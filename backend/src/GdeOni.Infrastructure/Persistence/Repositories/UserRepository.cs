@@ -146,6 +146,52 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .AnyAsync(x => x.Login == normalized, cancellationToken);
     }
 
+    public Task<bool> ExistsByLoginExceptUser(
+        string login,
+        Guid exceptUserId,
+        CancellationToken cancellationToken)
+    {
+        var normalized = login.Trim().ToLowerInvariant();
+
+        return dbContext.Users
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.Login == normalized && x.Id != exceptUserId,
+                cancellationToken);
+    }
+
+    // Записи без логина. Штатно таких нет (миграция проставила всем, колонка
+    // NOT NULL), но кнопка админа — страховка на случай, если аккаунт завели
+    // в обход домена.
+    public async Task<List<(Guid Id, string Email)>> GetUsersWithoutLogin(
+        CancellationToken cancellationToken)
+    {
+        var rows = await dbContext.Users
+            .AsNoTracking()
+            .Where(x => x.Login == "")
+            .OrderBy(x => x.RegisteredAtUtc)
+            .Select(x => new { x.Id, x.Email })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(r => (r.Id, r.Email)).ToList();
+    }
+
+    // Точечный UPDATE через ExecuteUpdate (минуя Save) — как остальные
+    // bulk-операции репозитория.
+    public Task<int> SetLoginById(
+        Guid userId,
+        string login,
+        CancellationToken cancellationToken)
+    {
+        var normalized = login.Trim().ToLowerInvariant();
+
+        return dbContext.Users
+            .Where(x => x.Id == userId)
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(x => x.Login, normalized),
+                cancellationToken);
+    }
+
     public Task<User?> GetByPasswordResetTokenHash(
         string tokenHash,
         CancellationToken cancellationToken)

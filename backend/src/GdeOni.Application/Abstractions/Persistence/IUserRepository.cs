@@ -30,6 +30,28 @@ public interface IUserRepository
     Task<bool> ExistsByLogin(string login, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Занят ли логин КЕМ-ТО ДРУГИМ (кроме указанного пользователя) — для
+    /// смены логина в профиле: свой текущий логин занятым считаться не должен.
+    /// </summary>
+    Task<bool> ExistsByLoginExceptUser(
+        string login,
+        Guid exceptUserId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Пользователи без логина (пустая строка) — для массового проставления
+    /// логинов админом. Возвращает id + email, самих сущностей не грузит.
+    /// </summary>
+    Task<List<(Guid Id, string Email)>> GetUsersWithoutLogin(
+        CancellationToken cancellationToken);
+
+    /// <summary>Проставить логин конкретному пользователю (bulk-backfill).</summary>
+    Task<int> SetLoginById(
+        Guid userId,
+        string login,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// D43. Поиск пользователя по хешу токена восстановления пароля.
     /// Возвращает null, если такого токена нет — срок действия проверяет
     /// уже сам агрегат в <c>ResetPasswordByToken</c>, чтобы инвариант

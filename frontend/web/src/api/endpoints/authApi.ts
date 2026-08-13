@@ -180,4 +180,26 @@ export const usersApi = {
   async updateCity(city: string | null): Promise<void> {
     await apiClient.patch('/api/users/me/city', { city });
   },
+
+  /**
+   * PUT /api/users/me/login — сменить свой логин (им можно входить вместо
+   * email). Логин уникален: если занят, бэк вернёт 409
+   * user.login.already.exists. 204 No Content, перелогин не нужен.
+   */
+  async changeLogin(login: string): Promise<void> {
+    await apiClient.put('/api/users/me/login', { login });
+  },
+
+  /**
+   * POST /api/users/assign-missing-logins — проставить логин всем, у кого его
+   * нет (часть email до «@», при коллизии — полный email). Только SuperAdmin,
+   * идемпотентно. Возвращает { assignedCount }.
+   */
+  async assignMissingLogins(): Promise<{ assignedCount: number }> {
+    return unwrap(
+      apiClient.post<ApiEnvelope<{ assignedCount: number }>>(
+        '/api/users/assign-missing-logins',
+      ),
+    );
+  },
 };

@@ -375,7 +375,11 @@ public sealed partial class User : Entity<Guid>
     public static string GenerateLoginFromEmail(string email)
     {
         var local = (email ?? string.Empty).Trim().ToLowerInvariant().Split('@')[0];
-        var cleaned = new string(local.Where(IsAllowedLoginChar).ToArray()).Trim('.', '_', '-');
+        // Набор здесь строже, чем у NormalizeLogin: «+» из почтовых алиасов
+        // (ivan+tag@mail.ru) в сгенерированном логине не нужен, хотя вручную
+        // такой логин задать можно.
+        var cleaned = new string(local.Where(IsAllowedGeneratedLoginChar).ToArray())
+            .Trim('.', '_', '-');
 
         if (cleaned.Length == 0)
             cleaned = "user";
@@ -389,10 +393,22 @@ public sealed partial class User : Entity<Guid>
     }
 
     /// <summary>
+    /// Запасной вариант логина, когда префикс email уже занят: ПОЛНЫЙ адрес
+    /// в lowercase. Email уникален, поэтому такой логин гарантированно
+    /// свободен — суффиксы вроде «ivan2» не нужны.
+    /// </summary>
+    public static string LoginFromFullEmail(string email) =>
+        (email ?? string.Empty).Trim().ToLowerInvariant();
+
+    /// <summary>
     /// Приводит логин к каноничной форме (trim + lowercase) и проверяет
-    /// состав: латиница, цифры, точка, подчёркивание, дефис. Кириллица
-    /// запрещена намеренно — логин набирают в поле входа, и «Сергей» с
-    /// раскладкой даёт больше проблем, чем пользы.
+    /// состав: латиница, цифры и <c>. _ - + @</c>. Кириллица запрещена
+    /// намеренно — логин набирают в поле входа, и «Сергей» с раскладкой даёт
+    /// больше проблем, чем пользы.
+    ///
+    /// «@» и «+» разрешены, потому что при коллизии префиксов логином
+    /// становится ПОЛНЫЙ email: «bous07@mail.ru» и «bous07@yandex.ru» не могут
+    /// оба быть «bous07», поэтому второй получает свой адрес целиком.
     /// </summary>
     public static Result<string, Error> NormalizeLogin(string? login)
     {
@@ -414,9 +430,34 @@ public sealed partial class User : Entity<Guid>
     }
 
     private static bool IsAllowedLoginChar(char c) =>
+        IsAllowedGeneratedLoginChar(c) || c == '+' || c == '@';
+
+    /// <summary>Состав автосгенерированного логина (из email-префикса).</summary>
+    private static bool IsAllowedGeneratedLoginChar(char c) =>
         (c >= 'a' && c <= 'z')
         || (c >= '0' && c <= '9')
         || c == '.' || c == '_' || c == '-';
+
+    /// <summary>
+    /// Смена логина пользователем. Уникальность проверяет use case (ему
+    /// доступна БД) ДО вызова; здесь — только форма и no-op guard.
+    ///
+    /// SecurityStamp намеренно НЕ ротируется: логина нет в JWT (там userId),
+    /// и выкидывать человека из всех сессий за смену собственного логина
+    /// незачем — в отличие от смены email/пароля.
+    /// </summary>
+    public UnitResult<Error> ChangeLogin(string login)
+    {
+        var loginResult = NormalizeLogin(login);
+        if (loginResult.IsFailure)
+            return loginResult.Error;
+
+        if (Login == loginResult.Value)
+            return UnitResult.Success<Error>();
+
+        Login = loginResult.Value;
+        return UnitResult.Success<Error>();
+    }
 
     public UnitResult<Error> UpdateProfile(string userName, string? fullName)
     {

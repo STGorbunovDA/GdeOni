@@ -81,6 +81,10 @@ public sealed class UserLoginTests
     [InlineData("ivan", "ivan")]
     [InlineData("  IVAN  ", "ivan")]
     [InlineData("ivan.petrov_1-2", "ivan.petrov_1-2")]
+    // Полный email — валидный логин: так разводятся одинаковые префиксы
+    // (bous07@mail.ru и bous07@yandex.ru).
+    [InlineData("Bous07@Yandex.RU", "bous07@yandex.ru")]
+    [InlineData("ivan+tag@mail.ru", "ivan+tag@mail.ru")]
     public void NormalizeLogin_AcceptsAndCanonicalizes(string input, string expected)
     {
         var result = User.NormalizeLogin(input);
@@ -95,7 +99,7 @@ public sealed class UserLoginTests
     [InlineData("ab", "user.login.too_short")]
     [InlineData("иван", "user.login.invalid")]
     [InlineData("ivan petrov", "user.login.invalid")]
-    [InlineData("ivan@mail", "user.login.invalid")]
+    [InlineData("ivan/petrov", "user.login.invalid")]
     public void NormalizeLogin_RejectsInvalid(string input, string expectedCode)
     {
         var result = User.NormalizeLogin(input);
@@ -119,5 +123,46 @@ public sealed class UserLoginTests
         var email = new string('a', User.MaxLoginLength + 50) + "@mail.ru";
 
         User.GenerateLoginFromEmail(email).Length.Should().Be(User.MaxLoginLength);
+    }
+
+    [Fact]
+    public void LoginFromFullEmail_LowercasesAndTrims()
+    {
+        User.LoginFromFullEmail("  Bous07@Yandex.RU ").Should().Be("bous07@yandex.ru");
+    }
+
+    [Fact]
+    public void ChangeLogin_SetsNormalizedValue()
+    {
+        var user = NewUser("ivan@mail.ru");
+
+        var result = user.ChangeLogin("  NewLogin  ");
+
+        result.IsSuccess.Should().BeTrue();
+        user.Login.Should().Be("newlogin");
+    }
+
+    [Fact]
+    public void ChangeLogin_RejectsInvalid()
+    {
+        var user = NewUser("ivan@mail.ru");
+
+        var result = user.ChangeLogin("Иван");
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("user.login.invalid");
+        user.Login.Should().Be("ivan"); // не затёрли прежний
+    }
+
+    [Fact]
+    public void ChangeLogin_SameValueIsNoOpSuccess()
+    {
+        var user = NewUser("ivan@mail.ru");
+
+        // Регистр не должен считаться изменением: нормализованные значения равны.
+        var result = user.ChangeLogin("IVAN");
+
+        result.IsSuccess.Should().BeTrue();
+        user.Login.Should().Be("ivan");
     }
 }

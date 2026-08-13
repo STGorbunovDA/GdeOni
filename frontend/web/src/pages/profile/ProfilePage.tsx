@@ -3,8 +3,10 @@ import {
   Alert,
   Badge,
   Button,
+  Divider,
   Group,
   Loader,
+  Modal,
   Stack,
   Switch,
   TextInput,
@@ -33,7 +35,7 @@ import {
   TitleLabel,
 } from '../../components/ui';
 import { authApi, usersApi } from '../../api/endpoints/authApi';
-import { useAuthStore, useIsAdmin } from '../../auth/authStore';
+import { useAuthStore, useIsAdmin, useIsSuperAdmin } from '../../auth/authStore';
 import { formatError } from '../../auth/errorMessages';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useAppFeatures } from '../../hooks/useAppFeatures';
@@ -54,6 +56,8 @@ export function ProfilePage() {
   const navigate = useNavigate();
   const clear = useAuthStore((s) => s.clear);
   const isAdmin = useIsAdmin();
+  // Массовое проставление логинов — операция владельца сервиса.
+  const isSuperAdmin = useIsSuperAdmin();
   const subscription = useSubscription();
   const features = useAppFeatures();
 
@@ -86,6 +90,48 @@ export function ProfilePage() {
     onError: (e) =>
       notifications.show({
         title: 'Не удалось сохранить',
+        message: formatError(e),
+        color: 'red',
+      }),
+  });
+
+  // Смена собственного логина. Уникальность проверяет бэк: занятый логин
+  // вернёт 409 user.login.already.exists, и мы покажем его текст в модалке.
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [loginInput, setLoginInput] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  const loginMutation = useMutation({
+    mutationFn: (login: string) => usersApi.changeLogin(login.trim()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+      setLoginModalOpen(false);
+      setLoginError(null);
+      notifications.show({
+        title: 'Логин изменён',
+        message: 'Теперь можно входить с новым логином.',
+        color: 'green',
+      });
+    },
+    onError: (e) => setLoginError(formatError(e)),
+  });
+
+  // Разовая операция для владельца сервиса: проставить логин тем, у кого его
+  // нет. Идемпотентна — повторный запуск вернёт 0.
+  const assignLoginsMutation = useMutation({
+    mutationFn: () => usersApi.assignMissingLogins(),
+    onSuccess: (res) =>
+      notifications.show({
+        title: 'Готово',
+        message:
+          res.assignedCount > 0
+            ? `Логин проставлен: ${res.assignedCount} чел.`
+            : 'Все пользователи уже имеют логин.',
+        color: 'green',
+      }),
+    onError: (e) =>
+      notifications.show({
+        title: 'Не удалось',
         message: formatError(e),
         color: 'red',
       }),
@@ -150,12 +196,25 @@ export function ProfilePage() {
             />
             <Field label="Email" value={query.data.email} />
             {/* Логин показываем, чтобы человек знал, чем ещё может войти:
-                при регистрации он не вводится, а генерируется из email. */}
-            <Field
-              label="Логин (для входа)"
-              value={query.data.login}
-              hint="Войти можно по email или по логину"
-            />
+                при регистрации он не вводится, а генерируется из email.
+                Сменить можно здесь же — уникальность проверит сервер. */}
+            <Group justify="space-between" align="flex-end" wrap="nowrap">
+              <Field
+                label="Логин (для входа)"
+                value={query.data.login}
+                hint="Войти можно по email или по логину"
+              />
+              <GhostButton
+                size="xs"
+                onClick={() => {
+                  setLoginInput(query.data.login);
+                  setLoginError(null);
+                  setLoginModalOpen(true);
+                }}
+              >
+                Изменить
+              </GhostButton>
+            </Group>
 
             <Group>
               <GhostButton
@@ -186,6 +245,30 @@ export function ProfilePage() {
                 Выйти
               </Button>
             </Group>
+
+            {/* Разовая операция владельца сервиса: у аккаунтов, заведённых до
+                появления логина, он мог остаться пустым. Кнопка проставляет
+                его из email; идемпотентна — повторный клик вернёт 0. */}
+            {isSuperAdmin && (
+              <>
+                <Divider my="xs" />
+                <Stack gap={6}>
+                  <CaptionLabel>
+                    Обслуживание: проставить логин пользователям, у которых его
+                    нет (берётся часть email до «@», при совпадении — полный
+                    адрес).
+                  </CaptionLabel>
+                  <Group>
+                    <GhostButton
+                      onClick={() => assignLoginsMutation.mutate()}
+                      loading={assignLoginsMutation.isPending}
+                    >
+                      Проставить логины всем без логина
+                    </GhostButton>
+                  </Group>
+                </Stack>
+              </>
+            )}
           </Stack>
         </CloudCard>
       )}
@@ -329,6 +412,45 @@ export function ProfilePage() {
       {/* F22. Версия — для поддержки: юзер сможет назвать, на какой
           сборке словил баг. Зеркало mobile ProfileViewModel (E22.1). */}
       <CaptionLabel>Версия: {CURRENT_APP_VERSION}</CaptionLabel>
+
+      {/* Смена логина. Уникальность проверяет сервер — занятый логин
+          вернётся ошибкой прямо в модалку, и она не закроется. */}
+      <Modal
+        opened={loginModalOpen}
+        onClose={() => setLoginModalOpen(false)}
+        title="Изменить логин"
+        centered
+      >
+        <Stack>
+          <TextInput
+            label="Логин"
+            placeholder="ivan_petrov"
+            value={loginInput}
+            onChange={(e) => {
+              setLoginInput(e.currentTarget.value);
+              setLoginError(null);
+            }}
+            error={loginError}
+            autoComplete="username"
+          />
+          <CaptionLabel>
+            Латинские буквы, цифры и знаки . _ - + @ (можно указать полный
+            email). Минимум 3 символа. Логин должен быть свободен.
+          </CaptionLabel>
+          <Group justify="flex-end">
+            <GhostButton onClick={() => setLoginModalOpen(false)}>
+              Отмена
+            </GhostButton>
+            <PrimaryButton
+              onClick={() => loginMutation.mutate(loginInput)}
+              loading={loginMutation.isPending}
+              disabled={loginInput.trim().length === 0}
+            >
+              Сохранить
+            </PrimaryButton>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

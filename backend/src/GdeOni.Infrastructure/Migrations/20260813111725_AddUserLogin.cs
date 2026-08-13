@@ -28,20 +28,20 @@ namespace GdeOni.Infrastructure.Migrations
                 defaultValue: "");
 
             // Backfill: логин = часть email до «@» (ots4@yandex.ru → «ots4»),
-            // очищенная до [a-z0-9._-]. Коллизии («ivan@mail.ru» и
-            // «ivan@yandex.ru») разводим числовым суффиксом.
+            // очищенная до [a-z0-9._-]. Если такой логин уже занят
+            // («bous07@mail.ru» и «bous07@yandex.ru» оба дают «bous07») —
+            // второму логином становится ПОЛНЫЙ email. Email уникален,
+            // поэтому коллизия исключена и числовые суффиксы не нужны.
             //
-            // Цикл, а не оконная функция с ROW_NUMBER: суффикс «ivan2» сам мог
-            // бы столкнуться с реально существующим логином «ivan2» из другого
-            // email. Здесь каждый кандидат проверяется на занятость по факту.
-            // Правила зеркалят User.GenerateLoginFromEmail в домене.
+            // Цикл, а не оконная функция: занятость каждого кандидата надо
+            // проверять по факту, с учётом уже проставленных в этом же проходе.
+            // Правила зеркалят User.GenerateLoginFromEmail / LoginFromFullEmail.
             migrationBuilder.Sql(@"
 DO $$
 DECLARE
     r          RECORD;
     base_login text;
     candidate  text;
-    suffix     int;
 BEGIN
     FOR r IN SELECT id, email FROM users ORDER BY registered_at_utc, id LOOP
         base_login := regexp_replace(lower(split_part(r.email, '@', 1)), '[^a-z0-9._-]', '', 'g');
@@ -60,12 +60,11 @@ BEGIN
         END IF;
 
         candidate := base_login;
-        suffix := 1;
 
-        WHILE EXISTS (SELECT 1 FROM users WHERE login = candidate) LOOP
-            suffix := suffix + 1;
-            candidate := left(base_login, 100 - length(suffix::text)) || suffix::text;
-        END LOOP;
+        -- Префикс занят → берём адрес целиком.
+        IF EXISTS (SELECT 1 FROM users WHERE login = candidate) THEN
+            candidate := left(lower(btrim(r.email)), 100);
+        END IF;
 
         UPDATE users SET login = candidate WHERE id = r.id;
     END LOOP;

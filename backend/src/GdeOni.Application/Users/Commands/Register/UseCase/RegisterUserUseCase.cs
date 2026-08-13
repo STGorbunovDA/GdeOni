@@ -119,33 +119,19 @@ public sealed class RegisterUserUseCase(
     }
 
     /// <summary>
-    /// Свободный логин на основе email-префикса: base, base2, base3…
-    /// Правила формирования базы живут в домене
-    /// (<see cref="User.GenerateLoginFromEmail"/>) — здесь только подбор
-    /// незанятого варианта. Предел попыток страхует от бесконечного цикла,
-    /// дальше уникальность добьёт индекс на Save.
+    /// Свободный логин: сначала префикс email (ivan@mail.ru → «ivan»), а если
+    /// он уже занят — ПОЛНЫЙ адрес («ivan@yandex.ru»). Числовых суффиксов не
+    /// делаем: полный email уникален сам по себе и человеку понятнее, чем
+    /// «ivan2». Правила формирования живут в домене — здесь только выбор.
     /// </summary>
     private async Task<string> ResolveFreeLoginAsync(
         string email,
         CancellationToken cancellationToken)
     {
-        const int maxAttempts = 100;
+        var prefix = User.GenerateLoginFromEmail(email);
 
-        var baseLogin = User.GenerateLoginFromEmail(email);
-        var candidate = baseLogin;
-
-        for (var attempt = 2; attempt <= maxAttempts; attempt++)
-        {
-            if (!await userRepository.ExistsByLogin(candidate, cancellationToken))
-                return candidate;
-
-            var suffix = attempt.ToString();
-            var trimmed = baseLogin.Length + suffix.Length > User.MaxLoginLength
-                ? baseLogin[..(User.MaxLoginLength - suffix.Length)]
-                : baseLogin;
-            candidate = trimmed + suffix;
-        }
-
-        return candidate;
+        return await userRepository.ExistsByLogin(prefix, cancellationToken)
+            ? User.LoginFromFullEmail(email)
+            : prefix;
     }
 }

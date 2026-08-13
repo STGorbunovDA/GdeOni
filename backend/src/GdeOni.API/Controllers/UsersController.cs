@@ -7,8 +7,12 @@ using GdeOni.API.Response;
 using GdeOni.Application.Common.Shared;
 using GdeOni.Application.Legal.Commands.AcceptLegal.Model;
 using GdeOni.Application.Legal.Commands.AcceptLegal.UseCase;
+using GdeOni.Application.Users.Commands.AssignMissingLogins.Model;
+using GdeOni.Application.Users.Commands.AssignMissingLogins.UseCase;
 using GdeOni.Application.Users.Commands.Block.Model;
 using GdeOni.Application.Users.Commands.Block.UseCase;
+using GdeOni.Application.Users.Commands.ChangeLogin.Model;
+using GdeOni.Application.Users.Commands.ChangeLogin.UseCase;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
 using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
 using GdeOni.Application.Users.Commands.ChangePassword.Model;
@@ -127,6 +131,48 @@ public sealed class UsersController : ApiControllerBase
             new UpdateCityCommand(request.City),
             cancellationToken);
         return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// Сменить собственный логин (id из JWT). Логин уникален: если занят
+    /// другим пользователем — 409 <c>user.login.already.exists</c>.
+    /// SecurityStamp не меняется, повторного входа не требует.
+    /// </summary>
+    [HttpPut("me/login")]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ChangeLogin(
+        [FromBody] ChangeLoginRequest request,
+        [FromServices] IChangeLoginUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new ChangeLoginCommand(request.Login),
+            cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// Проставить логин всем пользователям, у которых его нет: логин = часть
+    /// email до «@», а если она занята — полный email. Идемпотентно.
+    /// Только SuperAdmin — операция трогает чужие учётные записи.
+    /// </summary>
+    [HttpPost("assign-missing-logins")]
+    [Authorize(Roles = "SuperAdmin")]
+    [ProducesResponseType(typeof(ApiResponse<AssignMissingLoginsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> AssignMissingLogins(
+        [FromServices] IAssignMissingLoginsUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new AssignMissingLoginsCommand(),
+            cancellationToken);
+        return FromResult(result);
     }
 
     /// <summary>
