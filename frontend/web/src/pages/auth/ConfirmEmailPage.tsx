@@ -18,6 +18,35 @@ import { formatError } from '../../auth/errorMessages';
 type ConfirmStatus = 'no_token' | 'confirming' | 'success' | 'error';
 
 /**
+ * Последний успешно использованный токен. Нужен из-за одноразовости ссылки:
+ * телефон выгружает свёрнутую вкладку из памяти, при возврате страница
+ * грузится заново с тем же ?token= — повторный запрос уходил на сервер и
+ * получал «ссылка недействительна», хотя email уже подтверждён. Помним факт
+ * успеха и не дёргаем API второй раз.
+ *
+ * localStorage, а не sessionStorage: восстановление вкладки может завести
+ * новую сессию, и тогда мы снова показали бы ложную ошибку.
+ */
+const CONFIRMED_TOKEN_KEY = 'gdeoni-confirmed-email-token';
+
+function readConfirmedToken(): string | null {
+  try {
+    return localStorage.getItem(CONFIRMED_TOKEN_KEY);
+  } catch {
+    // Приватный режим без localStorage — просто теряем защиту от повтора.
+    return null;
+  }
+}
+
+function rememberConfirmedToken(token: string): void {
+  try {
+    localStorage.setItem(CONFIRMED_TOKEN_KEY, token);
+  } catch {
+    /* см. readConfirmedToken */
+  }
+}
+
+/**
  * D45. Подтверждение email по ссылке из письма. Токен в query:
  * /confirm-email?token=...
  *
@@ -31,21 +60,27 @@ export function ConfirmEmailPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
 
-  const [status, setStatus] = useState<ConfirmStatus>(
-    token ? 'confirming' : 'no_token',
-  );
+  // Этот токен уже отработал (страницу перезагрузили/вернули из фона) —
+  // показываем успех сразу, повторный запрос ушёл бы в ошибку.
+  const alreadyConfirmed = token.length > 0 && readConfirmedToken() === token;
+
+  const [status, setStatus] = useState<ConfirmStatus>(() => {
+    if (alreadyConfirmed) return 'success';
+    return token ? 'confirming' : 'no_token';
+  });
   const [errorText, setErrorText] = useState<string | null>(null);
 
   // Guard от двойного вызова в React.StrictMode (dev дважды монтирует).
   const startedRef = useRef(false);
 
   useEffect(() => {
-    if (!token || startedRef.current) return;
+    if (!token || alreadyConfirmed || startedRef.current) return;
     startedRef.current = true;
 
     (async () => {
       try {
         await authApi.confirmEmail(token);
+        rememberConfirmedToken(token);
         setStatus('success');
         await queryClient.invalidateQueries({ queryKey: ['me'] });
       } catch (e) {
@@ -53,7 +88,7 @@ export function ConfirmEmailPage() {
         setStatus('error');
       }
     })();
-  }, [token, queryClient]);
+  }, [token, alreadyConfirmed, queryClient]);
 
   return (
     <Container size="xs" pt={64} pb={48}>

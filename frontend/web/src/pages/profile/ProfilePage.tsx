@@ -18,6 +18,8 @@ import {
   CreditCard,
   KeyRound,
   LogOut,
+  MailCheck,
+  MailWarning,
   MapPin,
   MessageSquare,
   MessagesSquare,
@@ -34,6 +36,7 @@ import {
   PrimaryButton,
   TitleLabel,
 } from '../../components/ui';
+import { cloudColors } from '../../design/theme';
 import { authApi, usersApi } from '../../api/endpoints/authApi';
 import { useAuthStore, useIsAdmin, useIsSuperAdmin } from '../../auth/authStore';
 import { formatError } from '../../auth/errorMessages';
@@ -136,6 +139,25 @@ export function ProfilePage() {
       });
     },
     onError: (e) => setFullNameError(formatError(e)),
+  });
+
+  // Повторная отправка письма подтверждения. Дублирует кнопку в баннере, но
+  // баннер можно пролистать, а профиль — постоянное место, где видно статус
+  // адреса. Ходит через анонимный resend с email текущего юзера.
+  const resendConfirmationMutation = useMutation({
+    mutationFn: (email: string) => authApi.resendConfirmation(email),
+    onSuccess: (_data, email) =>
+      notifications.show({
+        title: 'Письмо отправлено',
+        message: `Проверьте почту ${email} и перейдите по ссылке.`,
+        color: 'blue',
+      }),
+    onError: (e) =>
+      notifications.show({
+        title: 'Не удалось отправить',
+        message: formatError(e),
+        color: 'red',
+      }),
   });
 
   // Разовая операция для владельца сервиса: проставить логин тем, у кого его
@@ -251,7 +273,33 @@ export function ProfilePage() {
               </GhostButton>
             </Group>
 
-            <Field label="Email" value={query.data.email} />
+            {/* Статус адреса видно прямо в профиле: баннер сверху можно
+                пролистать, а сюда человек приходит осознанно. */}
+            <Group justify="space-between" align="flex-end" wrap="nowrap">
+              <Field
+                label="Email"
+                value={query.data.email}
+                hint={
+                  query.data.isEmailConfirmed
+                    ? 'Адрес подтверждён'
+                    : 'Адрес не подтверждён'
+                }
+              />
+              {query.data.isEmailConfirmed ? (
+                <MailCheck size={20} color={cloudColors.azureDeep} />
+              ) : (
+                <GhostButton
+                  size="xs"
+                  leftSection={<MailWarning size={14} />}
+                  loading={resendConfirmationMutation.isPending}
+                  onClick={() =>
+                    resendConfirmationMutation.mutate(query.data.email)
+                  }
+                >
+                  Подтвердить
+                </GhostButton>
+              )}
+            </Group>
 
             <Group>
               <GhostButton
