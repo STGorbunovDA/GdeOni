@@ -1,15 +1,5 @@
-import { useState } from 'react';
-import {
-  Alert,
-  Group,
-  Loader,
-  Modal,
-  NumberInput,
-  SimpleGrid,
-  Stack,
-} from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert, Group, Loader, SimpleGrid, Stack } from '@mantine/core';
+import { useQuery } from '@tanstack/react-query';
 import {
   BadgeCheck,
   BookHeart,
@@ -32,15 +22,11 @@ import {
   BodyLabel,
   CaptionLabel,
   CloudCard,
-  GhostButton,
-  PrimaryButton,
   SubTitleLabel,
   TitleLabel,
 } from '../../components/ui';
 import { cloudColors } from '../../design/theme';
 import { adminStatsApi, type AdminStats } from '../../api/endpoints/adminStatsApi';
-import { adminUsersApi } from '../../api/endpoints/adminUsersApi';
-import { useIsSuperAdmin } from '../../auth/authStore';
 import { formatError } from '../../auth/errorMessages';
 
 /**
@@ -51,7 +37,7 @@ import { formatError } from '../../auth/errorMessages';
  * плоская: группы карточек с числом и подписью, без таблиц и фильтров.
  */
 export function AdminInfoPage() {
-  const isSuperAdmin = useIsSuperAdmin();
+
   const query = useQuery({
     queryKey: ['admin-stats'],
     queryFn: () => adminStatsApi.get(),
@@ -64,12 +50,9 @@ export function AdminInfoPage() {
       <Stack gap="xs">
         <TitleLabel>Информация</TitleLabel>
         <CaptionLabel>
-          Сводка по системе. Массовые действия — только для владельца сервиса.
+          Сводка по системе. Только справка — ничего изменить отсюда нельзя.
         </CaptionLabel>
       </Stack>
-
-      {/* Массовая выдача бесплатного доступа — только SuperAdmin. */}
-      {isSuperAdmin && <BulkComplimentaryCard />}
 
       {query.isLoading && (
         <Stack align="center" py="xl">
@@ -85,115 +68,6 @@ export function AdminInfoPage() {
 
       {query.data && <StatsBody stats={query.data} />}
     </Stack>
-  );
-}
-
-/**
- * F17.6+. Массовая выдача бесплатного (комплиментарного) доступа ВСЕМ
- * пользователям — «подушка» перед возвратом платного режима. Только
- * SuperAdmin (и кнопка, и эндпоинт). С подтверждением: действие затрагивает
- * всех разом.
- */
-function BulkComplimentaryCard() {
-  const queryClient = useQueryClient();
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [days, setDays] = useState<number | string>(30);
-  const daysNum = Math.max(1, Math.min(3650, Number(days) || 30));
-
-  const mutation = useMutation({
-    mutationFn: () => adminUsersApi.grantComplimentaryToAll(daysNum),
-    onSuccess: (res) => {
-      setConfirmOpen(false);
-      // Счётчик «Бесплатный доступ от админа» изменится — обновим сводку.
-      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-      notifications.show({
-        color: 'green',
-        title: 'Готово',
-        message: `Бесплатный доступ выдан ${res.affectedCount} пользователям — до ${new Date(
-          res.untilUtc,
-        ).toLocaleDateString('ru-RU')}.`,
-      });
-    },
-    onError: (e) => {
-      notifications.show({
-        color: 'red',
-        title: 'Не получилось',
-        message: formatError(e),
-      });
-    },
-  });
-
-  return (
-    <CloudCard>
-      <Stack gap="sm">
-        <Group align="flex-start" gap="md" wrap="nowrap">
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              flexShrink: 0,
-              borderRadius: 10,
-              background: cloudColors.sky,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: cloudColors.azureDeep,
-            }}
-          >
-            <Gift size={20} strokeWidth={1.75} />
-          </div>
-          <Stack gap={2} style={{ minWidth: 0 }}>
-            <SubTitleLabel>Выдать всем бесплатный доступ</SubTitleLabel>
-            <CaptionLabel>
-              Даёт комплиментарный доступ ВСЕМ пользователям на указанный срок.
-              Только продлевает — у кого уже выдан более поздний срок, не
-              трогает. Удобно перед возвратом платного режима, чтобы никто
-              резко не упёрся в оплату.
-            </CaptionLabel>
-          </Stack>
-        </Group>
-
-        <Group gap="sm" wrap="wrap" align="flex-end">
-          <NumberInput
-            label="На сколько дней"
-            value={days}
-            onChange={setDays}
-            min={1}
-            max={3650}
-            allowDecimal={false}
-            w={160}
-          />
-          <PrimaryButton onClick={() => setConfirmOpen(true)}>
-            Выдать всем
-          </PrimaryButton>
-        </Group>
-      </Stack>
-
-      <Modal
-        opened={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        title="Выдать всем бесплатный доступ?"
-        centered
-      >
-        <Stack>
-          <BodyLabel>
-            Всем пользователям будет выдан бесплатный доступ на {daysNum} дн.
-            Затронет всех, у кого сейчас нет доступа на более поздний срок.
-          </BodyLabel>
-          <Group justify="flex-end" gap="sm">
-            <GhostButton onClick={() => setConfirmOpen(false)}>
-              Отмена
-            </GhostButton>
-            <PrimaryButton
-              loading={mutation.isPending}
-              onClick={() => mutation.mutate()}
-            >
-              Выдать всем
-            </PrimaryButton>
-          </Group>
-        </Stack>
-      </Modal>
-    </CloudCard>
   );
 }
 

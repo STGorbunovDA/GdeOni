@@ -299,7 +299,17 @@ public sealed partial class User : Entity<Guid>
         string? fullName = null,
         string? userName = null)
     {
-        var buildResult = BuildUser(email, passwordHash, fullName, userName, birthDate: null, UserRole.SuperAdmin);
+        // Логин владельца сервиса — ПОЛНЫЙ email (admin@gdeoni.ru), а не
+        // префикс: вход у него всегда по адресу, и «admin» не должен
+        // занимать короткий логин, который может понадобиться людям.
+        var buildResult = BuildUser(
+            email,
+            passwordHash,
+            fullName,
+            userName,
+            birthDate: null,
+            UserRole.SuperAdmin,
+            login: LoginFromFullEmail(email));
         if (buildResult.IsFailure)
             return buildResult;
 

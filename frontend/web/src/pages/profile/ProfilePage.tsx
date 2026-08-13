@@ -7,6 +7,7 @@ import {
   Group,
   Loader,
   Modal,
+  NumberInput,
   Stack,
   Switch,
   TextInput,
@@ -16,6 +17,7 @@ import { notifications } from '@mantine/notifications';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   CreditCard,
+  Gift,
   KeyRound,
   LogOut,
   MailCheck,
@@ -38,6 +40,7 @@ import {
 } from '../../components/ui';
 import { cloudColors } from '../../design/theme';
 import { authApi, usersApi } from '../../api/endpoints/authApi';
+import { adminUsersApi } from '../../api/endpoints/adminUsersApi';
 import { useAuthStore, useIsAdmin, useIsSuperAdmin } from '../../auth/authStore';
 import { formatError } from '../../auth/errorMessages';
 import { useSubscription } from '../../hooks/useSubscription';
@@ -157,6 +160,33 @@ export function ProfilePage() {
         title: 'Не удалось отправить',
         message: formatError(e),
         color: 'red',
+      }),
+  });
+
+  // Массовая выдача бесплатного доступа всем — «подушка» перед возвратом
+  // платного режима. Живёт в профиле владельца, а не в админской «Информации»:
+  // та страница — справка без действий.
+  const [grantAllOpen, setGrantAllOpen] = useState(false);
+  const [grantDays, setGrantDays] = useState<number | string>(30);
+  const grantDaysNum = Math.max(1, Math.min(3650, Number(grantDays) || 30));
+
+  const grantAllMutation = useMutation({
+    mutationFn: () => adminUsersApi.grantComplimentaryToAll(grantDaysNum),
+    onSuccess: (res) => {
+      setGrantAllOpen(false);
+      notifications.show({
+        color: 'green',
+        title: 'Готово',
+        message: `Бесплатный доступ выдан ${res.affectedCount} пользователям — до ${new Date(
+          res.untilUtc,
+        ).toLocaleDateString('ru-RU')}.`,
+      });
+    },
+    onError: (e) =>
+      notifications.show({
+        color: 'red',
+        title: 'Не получилось',
+        message: formatError(e),
       }),
   });
 
@@ -349,6 +379,32 @@ export function ProfilePage() {
                       loading={assignLoginsMutation.isPending}
                     >
                       Проставить логины всем без логина
+                    </GhostButton>
+                  </Group>
+                </Stack>
+
+                <Stack gap={6} mt="sm">
+                  <CaptionLabel>
+                    Выдать бесплатный доступ ВСЕМ пользователям на указанный
+                    срок. Только продлевает — у кого доступ дольше, не трогает.
+                    Удобно перед возвратом платного режима, чтобы никто резко не
+                    упёрся в оплату.
+                  </CaptionLabel>
+                  <Group gap="sm" align="flex-end" wrap="wrap">
+                    <NumberInput
+                      label="На сколько дней"
+                      value={grantDays}
+                      onChange={setGrantDays}
+                      min={1}
+                      max={3650}
+                      allowDecimal={false}
+                      w={160}
+                    />
+                    <GhostButton
+                      leftSection={<Gift size={16} />}
+                      onClick={() => setGrantAllOpen(true)}
+                    >
+                      Выдать всем бесплатный доступ
                     </GhostButton>
                   </Group>
                 </Stack>
@@ -570,6 +626,32 @@ export function ProfilePage() {
               loading={fullNameMutation.isPending}
             >
               Сохранить
+            </PrimaryButton>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Подтверждение массовой выдачи: действие затрагивает всех разом. */}
+      <Modal
+        opened={grantAllOpen}
+        onClose={() => setGrantAllOpen(false)}
+        title="Выдать всем бесплатный доступ?"
+        centered
+      >
+        <Stack>
+          <BodyLabel>
+            Всем пользователям будет выдан бесплатный доступ на {grantDaysNum}{' '}
+            дн. Затронет тех, у кого сейчас нет доступа на более поздний срок.
+          </BodyLabel>
+          <Group justify="flex-end" gap="sm">
+            <GhostButton onClick={() => setGrantAllOpen(false)}>
+              Отмена
+            </GhostButton>
+            <PrimaryButton
+              loading={grantAllMutation.isPending}
+              onClick={() => grantAllMutation.mutate()}
+            >
+              Выдать всем
             </PrimaryButton>
           </Group>
         </Stack>
