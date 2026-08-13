@@ -224,17 +224,18 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
         if (userIds.Count == 0)
             return new Dictionary<Guid, string>();
 
-        // FullName приоритетнее: это "то, что юзер указал о себе".
-        // Если он пустой — fallback на UserName (он обязателен и уникален).
+        // FullName приоритетнее: это «то, что юзер указал о себе». Если пусто —
+        // логин (User.DisplayName). Раньше fallback был на UserName, но он
+        // больше не показывается пользователю и не уникален.
         var rows = await dbContext.Users
             .AsNoTracking()
             .Where(x => userIds.Contains(x.Id))
-            .Select(x => new { x.Id, x.FullName, x.UserName })
+            .Select(x => new { x.Id, x.FullName, x.Login })
             .ToListAsync(cancellationToken);
 
         return rows.ToDictionary(
             r => r.Id,
-            r => string.IsNullOrWhiteSpace(r.FullName) ? r.UserName : r.FullName);
+            r => User.BuildDisplayName(r.FullName, r.Login));
     }
 
     public Task<User?> GetBySubscriptionPaymentId(

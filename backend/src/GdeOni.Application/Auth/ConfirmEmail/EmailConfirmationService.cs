@@ -68,7 +68,7 @@ public sealed class EmailConfirmationService(
         var confirmUrl = EmailConfirmationEmailContent.BuildConfirmUrl(_options.WebConfirmUrl, token);
         return EmailConfirmationEmailContent.Build(
             recipientEmail: user.Email,
-            recipientName: user.FullName ?? user.UserName,
+            recipientName: user.DisplayName,
             confirmUrl: confirmUrl,
             lifetimeHours: _options.TokenLifetimeHours,
             appName: _options.AppName);

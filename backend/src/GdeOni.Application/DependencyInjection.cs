@@ -94,6 +94,7 @@ using GdeOni.Application.Support.Queries.GetById.UseCase;
 using GdeOni.Application.Support.Queries.GetMine.UseCase;
 using GdeOni.Application.Users.Commands.AssignMissingLogins.UseCase;
 using GdeOni.Application.Users.Commands.ChangeEmail.UseCase;
+using GdeOni.Application.Users.Commands.ChangeFullName.UseCase;
 using GdeOni.Application.Users.Commands.ChangeLogin.UseCase;
 using GdeOni.Application.Users.Commands.ChangePassword.UseCase;
 using GdeOni.Application.Users.Commands.ChangeRole.UseCase;
@@ -179,6 +180,7 @@ public static class DependencyInjection
         // Логин: смена своего (профиль) + массовое проставление тем, у кого
         // его нет (только SuperAdmin).
         services.AddScoped<IChangeLoginUseCase, ChangeLoginUseCase>();
+        services.AddScoped<IChangeFullNameUseCase, ChangeFullNameUseCase>();
         services.AddScoped<IAssignMissingLoginsUseCase, AssignMissingLoginsUseCase>();
         services.AddScoped<IChangePasswordUseCase, ChangePasswordUseCase>();
         services.AddScoped<IChangeRoleUseCase, ChangeRoleUseCase>();

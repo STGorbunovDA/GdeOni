@@ -48,12 +48,17 @@ public sealed class RelativeConversationRepository(AppDbContext dbContext)
         if (name is null)
             return null;
 
-        var otherName = await dbContext.Users.AsNoTracking()
+        // Собеседника показываем по полному имени, а если оно не заполнено —
+        // по логину (User.DisplayName; в SQL вычисляемое свойство не
+        // транслируется, поэтому склеиваем в памяти).
+        var other = await dbContext.Users.AsNoTracking()
             .Where(u => u.Id == otherUserId)
-            .Select(u => u.UserName)
+            .Select(u => new { u.FullName, u.Login })
             .FirstOrDefaultAsync(cancellationToken);
-        if (otherName is null)
+        if (other is null)
             return null;
+
+        var otherName = User.BuildDisplayName(other.FullName, other.Login);
 
         var relationship = await dbContext.Set<TrackedDeceased>().AsNoTracking()
             .Where(t => EF.Property<Guid>(t, "user_id") == otherUserId && t.DeceasedId == deceasedId)
@@ -81,10 +86,11 @@ public sealed class RelativeConversationRepository(AppDbContext dbContext)
         var otherIds = convos.Select(c => c.OtherParticipant(userId)).Distinct().ToList();
         var deceasedIds = convos.Select(c => c.DeceasedId).Distinct().ToList();
 
-        var userNames = await dbContext.Users.AsNoTracking()
+        var userNames = (await dbContext.Users.AsNoTracking()
             .Where(u => otherIds.Contains(u.Id))
-            .Select(u => new { u.Id, u.UserName })
-            .ToDictionaryAsync(u => u.Id, u => u.UserName, cancellationToken);
+            .Select(u => new { u.Id, u.FullName, u.Login })
+            .ToListAsync(cancellationToken))
+            .ToDictionary(u => u.Id, u => User.BuildDisplayName(u.FullName, u.Login));
 
         var deceasedNames = (await dbContext.DeceasedRecords.AsNoTracking()
             .Where(d => deceasedIds.Contains(d.Id))

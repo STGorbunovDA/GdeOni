@@ -56,6 +56,26 @@ public sealed partial class User : Entity<Guid>
     public string? FullName { get; private set; }
 
     /// <summary>
+    /// Как пользователя видят ОСТАЛЬНЫЕ: полное имя, а если оно не заполнено —
+    /// логин. Единая точка истины для «Родственников», переписки, жалоб и
+    /// писем — иначе правило разъезжается по репозиториям.
+    ///
+    /// <see cref="UserName"/> сюда намеренно не входит: он остался с тех пор,
+    /// когда был логином, не уникален (тёзки допустимы) и пользователю больше
+    /// не показывается.
+    /// </summary>
+    public string DisplayName => BuildDisplayName(FullName, Login);
+
+    /// <summary>
+    /// То же правило для проекций репозиториев: <see cref="DisplayName"/> —
+    /// вычисляемое свойство, в SQL оно не транслируется, поэтому запросы
+    /// выбирают full_name + login и склеивают результат в памяти этим
+    /// методом. Одно правило на всех — правки не разъезжаются.
+    /// </summary>
+    public static string BuildDisplayName(string? fullName, string login) =>
+        string.IsNullOrWhiteSpace(fullName) ? login : fullName;
+
+    /// <summary>
     /// Город пользователя. Nullable: у аккаунтов, зарегистрированных до
     /// введения поля, остаётся null — клиент показывает баннер-напоминание
     /// «укажите город» (зеркало баннера неподтверждённого email). Указывается
@@ -446,6 +466,27 @@ public sealed partial class User : Entity<Guid>
     /// и выкидывать человека из всех сессий за смену собственного логина
     /// незачем — в отличие от смены email/пароля.
     /// </summary>
+    /// <summary>
+    /// Смена полного имени (ФИО) — того, что видят остальные. Не уникально:
+    /// тёзки допустимы. Пустая строка очищает поле.
+    ///
+    /// SecurityStamp НЕ ротируется, в отличие от <see cref="UpdateProfile"/>:
+    /// это отображаемое поле, а не удостоверяющее — выкидывать человека из
+    /// сессий за смену своего имени незачем.
+    /// </summary>
+    public UnitResult<Error> ChangeFullName(string? fullName)
+    {
+        var fullNameResult = NormalizeFullName(fullName);
+        if (fullNameResult.IsFailure)
+            return fullNameResult.Error;
+
+        if (FullName == fullNameResult.Value)
+            return UnitResult.Success<Error>();
+
+        FullName = fullNameResult.Value;
+        return UnitResult.Success<Error>();
+    }
+
     public UnitResult<Error> ChangeLogin(string login)
     {
         var loginResult = NormalizeLogin(login);

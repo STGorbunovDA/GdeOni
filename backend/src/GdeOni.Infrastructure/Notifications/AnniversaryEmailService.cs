@@ -229,7 +229,7 @@ internal sealed class AnniversaryEmailService(
                 select new Candidate(
                     u.Id,
                     u.Email,
-                    u.UserName,
+                    u.FullName ?? u.Login,
                     d.Id,
                     d.Name.FirstName,
                     d.Name.LastName,
@@ -272,7 +272,7 @@ internal sealed class AnniversaryEmailService(
                     out var deathDaysUntil, out var deathYears))
             {
                 due.Add(new DueNotification(
-                    c.UserId, c.Email, c.UserName, c.DeceasedId,
+                    c.UserId, c.Email, c.RecipientName, c.DeceasedId,
                     fullName, AnniversaryKind.Death, deathYears, deathDaysUntil));
             }
 
@@ -281,7 +281,7 @@ internal sealed class AnniversaryEmailService(
                     out var birthDaysUntil, out var birthYears))
             {
                 due.Add(new DueNotification(
-                    c.UserId, c.Email, c.UserName, c.DeceasedId,
+                    c.UserId, c.Email, c.RecipientName, c.DeceasedId,
                     fullName, AnniversaryKind.Birth, birthYears, birthDaysUntil));
             }
         }
@@ -399,7 +399,7 @@ internal sealed class AnniversaryEmailService(
     private sealed record Candidate(
         Guid UserId,
         string Email,
-        string? UserName,
+        string RecipientName,
         Guid DeceasedId,
         string FirstName,
         string LastName,

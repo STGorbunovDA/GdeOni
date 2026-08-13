@@ -1,5 +1,6 @@
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Domain.Aggregates.Relatives;
+using GdeOni.Domain.Aggregates.User;
 using Microsoft.EntityFrameworkCore;
 
 namespace GdeOni.Infrastructure.Persistence.Repositories;
@@ -64,9 +65,12 @@ public sealed class RelativeReportRepository(AppDbContext dbContext)
 
         var users = await dbContext.Users.AsNoTracking()
             .Where(u => userIds.Contains(u.Id))
-            .Select(u => new { u.Id, u.UserName, u.IsBlocked })
+            .Select(u => new { u.Id, u.FullName, u.Login, u.IsBlocked })
             .ToListAsync(cancellationToken);
-        var userNames = users.ToDictionary(u => u.Id, u => u.UserName);
+        // Стороны жалобы показываем так же, как везде: полное имя, иначе логин.
+        var userNames = users.ToDictionary(
+            u => u.Id,
+            u => User.BuildDisplayName(u.FullName, u.Login));
         var userBlocked = users.ToDictionary(u => u.Id, u => u.IsBlocked);
 
         var deceasedNames = (await dbContext.DeceasedRecords.AsNoTracking()

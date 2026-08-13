@@ -191,6 +191,15 @@ export const usersApi = {
   },
 
   /**
+   * PATCH /api/users/me/full-name — указать/сменить полное имя (ФИО).
+   * Не уникально, пустая строка очищает. Именно это имя видят остальные
+   * (в «Родственниках», переписке); если пусто — показывается логин.
+   */
+  async changeFullName(fullName: string | null): Promise<void> {
+    await apiClient.patch('/api/users/me/full-name', { fullName });
+  },
+
+  /**
    * POST /api/users/assign-missing-logins — проставить логин всем, у кого его
    * нет (часть email до «@», при коллизии — полный email). Только SuperAdmin,
    * идемпотентно. Возвращает { assignedCount }.

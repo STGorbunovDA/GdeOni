@@ -11,6 +11,8 @@ using GdeOni.Application.Users.Commands.AssignMissingLogins.Model;
 using GdeOni.Application.Users.Commands.AssignMissingLogins.UseCase;
 using GdeOni.Application.Users.Commands.Block.Model;
 using GdeOni.Application.Users.Commands.Block.UseCase;
+using GdeOni.Application.Users.Commands.ChangeFullName.Model;
+using GdeOni.Application.Users.Commands.ChangeFullName.UseCase;
 using GdeOni.Application.Users.Commands.ChangeLogin.Model;
 using GdeOni.Application.Users.Commands.ChangeLogin.UseCase;
 using GdeOni.Application.Users.Commands.ChangeEmail.Model;
@@ -129,6 +131,29 @@ public sealed class UsersController : ApiControllerBase
     {
         var result = await useCase.Execute(
             new UpdateCityCommand(request.City),
+            cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// Указать/сменить полное имя (ФИО) текущего пользователя. Не уникально —
+    /// тёзки допустимы. Пустая строка очищает. Именно это имя видят остальные
+    /// (в «Родственниках», переписке); если оно пустое — показывается логин.
+    /// SecurityStamp не меняется.
+    /// </summary>
+    [HttpPatch("me/full-name")]
+    [Authorize(Policy = AuthorizationPolicies.BasicAuthenticated)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ChangeFullName(
+        [FromBody] ChangeFullNameRequest request,
+        [FromServices] IChangeFullNameUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new ChangeFullNameCommand(request.FullName),
             cancellationToken);
         return FromUnitResult(result);
     }

@@ -46,7 +46,8 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
                 d.LifePeriod.BirthDate,
                 d.LifePeriod.DeathDate,
                 u.Id,
-                u.UserName,
+                u.FullName,
+                u.Login,
                 theirs.RelationshipType))
             .ToListAsync(cancellationToken);
 
@@ -57,7 +58,9 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
                 r.BirthDate,
                 r.DeathDate,
                 r.RelativeUserId,
-                r.RelativeUserName,
+                // Человека показываем по полному имени, а если оно не
+                // заполнено — по логину (User.DisplayName).
+                User.BuildDisplayName(r.RelativeFullName, r.RelativeLogin),
                 r.RelationshipType))
             .OrderBy(r => r.DeceasedFullName)
             .ThenBy(r => r.RelativeUserName)
@@ -120,7 +123,8 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
                 d.Name.LastName,
                 d.Name.MiddleName,
                 disc.RelativeUserId,
-                u.UserName,
+                u.FullName,
+                u.Login,
                 theirs.RelationshipType,
                 disc.DiscoveredAtUtc))
             .ToListAsync(cancellationToken);
@@ -130,7 +134,7 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
                 r.DeceasedId,
                 BuildFullName(r.LastName, r.FirstName, r.MiddleName),
                 r.RelativeUserId,
-                r.RelativeUserName,
+                User.BuildDisplayName(r.RelativeFullName, r.RelativeLogin),
                 r.RelationshipType,
                 r.DiscoveredAtUtc))
             .OrderByDescending(r => r.DiscoveredAtUtc)
@@ -158,7 +162,8 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
         string LastName,
         string? MiddleName,
         Guid RelativeUserId,
-        string RelativeUserName,
+        string? RelativeFullName,
+        string RelativeLogin,
         RelationshipType RelationshipType,
         DateTime DiscoveredAtUtc);
 
@@ -170,6 +175,7 @@ public sealed class RelativesRepository(AppDbContext dbContext) : IRelativesRepo
         DateOnly? BirthDate,
         DateOnly DeathDate,
         Guid RelativeUserId,
-        string RelativeUserName,
+        string? RelativeFullName,
+        string RelativeLogin,
         RelationshipType RelationshipType);
 }

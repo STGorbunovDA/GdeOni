@@ -116,6 +116,28 @@ export function ProfilePage() {
     onError: (e) => setLoginError(formatError(e)),
   });
 
+  // Полное имя — то, как человека видят остальные. Не уникально, пустая
+  // строка очищает (тогда другим показывается логин).
+  const [fullNameModalOpen, setFullNameModalOpen] = useState(false);
+  const [fullNameInput, setFullNameInput] = useState('');
+  const [fullNameError, setFullNameError] = useState<string | null>(null);
+
+  const fullNameMutation = useMutation({
+    mutationFn: (fullName: string) =>
+      usersApi.changeFullName(fullName.trim().length > 0 ? fullName.trim() : null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+      setFullNameModalOpen(false);
+      setFullNameError(null);
+      notifications.show({
+        title: 'Имя сохранено',
+        message: '',
+        color: 'green',
+      });
+    },
+    onError: (e) => setFullNameError(formatError(e)),
+  });
+
   // Разовая операция для владельца сервиса: проставить логин тем, у кого его
   // нет. Идемпотентна — повторный запуск вернёт 0.
   const assignLoginsMutation = useMutation({
@@ -189,15 +211,10 @@ export function ProfilePage() {
       {query.data && (
         <CloudCard>
           <Stack gap="md">
-            <Field label="Имя пользователя" value={query.data.userName} />
-            <Field
-              label="Полное имя"
-              value={query.data.fullName ?? 'Не указано'}
-            />
-            <Field label="Email" value={query.data.email} />
-            {/* Логин показываем, чтобы человек знал, чем ещё может войти:
-                при регистрации он не вводится, а генерируется из email.
-                Сменить можно здесь же — уникальность проверит сервер. */}
+            {/* «Имя пользователя» (UserName) убрано: оно не уникально и
+                пользователю ничего не даёт. Логин — уникальный идентификатор
+                входа, Полное имя — то, как человека видят остальные. Оба
+                редактируются здесь же. */}
             <Group justify="space-between" align="flex-end" wrap="nowrap">
               <Field
                 label="Логин (для входа)"
@@ -215,6 +232,26 @@ export function ProfilePage() {
                 Изменить
               </GhostButton>
             </Group>
+
+            <Group justify="space-between" align="flex-end" wrap="nowrap">
+              <Field
+                label="Полное имя"
+                value={query.data.fullName ?? 'Не указано'}
+                hint="Так вас видят другие; если не указано — показывается логин"
+              />
+              <GhostButton
+                size="xs"
+                onClick={() => {
+                  setFullNameInput(query.data.fullName ?? '');
+                  setFullNameError(null);
+                  setFullNameModalOpen(true);
+                }}
+              >
+                Изменить
+              </GhostButton>
+            </Group>
+
+            <Field label="Email" value={query.data.email} />
 
             <Group>
               <GhostButton
@@ -445,6 +482,44 @@ export function ProfilePage() {
               onClick={() => loginMutation.mutate(loginInput)}
               loading={loginMutation.isPending}
               disabled={loginInput.trim().length === 0}
+            >
+              Сохранить
+            </PrimaryButton>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Полное имя. Уникальность не нужна — тёзки допустимы, поэтому
+          сохраняем без проверок; пустое поле очищает имя. */}
+      <Modal
+        opened={fullNameModalOpen}
+        onClose={() => setFullNameModalOpen(false)}
+        title="Изменить полное имя"
+        centered
+      >
+        <Stack>
+          <TextInput
+            label="Полное имя"
+            placeholder="Иван Петров"
+            value={fullNameInput}
+            onChange={(e) => {
+              setFullNameInput(e.currentTarget.value);
+              setFullNameError(null);
+            }}
+            error={fullNameError}
+            autoComplete="name"
+          />
+          <CaptionLabel>
+            Так вас будут видеть другие пользователи. Оставьте поле пустым,
+            чтобы очистить — тогда будет показываться логин.
+          </CaptionLabel>
+          <Group justify="flex-end">
+            <GhostButton onClick={() => setFullNameModalOpen(false)}>
+              Отмена
+            </GhostButton>
+            <PrimaryButton
+              onClick={() => fullNameMutation.mutate(fullNameInput)}
+              loading={fullNameMutation.isPending}
             >
               Сохранить
             </PrimaryButton>

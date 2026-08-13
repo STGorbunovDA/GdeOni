@@ -89,7 +89,7 @@ public sealed class ForgotPasswordUseCase(
         var resetUrl = PasswordResetEmailContent.BuildResetUrl(_options.WebResetUrl, token);
         var message = PasswordResetEmailContent.Build(
             recipientEmail: user.Email,
-            recipientName: user.FullName ?? user.UserName,
+            recipientName: user.DisplayName,
             resetUrl: resetUrl,
             lifetimeMinutes: _options.TokenLifetimeMinutes,
             appName: _options.AppName);

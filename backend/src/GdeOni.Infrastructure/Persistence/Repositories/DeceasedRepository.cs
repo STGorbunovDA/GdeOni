@@ -518,7 +518,7 @@ public sealed class DeceasedRepository(AppDbContext dbContext, TimeProvider time
                     select new DeceasedEditRow(
                         edit,
                         editor != null ? editor.Email : null,
-                        editor != null ? (editor.FullName ?? editor.UserName) : null);
+                        editor != null ? User.BuildDisplayName(editor.FullName, editor.Login) : null);
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
@@ -573,7 +573,7 @@ public sealed class DeceasedRepository(AppDbContext dbContext, TimeProvider time
                         edit,
                         d.Name.LastName + " " + d.Name.FirstName,
                         editor != null ? editor.Email : null,
-                        editor != null ? (editor.FullName ?? editor.UserName) : null);
+                        editor != null ? User.BuildDisplayName(editor.FullName, editor.Login) : null);
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query

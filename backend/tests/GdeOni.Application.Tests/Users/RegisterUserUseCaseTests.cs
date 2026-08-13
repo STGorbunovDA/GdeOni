@@ -69,6 +69,73 @@ public sealed class RegisterUserUseCaseTests
     }
 
     /// <summary>
+    /// Логин по умолчанию — часть email до «@».
+    /// </summary>
+    [Fact]
+    public async Task Execute_AssignsLoginFromEmailPrefix()
+    {
+        var (userRepo, hasher, useCase) = BuildHarness();
+        userRepo
+            .Setup(x => x.ExistsByEmail(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        // Ни один логин не занят.
+        userRepo
+            .Setup(x => x.ExistsByLogin(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        hasher.Setup(x => x.Hash(It.IsAny<string>())).Returns("hash-bcrypt");
+
+        User? added = null;
+        userRepo
+            .Setup(x => x.Add(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((u, _) => added = u);
+
+        var result = await useCase.Execute(
+            new RegisterUserCommand(
+                "bous07@mail.ru", null, null, "Password123!",
+                AdultBirthDate, true, true),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        added!.Login.Should().Be("bous07");
+    }
+
+    /// <summary>
+    /// Префикс email уже занят («bous07» от bous07@mail.ru), регистрируется
+    /// bous07@yandex.ru → логином становится ПОЛНЫЙ адрес, а не «bous072».
+    /// Регистрация при этом проходит: email-то свободен.
+    /// </summary>
+    [Fact]
+    public async Task Execute_PrefixTaken_AssignsFullEmailAsLogin()
+    {
+        var (userRepo, hasher, useCase) = BuildHarness();
+        userRepo
+            .Setup(x => x.ExistsByEmail(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        // «bous07» занят прежним пользователем, полный адрес — свободен.
+        userRepo
+            .Setup(x => x.ExistsByLogin("bous07", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        userRepo
+            .Setup(x => x.ExistsByLogin("bous07@yandex.ru", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        hasher.Setup(x => x.Hash(It.IsAny<string>())).Returns("hash-bcrypt");
+
+        User? added = null;
+        userRepo
+            .Setup(x => x.Add(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((u, _) => added = u);
+
+        var result = await useCase.Execute(
+            new RegisterUserCommand(
+                "bous07@yandex.ru", null, null, "Password123!",
+                AdultBirthDate, true, true),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        added!.Login.Should().Be("bous07@yandex.ru");
+    }
+
+    /// <summary>
     /// D19. Регистрация младше 14 лет → user.birth_date.min_age. Валидатор
     /// пропускает (BirthDate не пустая), домен отбивает.
     /// </summary>
