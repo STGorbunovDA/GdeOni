@@ -13,7 +13,7 @@ import { ApiError } from '../api/client';
  */
 const KNOWN_CODES: Record<string, string> = {
   // Auth
-  'user.invalid.credentials': 'Неверный email или пароль.',
+  'user.invalid.credentials': 'Неверный email/логин или пароль.',
   'auth.unauthorized': 'Сессия истекла. Войдите снова.',
 
   // User registration / profile
@@ -27,6 +27,13 @@ const KNOWN_CODES: Record<string, string> = {
   'user.password.too_long': 'Пароль слишком длинный (максимум 128 символов).',
   'user.user_name.too_long': 'Слишком длинное имя пользователя.',
   'user.full_name.too_long': 'Слишком длинное полное имя.',
+  // Логин — уникальный идентификатор для входа (генерируется из email).
+  'user.login.already.exists': 'Этот логин уже занят.',
+  'user.login.required': 'Введите логин.',
+  'user.login.too_short': 'Логин слишком короткий (минимум 3 символа).',
+  'user.login.too_long': 'Слишком длинный логин.',
+  'user.login.invalid':
+    'В логине допустимы только латинские буквы, цифры, точка, дефис и подчёркивание.',
   'user.current_password.invalid': 'Текущий пароль введён неверно.',
   // D43. Восстановление пароля по ссылке из письма.
   'user.password_reset_token.invalid':
@@ -164,7 +171,7 @@ export function formatError(error: unknown): string {
       return 'Слишком много попыток. Подождите минуту и попробуйте снова.';
     }
     if (error.response?.status === 401) {
-      return 'Неверный email или пароль.';
+      return 'Неверный email/логин или пароль.';
     }
     if (error.response?.status === 403) {
       return 'У вас нет доступа к этому действию.';

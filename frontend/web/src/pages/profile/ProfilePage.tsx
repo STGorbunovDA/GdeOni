@@ -149,6 +149,13 @@ export function ProfilePage() {
               value={query.data.fullName ?? 'Не указано'}
             />
             <Field label="Email" value={query.data.email} />
+            {/* Логин показываем, чтобы человек знал, чем ещё может войти:
+                при регистрации он не вводится, а генерируется из email. */}
+            <Field
+              label="Логин (для входа)"
+              value={query.data.login}
+              hint="Войти можно по email или по логину"
+            />
 
             <Group>
               <GhostButton
@@ -413,11 +420,21 @@ function pluralDays(n: number): string {
   return 'дней';
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  /** Пояснение под значением — например, чем можно войти. */
+  hint?: string;
+}) {
   return (
     <Stack gap={2}>
       <CaptionLabel>{label}</CaptionLabel>
       <BodyLabel>{value}</BodyLabel>
+      {hint && <CaptionLabel>{hint}</CaptionLabel>}
     </Stack>
   );
 }

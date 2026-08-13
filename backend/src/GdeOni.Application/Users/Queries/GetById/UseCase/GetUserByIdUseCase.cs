@@ -88,6 +88,7 @@ public sealed class GetUserByIdUseCase(
             Id = user.Id,
             Email = user.Email,
             UserName = user.UserName,
+            Login = user.Login,
             FullName = user.FullName,
             Role = user.Role.ToString(),
             RegisteredAtUtc = user.RegisteredAtUtc,

@@ -5,6 +5,13 @@ public static class DbConstraints
     public const string DeceasedSearchKey = "ux_deceased_search_key";
     public const string UxUsersEmail = "ux_users_email";
     public const string UxUsersName = "ux_users_user_name";
+
+    /// <summary>
+    /// Уникальный логин (вход по email ИЛИ логину). В отличие от
+    /// <see cref="UxUsersName"/>, который снят намеренно — отображаемые
+    /// имена могут повторяться.
+    /// </summary>
+    public const string UxUsersLogin = "ux_users_login";
     public const string UxRefreshTokensTokenHash = "ux_refresh_tokens_token_hash";
     public const string UxDeceasedMediaStorageKey = "ux_deceased_media_storage_key";
     public const string UxSubscriptionPaymentsExternalPaymentId = "ux_subscription_payments_external_payment_id";

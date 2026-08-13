@@ -5,6 +5,13 @@ public sealed class GetCurrentUserResponse
     public Guid Id { get; init; }
     public string Email { get; init; } = null!;
     public string UserName { get; init; } = null!;
+
+    /// <summary>
+    /// Уникальный логин для входа (наравне с email). Показывается в профиле,
+    /// чтобы человек знал, чем он может войти.
+    /// </summary>
+    public string Login { get; init; } = null!;
+
     public string? FullName { get; init; }
 
     /// <summary>

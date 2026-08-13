@@ -8,6 +8,10 @@ public sealed partial class User : Entity<Guid>
 {
     public const int MaxEmailLength = 320;
     public const int MaxUserNameLength = 100;
+
+    /// <summary>Логин: границы длины. Короче 3 символов слишком легко занять.</summary>
+    public const int MinLoginLength = 3;
+    public const int MaxLoginLength = 100;
     public const int MaxFullNameLength = 300;
     public const int MaxCityLength = 200;
     public const int MaxRole = 50;
@@ -36,6 +40,18 @@ public sealed partial class User : Entity<Guid>
     /// — это один и тот же логин».
     /// </summary>
     public string UserNameNormalized { get; private set; }
+
+    /// <summary>
+    /// Логин — УНИКАЛЬНЫЙ идентификатор для входа (в отличие от
+    /// <see cref="UserName"/>, который отображаемый и допускает тёзок:
+    /// двух «Сергеев» в системе). Хранится всегда в lowercase, поэтому
+    /// отдельная normalized-колонка не нужна: вход по логину
+    /// регистронезависимый сам по себе.
+    ///
+    /// По умолчанию генерируется из части email до «@» (ots4@yandex.ru →
+    /// «ots4»); при занятости use case добавляет числовой суффикс.
+    /// </summary>
+    public string Login { get; private set; }
 
     public string? FullName { get; private set; }
 
@@ -159,6 +175,7 @@ public sealed partial class User : Entity<Guid>
         Email = null!;
         UserName = null!;
         UserNameNormalized = null!;
+        Login = null!;
         PasswordHash = null!;
         Role = UserRole.Unknown;
     }
@@ -168,6 +185,7 @@ public sealed partial class User : Entity<Guid>
         string email,
         string userName,
         string userNameNormalized,
+        string login,
         string? fullName,
         DateOnly? birthDate,
         string passwordHash,
@@ -177,6 +195,7 @@ public sealed partial class User : Entity<Guid>
         Email = email;
         UserName = userName;
         UserNameNormalized = userNameNormalized;
+        Login = login;
         FullName = fullName;
         BirthDate = birthDate;
         PasswordHash = passwordHash;
@@ -201,7 +220,8 @@ public sealed partial class User : Entity<Guid>
         DateTime nowUtc,
         string? fullName = null,
         string? userName = null,
-        UserRole role = UserRole.RegularUser)
+        UserRole role = UserRole.RegularUser,
+        string? login = null)
     {
         if (!Enum.IsDefined(typeof(UserRole), role) ||
             role == UserRole.Unknown ||
@@ -214,7 +234,7 @@ public sealed partial class User : Entity<Guid>
         if (birthDateResult.IsFailure)
             return birthDateResult.Error;
 
-        var buildResult = BuildUser(email, passwordHash, fullName, userName, birthDate, role);
+        var buildResult = BuildUser(email, passwordHash, fullName, userName, birthDate, role, login);
         if (buildResult.IsFailure)
             return buildResult;
 
@@ -303,7 +323,8 @@ public sealed partial class User : Entity<Guid>
         string? fullName,
         string? userName,
         DateOnly? birthDate,
-        UserRole role)
+        UserRole role,
+        string? login = null)
     {
         if (string.IsNullOrWhiteSpace(passwordHash))
             return Errors.User.PasswordHashRequired();
@@ -320,18 +341,82 @@ public sealed partial class User : Entity<Guid>
         if (fullNameResult.IsFailure)
             return fullNameResult.Error;
 
+        // Логин не передали — берём из email-префикса. Занятость проверяет
+        // use case (ему доступна БД) и при коллизии передаёт сюда логин
+        // с числовым суффиксом.
+        var loginResult = NormalizeLogin(
+            string.IsNullOrWhiteSpace(login)
+                ? GenerateLoginFromEmail(emailResult.Value)
+                : login);
+        if (loginResult.IsFailure)
+            return loginResult.Error;
+
         return Result.Success<User, Error>(
             new User(
                 Guid.NewGuid(),
                 emailResult.Value,
                 userNameResult.Value.Display,
                 userNameResult.Value.Normalized,
+                loginResult.Value,
                 fullNameResult.Value,
                 birthDate,
                 passwordHash,
                 role,
                 DateTime.UtcNow));
     }
+
+    /// <summary>
+    /// Базовый логин из email: часть до «@», lowercase, с выброшенными
+    /// недопустимыми символами (ivan+tag@mail.ru → «ivantag»). Короткий
+    /// результат добивается до <see cref="MinLoginLength"/>, чтобы у любого
+    /// email получился валидный кандидат. Уникальность здесь НЕ проверяется —
+    /// это забота use case (ExistsByLogin + суффикс).
+    /// </summary>
+    public static string GenerateLoginFromEmail(string email)
+    {
+        var local = (email ?? string.Empty).Trim().ToLowerInvariant().Split('@')[0];
+        var cleaned = new string(local.Where(IsAllowedLoginChar).ToArray()).Trim('.', '_', '-');
+
+        if (cleaned.Length == 0)
+            cleaned = "user";
+
+        // Слишком короткий префикс («ab@mail.ru») дополняем нулями, иначе
+        // он не пройдёт собственную же валидацию длины.
+        if (cleaned.Length < MinLoginLength)
+            cleaned = cleaned.PadRight(MinLoginLength, '0');
+
+        return cleaned.Length > MaxLoginLength ? cleaned[..MaxLoginLength] : cleaned;
+    }
+
+    /// <summary>
+    /// Приводит логин к каноничной форме (trim + lowercase) и проверяет
+    /// состав: латиница, цифры, точка, подчёркивание, дефис. Кириллица
+    /// запрещена намеренно — логин набирают в поле входа, и «Сергей» с
+    /// раскладкой даёт больше проблем, чем пользы.
+    /// </summary>
+    public static Result<string, Error> NormalizeLogin(string? login)
+    {
+        if (string.IsNullOrWhiteSpace(login))
+            return Errors.User.LoginRequired();
+
+        var normalized = login.Trim().ToLowerInvariant();
+
+        if (normalized.Length < MinLoginLength)
+            return Errors.User.LoginTooShort(MinLoginLength);
+
+        if (normalized.Length > MaxLoginLength)
+            return Errors.User.LoginTooLong(MaxLoginLength);
+
+        if (!normalized.All(IsAllowedLoginChar))
+            return Errors.User.LoginInvalid();
+
+        return Result.Success<string, Error>(normalized);
+    }
+
+    private static bool IsAllowedLoginChar(char c) =>
+        (c >= 'a' && c <= 'z')
+        || (c >= '0' && c <= '9')
+        || c == '.' || c == '_' || c == '-';
 
     public UnitResult<Error> UpdateProfile(string userName, string? fullName)
     {

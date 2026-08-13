@@ -37,11 +37,16 @@ function calculateAge(birthDate: Date, today: Date): number {
   return age;
 }
 
+/**
+ * Вход принимает email ИЛИ логин, поэтому проверки `.email()` здесь нет:
+ * она отбивала вход по логину («Невалидный email») ещё до запроса к API.
+ * Существование учётки проверяет сервер и отвечает единым
+ * «Неверный email/логин или пароль».
+ */
 export const loginSchema = z.object({
   email: z
     .string()
-    .min(1, 'Введите email')
-    .email('Невалидный email'),
+    .min(1, 'Введите email или логин'),
   password: z
     .string()
     .min(MIN_PASSWORD_LENGTH, `Пароль не короче ${MIN_PASSWORD_LENGTH} символов`)

@@ -1102,6 +1102,12 @@ namespace GdeOni.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_login_at_utc");
 
+                    b.Property<string>("Login")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("login");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(1000)
@@ -1187,6 +1193,10 @@ namespace GdeOni.Infrastructure.Migrations
                     b.HasIndex("IsBlocked")
                         .HasDatabaseName("ix_users_is_blocked")
                         .HasFilter("is_blocked = true");
+
+                    b.HasIndex("Login")
+                        .IsUnique()
+                        .HasDatabaseName("ux_users_login");
 
                     b.HasIndex("PasswordResetTokenHash")
                         .HasDatabaseName("ix_users_password_reset_token_hash")

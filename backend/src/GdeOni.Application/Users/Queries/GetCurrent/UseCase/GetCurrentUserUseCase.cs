@@ -30,6 +30,7 @@ public sealed class GetCurrentUserUseCase(
             Id = user.Id,
             Email = user.Email,
             UserName = user.UserName,
+            Login = user.Login,
             FullName = user.FullName,
             City = user.City,
             Role = user.Role.ToString(),

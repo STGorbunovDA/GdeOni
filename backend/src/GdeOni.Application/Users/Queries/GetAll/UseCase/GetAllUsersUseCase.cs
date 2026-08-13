@@ -52,6 +52,7 @@ public sealed class GetAllUsersUseCase(
             FullName = row.User.FullName,
             Email = row.User.Email,
             UserName = row.User.UserName,
+            Login = row.User.Login,
             Role = row.User.Role.ToString(),
             RegisteredAtUtc = row.User.RegisteredAtUtc,
             LastLoginAtUtc = row.User.LastLoginAtUtc,

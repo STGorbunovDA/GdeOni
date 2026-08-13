@@ -49,13 +49,21 @@ public sealed class RegisterUserUseCase(
 
         var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
 
+        // Логин (уникальный, для входа наравне с email) собираем из
+        // email-префикса и подбираем свободный: «ivan@mail.ru» и
+        // «ivan@yandex.ru» дадут «ivan» и «ivan2». Гонку двух одновременных
+        // регистраций добивает уникальный индекс ux_users_login — Save
+        // выбросит UniqueConstraintException.
+        var login = await ResolveFreeLoginAsync(command.Email, cancellationToken);
+
         var userResult = User.Register(
             command.Email,
             passwordHash,
             command.BirthDate,
             nowUtc,
             command.FullName,
-            command.UserName);
+            command.UserName,
+            login: login);
 
         if (userResult.IsFailure)
             return userResult.Error;
@@ -108,5 +116,36 @@ public sealed class RegisterUserUseCase(
 
         return Result.Success<RegisterUserResponse, Error>(
             new RegisterUserResponse(user.Id, requiresConfirmation));
+    }
+
+    /// <summary>
+    /// Свободный логин на основе email-префикса: base, base2, base3…
+    /// Правила формирования базы живут в домене
+    /// (<see cref="User.GenerateLoginFromEmail"/>) — здесь только подбор
+    /// незанятого варианта. Предел попыток страхует от бесконечного цикла,
+    /// дальше уникальность добьёт индекс на Save.
+    /// </summary>
+    private async Task<string> ResolveFreeLoginAsync(
+        string email,
+        CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 100;
+
+        var baseLogin = User.GenerateLoginFromEmail(email);
+        var candidate = baseLogin;
+
+        for (var attempt = 2; attempt <= maxAttempts; attempt++)
+        {
+            if (!await userRepository.ExistsByLogin(candidate, cancellationToken))
+                return candidate;
+
+            var suffix = attempt.ToString();
+            var trimmed = baseLogin.Length + suffix.Length > User.MaxLoginLength
+                ? baseLogin[..(User.MaxLoginLength - suffix.Length)]
+                : baseLogin;
+            candidate = trimmed + suffix;
+        }
+
+        return candidate;
     }
 }

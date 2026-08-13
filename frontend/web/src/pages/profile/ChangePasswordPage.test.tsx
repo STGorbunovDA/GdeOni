@@ -129,7 +129,7 @@ describe('ChangePasswordPage', () => {
     await user.click(screen.getByRole('button', { name: /сохранить/i }));
 
     expect(
-      await screen.findByText(/неверный email или пароль/i),
+      await screen.findByText(/неверный email\/логин или пароль/i),
     ).toBeInTheDocument();
     // Форс-выхода на ApiError быть не должно — токены остались.
     expect(useAuthStore.getState().accessToken).toBe('access-token');

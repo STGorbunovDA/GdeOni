@@ -20,6 +20,16 @@ public interface IUserRepository
     Task<User?> GetByEmail(string email, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Поиск для входа: по email ИЛИ по логину (обе колонки в lowercase,
+    /// регистр ввода не важен). Пользователи часто вводят «псевдоним, под
+    /// которым регистрировался», а не почту.
+    /// </summary>
+    Task<User?> GetByEmailOrLogin(string emailOrLogin, CancellationToken cancellationToken);
+
+    /// <summary>Занят ли логин — для подбора свободного при регистрации.</summary>
+    Task<bool> ExistsByLogin(string login, CancellationToken cancellationToken);
+
+    /// <summary>
     /// D43. Поиск пользователя по хешу токена восстановления пароля.
     /// Возвращает null, если такого токена нет — срок действия проверяет
     /// уже сам агрегат в <c>ResetPasswordByToken</c>, чтобы инвариант

@@ -11,11 +11,14 @@ public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
 {
     public LoginCommandValidator()
     {
-        RuleFor(x => x.Email)
+        // Вход принимает email ИЛИ логин, поэтому EmailAddress()-правила
+        // здесь больше нет: оно отбивало вход по логину («невалидный email»)
+        // ещё до обращения к БД. Существование учётки проверяет use case и
+        // отвечает единым InvalidCredentials — по ошибке валидации нельзя
+        // отличить «нет такого логина» от «неверный пароль».
+        RuleFor(x => x.EmailOrLogin)
             .NotEmpty()
             .WithError(Errors.User.EmailRequired())
-            .EmailAddress()
-            .WithError(Errors.User.EmailInvalid())
             .MaximumLength(User.MaxEmailLength)
             .WithError(Errors.User.EmailTooLong(User.MaxEmailLength));
 

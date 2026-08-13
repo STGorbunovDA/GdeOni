@@ -121,7 +121,7 @@ export function AdminUsersPage() {
           <Group grow align="flex-end">
             <TextInput
               label="Поиск"
-              placeholder="Email, имя, ФИО"
+              placeholder="Email, логин, имя, ФИО"
               leftSection={<Search size={16} />}
               value={search}
               onChange={(e) =>
@@ -184,6 +184,9 @@ export function AdminUsersPage() {
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>Email</Table.Th>
+                    {/* Логин — уникален, им можно войти наравне с email.
+                        «Имя» рядом — отображаемое, тёзки допустимы. */}
+                    <Table.Th>Логин</Table.Th>
                     <Table.Th>Имя</Table.Th>
                     <Table.Th>Полное имя</Table.Th>
                     <Table.Th>Роль</Table.Th>
@@ -203,7 +206,7 @@ export function AdminUsersPage() {
                   ))}
                   {query.data.items.length === 0 && (
                     <Table.Tr>
-                      <Table.Td colSpan={8}>
+                      <Table.Td colSpan={9}>
                         <BodyLabel>Никто не найден по фильтрам.</BodyLabel>
                       </Table.Td>
                     </Table.Tr>
@@ -251,6 +254,7 @@ function UserRow({
       }}
     >
       <Table.Td>{item.email}</Table.Td>
+      <Table.Td>{item.login}</Table.Td>
       <Table.Td>{item.userName}</Table.Td>
       <Table.Td>{item.fullName ?? '—'}</Table.Td>
       <Table.Td>

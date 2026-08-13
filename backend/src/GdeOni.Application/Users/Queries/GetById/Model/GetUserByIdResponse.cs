@@ -5,6 +5,10 @@ public sealed class GetUserByIdResponse
     public Guid Id { get; init; }
     public string Email { get; init; } = null!;
     public string UserName { get; init; } = null!;
+
+    /// <summary>Уникальный логин (вход по email или логину).</summary>
+    public string Login { get; init; } = null!;
+
     public string? FullName { get; init; }
     public string Role { get; init; } = null!;
     public DateTime RegisteredAtUtc { get; init; }

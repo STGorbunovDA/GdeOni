@@ -35,7 +35,10 @@ public sealed class ResendEmailConfirmationUseCase(
         ResendEmailConfirmationCommand command,
         CancellationToken cancellationToken)
     {
-        var user = await userRepository.GetByEmail(command.Email, cancellationToken);
+        // Email ИЛИ логин: на гейт «подтвердите email» можно приехать со входа
+        // по логину, и в форме останется именно он. Письмо всё равно уйдёт на
+        // адрес из учётки.
+        var user = await userRepository.GetByEmailOrLogin(command.Email, cancellationToken);
 
         // Нет юзера / уже подтверждён / канал не готов — IssueConfirmation
         // вернёт null, и мы просто ничего не шлём. Наружу — всё тот же успех.

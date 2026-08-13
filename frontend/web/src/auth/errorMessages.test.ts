@@ -30,7 +30,7 @@ describe('formatError', () => {
   describe('ApiError', () => {
     it('maps known code to Russian message', () => {
       const err = new ApiError('user.invalid.credentials', 'x');
-      expect(formatError(err)).toBe('Неверный email или пароль.');
+      expect(formatError(err)).toBe('Неверный email/логин или пароль.');
     });
 
     it('falls back to error.message for unknown code', () => {
@@ -61,7 +61,7 @@ describe('formatError', () => {
 
     it('401 → invalid credentials', () => {
       const err = makeAxiosError(401, null);
-      expect(formatError(err)).toBe('Неверный email или пароль.');
+      expect(formatError(err)).toBe('Неверный email/логин или пароль.');
     });
 
     it('403 → no access', () => {

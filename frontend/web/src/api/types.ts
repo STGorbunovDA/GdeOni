@@ -82,6 +82,11 @@ export type CurrentUserResponse = {
   id: string;
   email: string;
   userName: string;
+  /**
+   * Уникальный логин: им можно войти вместо email. Генерируется из
+   * email-префикса при регистрации, пользователем не меняется.
+   */
+  login: string;
   fullName: string | null;
   // Город пользователя. null/пусто → баннер «укажите город» + поле в профиле.
   city: string | null;

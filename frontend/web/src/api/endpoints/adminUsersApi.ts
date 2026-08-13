@@ -15,6 +15,8 @@ export type AdminUserListItem = {
   id: string;
   email: string;
   userName: string;
+  /** Уникальный логин — им можно войти наравне с email. */
+  login: string;
   fullName: string | null;
   role: AdminUserRole;
   registeredAtUtc: string;
@@ -28,6 +30,8 @@ export type AdminUserDetails = {
   id: string;
   email: string;
   userName: string;
+  /** Уникальный логин — им можно войти наравне с email. */
+  login: string;
   fullName: string | null;
   role: AdminUserRole;
   registeredAtUtc: string;

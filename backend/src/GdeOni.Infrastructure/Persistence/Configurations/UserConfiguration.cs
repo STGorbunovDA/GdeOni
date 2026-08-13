@@ -32,6 +32,14 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(User.MaxUserNameLength)
             .IsRequired();
 
+        // Логин — уникальный идентификатор для входа. Всегда lowercase
+        // (нормализация в домене), поэтому отдельной normalized-колонки, как
+        // у user_name, здесь нет.
+        builder.Property(x => x.Login)
+            .HasColumnName("login")
+            .HasMaxLength(User.MaxLoginLength)
+            .IsRequired();
+
         builder.Property(x => x.FullName)
             .HasColumnName("full_name")
             .HasMaxLength(User.MaxFullNameLength);
@@ -263,6 +271,13 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasIndex(x => x.Email)
             .IsUnique()
             .HasDatabaseName(DbConstraints.UxUsersEmail);
+
+        // Логин уникален — по нему логинятся наравне с email. NB: user_name
+        // (отображаемое имя) намеренно НЕ уникален, тёзки допустимы — см.
+        // миграцию RemoveUserNameUniqueIndex.
+        builder.HasIndex(x => x.Login)
+            .IsUnique()
+            .HasDatabaseName(DbConstraints.UxUsersLogin);
 
         // UserName НЕ уникален (тёзки допустимы, вход по email) — уникальный
         // индекс ux_users_user_name снят миграцией RemoveUserNameUniqueIndex

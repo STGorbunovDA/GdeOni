@@ -122,6 +122,30 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             .FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
     }
 
+    // Вход по email ИЛИ логину: пользователи путают «псевдоним, под которым
+    // регистрировался» с email. Обе колонки хранятся в lowercase, поэтому
+    // сравниваем с нормализованной строкой (регистр ввода не важен).
+    public Task<User?> GetByEmailOrLogin(
+        string emailOrLogin,
+        CancellationToken cancellationToken)
+    {
+        var normalized = emailOrLogin.Trim().ToLowerInvariant();
+
+        return dbContext.Users
+            .FirstOrDefaultAsync(
+                x => x.Email == normalized || x.Login == normalized,
+                cancellationToken);
+    }
+
+    public Task<bool> ExistsByLogin(string login, CancellationToken cancellationToken)
+    {
+        var normalized = login.Trim().ToLowerInvariant();
+
+        return dbContext.Users
+            .AsNoTracking()
+            .AnyAsync(x => x.Login == normalized, cancellationToken);
+    }
+
     public Task<User?> GetByPasswordResetTokenHash(
         string tokenHash,
         CancellationToken cancellationToken)
@@ -293,6 +317,7 @@ public sealed class UserRepository(AppDbContext dbContext) : IUserRepository
             dbQuery = dbQuery.Where(x =>
                 EF.Functions.ILike(x.Email, $"%{search}%") ||
                 EF.Functions.ILike(x.UserName, $"%{search}%") ||
+                EF.Functions.ILike(x.Login, $"%{search}%") ||
                 (x.FullName != null && EF.Functions.ILike(x.FullName, $"%{search}%"))
             );
         }

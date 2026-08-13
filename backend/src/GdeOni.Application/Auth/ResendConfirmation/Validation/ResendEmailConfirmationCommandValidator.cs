@@ -11,11 +11,12 @@ public sealed class ResendEmailConfirmationCommandValidator
 {
     public ResendEmailConfirmationCommandValidator()
     {
+        // Принимаем email ИЛИ логин (см. use case): на гейт «подтвердите
+        // email» приезжают и со входа по логину. EmailAddress() здесь отбивал
+        // бы такой запрос ещё до поиска пользователя.
         RuleFor(x => x.Email)
             .NotEmpty()
             .WithError(Errors.User.EmailRequired())
-            .EmailAddress()
-            .WithError(Errors.User.EmailInvalid())
             .MaximumLength(User.MaxEmailLength)
             .WithError(Errors.User.EmailTooLong(User.MaxEmailLength));
     }

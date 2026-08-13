@@ -150,11 +150,15 @@ export function LoginPage() {
         ) : (
           <form onSubmit={handleSubmit(onSubmit)}>
           <Stack gap="md">
+            {/* type="text", а не "email": иначе браузер сам блокирует ввод
+                без «@» и войти по логину нельзя. autoComplete="username"
+                подходит и для email, и для логина — менеджеры паролей
+                подставляют сохранённое значение как раньше. */}
             <TextInput
-              label="Email"
-              placeholder="you@example.com"
-              type="email"
-              autoComplete="email"
+              label="Email или логин"
+              placeholder="you@example.com или ivan_petrov"
+              type="text"
+              autoComplete="username"
               error={errors.email?.message}
               {...register('email')}
             />

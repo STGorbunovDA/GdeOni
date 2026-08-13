@@ -49,9 +49,9 @@ public sealed class LoginUseCaseTests
         // D45. По умолчанию IsLoginBlocked → false (Mock), гейт не мешает.
         var emailConfirmation = new Mock<IEmailConfirmationService>();
 
-        // GetByEmail вернёт null — пользователя нет.
+        // GetByEmailOrLogin вернёт null — пользователя нет.
         userRepo
-            .Setup(x => x.GetByEmail(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetByEmailOrLogin(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((User?)null);
 
         // DummyHash — фиксированный валидный хеш.
@@ -103,7 +103,7 @@ public sealed class LoginUseCaseTests
         var emailConfirmation = new Mock<IEmailConfirmationService>();
 
         userRepo
-            .Setup(x => x.GetByEmail("john@example.com", It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetByEmailOrLogin("john@example.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
         // Verify против настоящего хеша — false.
@@ -153,7 +153,7 @@ public sealed class LoginUseCaseTests
         var emailConfirmation = new Mock<IEmailConfirmationService>();
 
         userRepo
-            .Setup(x => x.GetByEmail("john@example.com", It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetByEmailOrLogin("john@example.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
         hasher
             .Setup(x => x.Verify("Password123!", user.PasswordHash))
@@ -201,7 +201,7 @@ public sealed class LoginUseCaseTests
         var emailConfirmation = new Mock<IEmailConfirmationService>();
 
         userRepo
-            .Setup(x => x.GetByEmail("john@example.com", It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetByEmailOrLogin("john@example.com", It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
         hasher
             .Setup(x => x.Verify("Password123!", user.PasswordHash))
@@ -238,5 +238,56 @@ public sealed class LoginUseCaseTests
             x => x.Add(It.IsAny<Domain.Aggregates.Auth.RefreshToken>(), It.IsAny<CancellationToken>()),
             Times.Once);
         refreshRepo.Verify(x => x.Save(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>
+    /// Вход по ЛОГИНУ, а не по email: тестеры вводили «псевдоним, под которым
+    /// регистрировался», и раньше получали «невалидный email» ещё на
+    /// валидации. Логин уходит в тот же GetByEmailOrLogin, поэтому важно, что
+    /// значение без «@» доходит до репозитория и вход выдаётся.
+    /// </summary>
+    [Fact]
+    public async Task Execute_ByLogin_ReturnsTokens()
+    {
+        var user = User.Register("john@example.com", "$bcrypt-hash").Value;
+
+        var userRepo = new Mock<IUserRepository>();
+        var refreshRepo = new Mock<IRefreshTokenRepository>();
+        var hasher = new Mock<IPasswordHasher>();
+        var jwt = new Mock<IJwtProvider>();
+        var rtFactory = new Mock<IRefreshTokenFactory>();
+        var currentUser = new Mock<ICurrentUserService>();
+        var emailConfirmation = new Mock<IEmailConfirmationService>();
+
+        // Логин сгенерирован из email-префикса: john@example.com → «john».
+        user.Login.Should().Be("john");
+
+        userRepo
+            .Setup(x => x.GetByEmailOrLogin("john", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        hasher
+            .Setup(x => x.Verify("Password123!", user.PasswordHash))
+            .Returns(true);
+        jwt
+            .Setup(x => x.GenerateAccessToken(user))
+            .Returns(new AccessToken("jwt.token", DateTime.UtcNow.AddMinutes(30)));
+        rtFactory.Setup(x => x.Generate()).Returns("plain-refresh");
+        rtFactory.Setup(x => x.Hash("plain-refresh")).Returns("hash-refresh");
+        currentUser.Setup(x => x.GetRemoteIpAddress()).Returns("127.0.0.1");
+
+        var useCase = new LoginUseCase(
+            userRepo.Object, refreshRepo.Object, hasher.Object,
+            jwt.Object, rtFactory.Object, currentUser.Object,
+            emailConfirmation.Object,
+            Options.Create(JwtOptions),
+            TestExecutor.With<LoginCommand, LoginCommandValidator>(),
+            TimeProvider.System);
+
+        var result = await useCase.Execute(
+            new LoginCommand("john", "Password123!"),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.AccessToken.Should().Be("jwt.token");
     }
 }

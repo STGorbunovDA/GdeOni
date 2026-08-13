@@ -24,6 +24,27 @@ public static partial class Errors
         public static Error UserNameTooLong(int maxLength) =>
             Error.Validation("user.user_name.too_long", $"User name must be at most {maxLength} characters");
 
+        /// <summary>
+        /// Логин (уникальный идентификатор для входа, в отличие от
+        /// отображаемого UserName, где тёзки допустимы).
+        /// </summary>
+        public static Error LoginRequired() =>
+            Error.Validation("user.login.required", "Login is required");
+
+        public static Error LoginTooShort(int minLength) =>
+            Error.Validation("user.login.too_short", $"Login must be at least {minLength} characters");
+
+        public static Error LoginTooLong(int maxLength) =>
+            Error.Validation("user.login.too_long", $"Login must be at most {maxLength} characters");
+
+        public static Error LoginInvalid() =>
+            Error.Validation(
+                "user.login.invalid",
+                "Login may contain only latin letters, digits, dot, underscore and hyphen");
+
+        public static Error LoginAlreadyExists() =>
+            Error.Conflict("user.login.already.exists", "User with this login already exists");
+
         public static Error FullNameTooLong(int maxLength) =>
             Error.Validation("user.full_name.too_long", $"Full name must be at most {maxLength} characters");
 

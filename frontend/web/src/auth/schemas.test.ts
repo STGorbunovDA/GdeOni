@@ -22,9 +22,20 @@ describe('loginSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects invalid email', () => {
+  // Вход принимает email ИЛИ логин, поэтому значение без «@» — валидно.
+  // Раньше схема отбивала его как «Невалидный email», и войти под своим
+  // логином было невозможно.
+  it('accepts login without @', () => {
     const result = loginSchema.safeParse({
-      email: 'not-an-email',
+      email: 'ivan_petrov',
+      password: validPassword,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects empty email or login', () => {
+    const result = loginSchema.safeParse({
+      email: '',
       password: validPassword,
     });
     expect(result.success).toBe(false);

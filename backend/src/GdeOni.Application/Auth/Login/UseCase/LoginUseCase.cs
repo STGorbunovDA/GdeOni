@@ -36,7 +36,8 @@ public sealed class LoginUseCase(
         LoginCommand command,
         CancellationToken cancellationToken)
     {
-        var user = await userRepository.GetByEmail(command.Email, cancellationToken);
+        // Ищем по email ИЛИ логину — вход принимает и то, и другое.
+        var user = await userRepository.GetByEmailOrLogin(command.EmailOrLogin, cancellationToken);
         if (user is null)
         {
             // Выравниваем время ответа: всё равно прогоняем BCrypt.Verify

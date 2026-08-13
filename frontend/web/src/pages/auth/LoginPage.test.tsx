@@ -102,7 +102,7 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: /войти/i }));
 
     expect(
-      await screen.findByText(/неверный email или пароль/i),
+      await screen.findByText(/неверный email\/логин или пароль/i),
     ).toBeInTheDocument();
     // Сессия НЕ должна проставиться при ошибке.
     expect(useAuthStore.getState().accessToken).toBeNull();
