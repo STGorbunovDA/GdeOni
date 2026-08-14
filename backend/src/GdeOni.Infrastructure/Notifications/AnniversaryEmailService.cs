@@ -1,4 +1,5 @@
 using GdeOni.Application.Abstractions.Email;
+using GdeOni.Application.Abstractions.Notifications;
 using GdeOni.Application.Anniversaries;
 using GdeOni.Domain.Aggregates.DeceasedRecords;
 using GdeOni.Domain.Aggregates.User;
@@ -98,6 +99,9 @@ internal sealed class AnniversaryEmailService(
         }
 
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        // Push дублирует письмо: почту читают не все, а годовщина — главный
+        // повод вернуться. Если ключи VAPID не заданы, здесь no-op.
+        var pushSender = scope.ServiceProvider.GetRequiredService<IPushSender>();
 
         var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
         var todayLocal = DateOnly.FromDateTime(
@@ -161,6 +165,16 @@ internal sealed class AnniversaryEmailService(
                     notification.DeceasedId);
                 continue;
             }
+
+            // Письмо ушло — дублируем пушем. Best-effort внутри отправителя:
+            // сбой push не должен помешать пометить годовщину отправленной,
+            // иначе на следующем прогоне письмо уйдёт повторно.
+            await pushSender.SendToUserAsync(
+                notification.UserId,
+                AnniversaryPushTitle(notification.Kind),
+                $"{notification.DeceasedFullName} — {AnniversaryPushWhen(notification.DaysUntil)}.",
+                "/events",
+                cancellationToken);
 
             dbContext.SentAnniversaryEmails.Add(SentAnniversaryEmail.Create(
                 notification.UserId,
@@ -395,6 +409,21 @@ internal sealed class AnniversaryEmailService(
 
         return nextLocal.ToUniversalTime();
     }
+
+    /// <summary>Заголовок push-уведомления о годовщине.</summary>
+    private static string AnniversaryPushTitle(AnniversaryKind kind) =>
+        kind == AnniversaryKind.Death ? "Дата памяти" : "День рождения";
+
+    /// <summary>
+    /// «Сегодня» / «завтра» / «через N дн.» — напоминание приходит заранее,
+    /// по настроенным пользователем lead-дням.
+    /// </summary>
+    private static string AnniversaryPushWhen(int daysUntil) => daysUntil switch
+    {
+        <= 0 => "сегодня",
+        1 => "завтра",
+        _ => $"через {daysUntil} дн.",
+    };
 
     private sealed record Candidate(
         Guid UserId,

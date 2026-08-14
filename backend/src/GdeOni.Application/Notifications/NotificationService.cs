@@ -16,6 +16,7 @@ namespace GdeOni.Application.Notifications;
 public sealed class NotificationService(
     INotificationRepository notificationRepository,
     IUserRepository userRepository,
+    IPushSender pushSender,
     TimeProvider timeProvider,
     ILogger<NotificationService> logger) : INotificationService
 {
@@ -33,6 +34,11 @@ public sealed class NotificationService(
             var notification = Notification.Create(recipientUserId, kind, title, body, link, now);
             await notificationRepository.Add(notification, cancellationToken);
             await notificationRepository.Save(cancellationToken);
+
+            // Тот же текст уходит push'ем на телефон — «колокольчик» человек
+            // увидит только когда сам зайдёт.
+            await pushSender.SendToUserAsync(
+                recipientUserId, title, body, link, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -64,6 +70,9 @@ public sealed class NotificationService(
 
             await notificationRepository.AddRange(notifications, cancellationToken);
             await notificationRepository.Save(cancellationToken);
+
+            await pushSender.SendToUsersAsync(
+                recipients, title, body, link, cancellationToken);
         }
         catch (Exception ex)
         {

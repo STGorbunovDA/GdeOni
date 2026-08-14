@@ -8,6 +8,7 @@ using GdeOni.Domain.Aggregates.Subscriptions;
 using GdeOni.Domain.Aggregates.Support;
 using GdeOni.Domain.Aggregates.User;
 using GdeOni.Infrastructure.Notifications;
+using GdeOni.Infrastructure.Notifications.Push;
 using GdeOni.Infrastructure.Relatives;
 using Microsoft.EntityFrameworkCore;
 
@@ -57,6 +58,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     // Функция «Родственники» (Фаза 4): лог обнаруженных родственников для
     // уведомлений о новых. Инфра-сущность, не доменный агрегат.
     internal DbSet<RelativeDiscovery> RelativeDiscoveries => Set<RelativeDiscovery>();
+
+    // Подписки браузеров на push (PWA). Адреса доставки, выданные push-
+    // сервисами — инфра-сущность, не доменный агрегат.
+    internal DbSet<PushSubscriptionRecord> PushSubscriptions => Set<PushSubscriptionRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

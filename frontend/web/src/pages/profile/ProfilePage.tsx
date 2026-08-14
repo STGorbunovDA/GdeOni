@@ -16,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { Link, useNavigate } from 'react-router-dom';
 import {
+  Bell,
   CreditCard,
   Gift,
   KeyRound,
@@ -49,6 +50,13 @@ import { CURRENT_APP_VERSION } from '../../hooks/useAppVersion';
 import { formatDateTime } from '../../utils/formatDate';
 import { displaySubscriptionPlan } from '../../utils/subscriptionPlanDisplay';
 import { InstallPwaButton } from '../../components/pwa/InstallPwaButton';
+import {
+  disablePush,
+  enablePush,
+  fetchPushStatus,
+  getPushPermission,
+  isPushSupported,
+} from '../../pwa/push';
 
 /**
  * F16. Профиль пользователя — UserName / FullName / Email.
@@ -160,6 +168,45 @@ export function ProfilePage() {
         title: 'Не удалось отправить',
         message: formatError(e),
         color: 'red',
+      }),
+  });
+
+  // Push-уведомления. Состояние держим на сервере (есть ли подписка), а не в
+  // localStorage: человек мог включить их на другом устройстве.
+  const pushStatus = useQuery({
+    queryKey: ['push-status'],
+    queryFn: fetchPushStatus,
+    enabled: isPushSupported(),
+  });
+
+  // Разрешение отозвано в настройках браузера — переключатель бесполезен,
+  // объясняем это текстом вместо молчаливого «не работает».
+  const pushBlocked = getPushPermission() === 'denied';
+
+  const pushMutation = useMutation({
+    mutationFn: async (enable: boolean) => {
+      if (enable) {
+        await enablePush(features.data?.pushPublicKey ?? '');
+      } else {
+        await disablePush();
+      }
+      return enable;
+    },
+    onSuccess: (enabled) => {
+      queryClient.invalidateQueries({ queryKey: ['push-status'] });
+      notifications.show({
+        color: 'green',
+        title: enabled ? 'Уведомления включены' : 'Уведомления выключены',
+        message: enabled
+          ? 'Пришлём памятные даты и ответы поддержки.'
+          : '',
+      });
+    },
+    onError: (e) =>
+      notifications.show({
+        color: 'red',
+        title: 'Не получилось',
+        message: formatError(e),
       }),
   });
 
@@ -470,6 +517,37 @@ export function ProfilePage() {
               Если выключить — вы не появитесь в чужих списках родственников
               и вам нельзя будет написать.
             </CaptionLabel>
+          </Stack>
+        </CloudCard>
+      )}
+
+      {/* Push-уведомления. Карточку показываем только если браузер их умеет
+          И на сервере заданы VAPID-ключи — иначе переключатель обманывал бы. */}
+      {isPushSupported() && !!features.data?.pushPublicKey && (
+        <CloudCard>
+          <Stack gap="md">
+            <Group gap={8}>
+              <Bell size={20} />
+              <BodyLabel>Уведомления на телефон</BodyLabel>
+            </Group>
+            <Switch
+              color="azure"
+              checked={pushStatus.data === true}
+              disabled={pushStatus.isLoading || pushMutation.isPending}
+              onChange={(e) => pushMutation.mutate(e.currentTarget.checked)}
+              label="Присылать уведомления в браузер: памятные даты, ответы поддержки, сообщения от родственников"
+            />
+            {pushBlocked ? (
+              <CaptionLabel c={cloudColors.errorRed}>
+                Уведомления запрещены в настройках браузера. Откройте замочек
+                в адресной строке и разрешите их для этого сайта.
+              </CaptionLabel>
+            ) : (
+              <CaptionLabel>
+                Работают, даже когда сайт закрыт. Чтобы приходили на телефон,
+                установите приложение на главный экран (кнопка ниже).
+              </CaptionLabel>
+            )}
           </Stack>
         </CloudCard>
       )}

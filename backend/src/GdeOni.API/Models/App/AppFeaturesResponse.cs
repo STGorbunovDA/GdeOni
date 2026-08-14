@@ -33,4 +33,8 @@ public sealed record AppFeaturesResponse(
     // appsettings. Меняется без пересборки фронта: правишь конфиг → рестарт.
     int GeoAcquireWindowSeconds,
     // Порог ранней остановки сбора координат, метры (из той же секции).
-    double GeoTargetAccuracyMeters);
+    double GeoTargetAccuracyMeters,
+    // Публичный VAPID-ключ для подписки браузера на push. Пустая строка —
+    // push на сервере не настроен, клиент прячет переключатель. Ключ не
+    // секрет: он и предназначен для передачи в браузер.
+    string PushPublicKey);

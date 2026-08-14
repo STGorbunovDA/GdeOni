@@ -1,6 +1,7 @@
 ﻿using GdeOni.Application.Abstractions.Email;
 using GdeOni.Application.Abstractions.Features;
 using GdeOni.Application.Abstractions.Geo;
+using GdeOni.Application.Abstractions.Notifications;
 using GdeOni.Application.Abstractions.Payments;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Routing;
@@ -13,6 +14,7 @@ using GdeOni.Infrastructure.Email;
 using GdeOni.Infrastructure.Features;
 using GdeOni.Infrastructure.Geo;
 using GdeOni.Infrastructure.Notifications;
+using GdeOni.Infrastructure.Notifications.Push;
 using GdeOni.Infrastructure.Payments;
 using GdeOni.Infrastructure.Persistence;
 using GdeOni.Infrastructure.Persistence.Cleanup;
@@ -241,6 +243,22 @@ public static class DependencyInjection
         services.Configure<AnniversaryEmailOptions>(
             configuration.GetSection(AnniversaryEmailOptions.SectionName));
         services.AddHostedService<AnniversaryEmailService>();
+
+        // Web Push (PWA). Ключи не заданы → no-op отправитель: приложение
+        // работает как раньше, просто без пушей. Тот же приём, что с
+        // SmtpEmailSender vs NoOpEmailSender.
+        services.Configure<WebPushOptions>(
+            configuration.GetSection(WebPushOptions.SectionName));
+        services.AddScoped<IPushSubscriptionStore, PushSubscriptionStore>();
+        services.AddScoped<WebPushSender>();
+        services.AddSingleton<NoOpPushSender>();
+        services.AddScoped<IPushSender>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<WebPushOptions>>().Value;
+            return opts.IsConfigured
+                ? sp.GetRequiredService<WebPushSender>()
+                : sp.GetRequiredService<NoOpPushSender>();
+        });
 
         // Функция «Родственники» (Фаза 4). Ночной джоб ищет новых
         // родственников и заводит уведомления. Внешних зависимостей нет →

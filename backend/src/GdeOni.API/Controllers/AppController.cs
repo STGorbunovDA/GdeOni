@@ -7,6 +7,7 @@ using GdeOni.Application.Abstractions.Features;
 using GdeOni.Application.Abstractions.Persistence;
 using GdeOni.Application.Abstractions.Storage;
 using GdeOni.Application.Subscriptions;
+using GdeOni.Infrastructure.Notifications.Push;
 using GdeOni.Infrastructure.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -61,7 +62,8 @@ public sealed class AppController : ApiControllerBase
         [FromServices] IFileStorage fileStorage,
         [FromServices] IOptionsSnapshot<SubscriptionOptions> subscriptionOptions,
         [FromServices] IOptionsSnapshot<YooKassaOptions> yooKassaOptions,
-        [FromServices] IOptionsSnapshot<GeolocationOptions> geolocationOptions)
+        [FromServices] IOptionsSnapshot<GeolocationOptions> geolocationOptions,
+        [FromServices] IOptionsSnapshot<WebPushOptions> webPushOptions)
     {
         // D36: mediaBaseUrl приходит из MinioOptions.PublicBaseUrl и
         // отдаётся клиентам без bucket/key — каждый клиент сам строит
@@ -91,7 +93,10 @@ public sealed class AppController : ApiControllerBase
             subscriptionOptions.Value.MonthlyPriceRub,
             yooKassaOptions.Value.IsLivePaymentsEnabled,
             geoWindow,
-            geoTargetAccuracy);
+            geoTargetAccuracy,
+            // Пустая строка, если VAPID-ключи не заданы — клиент по этому
+            // признаку прячет переключатель push-уведомлений.
+            webPushOptions.Value.PublicKey ?? string.Empty);
 
         return response.ToOkResponse();
     }
