@@ -55,7 +55,7 @@ describe('registerSchema', () => {
     email: 'user@example.com',
     password: validPassword,
     confirmPassword: validPassword,
-    userName: 'alice',
+    fullName: 'Алиса Иванова',
     birthDate: new Date(new Date().getFullYear() - 20, 0, 1),
     privacyPolicyAccepted: true as const,
     termsAccepted: true as const,

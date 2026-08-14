@@ -63,9 +63,12 @@ export const registerSchema = z
       .min(MIN_PASSWORD_LENGTH, `Пароль не короче ${MIN_PASSWORD_LENGTH} символов`)
       .max(MAX_PASSWORD_LENGTH, `Пароль не длиннее ${MAX_PASSWORD_LENGTH} символов`),
     confirmPassword: z.string().min(1, 'Повторите пароль'),
-    userName: z
+    // Полное имя (ФИО) — то, как человека увидят другие. Раньше здесь
+    // спрашивали «имя пользователя» (UserName), но оно больше нигде не
+    // показывается: логин генерируется из email, а отображается FullName.
+    fullName: z
       .string()
-      .max(64, 'Имя пользователя не длиннее 64 символов')
+      .max(300, 'Имя не длиннее 300 символов')
       .optional()
       .or(z.literal('')),
     // D19. birthDate — обязательное. Валидируем: не в будущем и не

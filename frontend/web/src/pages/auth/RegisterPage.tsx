@@ -82,7 +82,7 @@ export function RegisterPage() {
       email: '',
       password: '',
       confirmPassword: '',
-      userName: '',
+      fullName: '',
       // birthDate: undefined в defaults, чтобы поле выглядело пустым;
       // Zod required-refine отработает при submit.
       birthDate: undefined as unknown as Date,
@@ -99,7 +99,7 @@ export function RegisterPage() {
       const reg = await usersApi.register({
         email: values.email,
         password: values.password,
-        userName: values.userName?.trim() || undefined,
+        fullName: values.fullName?.trim() || undefined,
         // ISO date «yyyy-MM-dd» без учёта таймзоны — DateOnly на бэке.
         birthDate: toDateInputValue(values.birthDate),
         allowRelativeConnections: values.allowRelativeConnections,
@@ -177,12 +177,15 @@ export function RegisterPage() {
               error={errors.email?.message}
               {...register('email')}
             />
+            {/* Спрашиваем полное имя, а не «имя пользователя»: именно его
+                увидят другие. Логин генерируется из email автоматически и
+                меняется потом в профиле. */}
             <TextInput
-              label="Имя пользователя (необязательно)"
-              placeholder="Иван"
-              autoComplete="nickname"
-              error={errors.userName?.message}
-              {...register('userName')}
+              label="Ваше имя (необязательно)"
+              placeholder="Иван Петров"
+              autoComplete="name"
+              error={errors.fullName?.message}
+              {...register('fullName')}
             />
             <PasswordInput
               label="Пароль"

@@ -279,7 +279,10 @@ export function AdminUserDetailsPage() {
       </Group>
 
       <Stack gap="xs">
-        <TitleLabel>{user.userName}</TitleLabel>
+        {/* В заголовке логин — уникальный идентификатор, по которому человек
+            входит. UserName («Kipun») не уникален и пользователю больше не
+            показывается, поэтому опознавать по нему учётку нельзя. */}
+        <TitleLabel>{user.login}</TitleLabel>
         <Group gap="xs">
           <CaptionLabel>{user.email}</CaptionLabel>
           {user.isBlocked && (
@@ -293,6 +296,7 @@ export function AdminUserDetailsPage() {
       <CloudCard>
         <Stack gap="md">
           <SubTitleLabel>Профиль</SubTitleLabel>
+          <Field label="Логин (для входа)" value={user.login} />
           <Field label="Полное имя" value={user.fullName ?? 'Не указано'} />
           <Field label="Текущая роль" value={ROLE_LABELS[user.role] ?? user.role} />
           <Field
