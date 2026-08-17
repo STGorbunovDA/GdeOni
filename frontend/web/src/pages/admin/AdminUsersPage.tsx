@@ -189,6 +189,11 @@ export function AdminUsersPage() {
                         показывается, а «Полное имя» — то, как его видят
                         остальные. */}
                     <Table.Th>Логин</Table.Th>
+                    {/* Подтверждена ли почта: неподтверждённый адрес значит,
+                        что человек не прошёл гейт входа и, скорее всего, не
+                        добрался до письма — админ может подтвердить вручную
+                        в карточке. */}
+                    <Table.Th>Почта</Table.Th>
                     <Table.Th>Полное имя</Table.Th>
                     <Table.Th>Роль</Table.Th>
                     <Table.Th>Регистрация</Table.Th>
@@ -207,7 +212,7 @@ export function AdminUsersPage() {
                   ))}
                   {query.data.items.length === 0 && (
                     <Table.Tr>
-                      <Table.Td colSpan={8}>
+                      <Table.Td colSpan={9}>
                         <BodyLabel>Никто не найден по фильтрам.</BodyLabel>
                       </Table.Td>
                     </Table.Tr>
@@ -256,6 +261,14 @@ function UserRow({
     >
       <Table.Td>{item.email}</Table.Td>
       <Table.Td>{item.login}</Table.Td>
+      <Table.Td>
+        <Badge
+          variant="light"
+          color={item.isEmailConfirmed ? 'green' : 'orange'}
+        >
+          {item.isEmailConfirmed ? 'ПОДТВЕРЖДЕНА' : 'НЕ ПОДТВЕРЖДЕНА'}
+        </Badge>
+      </Table.Td>
       <Table.Td>{item.fullName ?? '—'}</Table.Td>
       <Table.Td>
         <Badge variant="light" color={roleBadgeColor(item.role)}>

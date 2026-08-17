@@ -105,6 +105,7 @@ using GdeOni.Application.Users.Commands.Unblock.UseCase;
 using GdeOni.Application.Users.Commands.RemoveTracking.UseCase;
 using GdeOni.Application.Users.Commands.TrackDeceased.UseCase;
 using GdeOni.Application.Users.Commands.UpdateProfile.UseCase;
+using GdeOni.Application.Users.Commands.SetEmailConfirmedByAdmin.UseCase;
 using GdeOni.Application.Users.Commands.SetRelativeConnectionsConsent.UseCase;
 using GdeOni.Application.Users.Commands.UpdateCity.UseCase;
 using GdeOni.Application.Relatives.Queries.GetMyRelatives.UseCase;
@@ -181,6 +182,8 @@ public static class DependencyInjection
         // его нет (только SuperAdmin).
         services.AddScoped<IChangeLoginUseCase, ChangeLoginUseCase>();
         services.AddScoped<IChangeFullNameUseCase, ChangeFullNameUseCase>();
+        // Ручное подтверждение email админом (человек не добрался до письма).
+        services.AddScoped<ISetEmailConfirmedByAdminUseCase, SetEmailConfirmedByAdminUseCase>();
         services.AddScoped<IAssignMissingLoginsUseCase, AssignMissingLoginsUseCase>();
         services.AddScoped<IChangePasswordUseCase, ChangePasswordUseCase>();
         services.AddScoped<IChangeRoleUseCase, ChangeRoleUseCase>();

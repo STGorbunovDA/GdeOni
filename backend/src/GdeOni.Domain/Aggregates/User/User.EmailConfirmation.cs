@@ -83,6 +83,45 @@ public sealed partial class User
     }
 
     /// <summary>
+    /// Подтверждение адреса администратором, без письма и токена. Нужно,
+    /// когда человек до почты не добирается (адрес с опечаткой, письма режет
+    /// спам-фильтр, ящик недоступен), а доступ дать надо.
+    ///
+    /// Идемпотентно: повторный вызов на подтверждённом — no-op Success.
+    /// </summary>
+    public UnitResult<Error> ConfirmEmailByAdmin(DateTime nowUtc)
+    {
+        if (IsEmailConfirmed)
+            return UnitResult.Success<Error>();
+
+        MarkEmailPreconfirmed(nowUtc);
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
+    /// Снять подтверждение адреса (тоже админская операция). Возвращает
+    /// пользователя под гейт: до нового подтверждения он не войдёт.
+    /// Токен подтверждения гасим — старая ссылка из письма не должна
+    /// внезапно сработать после ручного снятия.
+    ///
+    /// Идемпотентно: на неподтверждённом — no-op Success.
+    /// </summary>
+    public UnitResult<Error> RevokeEmailConfirmationByAdmin()
+    {
+        if (!IsEmailConfirmed)
+            return UnitResult.Success<Error>();
+
+        IsEmailConfirmed = false;
+        EmailConfirmedAtUtc = null;
+        EmailConfirmationRequired = true;
+        ClearEmailConfirmationToken();
+        // Иначе человек остался бы внутри по уже выданному токену, хотя гейт
+        // его больше не пускает: ротация закрывает активные сессии.
+        SecurityStamp = Guid.NewGuid();
+        return UnitResult.Success<Error>();
+    }
+
+    /// <summary>
     /// D45. Зарегистрировать запрос на подтверждение email. Хеш и срок
     /// приходят из use case — домен не занимается криптографией и не
     /// знает про конфигурацию TTL.

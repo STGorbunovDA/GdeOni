@@ -57,6 +57,7 @@ public sealed class GetAllUsersUseCase(
             RegisteredAtUtc = row.User.RegisteredAtUtc,
             LastLoginAtUtc = row.User.LastLoginAtUtc,
             TrackingCount = row.TrackingCount,
+            IsEmailConfirmed = row.User.IsEmailConfirmed,
             IsBlocked = row.User.IsBlocked,
         }).ToList();
 

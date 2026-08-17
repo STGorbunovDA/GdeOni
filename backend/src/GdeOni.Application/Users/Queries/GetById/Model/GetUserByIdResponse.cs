@@ -36,6 +36,12 @@ public sealed class GetUserByIdResponse
     /// в use case (репозитория для админ-сводки нет — раз на детальный
     /// экран допустимо).
     /// </summary>
+    /// <summary>
+    /// Подтверждён ли email. В карточке админ может подтвердить адрес
+    /// вручную или снять подтверждение.
+    /// </summary>
+    public bool IsEmailConfirmed { get; init; }
+
     public bool IsBlocked { get; init; }
     public DateTime? BlockedAtUtc { get; init; }
     public Guid? BlockedByUserId { get; init; }

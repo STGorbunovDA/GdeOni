@@ -22,5 +22,11 @@ public sealed class GetAllUsersResponse
     /// F17.10. Признак блокировки — чтобы UI листинга мог отметить
     /// заблокированных красным/значком, не загружая детали.
     /// </summary>
+    /// <summary>
+    /// Подтверждён ли email. Админ видит это в списке и может подтвердить
+    /// адрес вручную, если человек не добрался до письма.
+    /// </summary>
+    public bool IsEmailConfirmed { get; init; }
+
     public bool IsBlocked { get; init; }
 }

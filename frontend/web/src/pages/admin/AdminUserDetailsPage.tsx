@@ -161,6 +161,30 @@ export function AdminUserDetailsPage() {
     },
   });
 
+  // Ручное подтверждение почты. Нужно, когда человек не добирается до письма
+  // (опечатка в адресе, спам-фильтр, недоступный ящик) и остаётся под гейтом
+  // входа. Снятие возвращает его под гейт и закрывает активные сессии.
+  const emailConfirmMutation = useMutation({
+    mutationFn: (confirmed: boolean) =>
+      adminUsersApi.setEmailConfirmed(id!, confirmed),
+    onSuccess: (_data, confirmed) => {
+      invalidateUserData();
+      notifications.show({
+        color: 'green',
+        title: confirmed ? 'Почта подтверждена' : 'Подтверждение снято',
+        message: confirmed
+          ? 'Пользователь сможет войти.'
+          : 'Пользователю снова потребуется подтвердить адрес.',
+      });
+    },
+    onError: (e) =>
+      notifications.show({
+        color: 'red',
+        title: 'Не получилось',
+        message: formatError(e),
+      }),
+  });
+
   // F17.11. Удаление юзера навсегда. Только SuperAdmin (backend это
   // перепроверит). Бэк каскадно переуступает контент текущему
   // SuperAdmin'у и создаёт audit-запись Reassignment на каждой карточке.
@@ -310,6 +334,39 @@ export function AdminUserDetailsPage() {
             }
           />
           <Field label="Отслеживает умерших" value={String(user.trackingCount)} />
+
+          {/* Почта. Пока адрес не подтверждён, человек не проходит гейт
+              входа — а до письма он может и не добраться (опечатка, спам-
+              фильтр, недоступный ящик). Поэтому админ подтверждает вручную. */}
+          <Stack gap={6}>
+            <CaptionLabel>Почта</CaptionLabel>
+            <Group gap="sm" wrap="wrap">
+              <Badge
+                variant="light"
+                color={user.isEmailConfirmed ? 'green' : 'orange'}
+              >
+                {user.isEmailConfirmed ? 'ПОДТВЕРЖДЕНА' : 'НЕ ПОДТВЕРЖДЕНА'}
+              </Badge>
+              <GhostButton
+                size="compact-sm"
+                loading={emailConfirmMutation.isPending}
+                onClick={() =>
+                  emailConfirmMutation.mutate(!user.isEmailConfirmed)
+                }
+              >
+                {user.isEmailConfirmed
+                  ? 'Снять подтверждение'
+                  : 'Подтвердить почту'}
+              </GhostButton>
+            </Group>
+            {user.isEmailConfirmed && (
+              <CaptionLabel>
+                Снятие вернёт пользователя под гейт входа и закроет его
+                активные сессии.
+              </CaptionLabel>
+            )}
+          </Stack>
+
           <Group>
             <GhostButton
               size="compact-sm"

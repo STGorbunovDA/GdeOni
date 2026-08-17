@@ -44,7 +44,11 @@ export function MessagesChat({
           >
             <div
               style={{
-                maxWidth: '60%',
+                // 85% вместо 60%: на телефоне узкий пузырь рвал каждое слово.
+                maxWidth: '85%',
+                // Без minWidth flex-элемент не даёт себя сжать, и длинный
+                // текст выдавливает пузырь за края карточки.
+                minWidth: 0,
                 padding: '10px 12px',
                 borderRadius: 12,
                 background: isMine
@@ -54,7 +58,14 @@ export function MessagesChat({
                 boxShadow: cloudColors.shadow,
               }}
             >
-              <BodyLabel style={{ whiteSpace: 'pre-wrap' }}>{m.text}</BodyLabel>
+              {/* overflowWrap: anywhere — иначе «слово» без пробелов
+                  (случайный набор символов, длинная ссылка) не переносится
+                  и вылезает за плашку. */}
+              <BodyLabel
+                style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+              >
+                {m.text}
+              </BodyLabel>
               <CaptionLabel>
                 {authorLabel} · {formatDateTime(m.createdAtUtc)}
               </CaptionLabel>

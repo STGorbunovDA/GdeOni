@@ -25,6 +25,8 @@ using GdeOni.Application.Users.Commands.Delete.Model;
 using GdeOni.Application.Users.Commands.Delete.UseCase;
 using GdeOni.Application.Users.Commands.Register.Model;
 using GdeOni.Application.Users.Commands.Register.UseCase;
+using GdeOni.Application.Users.Commands.SetEmailConfirmedByAdmin.Model;
+using GdeOni.Application.Users.Commands.SetEmailConfirmedByAdmin.UseCase;
 using GdeOni.Application.Users.Commands.SetRelativeConnectionsConsent.Model;
 using GdeOni.Application.Users.Commands.SetRelativeConnectionsConsent.UseCase;
 using GdeOni.Application.Users.Commands.UpdateCity.Model;
@@ -177,6 +179,32 @@ public sealed class UsersController : ApiControllerBase
     {
         var result = await useCase.Execute(
             new ChangeLoginCommand(request.Login),
+            cancellationToken);
+        return FromUnitResult(result);
+    }
+
+    /// <summary>
+    /// Подтвердить email пользователя вручную или снять подтверждение.
+    /// Только для админов: нужно, когда человек не добирается до письма
+    /// (опечатка в адресе, спам-фильтр, недоступный ящик).
+    ///
+    /// Снятие подтверждения возвращает пользователя под гейт входа и
+    /// закрывает его активные сессии.
+    /// </summary>
+    [HttpPut("{id:guid}/email-confirmed")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetEmailConfirmed(
+        [FromRoute] Guid id,
+        [FromBody] SetEmailConfirmedRequest request,
+        [FromServices] ISetEmailConfirmedByAdminUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var result = await useCase.Execute(
+            new SetEmailConfirmedByAdminCommand(id, request.Confirmed),
             cancellationToken);
         return FromUnitResult(result);
     }

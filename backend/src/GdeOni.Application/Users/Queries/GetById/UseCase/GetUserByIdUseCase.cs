@@ -100,6 +100,7 @@ public sealed class GetUserByIdUseCase(
             HasComplimentaryAccess = user.HasComplimentaryAccess(nowUtc),
             ComplimentaryAccessUntilUtc = user.ComplimentaryAccessUntilUtc,
             ComplimentaryAccessNote = user.ComplimentaryAccessNote,
+            IsEmailConfirmed = user.IsEmailConfirmed,
             IsBlocked = user.IsBlocked,
             BlockedAtUtc = user.BlockedAtUtc,
             BlockedByUserId = user.BlockedByUserId,

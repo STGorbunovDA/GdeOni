@@ -22,6 +22,8 @@ export type AdminUserListItem = {
   registeredAtUtc: string;
   lastLoginAtUtc: string | null;
   trackingCount: number;
+  /** Подтверждён ли email — колонка в админ-списке. */
+  isEmailConfirmed: boolean;
   /** F17.10. Признак блокировки — UI листинга подсвечивает строку красным. */
   isBlocked: boolean;
 };
@@ -43,6 +45,8 @@ export type AdminUserDetails = {
   hasComplimentaryAccess: boolean;
   complimentaryAccessUntilUtc: string | null;
   complimentaryAccessNote: string | null;
+  /** Подтверждён ли email — админ может изменить это вручную. */
+  isEmailConfirmed: boolean;
   isBlocked: boolean;
   blockedAtUtc: string | null;
   blockedByUserId: string | null;
@@ -160,6 +164,18 @@ export const adminUsersApi = {
    */
   async block(id: string, reason: string | null): Promise<void> {
     await apiClient.put(`/api/users/${id}/block`, { reason });
+  },
+
+  /**
+   * PUT /api/users/{id}/email-confirmed — подтвердить email вручную
+   * (confirmed=true) или снять подтверждение (false). Только для админов.
+   *
+   * Нужно, когда человек не добирается до письма: опечатка в адресе,
+   * спам-фильтр, недоступный ящик. Снятие возвращает пользователя под гейт
+   * входа и закрывает его активные сессии. 204.
+   */
+  async setEmailConfirmed(id: string, confirmed: boolean): Promise<void> {
+    await apiClient.put(`/api/users/${id}/email-confirmed`, { confirmed });
   },
 
   /**
